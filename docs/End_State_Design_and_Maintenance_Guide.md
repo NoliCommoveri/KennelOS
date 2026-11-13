@@ -46,7 +46,9 @@ The shared core never checks which edition it is: it reads the two injection poi
 
 The shared pages Lite keeps hide their Pro-only parts with the same flags: the invoice
 button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
-feeding-schedule fields, and the Dashboard's Archived tile. The full list is in the Editions
+feeding-schedule fields, and the Dashboard's Archived tile. A sale's Payments card (payment
+schedule and payments received, §21.3) is in every edition; Lite has no Kennel page, so no
+saved schedules and no final-payment methods. The full list is in the Editions
 Plan's "Lite scope" section.
 
 **Details live in:** `docs/KennelOS_Lite_Pro_Editions_Plan.md` (tiers, licensing, the Lite→Pro
@@ -213,10 +215,10 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `shared_ref` (cloud; a test or title that came on a Dog Card: `<dog public id>:<the sender's event id>`, §36). No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
@@ -1365,51 +1367,87 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
 - **Not in CSV import/export**; the JSON backup carries both lists.
-- **Paid on its own dates:** `extra_charges[].own_due_dates: true` is kept by
-  `saleExtraCharges` and read by the payment statement (§21.3). Nothing sets it yet.
+- **Paid on its own dates:** `own_due_dates` on a price-list extra or group, copied onto a
+  sale's charge as true (§21.3).
 
-### 21.3 Payment statement — `data/paymentSchedule.js` (`docs/KennelOS_Payment_Schedule_Plan.md`)
+### 21.3 Payment schedules and payments — `data/paymentSchedule.js`, `assets/paymentScheduleUI.js` (`docs/KennelOS_Payment_Schedule_Plan.md`)
 
-**Editions:** all. Pure, no db. Built so far: the calculation and its tests only. No page,
-repo or other module reads it yet, and nothing writes `Sale.payment_schedule` or
-`Sale.payments`, so every sale reads as having no schedule and no payments.
+**Editions:** all. Saved schedules and the final-payment methods are on the Kennel page,
+which is Pro. Income, invoices, contracts, the family's page, Companion, messages and Today
+don't read schedules or payments yet (plan build steps 3–7); they still go by the deposit,
+`balance_due_date` and `balance_paid_date`.
 
-- **What it reads off a sale:** `payment_schedule` (`cleanSchedule`: due dates `{ id, label?,
-  due, n?, due_date?, covers, percent? + basis?, amount? + prior_funds? }`, vocab
-  `SCHEDULE_DUE` / `SCHEDULE_COVERS` / `SCHEDULE_BASIS` / `SCHEDULE_PRIOR_FUNDS`; the last due
-  date always covers `all` at 100%, one at pickup added if missing) and `payments` (`[{ id,
-  amount, date, method?, account_id?, toward? }]`, date order). No schedule =
-  `defaultSchedule`: everything on `balance_due_date`, else at pickup.
-- **Dates** (`dueDateOf`): a typed `due_date` wins; else from the birth date (`at_weeks`) or
-  the pickup date (`before_pickup` in open days, `at_pickup`). null = not known yet.
-- **Charges** (`saleCharges`), in the order money pays them: deposit, the rest of the price,
-  boarding, extras on the schedule, extras on their own dates, transport last. An extra is on
-  its own dates when flagged `own_due_dates` or when it has its own steps and no due date names
+- **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
+  percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
+  `SCHEDULE_BASIS` / `SCHEDULE_PRIOR_FUNDS`; cleaned by `cleanSchedule`, the last always
+  everything at 100%, one at pickup added if missing) and `payments` (`[{ id, amount, date,
+  method?, account_id?, reference?, note?, toward?, marks_step_paid? }]`, made by
+  `newPayment`). No sale starts with a schedule (D23); none stored = `defaultSchedule`:
+  everything once, on `balance_due_date`, else at pickup.
+- **On an extra:** `own_due_dates` (a price-list row: true/false, unset = its group's; a group:
+  true; a sale's charge: true only, copied by `chargeFromPriceList` from `chargeRules`). An
+  extra is on its own dates when flagged or when it has its own steps and no due date names
   it; a named one is paid through the schedule and its steps are ignored.
-- **Pass 1, money → charges** (`moneyLedger` / `allocateMoney`): the application fee credit
-  (toward the deposit up to it, else the price), credits oldest first (their ticked uses;
-  the unpaid fee charge first when passed), the deposit marked received (what's left of it),
-  own-dated steps marked paid, payments (toward a step, or the schedule's charges only, never
-  the deposit), then "paid in full" (`balance_paid_date` or a paid status: everything left).
-  Fee and credit lines label "<charge> (credited)".
-- **Pass 2, money → due dates:** the deposit is asked first; each due date asks for a slice
-  (its threshold less the previous). Percent of total: the threshold is that percent of what it
-  covers (deposit included in `price`). Percent of remaining: that percent of what's left of
-  what it covers after the earlier thresholds. Amount: the previous threshold plus it.
-  Thresholds are capped at the whole. Money toward the schedule fills the slices in order,
-  earlier money (fee, credits, deposit) first; a "doesn't count" slice (remaining, or an amount
-  with `prior_funds: 'dont_count'`) takes only payments, unless earlier money has nowhere else
-  to go.
-- **`paymentStatement(sale, { birthDate, pickupDate, openDays, today, feeCredit, credits,
-  feeCharges, depositDueDate })`** → `{ ended, hasSchedule, charges, total, paid, remaining,
-  fee, received[], deposit, dueDates[], ownDated[], next }`. Status per due date: met, due soon
-  (7 days), upcoming, not received, no date. A returned/cancelled/voided sale: what was paid
-  stands, nothing owed.
-- **Words:** `coversText`, `scheduleSummary` (formatters passed in).
-- **Tests** (`tests/paymentSchedule.test.js`): each plan §2 pattern, the four due-date kinds,
-  transport last, labels, today's anticipated income unchanged for a sale with no schedule, and
-  every combination (40,320) of fee credit, credits, deposit, payments, schedule, extras,
-  transport/boarding and status, checked to add up.
+- **The statement** (`paymentStatement`): dates (`dueDateOf`: a typed `due_date` wins, else
+  from the birth date, `before_pickup` in open days, or the pickup date); the charges in pay
+  order (`saleCharges`: deposit, the rest of the price, boarding, extras on the schedule,
+  extras on their own dates, transport last); money → charges (`moneyLedger` /
+  `allocateMoney`, shared with `receivedCredits.allocateCredits`): the application fee credit
+  (toward the deposit up to it, else the price), credits oldest first by their ticked uses (the
+  unpaid fee charge first), the deposit marked received, payments toward one own-dated extra or
+  step, own-dated steps marked paid, payments toward the schedule (never the deposit), then
+  "paid in full"; money → due dates: the deposit is asked first, each due date asks its
+  threshold less the previous (percent of total: that percent of what it covers, deposit in
+  `price`; percent of remaining: that percent of what's left after the earlier thresholds;
+  amount: the previous threshold plus it; capped at the whole), filled in order, earlier money
+  (fee, credits, deposit) first; a "new payments only" due date takes only payments unless
+  earlier money has nowhere else to go. → `{ ended, hasSchedule, charges, total, paid,
+  remaining, fee, received[], deposit, dueDates[], ownDated[], next }`; statuses met, due soon
+  (7 days), coming up, not received, no date. Fee and credit lines label "<charge> (credited)".
+  A returned/cancelled/voided sale: what was paid stands, nothing owed.
+- **Loading it:** `incomeView.getSaleStatement(sale | id)` gathers the birth date (else the
+  litter's whelp date), the pickup date as contracts read it (`goHome.expectedPickupDate`),
+  her open days, the credited application fee (with its received date), the family's credits
+  and the deposit's due date (a side sale's, else the open offer's respond-by) →
+  `{ statement, sale, kennel, birthDate, pickupDate, opts }`; `opts` lets a page preview a
+  changed sale the same way.
+- **The Payments card** (`paymentsCardHtml` / `wirePaymentsCard`): totals, next payment, the
+  deposit and each due date (what it asks, the date, owed, a status badge), extras on their own
+  dates, the kennel's final-payment methods, and the money received (each with what it paid;
+  more than is owed shows as such). **Record a payment** (`openPaymentDialog`: amount prefilled
+  with the next amount owed, date, method, Paid via (Pro: payment-service accounts), toward the
+  schedule or one own-dated extra, reference, note; Edit and Remove on each). A payment toward a
+  step that covers what's owed on it also sets the step's `paid_date` and remembers it
+  (`marks_step_paid`), so removing it clears the date. When everything is paid, one question
+  offers the paid-in-full date (the last money received) and status (D22), after the dialog
+  closes.
+- **The schedule editor** (`openScheduleEditor`): rows from the stored schedule, else the sale's
+  single due date; each row's when (an age, a date, days before pickup, at pickup), covers
+  (Everything, or ticks for the price, boarding, extras, transport and each extra on the
+  schedule), and kind (% of the total, % of what's left, $ counting earlier money, $ new
+  payments only), with a live preview from the statement; **Start from a saved schedule**;
+  **Remove the schedule**. Saving (`readSchedule` → `scheduleProblem`) writes the schedule and
+  mirrors the final payment's date into `balance_due_date` (null when not known).
+- **New fees** (`askAboutNewFees`, D17): after a save that added a transport fee, boarding or an
+  extra (`addedFees`: set or raised, or a new extra), whatever the schedule: "Your current
+  payment schedule is: <scheduleSummary>. Do you need to make any adjustments to schedule the
+  new fees?" → **Adjust the schedule** opens the editor; **Keep it**. Never changes anything.
+- **Where:** the Sale page's Payments section (viewing a saved sale; the form shows the final
+  payment's date in place of the Balance due date box when there's a schedule, D24, and keeps
+  the stored date); the waitlist family page's Details tab, for their open sale (`familySale`),
+  where `afterAction` compares the sale before and after every action on the page, so approving
+  an extra, a pickup with a transport fee or standard boarding asks about the new fee; the
+  Kennel page's **Payment schedules** section (saved schedules: a name and due dates by age or
+  pickup, no typed dates or single extras, `savedSchedules` / `readSavedSchedules`; and **How the
+  final payment is paid**) and the price list's **Paid on its own dates** choice per extra and
+  per group.
+- **Registries:** all new fields private (`syncRegistry`); `payments[].account_id` guards an
+  Account against delete (`referenceRegistry`: a `list[].key` scan).
+- **Tests:** `tests/paymentSchedule.test.js` (the patterns, the four kinds, transport last,
+  labels, today's anticipated income unchanged without a schedule, every combination of fee
+  credit, credits, deposit, payments, schedule, extras, transport/boarding and status, and the
+  editing helpers), `tests/paymentScheduleData.test.js` (the loader on the sample data, the
+  Account guard), `tests/extraCharges.test.js` (the own-dates rules).
 
 ---
 

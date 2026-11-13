@@ -45,6 +45,7 @@ const PRECACHE_URLS = [
   'assets/kelsBackupSteps.js',
   'assets/kelsSetupUI.js',
   'assets/kennelSettingsFields.js',
+  'assets/paymentScheduleUI.js',
   'assets/priceListEditor.js',
   'assets/qaListEditor.js',
   'assets/pickupTimesPanel.js',

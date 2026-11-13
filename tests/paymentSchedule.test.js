@@ -180,6 +180,20 @@ test('a payment toward an own-dated step pays only that step', () => {
   assert.equal(st.dueDates[0].owed, 2000, 'the schedule is untouched by it');
 });
 
+test('a payment toward a step that also marked it paid counts once, as the payment', () => {
+  const s = sale({
+    extra_charges: [{ id: 'tr', label: 'Training', amount: 600, payments: [
+      { id: 'a', percent: 50, due: 'on_approval', due_date: '2026-11-15', paid_date: '2026-11-14' }, { id: 'b', percent: 50, due: 'before_pickup', n: 2 }] }],
+    payments: [{ id: 'p', amount: 300, date: '2026-11-14', toward: 'extra:tr:a' }]
+  });
+  const st = paymentStatement(s, opts());
+  const pay = st.received.find((r) => r.kind === 'payment');
+  assert.equal(pay.amount, 300);
+  assert.equal(pay.unapplied, 0);
+  assert.equal(st.received.some((r) => r.kind === 'step'), false);
+  assert.equal(st.ownDated[0].owed, 0);
+});
+
 test('an extra a due date names is paid through the schedule, its own steps unused', () => {
   const s = sale({
     extra_charges: [{ id: 'tr', label: 'Training', amount: 600, payments: [{ id: 'a', percent: 100, due: 'with_balance' }] }],

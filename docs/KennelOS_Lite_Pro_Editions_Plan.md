@@ -513,8 +513,10 @@ and left out of the Lite build (physically absent from Lite); a few Lite-kept *s
 `editionFlags`.
 
 **Lite keeps (shared pages):** Dogs, Breeding (pairings/litters/puppies), Sales
-(self + inline add-buyer), Today/dashboard, Import/Export, kennel setup (startup
-selections), **Financials — the expense ledger + sales→income** ✅.
+(self + inline add-buyer, and a sale's **Payments**: its payment schedule and the payments
+received, End-State guide §21.3), Today/dashboard, Import/Export, kennel setup (startup
+selections), **Financials — the expense ledger + sales→income** ✅. Saved payment schedules
+and the final-payment methods are on the Kennel page, so they're Pro.
 
 **Pro-only (absent from Lite):**
 - People / Contacts section, full Kennel management, Stud services, Contracts.

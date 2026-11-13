@@ -553,9 +553,6 @@ export const PLACEMENT_METHODS = ['Flight nanny', 'Ground transport', 'Local pic
 // field, same posture as the *_SUGGESTIONS lists above.
 export const PAYMENT_METHODS = ['Cash', 'Check', 'Credit/debit card', 'Bank transfer', 'PayPal', 'Venmo', 'Zelle', 'Money order', 'Other'];
 
-// Invoice/receipt line-item labels, keyed by income component (§24). Deliberately
-// distinct from INCOME_COMPONENTS' Financials-view labels ("Deposits", "Balance"…)
-// — a customer-facing document names the balance "Remaining Purchase Price", etc.
 // A sale's payment schedule (Sale.payment_schedule, Payment Schedule plan §3.1).
 // When a due date falls: `n` is weeks old (at_weeks) or days before pickup.
 export const SCHEDULE_DUE = Object.freeze([
@@ -586,6 +583,9 @@ export const SCHEDULE_PRIOR_FUNDS = Object.freeze([
   { value: 'dont_count', label: 'Only new payments cover it' }
 ]);
 
+// Invoice/receipt line-item labels, keyed by income component (§24). Deliberately
+// distinct from INCOME_COMPONENTS' Financials-view labels ("Deposits", "Balance"…)
+// — a customer-facing document names the balance "Remaining Purchase Price", etc.
 export const INVOICE_LINE_LABELS = {
   deposit: 'Deposit',
   balance: 'Remaining Purchase Price',

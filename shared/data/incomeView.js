@@ -387,7 +387,8 @@ function feeCreditDate(sale, ctx) {
 // date), its pickup date as a contract reads it (goHome.expectedPickupDate), her open
 // days, the application fee credited toward it, the family's credits for funds received,
 // and when the deposit is due (a side sale's due date, else the open offer's respond-by).
-// → { statement, sale, kennel, birthDate, pickupDate } | null
+// → { statement, sale, kennel, birthDate, pickupDate, opts } | null; `opts` are what
+// paymentStatement was given, so a page can preview a changed sale the same way.
 export async function getSaleStatement(saleOrId, { today = todayYMD() } = {}) {
   const sale = typeof saleOrId === 'string' ? await saleRepo.getById(saleOrId) : saleOrId;
   if (!sale) return null;
@@ -403,13 +404,13 @@ export async function getSaleStatement(saleOrId, { today = todayYMD() } = {}) {
   const fee = ctx ? feeCreditsBySale(ctx.entries, ctx).get(sale.id) : null;
   const entry = creditEntryFor(sale, ctx);
   const offer = ctx ? ctx.offers.find((o) => o.sale_id === sale.id && o.outcome === 'open' && !o.is_archived) : null;
-  const statement = paymentStatement(sale, {
+  const opts = {
     birthDate, pickupDate, today, openDays: businessDays(waitlistConfig(kennel)),
     feeCredit: fee && fee.amount > 0 ? { ...fee, date: feeCreditDate(sale, ctx) } : null,
     credits: entry ? creditsOf(entry) : [], feeCharges: entry ? feeCharge(entry) : [],
     depositDueDate: sale.side_deposit_due || offer?.respond_by_date || null
-  });
-  return { statement, sale, kennel, birthDate, pickupDate };
+  };
+  return { statement: paymentStatement(sale, opts), sale, kennel, birthDate, pickupDate, opts };
 }
 
 // A contract's payment table for one sale: the purchase price only (no transport,

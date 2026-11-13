@@ -3848,3 +3848,39 @@ tick box per template; buyers get an emailed link.
   that the statement adds up. Full suite 1,791 passing; editions build.
 - **Docs:** guide §21.2 (own-dated flag), §21.3 (new), §29 credits (order, shared allocator).
 - **Service worker:** `data/paymentSchedule.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.
+
+## 2026-11-13 — Payment schedules, step 2: the sale's Payments card, editor and payments
+
+- **Owner decisions D22–D24** (plan §10): nothing is marked paid on its own (one question
+  offers the paid-in-full date and status); no default schedule, every schedule added on
+  purpose; with a schedule, the Sale form shows the final payment's date in place of the
+  Balance due date box.
+- **Data:** Sale `payment_schedule`, `payments`; Kennel `payment_schedules`,
+  `final_payment_methods`; `own_due_dates` on price-list rows (true/false) and groups (true),
+  copied onto a sale's charge by `chargeFromPriceList`; all private. `payments[].account_id`
+  guards an Account (`referenceRegistry` scans now step into a list: `list[].key`).
+  `paymentSchedule.js`: `scheduleProblem`, `readSchedule`, `savedSchedules`,
+  `readSavedSchedules`, `scheduleFromSaved`, `newPayment`, `paymentsWith`, `addedFees`,
+  `paidInFullOffer`, `finalDueDate`; payments toward an own-dated step are paid before the
+  step's own paid date, so one that also marked it counts once. `incomeView.getSaleStatement`
+  loads a sale's statement with its dates and credits.
+- **UI (`assets/paymentScheduleUI.js`, new, all editions):** the Payments card, the schedule
+  editor (rows by age, date, before pickup, at pickup; covers; four kinds; live previews;
+  start from a saved schedule; remove), Record a payment (Edit, Remove), the paid-in-full
+  question, and the new-fees question after any save that adds a transport fee, boarding or
+  an extra.
+- **Pages:** Sale page (Payments section; the form's final payment date), waitlist family
+  page (Details tab card; every action there checks for new fees), Kennel page (Payment
+  schedules section; price list "Paid on its own dates").
+- **Sample data:** Cedar's sale has a two-date schedule; Thornfield has a saved schedule,
+  final-payment methods, and Photo packages paid on their own dates.
+- **Fixed while checking:** the schedule vocab sat between `INVOICE_LINE_LABELS` and its
+  comment (step 1); picking a saved schedule wired the editor twice; a new schedule's final
+  row started at pickup instead of the sale's balance due date, replacing her date on save.
+- **Checked** in Chromium at phone width, Pro and Lite: the card, editor, previews and
+  errors, payments, paid in full, the new-fees question on the Sale and family pages (extras
+  approved), saved schedules and the price list choice. No console errors.
+- **Tests:** `tests/paymentScheduleData.test.js` (new), `paymentSchedule` and `extraCharges`
+  added to. Full suite 1,805 passing; editions build.
+- **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
+- **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.

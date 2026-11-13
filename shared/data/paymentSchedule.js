@@ -267,20 +267,21 @@ export function paymentStatement(sale, opts = {}) {
     const pays = ledger.pay(left, (ch) => ch.key === 'deposit');
     if (pays.length) record({ kind: 'deposit', id: 'deposit', date: ymd(s.deposit_date), offered: left }, pays);
   }
-  // 4. Own-dated extras' steps marked paid (each step paid in full on its date).
+  // 4. Payments recorded toward one own-dated extra (or one of its steps), then each
+  //    step marked paid covers whatever of it is left (a step marked paid is paid in
+  //    full on its date; a payment that paid it also marks it, for older readers).
+  const payments = cleanPayments(s.payments);
+  const recordPayment = (p, accepts) => record({ kind: 'payment', id: p.id, date: p.date, offered: p.amount,
+    ...(p.method ? { method: p.method } : {}), ...(p.account_id ? { account_id: p.account_id } : {}), ...(text(p.toward) ? { toward: text(p.toward) } : {}) }, ledger.pay(p.amount, accepts));
+  for (const p of payments.filter((x) => text(x.toward))) recordPayment(p, (ch) => ch.key === text(p.toward));
   for (const ch of charges.filter((c) => c.part === 'own' && c.step?.paid_date)) {
     const left = ledger.left(ch.key);
     const pays = ledger.pay(left, (c) => c.key === ch.key);
     if (pays.length) record({ kind: 'step', id: ch.key, date: ch.step.paid_date, offered: left }, pays);
   }
-  // 5. Payments recorded on the sale, in date order: toward a step, or the schedule
-  //    (never the deposit, never an own-dated extra).
-  for (const p of cleanPayments(s.payments)) {
-    const toward = text(p.toward);
-    const accepts = toward ? (ch) => ch.key === toward : (ch) => ch.part === 'schedule';
-    const pays = ledger.pay(p.amount, accepts);
-    record({ kind: 'payment', id: p.id, date: p.date, offered: p.amount, ...(p.method ? { method: p.method } : {}), ...(p.account_id ? { account_id: p.account_id } : {}) }, pays);
-  }
+  // 5. Payments recorded on the sale toward the schedule, in date order (never the
+  //    deposit, never an own-dated extra).
+  for (const p of payments.filter((x) => !text(x.toward))) recordPayment(p, (ch) => ch.part === 'schedule');
   // 6. Marked paid in full: whatever is left of everything.
   if (balancePaid(s)) {
     const owedAll = cents(charges.reduce((t, c) => t + ledger.left(c.key), 0));
