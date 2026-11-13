@@ -1,7 +1,7 @@
 # Website contract plan: sending raw data to KennelPort
 
-A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Step 1 is built
-(below). This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
+A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Steps 1 and 2 are
+built (below). This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
 build order, is KennelPort's `docs/plans/kennelos-contract.md`. What is built today is
 End-State guide §35.
 
@@ -106,6 +106,9 @@ starts at KennelPort's step 4:
    one would be a new event field (owner's decision). Sent only to a Worker that lists
    each section; KennelPort's `SECTIONS` doesn't list them yet (its step 4).
 2. **C3:** titles with organization and date.
+   **Built 2026-11-13:** with the section, `titles` itself carries the objects (an older
+   Worker still gets the abbreviations). The same title from the same organization goes
+   once, at its first date.
 3. **C4, C7:** the new Dog fields, the pedigree walk, origin, lineage.
 4. **C9:** waitlist facts.
 

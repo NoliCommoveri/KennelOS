@@ -550,6 +550,23 @@ test('raw values (contract Part C): each only for a Worker whose answer lists it
   assert.deepEqual(Object.keys(noTransport.products[0]), ['id', 'name', 'link_url', 'code', 'code_note', 'account_type']);
 });
 
+test('titles_detail: each title with its organization and date, for a Worker that takes it', () => {
+  const ev = (id, date, abbr, organization, more = {}) => ({ id, subject_type: 'dog', subject_id: 'willow', event_type: 'title_earned', event_date: date, details: { title_abbreviation: abbr, organization }, ...more });
+  const events = [
+    ev('t2', '2025-06-01', 'CH', 'UKC'),
+    ev('t1', '2025-01-01', 'CH', 'AKC'),
+    ev('t3', '2025-09-01', ' ch ', 'akc'), // the same title again: counted once, at its first date
+    ev('t4', '2026-01-01', 'GCH', ''),
+    ev('t5', '2026-02-01', 'BISS', 'AKC', { is_archived: true })
+  ];
+  assert.deepEqual(build({ dogs: [dog('willow')], events }).dogs[0].titles, ['CH', 'ch', 'GCH'], 'an older Worker: the abbreviations, as before');
+  assert.deepEqual(build({ dogs: [dog('willow')], events, sections: ['titles_detail'] }).dogs[0].titles, [
+    { abbr: 'CH', organization: 'AKC', date: '2025-01-01' },
+    { abbr: 'CH', organization: 'UKC', date: '2025-06-01' },
+    { abbr: 'GCH', organization: null, date: '2026-01-01' }
+  ]);
+});
+
 test('bundleChanges: a litter status change is named once, a pup disposition rides its status line', () => {
   const dogs = [dog('willow'), { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'available' }];
   const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', nickname: 'Spring', show_on_website: true, whelp_date: '2026-10-01' };

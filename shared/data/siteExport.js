@@ -30,7 +30,9 @@
 //    Part C; docs/KennelOS_Website_Contract_Plan.md), each only to a Worker whose
 //    answer lists its section: a litter puppy's `disposition` as she set it
 //    (pup_disposition), a litter's `status` (litter_status), a health result's
-//    event `type` (health_detail) and an account's `account_type` (account_type).
+//    event `type` (health_detail), an account's `account_type` (account_type), and a
+//    dog's `titles` as [{ abbr, organization, date }] in place of the bare
+//    abbreviations (titles_detail).
 //    The worked-out values they replace (a puppy's `status`, a product's
 //    `transport`) keep going until KennelPort has moved.
 import { titlesByDog } from './waitlistProjection.js';
@@ -96,6 +98,7 @@ export const CO_OWNED_KEYS = ['co_owned', 'lives_away', 'lives_with_kennel_id', 
 export const PARTNER_KENNEL_KEYS = ['id', 'name', 'website'];
 const withCoOwned = (keys, on) => (on ? [...keys, ...CO_OWNED_KEYS] : keys);
 export const HEALTH_KEYS = ['id', 'test', 'result', 'normal', 'date'];
+export const TITLE_KEYS = ['abbr', 'organization', 'date'];
 // The raw-value sections (contract Part C). Each adds one key where it's named.
 const has = (sections, s) => Array.isArray(sections) && sections.includes(s);
 const plus = (keys, key, on) => (on ? [...keys, key] : keys);
@@ -156,6 +159,29 @@ const isMarked = (r) => r?.show_on_website === true;
 
 // --- dogs ---------------------------------------------------------------------
 
+// Each dog's titles with their organization and date (titles_detail section), from
+// her title_earned events, in the order earned. The same title from the same
+// organization counts once, at its first date; the same abbreviation from two
+// organizations is two titles. → Map(dogId → [{ abbr, organization, date }]).
+export function titleDetailsByDog(events = []) {
+  const out = new Map();
+  const earned = events
+    .filter((ev) => ev && ev.event_type === 'title_earned' && ev.subject_type === 'dog' && !ev.is_archived && line(ev.details?.title_abbreviation, 30))
+    .sort((a, b) => String(a.event_date || '').localeCompare(String(b.event_date || '')) || String(a.id).localeCompare(String(b.id)));
+  const seen = new Set();
+  for (const ev of earned) {
+    const abbr = line(ev.details.title_abbreviation, 30);
+    const organization = line(ev.details.organization, 60);
+    const k = `${ev.subject_id}|${abbr.toLowerCase()}|${(organization || '').toLowerCase()}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const list = out.get(ev.subject_id) || [];
+    list.push(assertOnlyKeys({ abbr, organization, date: ymd(ev.event_date) }, TITLE_KEYS, 'title'));
+    out.set(ev.subject_id, list);
+  }
+  return out;
+}
+
 // --- co-owned dogs --------------------------------------------------------------
 
 // The kennel a contact belongs to, as the website may name it: an outside kennel,
@@ -187,7 +213,7 @@ function partnerKennelEntries(entries, kennelsById) {
   });
 }
 
-function dogEntry(dog, titles, tests, registry = false, coOwned = null, disposition = false, healthType = false) {
+function dogEntry(dog, titles, tests, registry = false, coOwned = null, disposition = false, healthType = false, titlesDetail = false) {
   const done = (tests.get(dog.id) || []).slice(0, SITE_MAX.health);
   return assertOnlyKeys({
     id: dog.id,
@@ -199,7 +225,11 @@ function dogEntry(dog, titles, tests, registry = false, coOwned = null, disposit
     color: line(dog.color_markings, 40),
     status: DOG_STATUS[dog.status],
     died_on: dog.status === 'deceased' ? ymd(dog.date_of_death) : null,
-    titles: (titles.get(dog.id) || []).map((t) => line(t, 30)).filter(Boolean).slice(0, SITE_MAX.titles),
+    // A Worker that takes titles_detail gets each title as { abbr, organization,
+    // date } (`titles` is then the detail map); an older one the abbreviations.
+    titles: titlesDetail
+      ? (titles.get(dog.id) || []).slice(0, SITE_MAX.titles)
+      : (titles.get(dog.id) || []).map((t) => line(t, 30)).filter(Boolean).slice(0, SITE_MAX.titles),
     // A test's id is its name, so a retest updates the same result on the website
     // (and keeps her Show on site tick there).
     health: done.map((t) => assertOnlyKeys({
@@ -628,7 +658,8 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
   if (!/^[\w-]{8,80}$/.test(String(bundleId ?? ''))) throw new Error('buildSiteBundle needs a bundle id.');
   const dogsById = new Map(dogs.map((d) => [d.id, d]));
   const pairingsById = new Map(pairings.map((p) => [p.id, p]));
-  const titles = titlesByDog(events);
+  const titlesDetail = has(sections, 'titles_detail');
+  const titles = titlesDetail ? titleDetailsByDog(events) : titlesByDog(events);
   const tests = completedTestsByDog(events);
   const config = waitlistConfig(kennel);
   const registry = has(sections, 'registry');
@@ -638,7 +669,7 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
   const coOwned = Array.isArray(sections) && sections.includes('partner_kennels') ? { contactsById: new Map(contacts.map((c) => [c.id, c])), kennelsById } : null;
 
   const shown = {
-    dogs: websiteDogs(kennel, dogs).map((d) => dogEntry(d, titles, tests, registry, coOwned, has(sections, 'disposition'), has(sections, 'health_detail'))),
+    dogs: websiteDogs(kennel, dogs).map((d) => dogEntry(d, titles, tests, registry, coOwned, has(sections, 'disposition'), has(sections, 'health_detail'), titlesDetail)),
     litters: websiteLitters(kennel, litters, pairingsById).map((l) => litterEntry(l, ctx)),
     pairings: websitePairings(kennel, pairings, litters).map((p) => pairingEntry(p, dogsById, heatOf)),
     heats: websiteHeats(kennel, { dogs, events, pairings, today }).map((h) => assertOnlyKeys({ ...h, dam_name: dogName(dogsById.get(h.dam_id)) }, HEAT_KEYS, 'heat'))

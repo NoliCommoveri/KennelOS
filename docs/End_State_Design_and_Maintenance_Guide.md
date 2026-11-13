@@ -4419,7 +4419,10 @@ KennelPort Site Manager.
   `litter_status`, a litter's `status` (`expected` to `ready`); `health_detail`, a health
   result's event `type` (`genetic_test`, `ofa_pennhip`, `breed_specific_test`, the latest
   result's, from `completedTestsByDog`); `account_type`, a product's `account_type` (an
-  `ACCOUNT_TYPE` value, else null). The worked-out values (a puppy's `status`, a
+  `ACCOUNT_TYPE` value, else null); `titles_detail`, a dog's `titles` as
+  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`: from
+  `title_earned` events in the order earned, the same title and organization once, at its
+  first date). The worked-out values (a puppy's `status`, a
   product's `transport`) still go beside them. `bundleChanges` names a litter's status
   change; a puppy's disposition rides its status line.
 - **`data/kennelportApi.js`** is the only module that talks to KennelPort:

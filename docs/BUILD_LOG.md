@@ -4121,3 +4121,13 @@ tick box per template; buyers get an emailed link.
   `node --test` 1,871 pass; `node build/assemble.mjs` builds.
 - **Docs:** End-State guide §35; plan step 1 (Built, Modified); README Status.
 - **Service worker:** no new files; no cache bump yet.
+
+## 2026-11-13 — Website contract step 2: titles with organization and date
+
+- **`siteExport.js`:** the `titles_detail` section. With it, a dog's `titles` is
+  `[{ abbr, organization, date }]` (`titleDetailsByDog`, `TITLE_KEYS`): her `title_earned`
+  events in the order earned; the same title from the same organization once, at its
+  first date. Without it, the abbreviations as before.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,872 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 2 (Built); README Status.
