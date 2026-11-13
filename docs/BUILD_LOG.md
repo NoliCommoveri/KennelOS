@@ -4162,3 +4162,56 @@ tick box per template; buyers get an emailed link.
   `node build/assemble.mjs` builds.
 - **Docs:** End-State guide §35; plan step 4 (Built); README Status.
 - **Service worker:** no new files; rides v133.
+
+## 2026-11-13 — Payment schedules step 8: the docs, checked against the code
+
+- **Checked:** every guide section the plan names (§4, §13, §21, §24, §29, §32, §33, §35) and
+  the ones steps 1–7 touched, against `paymentSchedule.js`, `paymentScheduleUI.js`,
+  `familyMoney.js`, `invoiceGenerator.js`, `incomeView.js`, `contractForms.js`, `nudges.js`,
+  `integrationApply.js`, `waitlist-entry.js`, `kennel.js`, `referenceRegistry.js` and the
+  family status page. §4, §21.2, §24 and §33 already matched.
+- **End-State guide:** §7 (unindexed paths: `list[].key`, a sale's `payments[].account_id`;
+  "the one today" was stale), §13 Components (`paymentScheduleUI.js`, `invoiceGenerator.js`),
+  §16 invariant 10 (a sale's money from its statement, one allocator), §19 `int-review`
+  (D34's covers-everything review), §21 (which helpers still read whole lines; the "until
+  steps 5–6" note was stale), §21.3 (`schedule` in the statement, `scheduleFromSaved`, not in
+  CSV, the JSON backup carries them), §29 Surfaces (the family page's Payments card and
+  `afterAction`'s new-fees question; Documents rewritten from the old fee/invoice/receipt
+  line), §32 (the price table and recorded payments; an ended sale's two fields named),
+  §35.1 (once the portal takes over the status page, Your payments goes with the rest).
+- **Editions plan:** a tiers row for a sale's payments (all editions; Pro adds saved
+  schedules, final-payment methods, Paid via, documents); Pups are going home's row says
+  Payments and the pickup message (final-payment methods Pro only: Lite has no Kennel page).
+- **Found, not fixed (owner to decide):** `incomeView.priceTable` (contract fields
+  `otherPaymentsReceived`, `purchaseBalanceDue`) reads `saleComponents`, which knows no
+  recorded payments: a $3,000 sale with its $500 deposit and a $1,000 payment prints
+  `otherPaymentsReceived` 0.00 and `purchaseBalanceDue` 2,500.00, while `balanceDue` and the
+  schedule fields say 1,500.00 owed. Right again once marked paid in full. The status page
+  hiding Your payments once the portal takes over (pickup day passed, Delivered, or home) is
+  as built; worth a look if money can still be owed then.
+- **Docs:** plan step 8 (Built, Found); README Status.
+- **Tests:** none changed (docs only).
+- **Service worker:** no app files changed, so no `CACHE_NAME` bump.
+
+## 2026-11-13 — A contract's price table counts payments recorded on the sale
+
+- **Bug (found in step 8):** `incomeView.priceTable` read whole lines (`saleComponents`),
+  which know no recorded payments, so `otherPaymentsReceived` and `purchaseBalanceDue`
+  ignored `Sale.payments` until the sale was marked paid in full ($3,000 sale, $500 deposit
+  paid, $1,000 recorded: 0.00 received and 2,500.00 due, against 1,500.00 owed everywhere
+  else).
+- **Fix:** the payments' share of the price comes from the payment statement (after the
+  credited fee; payments pay the price first, D16) and moves from `purchaseBalanceDue` to
+  `otherPaymentsReceived`, capped at what credits for funds received left of the price, so
+  nothing counts twice and price = deposit + received + balance due still holds. A
+  returned or cancelled sale keeps what was paid; a lost one counts nothing, as before.
+- **Owner:** the status page showing only the portal link once the portal takes over is
+  right: a pup isn't released until everything is paid, and it only applies to a kennel
+  with the portal on.
+- **Tests:** `tests/priceTable.test.js` (payments, several, beyond the price, with the
+  credited fee, with credits, with paid in full, toward an own-dated extra, on a schedule;
+  ended and lost sales). Checked over 20,000 random open sales (fee credit, credits, deposit,
+  payments, transport) that `purchaseBalanceDue` equals what the statement has owed on the
+  price and the table adds up to the price. `node --test` 1,871 pass.
+- **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
+- **Service worker:** no files added or renamed. `CACHE_NAME` v134 (owner asked for the bump if needed): main's website work had already shipped v133.

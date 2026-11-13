@@ -492,3 +492,15 @@ is dated by `deposit_date`, which those three places can still set from a credit
    written in the composer for her to send.
 8. **Docs:** End-State guide (§4, §13, §21, §24, §29, §32, §33, §35), editions docs if Lite's
    surface changes, BUILD_LOG.
+   **Built:** each section checked against the code. §4, §21.2, §24 and §33 already matched.
+   Added: §7 (the `payments[].account_id` scan), §13 (`paymentScheduleUI.js`,
+   `invoiceGenerator.js`), §16 (invariant 10: a sale's money from its statement), §19 (D34's
+   `int-review`), §21 (which helpers still read whole lines), §21.3 (`schedule`,
+   `scheduleFromSaved`, not in CSV), §29 (the family page's Payments card and Documents),
+   §32 (the price table), §35.1 (Your payments goes once the portal takes over); the
+   Editions plan's tiers table (a sale's payments in Lite, Pups are going home's Payments
+   and pickup message).
+   **Found and fixed (owner, 2026-11-13):** a contract's price table (`incomeView.priceTable`:
+   `otherPaymentsReceived`, `purchaseBalanceDue`) didn't count payments recorded on the
+   sale until it was marked paid in full. It now adds their share of the price from the
+   statement (guide §32).

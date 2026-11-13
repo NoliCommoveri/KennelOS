@@ -88,12 +88,10 @@ backup, carries a program from Lite to Pro.
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received, the per-family invoice/receipt generator and Firma fields per template.
-    Steps 1–7 built (guide §19, §21.3, §24, §32, §33): every surface reads the statement,
-    including Today's payment-due / payment-missed nudges, Kels's Pups are going home
-    (Payments, money owed, the pickup message) and Review my waitlist. Open in step 5:
-    proving the Firma relabel on a send (one field so far, `docs/LAUNCH_CHECKLIST.md`), the
-    test-key check, per-template fields. Next is step 8 (the guide's remaining sections).
-    §3.2a (lost-pup money as a credit, D20) is in no step yet.
+    Steps 1–8 built (guide §21.3, §24 and the sections they name): every surface reads the
+    statement. Open in step 5: proving the Firma relabel on a send (one field so far,
+    `docs/LAUNCH_CHECKLIST.md`), the test-key check, per-template fields. §3.2a (lost-pup
+    money as a credit, D20) is in no step yet.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
