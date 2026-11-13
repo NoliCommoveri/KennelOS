@@ -275,7 +275,8 @@ paymentStatement(sale, { birthDate, pickupDate, feeCredit, credits, today }) →
 **Modified:** a family is a waitlist entry and the one sale it goes toward (the family
 page's sale), or a sale no entry claims (D25). Due dates on a document are the schedule's;
 the generator no longer edits a line's Due by (D27). An invoice line prints its whole amount
-for that due date, then takes off what was paid and credited, as before.
+for that due date, then takes off what was paid and credited, as before. A due date covering
+more than one charge prints as one line, "Combined Price (Payment 1)", not one per charge.
 
 ### 6.2 The applicant page's Documents card
 

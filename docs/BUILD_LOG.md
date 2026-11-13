@@ -4010,3 +4010,20 @@ tick box per template; buyers get an emailed link.
   1,843 pass.
 - **Docs:** End-State guide §21.3; plan §3.3 (**Modified:**).
 - **Service worker:** no new files. `CACHE_NAME` v129 (owner asked).
+
+## 2026-11-13 — Invoices: one "Combined Price" line per due date that covers several charges
+
+- **Bug:** an invoice printed one line per charge and due date (`chargePieces`), so a due date
+  covering the price and an extra printed as "Remaining Purchase Price" lines plus the extra's
+  own line: the final payment came out as two lines on one date ($300 price + $1,400 stay),
+  and Payment 1 was called "Remaining Purchase Price" though it asks 50% of price and extras.
+- **Fix (`familyMoney.js`):** `combinedDueIds(statement)` names the schedule due dates whose
+  covers take in more than one schedule charge; `familyAccount` flags their pieces `combined`,
+  and `documentLines` prints each such due date as one line, **Combined Price (<due label>)**,
+  its pieces added (a partial among them marks it "(partial)"). A due date covering one charge
+  keeps that charge's name. Totals, credits and the account summary are unchanged. The
+  generator still lists the pieces under their due date.
+- **Tests:** `tests/familyMoney.test.js`: the owner's sale as a regression case; the partial
+  transport line on a combined final payment now prints combined. `node --test` 1,844 pass.
+- **Docs:** End-State guide §24 invoice; plan §6.1 Modified note.
+- **Service worker:** no new files. `CACHE_NAME` v130 (owner asked).
