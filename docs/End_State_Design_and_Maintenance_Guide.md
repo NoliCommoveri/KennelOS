@@ -1402,8 +1402,10 @@ steps 6–7); they still go by the deposit, `balance_due_date` and `balance_paid
   everything once, on `balance_due_date`, else at pickup.
 - **On an extra:** `own_due_dates` (a price-list row: true/false, unset = its group's; a group:
   true; a sale's charge: true only, copied by `chargeFromPriceList` from `chargeRules`). An
-  extra is on its own dates when flagged or when it has its own steps and no due date names
-  it; a named one is paid through the schedule and its steps are ignored.
+  extra is on its own dates only when flagged. On a sale with a schedule stored, every other
+  extra is on the schedule (taken by `extras`, `all` or its name), its own steps not used
+  for dates; money already paid on them still counts (a payment `toward` one of its steps,
+  a step marked paid, never twice). With no schedule, an extra with its own steps keeps them.
 - **The statement** (`paymentStatement`): dates (`dueDateOf`: a typed `due_date` wins, else
   from the birth date, `before_pickup` in open days, or the pickup date); the charges in pay
   order (`saleCharges`: deposit, the rest of the price, boarding, extras on the schedule,

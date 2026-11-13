@@ -205,6 +205,39 @@ test('an extra a due date names is paid through the schedule, its own steps unus
   assert.equal(coveredTotal(['extra:tr'], st.charges), 600);
 });
 
+test('with a schedule, an extra with its own steps but not flagged its own dates is on the schedule', () => {
+  const tr = { id: 'tr', label: 'Training', amount: 600, payments: [{ id: 'a', percent: 100, due: 'at_weeks', n: 8, due_date: '2026-11-26' }] };
+  // A saved schedule's generic "extras" cover takes it; no own-dated line on the same date.
+  const s = sale({ extra_charges: [tr], payment_schedule: [{ id: 'w8', due: 'at_weeks', n: 8, covers: ['price', 'extras'], percent: 50 }, final] });
+  const st = paymentStatement(s, opts());
+  assert.equal(st.ownDated.length, 0);
+  assert.equal(st.charges.find((c) => c.key === 'extra:tr').part, 'schedule');
+  assert.equal(st.dueDates[0].ask, 1050, '50% of price and the extra, less the deposit');
+  // "Everything" takes it too.
+  assert.equal(coveredTotal(['all'], st.charges), 3100);
+  // Flagged its own dates, it stays apart even with a schedule.
+  const own = paymentStatement({ ...s, extra_charges: [{ ...tr, own_due_dates: true }] }, opts());
+  assert.deepEqual(own.ownDated.map((o) => [o.key, o.date]), [['extra:tr:a', '2026-11-26']]);
+  // A new extra with steps isn't "on its own dates" on a sale with a schedule.
+  assert.deepEqual(addedFees({ ...s, extra_charges: [] }, s), [{ kind: 'extra', label: 'Training' }]);
+  assert.deepEqual(addedFees({ ...s, extra_charges: [], payment_schedule: null }, { ...s, payment_schedule: null }), [{ kind: 'extra', label: 'Training', own: true }]);
+});
+
+test('an extra moved onto the schedule keeps what was paid on its old steps, counted once', () => {
+  const tr = { id: 'tr', label: 'Training', amount: 600, payments: [
+    { id: 'a', percent: 50, due: 'on_approval', due_date: '2026-11-01', paid_date: '2026-11-02' }, { id: 'b', percent: 50, due: 'before_pickup', n: 2 }] };
+  const sched = [{ id: 'w8', due: 'at_weeks', n: 8, covers: ['extras'], percent: 100 }, final];
+  let st = paymentStatement(sale({ extra_charges: [tr], payment_schedule: sched }), opts());
+  assert.deepEqual(st.received.filter((r) => r.kind === 'step').map((r) => [r.id, r.date, r.amount]), [['extra:tr:a', '2026-11-02', 300]]);
+  const paidOnExtra = (x) => sum(x.received.flatMap((r) => r.pays).filter((p) => p.key === 'extra:tr'), (p) => p.amount);
+  assert.equal(paidOnExtra(st), 300);
+  // A payment toward the step that also marked it paid: counted as the payment only.
+  st = paymentStatement(sale({ extra_charges: [tr], payment_schedule: sched, payments: [{ id: 'p', amount: 300, date: '2026-11-02', toward: 'extra:tr:a' }] }), opts());
+  assert.equal(st.received.find((r) => r.kind === 'payment').amount, 300);
+  assert.equal(st.received.some((r) => r.kind === 'step'), false);
+  assert.equal(paidOnExtra(st), 300, 'the extra has 300 left');
+});
+
 test('no schedule: an extra with its own steps keeps them, as today', () => {
   const st = paymentStatement(sale({ extra_charges: [{ id: 'tr', label: 'Training', amount: 600, payments: [{ id: 'a', percent: 100, due: 'on_approval', due_date: '2026-11-20', paid_date: '2026-11-18' }] }] }), opts());
   assert.deepEqual(st.ownDated.map((o) => [o.owed, o.paid]), [[0, 600]]);
@@ -397,8 +430,9 @@ test('every combination: the statement always adds up', () => {
     assert.equal(Math.round((st.deposit.owed + sum(st.dueDates, (d) => d.owed) + sum(st.ownDated, (o) => o.owed)) * 100) / 100, st.remaining, at);
 
     // Earlier money never fills a "doesn't count" due date while a due date it may
-    // cover is still owed.
-    const newMoney = sum(st.received.filter((r) => ['payment', 'paid_in_full'].includes(r.kind)).flatMap((r) => r.pays).filter((p) => st.charges.find((c) => c.key === p.key)?.part === 'schedule'), (p) => p.amount);
+    // cover is still owed. (A step marked paid on an extra now on the schedule is money
+    // received, like a payment.)
+    const newMoney = sum(st.received.filter((r) => ['payment', 'step', 'paid_in_full'].includes(r.kind)).flatMap((r) => r.pays).filter((p) => st.charges.find((c) => c.key === p.key)?.part === 'schedule'), (p) => p.amount);
     if (st.dueDates.some((d) => !d.fresh && d.owed > 0)) {
       assert.ok(sum(st.dueDates.filter((d) => d.fresh), (d) => d.filled) <= newMoney + 0.001, `${at}: earlier money filled a "doesn't count" due date`);
     }
