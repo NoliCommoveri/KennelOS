@@ -1,7 +1,7 @@
 # Website contract plan: sending raw data to KennelPort
 
-A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Nothing here
-is built. This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
+A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Step 1 is built
+(below). This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
 build order, is KennelPort's `docs/plans/kennelos-contract.md`. What is built today is
 End-State guide §35.
 
@@ -101,6 +101,10 @@ over any field, picks, the Featured block) need nothing from KennelOS. KennelOS'
 starts at KennelPort's step 4:
 
 1. **C1, C2, C5, C6:** values KennelOS already holds. `siteExport.js`, its tests, guide §35.
+   **Built 2026-11-13.** **Modified:** C5 sends `type` only. KennelOS holds no
+   verification link on a health result, so there is no `verify_url` to send; adding
+   one would be a new event field (owner's decision). Sent only to a Worker that lists
+   each section; KennelPort's `SECTIONS` doesn't list them yet (its step 4).
 2. **C3:** titles with organization and date.
 3. **C4, C7:** the new Dog fields, the pedigree walk, origin, lineage.
 4. **C9:** waitlist facts.

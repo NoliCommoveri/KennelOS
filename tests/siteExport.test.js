@@ -512,6 +512,53 @@ test('disposition: on a puppy-status dog only, for a Worker that takes it (its `
   assert.equal(by('ivy').disposition, 'undecided', 'none set reads undecided');
 });
 
+test('raw values (contract Part C): each only for a Worker whose answer lists its section', () => {
+  const dogs = [dog('willow'),
+    { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'keeping' },
+    { id: 'moss', call_name: 'Moss', sex: 'male', status: 'puppy', litter_id: 'l1', kennel_id: 'k1' },
+    { id: 'rue', call_name: 'Rue', sex: 'male', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'reserved' }];
+  const litters = [{ id: 'l1', kennel_id: 'k1', status: 'weaning', dam_id: 'willow', show_on_website: true, whelp_date: '2026-10-01' }];
+  const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'genetic_test', event_date: '2026-03-01', title: '', details: { panel_name: 'DM', result: 'Clear' } }];
+  const accounts = [
+    { id: 'a1', name: 'TLC', account_type: 'supplier', show_on_website: true, referral_code: 'AK10' },
+    { id: 'a2', name: 'Odd', account_type: 'mystery', show_on_website: true, referral_code: 'X' },
+    { id: 't1', name: 'Sky Nanny', account_type: 'transport', show_on_website: true, website: 'skynanny.com' }
+  ];
+  const old = build({ dogs, litters, events, accounts, sections: ['products', 'transport'] });
+  assert.equal('status' in old.litters[0], false, 'an older Worker: no litter status');
+  assert.equal(old.litters[0].puppies.some((p) => 'disposition' in p), false);
+  assert.equal('type' in old.dogs[0].health[0], false);
+  assert.equal(old.products.some((p) => 'account_type' in p), false);
+
+  const now = build({ dogs, litters, events, accounts, sections: ['products', 'transport', 'pup_disposition', 'litter_status', 'health_detail', 'account_type'] });
+  assert.deepEqual(Object.keys(now.litters[0]).sort(), [...LITTER_KEYS, 'status'].sort());
+  assert.equal(now.litters[0].status, 'weaning', 'C2: as she set it');
+  const pup = (id) => now.litters[0].puppies.find((p) => p.id === id);
+  assert.deepEqual(Object.keys(pup('fern')).sort(), [...PUPPY_KEYS, 'disposition'].sort());
+  assert.equal(pup('fern').disposition, 'keeping', 'C1: raw');
+  assert.equal(pup('fern').status, 'staying', 'the worked-out status still goes');
+  assert.equal(pup('moss').disposition, null, 'none set: null, not undecided');
+  assert.equal(pup('rue').disposition, null, 'a value KennelOS does not have: null');
+  assert.deepEqual(now.dogs[0].health[0], { id: 'test:dm', test: 'DM', result: 'Clear', normal: null, date: '2026-03-01', type: 'genetic_test' }, 'C5');
+  const prod = (id) => now.products.find((p) => p.id === id);
+  assert.equal(prod('a1').account_type, 'supplier', 'C6');
+  assert.equal(prod('a2').account_type, null);
+  assert.equal(prod('t1').account_type, 'transport');
+  assert.equal(prod('t1').transport, true, 'transport still goes');
+  // Without 'transport', an account's type still goes with Recommended products.
+  const noTransport = build({ accounts, sections: ['products', 'account_type'] });
+  assert.deepEqual(Object.keys(noTransport.products[0]), ['id', 'name', 'link_url', 'code', 'code_note', 'account_type']);
+});
+
+test('bundleChanges: a litter status change is named once, a pup disposition rides its status line', () => {
+  const dogs = [dog('willow'), { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'available' }];
+  const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', nickname: 'Spring', show_on_website: true, whelp_date: '2026-10-01' };
+  const sections = ['pup_disposition', 'litter_status'];
+  const a = build({ dogs, litters: [litter], sections });
+  const b = build({ dogs: [dogs[0], { ...dogs[1], disposition: 'placed' }], litters: [{ ...litter, status: 'weaning' }], sections });
+  assert.deepEqual(bundleChanges(a, b), ['Spring: status changed', 'Fern: Available → Spoken for']);
+});
+
 test('heat_id: a pairing, and its litter, name the heat they use, for a Worker that takes it', () => {
   const dogs = [dog('willow', { heats_online: true }), dog('stud', { sex: 'male' })];
   const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2027-01-10' }];

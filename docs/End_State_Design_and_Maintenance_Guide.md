@@ -4413,6 +4413,15 @@ KennelPort Site Manager.
   sex, and extras' amounts, all private) go only while the site says Use my KennelOS prices
   is on (`site.kennelos_prices`). Text is cut to KennelPort's lengths; over its caps
   (`SITE_MAX`) it says so instead of sending.
+- **Raw values for KennelPort's rules** (`docs/KennelOS_Website_Contract_Plan.md`), each
+  only when the site's answer lists its section: `pup_disposition`, a litter puppy's
+  `disposition` as she set it (a `DISPOSITION` value, null when none is set or unknown);
+  `litter_status`, a litter's `status` (`expected` to `ready`); `health_detail`, a health
+  result's event `type` (`genetic_test`, `ofa_pennhip`, `breed_specific_test`, the latest
+  result's, from `completedTestsByDog`); `account_type`, a product's `account_type` (an
+  `ACCOUNT_TYPE` value, else null). The worked-out values (a puppy's `status`, a
+  product's `transport`) still go beside them. `bundleChanges` names a litter's status
+  change; a puppy's disposition rides its status line.
 - **`data/kennelportApi.js`** is the only module that talks to KennelPort:
   `POST /v1/link` (the code), `GET` / `DELETE /v1/link`, `POST /v1/bundle`, with the token
   as a Bearer header, no cookies, no referrer. `KennelportError.kind`: `network`,

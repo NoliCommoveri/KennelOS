@@ -4105,3 +4105,19 @@ tick box per template; buyers get an emailed link.
   import-descended worked out by KennelPort; no colour list in KennelOS (KennelPort builds
   one per website from the free-text colours sent); `imported` and `import_country` are
   cloud, like the Dog's other registration facts. Open questions marked answered.
+
+## 2026-11-13 — Website contract step 1: raw disposition, litter status, test type, account type
+
+- **`siteExport.js`:** four new optional sections, each sent only to a Worker whose answer
+  lists it: `pup_disposition` (a litter puppy's `disposition` as set, null when none or
+  unknown), `litter_status` (a litter's `status`), `health_detail` (a health result's event
+  `type`), `account_type` (a product's `account_type`, null when unknown). `status` and
+  `transport` still go. `PUPPY_WORDS` loses `reserved`; `bundleChanges` doesn't list a
+  puppy's disposition apart from its status line.
+- **`healthTestLog.completedTestsByDog`:** each result carries its `type`.
+- **Not built:** `verify_url` (C5). KennelOS holds no verification link on a test; noted in
+  the plan as Modified, for the owner.
+- **Tests:** `tests/siteExport.test.js` (two new), `tests/healthTestLog.test.js`.
+  `node --test` 1,871 pass; `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 1 (Built, Modified); README Status.
+- **Service worker:** no new files; no cache bump yet.

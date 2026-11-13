@@ -70,7 +70,8 @@ backup, carries a program from Lite to Pro.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
     training stays, pickup and backing out are live, and Kels's Review my waitlist works through them.
   - KennelPort website (`docs/End_State_Design_and_Maintenance_Guide.md` §35): the feed and
-    Connect / Update website are live. A breeder's own domain is added by hand to
+    Connect / Update website are live. Raw data for it (`docs/KennelOS_Website_Contract_Plan.md`):
+    step 1 built (C1, C2, C5, C6); next is step 2, titles with organization and date. A breeder's own domain is added by hand to
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Waitlist policies, the program suggested by an application answer, the do-not-sell list
     and transport accounts on the website: live.
