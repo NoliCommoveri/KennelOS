@@ -136,6 +136,16 @@ optional, read as "not set" from older backups.
   Leftover credit counts nowhere. A covered charge that's removed, or a lost sale, puts the
   credit back to held. Today's code dates credited income by the family's oldest credit
   (`credits[0].date`); this replaces that.
+- **Deposit dates never come from a credit.** The deposit date is when it was asked for or
+  marked received. Today three places use a credit's date instead, and all three change:
+  - the "deposit received" dialog (`waitlistUI.js`): "Date received" defaults to the carried
+    money's or the covering credit's date → defaults to the sale's `deposit_date`, else today;
+  - a pick with carried money (`recordPick`, `paidDate: carried.date`) → the pick date;
+  - a side sale with carried money (`waitlistActions.js`, `paidDate: carried.date`) → the
+    side sale's date.
+
+  Credits only lower what the family sends. Test: no deposit prompt or action ever sets
+  `deposit_date` from a credit or carried date.
 - **Existing data:** an entry holding a `carried_payment` reads as one credit. The field
   stays readable (backups); new carries no longer write it.
 - Waitlist (Pro) only, like the lost-pup flow and credits.
@@ -382,7 +392,7 @@ Plan:
 | D18 | "Earlier money" = application fee received, deposit, and credits (what's left after covering those, or the whole credit). A "doesn't count" due date only takes payments recorded on the sale, including an earlier payment beyond what earlier due dates asked for. |
 | D19 | "Remaining" is measured against what earlier due dates asked for, so paying early doesn't shrink it. |
 | D20 | Money carried from a lost pup becomes a credit for funds received, not the new sale's deposit. |
-| D21 | A credit is held money, never income itself. A charge it covers is expected until that charge's due date, then earned on it. No credit label in Financials. |
+| D21 | A credit is held money, never income itself. A charge it covers is expected until that charge's due date, then earned on it. No credit label in Financials. A deposit date never comes from a credit's date. |
 | D17 | The fee-added prompt shows every time a transport fee, boarding or an extra is added, schedule or not. |
 | D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
 | D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |
