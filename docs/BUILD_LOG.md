@@ -3808,3 +3808,17 @@ tick box per template; buyers get an emailed link.
   health test results, Check in on a litter, Pups are going home, Kels's shots and vet).
   New app files in `PRECACHE_URLS`.
 - **Service worker:** `CACHE_NAME` v125 (owner asked), for this batch and the one above.
+
+## 2026-11-13 — Payment schedules on a sale (plan only)
+
+- **New plan:** `docs/KennelOS_Payment_Schedule_Plan.md`. A sale gets a general
+  `payment_schedule` (cumulative targets, each a percent of the charges it covers, dated by
+  age, a typed date, before pickup or at pickup) and `payments[]` (amounts on dates). No
+  schedule = today's deposit-then-balance behavior. Prompted by contracts that set the rest
+  of the money by 7 weeks when transported, 50% of price plus a stay package by 8 weeks, or
+  the price by 9 weeks with boarding at pickup.
+- **Owner decisions:** D1 payments list on the sale; D2 the schedule wins for extras it names;
+  D3 general, no kennel-specific names, never switched automatically, and adding a fee asks
+  "Your current payment schedule is X. Do you need to make any adjustments to schedule the
+  new fees?"; D4 a missed date is flagged with a neutral nudge ("A scheduled payment was not
+  marked received") → Open sale; D5 private. Nothing built yet.
