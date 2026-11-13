@@ -71,7 +71,7 @@ test('completedTestsByDog: name, result, flag and the latest date, a retest repl
     ev('g', 'd2', 'title_earned', '2026-01-01', { title_abbreviation: 'CH' }),
     { ...ev('h', 'd2', 'ofa_pennhip', '2026-01-01', { joint: 'Elbows', rating: 'Normal' }), subject_type: 'litter' }
   ]);
-  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good', outcome: '', date: '2026-01-10' }, { name: 'PRA-prcd', result: 'Clear', outcome: '', date: '2025-02-01' }, { name: 'OFA Elbows', result: 'Normal', outcome: 'Normal', date: '2026-01-12' }, { name: 'BAER Hearing', result: 'Normal', outcome: '', date: '2026-03-01' }]);
+  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good', outcome: '', date: '2026-01-10', type: 'ofa_pennhip' }, { name: 'PRA-prcd', result: 'Clear', outcome: '', date: '2025-02-01', type: 'genetic_test' }, { name: 'OFA Elbows', result: 'Normal', outcome: 'Normal', date: '2026-01-12', type: 'ofa_pennhip' }, { name: 'BAER Hearing', result: 'Normal', outcome: '', date: '2026-03-01', type: 'breed_specific_test' }]);
   assert.equal(m.has('d2'), false);
 });
 

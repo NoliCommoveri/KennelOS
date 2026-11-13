@@ -7,7 +7,7 @@ import { test, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
+  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, waitlistFacts, line,
   BUNDLE_KEYS, DOG_KEYS, LITTER_KEYS, PUPPY_KEYS, SiteExportError, SITE_MAX
 } from '../shared/data/siteExport.js';
 
@@ -510,6 +510,118 @@ test('disposition: on a puppy-status dog only, for a Worker that takes it (its `
   assert.equal(by('fern').disposition, 'available');
   assert.equal(by('moss').disposition, 'keeping');
   assert.equal(by('ivy').disposition, 'undecided', 'none set reads undecided');
+});
+
+test('raw values (contract Part C): each only for a Worker whose answer lists its section', () => {
+  const dogs = [dog('willow'),
+    { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'keeping' },
+    { id: 'moss', call_name: 'Moss', sex: 'male', status: 'puppy', litter_id: 'l1', kennel_id: 'k1' },
+    { id: 'rue', call_name: 'Rue', sex: 'male', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'reserved' }];
+  const litters = [{ id: 'l1', kennel_id: 'k1', status: 'weaning', dam_id: 'willow', show_on_website: true, whelp_date: '2026-10-01' }];
+  const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'genetic_test', event_date: '2026-03-01', title: '', details: { panel_name: 'DM', result: 'Clear' } }];
+  const accounts = [
+    { id: 'a1', name: 'TLC', account_type: 'supplier', show_on_website: true, referral_code: 'AK10' },
+    { id: 'a2', name: 'Odd', account_type: 'mystery', show_on_website: true, referral_code: 'X' },
+    { id: 't1', name: 'Sky Nanny', account_type: 'transport', show_on_website: true, website: 'skynanny.com' }
+  ];
+  const old = build({ dogs, litters, events, accounts, sections: ['products', 'transport'] });
+  assert.equal('status' in old.litters[0], false, 'an older Worker: no litter status');
+  assert.equal(old.litters[0].puppies.some((p) => 'disposition' in p), false);
+  assert.equal('type' in old.dogs[0].health[0], false);
+  assert.equal(old.products.some((p) => 'account_type' in p), false);
+
+  const now = build({ dogs, litters, events, accounts, sections: ['products', 'transport', 'pup_disposition', 'litter_status', 'health_detail', 'account_type'] });
+  assert.deepEqual(Object.keys(now.litters[0]).sort(), [...LITTER_KEYS, 'status'].sort());
+  assert.equal(now.litters[0].status, 'weaning', 'C2: as she set it');
+  const pup = (id) => now.litters[0].puppies.find((p) => p.id === id);
+  assert.deepEqual(Object.keys(pup('fern')).sort(), [...PUPPY_KEYS, 'disposition'].sort());
+  assert.equal(pup('fern').disposition, 'keeping', 'C1: raw');
+  assert.equal(pup('fern').status, 'staying', 'the worked-out status still goes');
+  assert.equal(pup('moss').disposition, null, 'none set: null, not undecided');
+  assert.equal(pup('rue').disposition, null, 'a value KennelOS does not have: null');
+  assert.deepEqual(now.dogs[0].health[0], { id: 'test:dm', test: 'DM', result: 'Clear', normal: null, date: '2026-03-01', type: 'genetic_test' }, 'C5');
+  const prod = (id) => now.products.find((p) => p.id === id);
+  assert.equal(prod('a1').account_type, 'supplier', 'C6');
+  assert.equal(prod('a2').account_type, null);
+  assert.equal(prod('t1').account_type, 'transport');
+  assert.equal(prod('t1').transport, true, 'transport still goes');
+  // Without 'transport', an account's type still goes with Recommended products.
+  const noTransport = build({ accounts, sections: ['products', 'account_type'] });
+  assert.deepEqual(Object.keys(noTransport.products[0]), ['id', 'name', 'link_url', 'code', 'code_note', 'account_type']);
+});
+
+test('titles_detail: each title with its organization and date, for a Worker that takes it', () => {
+  const ev = (id, date, abbr, organization, more = {}) => ({ id, subject_type: 'dog', subject_id: 'willow', event_type: 'title_earned', event_date: date, details: { title_abbreviation: abbr, organization }, ...more });
+  const events = [
+    ev('t2', '2025-06-01', 'CH', 'UKC'),
+    ev('t1', '2025-01-01', 'CH', 'AKC'),
+    ev('t3', '2025-09-01', ' ch ', 'akc'), // the same title again: counted once, at its first date
+    ev('t4', '2026-01-01', 'GCH', ''),
+    ev('t5', '2026-02-01', 'BISS', 'AKC', { is_archived: true })
+  ];
+  assert.deepEqual(build({ dogs: [dog('willow')], events }).dogs[0].titles, ['CH', 'ch', 'GCH'], 'an older Worker: the abbreviations, as before');
+  assert.deepEqual(build({ dogs: [dog('willow')], events, sections: ['titles_detail'] }).dogs[0].titles, [
+    { abbr: 'CH', organization: 'AKC', date: '2025-01-01' },
+    { abbr: 'CH', organization: 'UKC', date: '2025-06-01' },
+    { abbr: 'GCH', organization: null, date: '2026-01-01' }
+  ]);
+});
+
+test('origin and lineage: imported facts, parents and ancestors by name only, for a Worker that takes them', () => {
+  const dogs = [
+    dog('willow', { breed: 'Border Collie', sire_id: 'rex', dam_id: 'meg', imported: false, import_country: 'Wales' }),
+    { id: 'rex', call_name: 'Rex', registered_name: 'Ch Rex of Glen', sex: 'male', pedigree_only: true, sire_id: 'old', imported: true, import_country: ' Wales ', date_of_birth: '2015-01-01', owner_contact_id: 'c1', breeder_kennel_id: 'kx', notes: 'private' },
+    { id: 'meg', call_name: 'Meg', sex: 'female', status: 'external_reference', kennel_id: 'k9', imported: true },
+    { id: 'old', registered_name: 'Glen Old Hemp', sex: 'male', pedigree_only: true, is_archived: true }
+  ];
+  const events = [{ id: 't1', subject_type: 'dog', subject_id: 'rex', event_type: 'title_earned', event_date: '2018-01-01', details: { title_abbreviation: 'CH', organization: 'KC' } }];
+  const old = build({ dogs, events });
+  assert.deepEqual(Object.keys(old.dogs[0]).sort(), [...DOG_KEYS].sort(), 'an older Worker: neither');
+
+  const origin = build({ dogs, events, sections: ['origin'] }).dogs[0];
+  assert.equal(origin.imported, false);
+  assert.equal(origin.import_country, null, 'the country only while Imported is ticked');
+  assert.equal('ancestors' in origin, false);
+
+  const lin = build({ dogs, events, sections: ['lineage'] }).dogs[0];
+  assert.equal(lin.breed, 'Border Collie');
+  assert.equal(lin.sire_id, 'rex');
+  assert.equal(lin.dam_id, 'meg');
+  assert.deepEqual(lin.ancestors, [
+    { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: ['CH'] },
+    { id: 'meg', path: 'dam', call_name: 'Meg', registered_name: null, titles: [] },
+    { id: 'old', path: 'sire.sire', call_name: null, registered_name: 'Glen Old Hemp', titles: [] }
+  ]);
+  assert.equal('imported' in lin, false);
+  assert.doesNotMatch(JSON.stringify(lin), /2015-01-01|c1|kx|private/, 'never a date of birth, owner, kennel or note of a dog that is not hers');
+
+  const both = build({ dogs, events, sections: ['lineage', 'origin', 'titles_detail'] }).dogs[0];
+  assert.deepEqual(both.ancestors[0], { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: [{ abbr: 'CH', organization: 'KC', date: '2018-01-01' }], imported: true, import_country: 'Wales' });
+  assert.deepEqual(both.ancestors[1].imported, true);
+  assert.equal(both.ancestors[1].import_country, null);
+  assert.equal(both.ancestors[2].imported, false);
+});
+
+test('waitlist_facts: her waitlist settings as values, for a Worker that takes them; steps and payment still go', () => {
+  const kennel = { ...K, waitlist_config: { fee_amount: 250, fee_due_days: 3, respond_days: 2, max_passes: 1, online: true, online_form: true, payment_instructions: 'Venmo @ak' } };
+  assert.equal('waitlist_facts' in buildSiteBundle({ kennel, today: TODAY, bundleId: 'bundle-0004' }), false, 'an older Worker: never sent');
+  const b = buildSiteBundle({ kennel, today: TODAY, bundleId: 'bundle-0004', sections: ['waitlist_facts'] });
+  assert.deepEqual(b.waitlist_facts, { online_form: true, has_fee: true, fee_due_days: 3, respond_days: 2, max_passes: 1 });
+  assert.doesNotMatch(JSON.stringify(b.waitlist_facts), /250/, 'never the amount');
+  assert.ok(b.steps.length && b.payment, 'the worded steps and How to pay still go');
+  const offline = waitlistFacts({ ...K, waitlist_config: { online: false, online_form: true } });
+  assert.deepEqual(offline, { online_form: false, has_fee: false, fee_due_days: null, respond_days: 3, max_passes: 2 }, 'applications online only while her list is; defaults for what she has not set');
+  assert.equal(waitlistFacts(K), null, 'before her waitlist is set up');
+  assert.equal('waitlist_facts' in buildSiteBundle({ kennel: K, today: TODAY, bundleId: 'bundle-0005', sections: ['waitlist_facts'] }), false);
+});
+
+test('bundleChanges: a litter status change is named once, a pup disposition rides its status line', () => {
+  const dogs = [dog('willow'), { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'available' }];
+  const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', nickname: 'Spring', show_on_website: true, whelp_date: '2026-10-01' };
+  const sections = ['pup_disposition', 'litter_status'];
+  const a = build({ dogs, litters: [litter], sections });
+  const b = build({ dogs: [dogs[0], { ...dogs[1], disposition: 'placed' }], litters: [{ ...litter, status: 'weaning' }], sections });
+  assert.deepEqual(bundleChanges(a, b), ['Spring: status changed', 'Fern: Available → Spoken for']);
 });
 
 test('heat_id: a pairing, and its litter, name the heat they use, for a Worker that takes it', () => {
