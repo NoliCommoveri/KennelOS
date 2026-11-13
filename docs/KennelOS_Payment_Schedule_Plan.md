@@ -1,171 +1,382 @@
 # KennelOS — Payment schedules on a sale (plan)
 
-> Not every program takes "a deposit now, the rest at pickup". Some want the rest earlier
-> when a pup is transported, part of it by a set age when the pup stays longer, or the price
-> by one date and boarding at pickup. This plan gives every sale a **payment schedule**: one
-> or more due dates, each for some or all of the sale's charges. It also gives every sale a
-> list of **payments received**, and works out what's owed by each date from the two. Those
-> figures are used **everywhere money is shown**: contracts, invoices, receipts, the family's
-> status page, Companion, and every message. A sale with no schedule works exactly as it does
-> today.
+> Not every program takes "a deposit now, the rest at pickup". A sale can now have a
+> **payment schedule**: one or more due dates, each for some or all of its charges, as a
+> percent or a dollar amount. It also keeps a list of **payments received**. One calculation
+> works out what's paid, what's owed by each date and what's left, and **every place money is
+> shown uses it**: the Sale and applicant pages, invoices and receipts (generator and
+> applicant page), contracts, the family's status page, Companion, messages, Financials and
+> Today. A sale with no schedule works exactly as it does today. The scheduler is general:
+> the app ships no kennel-specific names or schedules.
+
+---
 
 ## 1. Where things are now
 
 - **Sale money:** `price`, `deposit_amount` / `deposit_date`, one `balance_due_date`, one
-  `balance_paid_date` (the whole balance, all or nothing), `transport_fee`, deferred boarding
-  (`deferred_boarding_amount` × count), `extra_charges[]` (guide §21.2).
-- **Extras can be paid in steps** (`extra_charges[].payments`, Family Requests plan §3.1):
-  each step is a percent of *that extra*, with its own due rule and paid date.
-- **A sale can't take part payments toward the price.** The nearest thing is a waitlist
-  family's credits for funds already received (`WaitlistEntry.received_credits`,
-  `data/receivedCredits.js`). `allocateCredits` spreads them oldest first over fee →
-  deposit → price → transport, boarding, extras. Credits are Pro only, waitlist only.
-- Income (`incomeView.saleComponents`) dates every unpaid part to `balance_due_date`. The
-  invoice prefills one Due by. Contracts have one `balanceDue` and one `transportDueDate`.
+  `balance_paid_date` (all or nothing), `transport_fee`, deferred boarding, `extra_charges[]`.
+- **Extras can be paid in steps** (`extra_charges[].payments`): percents of that extra, each
+  with its own due rule and paid date.
+- **A sale can't take part payments toward the price.** Waitlist credits for funds received
+  (`WaitlistEntry.received_credits`, `allocateCredits`) are the nearest thing.
+- **Generator:** picks **one record** (a sale, a stud service or a fee). So the application
+  fee can never go on the same document as the deposit or the payments.
+- **Bugs this plan fixes (found in the code):**
+  - **A receipt for a paid deposit comes out $0** in Full mode. A receipt prints "line total −
+    already collected", and a paid line is pre-filled as fully collected
+    (`invoiceDoc.js`, receipt branch). Only Partial lets her type the real amount.
+  - **The deposit receipt disappears on the applicant page.** With the application fee
+    credited toward the deposit, the deposit line is deposit − fee. At $0 or below it's
+    skipped (`base <= 0 → continue`). The applicant page's Documents card always uses the
+    default document, with no Partial option, so the deposit never shows.
 
 ## 2. What a schedule has to handle
-
-Patterns breeders use, all of which one schedule must be able to express:
 
 | Pattern | As a schedule |
 |---|---|
 | Everything at pickup (today's default) | One due date: everything, at pickup. |
-| Everything by an age when the pup is transported | One due date: everything, when the pup is 7 weeks old. |
-| A percent of some charges by an age, the rest at pickup (a longer stay) | 50% of the price plus that extra, at 8 weeks. Then everything, at pickup. |
-| The price by an age, a fee that's still adding up at pickup (boarding by the day) | The price, transport and extras, at 9 weeks. Then everything, at pickup. |
-| Families may pay any amount early | Payments are amounts on dates, counted toward every due date still ahead. |
-| A date she agrees to move | She edits the due date on the sale. |
+| Everything by an age (e.g. a transported pup) | One due date: everything, at 7 weeks. |
+| A percent of some charges by an age, the rest at pickup (a longer stay) | 50% of the price plus that extra, at 8 weeks; then everything, at pickup. |
+| The price by an age, a fee still adding up at pickup (boarding by the day) | Price, transport and extras at 9 weeks; then everything, at pickup. |
+| A dollar payment by a date | $500 on Dec 1; then everything, at pickup. |
+| Families pay any amount early | Payments are amounts on dates, counted toward every due date ahead. |
+| A date she agrees to move | She edits the due date. |
+| Extras on their own dates, outside any schedule (e.g. photo packages) | The extra's own steps, untouched by the schedule. |
 
-So:
-1. A due date is a **cumulative target**: by this date, at least this much of these charges,
-   counting everything paid so far (deposit included). A family who paid early owes less,
-   or nothing, at the next date.
-2. A target can cover **some of the charges**, not just all of them.
-3. Payments are **amounts on dates**, not "step 2 paid".
-4. The last target is always **everything**, so nothing is left without a due date.
+---
 
-## 3. The model
+## 3. Data
 
-### 3.1 The schedule: `Sale.payment_schedule`
+No new tables or indexes, so no `db.version` block. Every field below is a new plain field,
+optional, read as "not set" from older backups.
 
-`[{ id, label?, due, n?, due_date?, covers, percent }]`, kept in date order.
-- `due` (vocab `SCHEDULE_DUE`): `at_weeks` (the pup is n weeks old, dated from its birth
-  date), `on_date` (a date she types), `before_pickup` (n days before the pickup date, read
-  live), `at_pickup` (read live). A live one is dated the way `extraCharges.stepDueDate` dates
-  steps today. A target whose date can't be known yet shows "Date not known yet".
-- `due_date` set on any target is the date, whatever its rule: that's how she enters a
-  negotiated date.
-- `covers`: what counts toward this target, any of `price`, `transport`, `boarding`, `extras`
-  (every extra), or single extras by id (`extra:<id>`). `all` = everything on the sale,
-  including charges added later.
-- `percent`: of what it covers (100 = all of it).
-- **Owed by a target** = max(0, percent × its covered total − everything paid so far).
-  Because targets are cumulative, a later one never asks again for money an earlier one took.
-- The last target must cover `all` at 100%. Saving adds one (at pickup) if it's missing.
-- **No schedule stored = today's behavior:** one target, everything, due on
-  `balance_due_date`, else at pickup. Every existing sale reads exactly as it does now.
-- `balance_due_date` stays and mirrors the last target's date, so code and backups that read
-  it keep working.
+### 3.1 `Sale.payment_schedule`: the due dates
 
-### 3.2 Payments received: `Sale.payments`
+```
+[{ id, label?,
+   due: 'at_weeks' | 'on_date' | 'before_pickup' | 'at_pickup',
+   n?,             // weeks old (at_weeks) or days before pickup (before_pickup)
+   due_date?,      // set = this is the date (typed, or a renegotiated one)
+   covers: ['all'] | ['price','transport','boarding','extras','extra:<id>', …],
+   percent?, basis?: 'total' | 'remaining',             // with percent
+   amount?,  prior_funds?: 'count' | 'dont_count' }]    // with amount; exactly one of percent / amount
+```
 
-`[{ id, amount, date, method?, account_id?, reference?, note? }]`: money toward the sale
-beyond the deposit, recorded when it comes in (the Sale page, an invoice marked paid, a
-Stripe payment through `integrationEvents`, Kels).
-- The deposit keeps its own fields. Nothing is renamed or moved.
+- **Dates recalculate** from the pup's birth date and pickup date until she types one.
+  Typing a date sets `due_date`, and that date wins from then on.
+- **Four kinds of due date**, each set on its own row in the editor:
+
+  | Kind | Means | Earlier money counts toward it? |
+  |---|---|---|
+  | **Percent of total** (`basis: 'total'`) | At least X% of what it covers, paid in total by this date | Yes: everything paid so far |
+  | **Percent of remaining** (`basis: 'remaining'`) | A new payment of X% of what's still left of what it covers, after the earlier due dates | No |
+  | **Amount, earlier money counts** (`prior_funds: 'count'`) | A payment of $X on top of the earlier due dates; anything paid early beyond those covers it | Yes |
+  | **Amount, earlier money doesn't count** (`prior_funds: 'dont_count'`) | A payment of $X that only money received for it can cover | No |
+
+- **How it's worked out:** money is filled into the due dates in order, oldest money first.
+  - A "counts" due date takes any money, including money paid early.
+  - A "doesn't count" due date (percent of remaining, or an amount set that way) never takes
+    **earlier money**:
+    - the application fee received (credited toward the sale),
+    - the deposit,
+    - credits for funds received: the part left over after covering the fee and deposit,
+      or the whole credit when it isn't covering those.
+
+    Earlier money skips it and goes to the next due date that can take it, and finally to
+    the last. Only **payments received** (Record a payment, an invoice marked paid, a Stripe
+    payment) fill a "doesn't count" due date, including any part of an earlier payment
+    beyond what the earlier due dates asked for.
+  - "Remaining" is measured against what the earlier due dates asked for, not against what
+    happened to be paid, so the amount doesn't move when a family pays early.
+- **Owed by a due date** = what it asks for − the money it has taken. "Money" means the
+  deposit, payments received, credits used and application fees credited toward the sale,
+  each on its own date.
+- **`all`** = every charge on the sale except extras on their own dates (§3.3), including
+  charges added later.
+- **The last due date always covers `all` at 100%.** The editor locks it. Saving adds one at
+  pickup if it's missing.
+- **No schedule stored** = one due date, `all`, 100%, on `balance_due_date` (else at
+  pickup). That's exactly today's behavior.
+- `balance_due_date` stays and mirrors the last due date, so existing readers keep working.
+
+### 3.2 `Sale.payments`: payments received
+
+```
+[{ id, amount, date, method?, account_id?, reference?, note?, toward? }]
+```
+
+- Money beyond the deposit. The deposit keeps its own fields.
+- **`toward`:** blank = the schedule, the normal case. `extra:<id>:<step id>` = one of an
+  own-dated extra's steps, which also sets that step's `paid_date` as today.
+- **Which charge a payment pays** is worked out, never stored: oldest first over price →
+  boarding → extras → **transport, always last**. Transport is the last step of the handoff,
+  and it's collected then even when other fees were due earlier. Credits for funds received
+  use the same allocator, so every surface agrees.
 - `balance_paid_date` still means "paid in full". It's set when payments cover everything.
-  She can still set it by hand, as now: it then covers whatever is left.
-- **Which charge a payment pays** is worked out, never stored, oldest first over price →
-  transport → boarding → extras. One allocator (`data/paymentSchedule.js`) serves payments
-  and the waitlist's credits for funds received, so income, invoices, the family's page and
-  contracts agree.
-- **Extras with their own steps (D2):** an extra that a target names in `covers` is paid
-  through the schedule, and its own steps aren't copied onto the sale. An extra that no
-  target names except through `all` keeps its own steps, as today.
+  Set by hand, it still covers whatever is left, as today.
+- `account_id` → Account: added to `referenceRegistry.js`.
 
-### 3.3 Saved schedules (optional): `Kennel.payment_schedules[]`
+### 3.3 Extras on their own dates
 
-`[{ id, name, steps }]`: schedules she names and saves herself, each step a target without
-a date. Choosing one on a sale copies its steps there (dated where they can be), so changing
-a saved schedule never rewrites an old sale, the same way the price list works.
-`Kennel.default_payment_schedule_id` (optional) is what a new sale starts with. With none
-saved, a new sale starts with no schedule (today's behavior). The app ships no saved
-schedules and no names of its own.
+- **`own_due_dates: true`** on a price-list extra (`Kennel.extra_charge_list[]`) and on a
+  group (`Kennel.extra_charge_groups[]`, the default for its extras). Copied onto the sale's
+  charge when it's added.
+- An own-dated extra is **never part of the schedule**: not in `all`, and it can't be ticked in
+  a due date's covers. It keeps its own steps. With no steps, it's due with the final payment
+  but shown as its own line.
+- **An extra a due date names** (`extra:<id>`) is paid through the schedule, and its own steps
+  aren't copied onto the sale.
+- **A sale with no schedule:** every extra keeps its own steps, exactly as today.
 
-### 3.4 When fees are added to a sale (D3)
+### 3.4 Kennel
 
-Adding a transport fee, boarding or an extra to a sale that has a schedule with more than
-one target asks:
+- `payment_schedules: [{ id, name, steps }]`: her saved schedules. The steps have the same
+  shape, without dates. Choosing one copies it onto the sale, like the price list.
+- `default_payment_schedule_id`: what a new sale starts with. Unset = today's behavior.
+- `final_payment_methods`: text, e.g. "Cash or Zelle only". Printed on anything for the
+  final payment. Earlier payments follow her regular payment instructions.
 
-> Your current payment schedule is: 50% of price and *Extra name* by Dec 4; everything at
-> pickup. Do you need to make any adjustments to schedule the new fees?
-> **Adjust the schedule** · **Keep it**
+### 3.5 Privacy and sync
 
-**Keep it** leaves the schedule alone, so the new fee falls under the targets that cover
-`all` (at least the last one). **Adjust the schedule** opens the schedule editor. Nothing is
-ever changed without her. A sale with no schedule, or a one-target schedule, isn't asked:
-the new fee is simply due with everything else.
+- **Private (never cloud):** `payment_schedule`, `payments`, `payment_schedules`,
+  `final_payment_methods`, like `price` and `extra_charges`.
+- **`own_due_dates`** sits inside the price list, which is already private.
+- No change to `cloudFields.js`.
 
-## 4. What changes, surface by surface
+### 3.6 Editions
+
+All editions, Lite included. The schedule lives in the shared core, with no edition checks.
+
+---
+
+## 4. The one calculation: `data/paymentSchedule.js` (pure)
+
+```
+paymentStatement(sale, { birthDate, pickupDate, feeCredit, credits, today }) →
+{ charges:   [{ key, label, amount, ownDates }],
+  total, paid, remaining,
+  received:  [{ kind: 'fee'|'deposit'|'payment'|'credit', id, date, amount, method?,
+                label, pays: [{ key, amount }] }],
+  dueDates:  [{ id, date|null, label, covers, coveredTotal, threshold, owed,
+                status: 'met'|'upcoming'|'due_soon'|'not_received'|'no_date' }],
+  next:      { id, date, owed, label, isFinal } | null,
+  ownDated:  [{ chargeKey, steps: [{ id, amount, date, paid_date? }] }] }
+```
+
+- Every surface reads this and nothing else: no screen or message does its own sum.
+- **Labels:** a line paid by a credit keeps its own name with "(credited)" after it, e.g.
+  "Deposit (credited)", "Application fee (credited)".
+- **Text helpers in the same module:**
+  - `scheduleSummary(statement)`: "$1,150 by Dec 4 (50% of price and Extra); the rest at
+    pickup". Used by the fee-added prompt and messages.
+  - `nextPaymentText(statement)`: the next due date and its amount.
+- **`incomeView.saleComponents` calls it:**
+  - Paid money is earned on each payment's date.
+  - The unpaid part of each charge is anticipated on the date of the first due date that
+    needs it.
+  - Processing fees follow, as now.
+
+---
+
+## 5. Surfaces
+
+### 5.1 Shared UI: `assets/paymentScheduleUI.js`
+
+| Piece | What it does |
+|---|---|
+| **Schedule card** | Each due date: date, what it covers, its kind, owed now, a status badge (Met / Coming up / Due soon / Not received / Date not known yet). Then Payments received, Remaining, Next payment. Own-dated extras below, with their steps. |
+| **Schedule editor** (modal) | One row per due date: **When** (an age · a date · days before pickup · at pickup), **Covers** (tick chips, own-dated extras left out), **Percent of total / Percent of remaining / Amount** (an amount with **Earlier money can cover it** on or off). Each row previews live "payment $X · $Y paid by then" and its date. Add / remove a row; **Use a saved schedule**; the last row locked to Everything. |
+| **Record a payment** (modal) | Amount (pre-filled with the next amount owed), date (today), method, account, reference, note, and **Toward** (the schedule, or an own-dated extra's step). |
+| **Fee-added prompt** | **Every time** a transport fee, boarding or an extra is added to a sale, schedule or not. The most common case is a sale with everything due at pickup, where the new fee is what makes a schedule necessary. "Your current payment schedule is: *summary* (e.g. everything due at pickup, Dec 20). Do you need to make any adjustments to schedule the new fees?" **Adjust the schedule** / **Keep it**. An own-dated extra says it's paid on its own dates. Never changes anything by itself. |
+
+### 5.2 Where the pieces appear
 
 | Surface | Change |
 |---|---|
-| Sale page | A **Payment schedule** card: each target with its date, what it covers, owed now, and Met, Coming up or Not received. **Payments received** rows (amount, date, method, account) and **+ Record a payment**. Edit the schedule: add, remove or change a target, change a date, choose a saved schedule. |
-| Kennel page | **Saved payment schedules**: name, targets, the default. |
-| Income (`incomeView`) | Paid money is earned on each payment's date, split over charges by the allocator. The unpaid rest of each charge is anticipated **on the date of the first target that needs it**. Processing fees follow, as now. |
-| Money report / Financials | Due by per target. "No due date" only for a target that can't be dated yet. |
-| Invoice | Default Due by per line from the schedule. **Invoice the next payment:** one line for what's owed by the next target ("Due by Dec 4: $1,150, after $500 paid"). |
-| Receipt | Prints the payment it's for, everything paid so far, and **what's still owed and by when**: the next target's date and amount, then the rest. A receipt for a payment that meets a target says it's met. |
-| Messages (`depositRequest`, `paymentLinks` / `stripeLinks`, `assets/paymentRequestUI.js`, `pickToSend`, waitlist-entry texts, `sideSaleUI`, Kels's go-home messages, `waitlistEmails` / outbox) | Every message that states money takes its figures from the schedule: the deposit message says what follows and when; a payment request asks for the next target's amount by its date; a pickup message states what's still owed at pickup. No message does its own sum. |
-| Stripe payment link | A link can be for the next payment, and the payment comes back as a `payments` row. |
-| Contracts (`contractForms`) | New placeholders: total of all charges, payments received so far, and each target's date and amount by its place (`[Payment 1 Due Date]`, `[Payment 1 Amount]`, …, `[Final Payment Due]`). |
-| Family's status page / portal feed | Their next due date and amount, what's paid, and what's left. This is Waitlist Fixes step 5 ("money a family is shown"), so the two are built together. |
-| Companion | Same as the family's page. |
-| Today nudges | `payment-due`: from 7 days before a target's date until it's met. `payment-missed`: the date has passed and it isn't met. "A scheduled payment was not marked received: *Family*, $X due Dec 4." → **Open sale**. On the sale she records the payment, enters a new due date, or cancels. Replaces the balance part of today's go-home nudges. |
-| Kels (Pups are going home, Review my waitlist) | Ask about the next payment, not "the balance". |
-| CSV import / export | Not carried (like extra charges). The JSON backup carries the new fields. |
-| Sync | `payment_schedule`, `payments` and `Kennel.payment_schedules` are **private** (D5). |
+| **Applicant (waitlist entry) page**, her main path | The schedule card, editor and Record a payment, for the sale they're placed with or a pick waiting on its deposit. The fee-added prompt fires here when she approves an extra, a transport fee or a pickup with boarding. |
+| **Sale page** | Same card, editor and Record a payment. |
+| **Kennel page** | **Saved payment schedules** (the editor without dates), the default, and the final-payment methods. Price list **Details**: "Paid on its own dates, never on the sale's schedule" for each extra and group. |
+| **Financials / money report / receivables** | One row per unpaid due date, with its own Due by. "No due date" only for a due date that can't be dated yet. |
+| **Today** | `payment-due`: from 7 days before a due date until it's met. `payment-missed`: "A scheduled payment was not marked received: *Family*, $X due Dec 4." → **Open sale**. On the sale she records the payment, types a new date, or cancels. No back-out suggestion. Replaces the balance part of today's go-home nudges. |
+| **Kels** (Pups are going home, Review my waitlist) | Asks about the next payment, not "the balance". |
 
-## 5. Rules that keep it safe
+---
 
-- **Additive only:** new plain fields on Sale and Kennel. No new table, no index, no
-  `db.version` block. Older backups read as no schedule and no payments, which is today's
+## 6. Invoices and receipts
+
+### 6.1 The generator works per family, not per record
+
+- **Pick a family**, or a stud service, which stays its own kind. It lists everything for
+  that family across records.
+- **Charges:** application fee, deposit, purchase price, transport, boarding, each extra or
+  extra step.
+- **Received:** the fee, the deposit, each payment, credits used.
+- **Invoice** = charges ticked.
+  - Each line defaults to what's still owed on it.
+  - Lines are grouped by due date.
+  - A typed partial amount is still allowed.
+  - **Next payment** ticks exactly what's owed by the next due date.
+  - Ends with the account summary: total, paid to date, this invoice, still owed after it.
+- **Receipt** = money received ticked: any mix of fee, deposit, payments and credits.
+  - Each prints its own amount, date, method and what it paid toward. A credit prints as the
+    line it covered, with "(credited)".
+  - Ends with the account summary.
+- **A receipt can only show recorded money.** No Full/Partial for receipts. The generator has
+  **Record a payment** inline, so new money is recorded first, then receipted.
+- **Final-payment methods** print on an invoice for the final payment, and on anything for it.
+- **Number and notes:** one number for the whole document, built as today (default
+  `INV-/RCT-<date>-<id>`, or typed). A typed number and notes are saved on the sale, or on the
+  waitlist entry when there's no sale yet. That's today's rule, extended to a document that
+  covers both.
+
+### 6.2 The applicant page's Documents card
+
+One invoice and one receipt per charge, with no setup:
+- Application fee invoice / receipt.
+- Deposit invoice / receipt. It always shows, with "(credited)" when credits or the fee
+  covered it.
+- A receipt for each payment received.
+- An invoice for the next payment.
+- **Make a combined invoice or receipt** → the generator, with that family picked.
+
+### 6.3 Testing: every combination
+
+One generated test crosses:
+- **Fee credit:** none · toward the balance · toward the deposit, less than / equal to / more
+  than the deposit.
+- **Credits for funds received:** none · less than the deposit · covering the deposit and
+  part of the price · more than everything.
+- **Deposit:** unpaid · paid · carried over from a lost pup.
+- **Payments:** none · one · several · an overpayment.
+- **Schedule:** none · one due date · several; percent · dollar · mixed; covering all · some
+  charges.
+- **Extras:** none · in the schedule · own-dated with steps · own-dated without steps; one
+  step paid.
+- **Other charges:** transport · boarding · a fee charged back.
+- **Status:** deposit pending · deposit paid · paid in full · delivered · cancelled · lost.
+
+**Checked on every combination:**
+- A receipt's lines equal exactly the money ticked. Each line is never $0 and never missing.
+- The receipts for every payment add up to paid to date.
+- Paid + remaining = total. Each due date's owed = what it asks for − the money it took.
+- Money received before a "doesn't count" due date never reduces it.
+- Transport is always the last charge paid.
+- The generator's default document equals the applicant page's documents.
+- The invoice, contract fields, family page, Companion and messages show the statement's
+  numbers.
+
+**Named regression tests:** the deposit receipt at $0, and the deposit receipt missing from
+the applicant page.
+
+---
+
+## 7. Everywhere else money is shown
+
+| Surface | Change |
+|---|---|
+| **Family's status page / portal feed** | A Payments card: the due dates as a short timeline (met / next / later), what's paid (with "(credited)" where it applies) and what's left. Built with Waitlist Fixes step 5 ("money a family is shown"). |
+| **Companion** | Same as the family's page. |
+| **Messages** (deposit request, payment-link and payment-request texts, pick and side-sale texts, waitlist emails / outbox, pickup and go-home messages, Kels's messages) | Amounts and dates from the statement. A payment request asks for the next amount by its date; the deposit message says what follows and when; a pickup message states what's owed at pickup plus the final-payment methods. |
+| **Stripe payment links** | A link can be for the next payment. The payment comes back as a `payments` row through `integrationEvents`. |
+
+---
+
+## 8. Contracts
+
+### 8.1 Prefills: 8 new ones, shared by every sale contract type
+
+| Field | Fills |
+|---|---|
+| `totalCharges` | Everything on the sale |
+| `paidToDate` | Everything paid: deposit, payments, credits used, application fees credited |
+| `payment1Amount` / `payment1Due` | First due date: **what's still owed by it**, after the deposit, credits and fees received (where that due date lets earlier money count); and its date |
+| `payment2Amount` / `payment2Due` | Second |
+| `finalPaymentAmount` / `finalPaymentDue` | The last (everything) |
+
+- **Existing fields that cover the rest:** `price`, `depositDue`, `extraPrice`, `boardingRate`,
+  `pickupDate`.
+- **Nothing is removed.** Templates already use the old names.
+
+### 8.2 Firma: only that template's type in the editor
+
+What Firma's docs show:
+- Templates have their own custom fields (`POST /templates/{id}/custom-fields`:
+  `field_label` up to 100, `field_name` up to 50; 409 on a duplicate name).
+- The embedded editor has **no option** to filter or group fields.
+- A workspace field's **label can be changed, its name can't**.
+
+Plan:
+1. **Relabel her existing workspace fields with a group prefix** ("Buyer · Email", "Pup ·
+   Microchip", "Sale · Deposit", "Payment · 1st due date"). Names don't change, so nothing
+   placed breaks. First relabel one, and check it still fills on a test send.
+2. **Test with her test API key** (free, watermarked), on a throwaway template with three
+   template fields:
+   - Does the editor show workspace fields beside template fields?
+   - What name does a placed template field carry on send?
+3. **Place fields → that template's own fields:** KennelOS adds that contract type's fields
+   (`fieldGroupsFor(type)`) to that template only, labelled by **contract type** ("Pet sale ·
+   Buyer's name").
+   - Two passes if a type has more than 40 (the Worker's outbound cap).
+   - The server matches placed fields whether they're workspace or template fields.
+4. **If workspace fields also show in the editor,** move existing templates over one at a
+   time, checking each still fills, before any workspace field is removed.
+5. **Editor display:** pass `autoFit` / `initialZoom` so it opens fitted to the page on a
+   phone.
+
+---
+
+## 9. Rules that keep it safe
+
+- **Additive only.** Older backups read as no schedule and no payments, which is today's
   behavior.
-- A schedule never moves money between sales and never cancels or ends a sale.
-- A released or lost sale keeps today's rules: what was paid is what was paid.
-- One pure module (`data/paymentSchedule.js`) does dating, covered totals, the allocator and
-  owed-by-target. Every surface calls it, so no screen does its own sums.
-- Shared core, edition-agnostic: the schedule and payments are in every edition. Saved
-  schedules on the Kennel page follow the same edition gate as the price list if one is
-  needed (to confirm when building).
+- **A schedule never moves money between sales,** and never cancels or ends a sale.
+- **Released and lost sales keep today's rules:** what was paid is what was paid.
+- **One statement function, one allocator.** Credits move onto the same allocator.
+- **Registries:** `syncRegistry.js` (all new fields private), `referenceRegistry.js`
+  (`payments[].account_id`).
+- **Not in CSV import/export,** like extra charges. The JSON backup carries everything.
 
-## 6. Decisions
+---
 
-- **D1. A payments list on the sale. Decided (2026-11-13):** yes (§3.2).
-- **D2. Extras with their own payment steps. Decided (2026-11-13):** the sale's schedule
-  wins for any extra it names. Other extras keep their own steps (§3.2).
-- **D3. How schedules reach a sale. Decided (2026-11-13):** a general scheduler with no
-  kennel-specific names. The app never switches a schedule on its own. When she adds a fee
-  to a sale with a schedule, it shows the current schedule and asks whether to adjust it
-  (§3.4).
-- **D4. A missed date. Decided (2026-11-13):** flagged on the sale and in Financials, plus
-  the `payment-missed` nudge ("A scheduled payment was not marked received") → Open sale.
-  It makes no suggestion to back out or cancel. She decides on the sale.
-- **D5. Privacy. Decided (2026-11-13):** private, like `extra_charges` and `price`.
-- **D6. Payment method at pickup.** Not enforced. A payment's method is recorded. An invoice
-  can already print the accepted methods per document. Open: whether a target should carry
-  its own accepted methods.
+## 10. Decisions (all decided with the owner, 2026-11-13)
 
-## 7. Build order
+| # | Decision |
+|---|---|
+| D1 | A payments list on the sale. |
+| D2 | The schedule wins for extras it names. Extras flagged `own_due_dates` stay outside it, on their own steps. No schedule = every extra keeps its own steps. |
+| D3 | General scheduler, no kennel-specific names, never switched by itself. Adding a fee shows the current schedule and asks whether to adjust it (D17). |
+| D4 | A missed date: flagged, plus "A scheduled payment was not marked received" → Open sale. No back-out suggestion. |
+| D5 | Private. |
+| D6 | The deposit stays separate. |
+| D7 | Age-based dates recalculate until she types one. |
+| D8 | Lite gets schedules. |
+| D9 | Accepted methods only on the final payment. Earlier ones follow her regular payment instructions. |
+| D10 | Four kinds per due date: percent of total (earlier money counts), percent of remaining (it doesn't), amount with earlier money counting, amount without. |
+| D11 | Contract payment amounts are what's still owed after the deposit, credits and application fees received. |
+| D12 | Credits show once used, labelled as what they covered, with "(credited)". |
+| D16 | Money pays price → boarding → extras → transport. Transport is always last. |
+| D18 | "Earlier money" = application fee received, deposit, and credits (what's left after covering those, or the whole credit). A "doesn't count" due date only takes payments recorded on the sale, including an earlier payment beyond what earlier due dates asked for. |
+| D19 | "Remaining" is measured against what earlier due dates asked for, so paying early doesn't shrink it. |
+| D17 | The fee-added prompt shows every time a transport fee, boarding or an extra is added, schedule or not. |
+| D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
+| D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |
+| D15 | Firma: group prefixes on workspace fields now. Per-template fields with type prefixes after the test-key check. |
 
-1. `data/paymentSchedule.js` (pure): dating, `covers` totals, the shared allocator (credits
-   move onto it), owed-by-target, "next payment". Tests first, with every §2 pattern as a
-   fixture, and a sale with no schedule giving today's numbers.
-2. Sale fields, the Sale page card and editor, Record a payment, the §3.4 prompt. Saved
-   schedules on the Kennel page.
-3. Income, money report, Financials, invoice and receipt, payment links, integration payments.
-4. Contract placeholders. The family page, portal feed and Companion (with Waitlist Fixes
-   step 5). Every message that states money (§4 Messages).
-5. Nudges, Kels.
-6. The guide (§4, §21, §24, §29, §32, §33), `syncRegistry.js`, `referenceRegistry.js`
-   (`payments[].account_id` → Account).
+---
+
+## 11. Build order
+
+1. **`data/paymentSchedule.js` + the combination test** (§6.3), tests first. Credits move onto
+   the shared allocator.
+2. **Sale and Kennel fields;** the schedule card, editor, Record a payment and fee-added
+   prompt on the **applicant page** and the Sale page; saved schedules and `own_due_dates` on
+   the Kennel page.
+3. **Income, Financials, money report, receivables.**
+4. **Invoices and receipts:** the per-family generator, the applicant page's Documents, the
+   two regression tests.
+5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
+6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
+   message**; Stripe payment links and integration payments.
+7. **Today nudges, Kels.**
+8. **Docs:** End-State guide (§4, §13, §21, §24, §29, §32, §33, §35), editions docs if Lite's
+   surface changes, BUILD_LOG.

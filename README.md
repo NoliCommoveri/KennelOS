@@ -48,7 +48,7 @@ backup, carries a program from Lite to Pro.
 | Sending dogs between breeders (Dog Cards, live updates) | `docs/KennelOS_Shared_Dogs_Plan.md` |
 | A review of the whole app, run over several sessions | `docs/KennelOS_Review_Plan.md` (findings in `docs/review/`) |
 | Fixing what the waitlist reviews found, with Pup selected, Already Reserved and family pages without the list (plan) | `docs/KennelOS_Waitlist_Fixes_Plan.md` |
-| Several due dates on a sale: payment schedules and payments received (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
+| Several due dates on a sale (payment schedules, payments received), and the invoices, receipts, contracts and family pages that use them (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
@@ -84,8 +84,9 @@ backup, carries a program from Lite to Pro.
     portal says only what's true); next is step 5 (money a family is shown). Five
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
-    each for some or all of its charges, and payments received. Planned, D1–D5 decided; next
-    is build step 1. Its money shown to families is built with Waitlist fixes step 5.
+    payments received, the per-family invoice/receipt generator and Firma fields per template.
+    Planned, every decision made; next is build step 1 (the calculation and its combination
+    test). Its money shown to families is built with Waitlist fixes step 5.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
