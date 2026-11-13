@@ -4429,7 +4429,10 @@ KennelPort Site Manager.
   registered_name, titles }` and, with `origin`, its `imported` / `import_country`.
   Ancestors go by name and titles only, pedigree-only dogs and dogs not hers included:
   never an owner, contact, kennel or date of birth. Import-descended isn't worked out
-  here; KennelPort does it from the ancestors. The worked-out values (a puppy's `status`, a
+  here; KennelPort does it from the ancestors. `waitlist_facts` (`waitlistFacts`), her
+  waitlist's settings as values once it's set up: `online_form` (only while her list is
+  online), `has_fee` (never the amount), `fee_due_days`, `respond_days`, `max_passes`
+  (null when not set), beside the worded `steps` and `payment`. The worked-out values (a puppy's `status`, a
   product's `transport`) still go beside them. `bundleChanges` names a litter's status
   change; a puppy's disposition rides its status line.
 - **`data/kennelportApi.js`** is the only module that talks to KennelPort:

@@ -1,6 +1,6 @@
 # Website contract plan: sending raw data to KennelPort
 
-A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Steps 1 to 3 are
+A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). All four steps are
 built (below). This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
 build order, is KennelPort's `docs/plans/kennelos-contract.md`. What is built today is
 End-State guide §35.
@@ -114,6 +114,10 @@ starts at KennelPort's step 4:
    key named `path` (KennelPort's plan calls it "role path"); its `titles` follow the
    dog's (`titles_detail` or not). At most 30 ancestors (four full generations).
 4. **C9:** waitlist facts.
+   **Built 2026-11-13** (`waitlistFacts`): a top-level `waitlist_facts` object, sent once
+   her waitlist is set up. `online_form` is true only while her list is online, as the
+   worded steps read it. Not sent: `open_days`, so a template can't yet say "business
+   days" where she counts only the days she does business (the worded steps don't either).
 
 Each batch: `node --check`, `node --test`, `node build/assemble.mjs`; a new app file goes
 in `PRECACHE_URLS`; ask before the SW cache bump.

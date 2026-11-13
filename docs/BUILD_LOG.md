@@ -4150,3 +4150,15 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide Dog entity and §35; plan step 3 (Built); README Status.
 - **Service worker:** `data/pedigreeWalk.js` added to `PRECACHE_URLS`. `CACHE_NAME` v133
   (owner asked), covering steps 1 to 3.
+
+## 2026-11-13 — Website contract step 4: waitlist facts
+
+- **`siteExport.js`:** the `waitlist_facts` section (`waitlistFacts`, `WAITLIST_FACT_KEYS`):
+  `{ online_form, has_fee, fee_due_days, respond_days, max_passes }` once her waitlist is
+  set up; never the fee amount. `steps` and `payment` still go. `bundleChanges` names it
+  Waitlist details.
+- **Not sent:** `open_days` (deadlines count only her business days); noted in the plan.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,877 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 4 (Built); README Status.
+- **Service worker:** no new files; rides v133.

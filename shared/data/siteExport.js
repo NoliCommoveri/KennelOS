@@ -39,6 +39,8 @@
 //    only dogs and dogs that aren't hers included: never an owner, a contact, a
 //    kennel or a date of birth. Import-descended is KennelPort's to work out from
 //    the ancestors' `imported` (sent on each with both sections).
+//  - Her waitlist's settings as values (contract C9, waitlist_facts section), for
+//    the website's own wording: `steps` and `payment` still go beside them.
 //    The worked-out values they replace (a puppy's `status`, a product's
 //    `transport`) keep going until KennelPort has moved.
 import { titlesByDog } from './waitlistProjection.js';
@@ -80,7 +82,8 @@ export class SiteExportError extends Error {
 
 // --- the allow-lists ----------------------------------------------------------
 
-export const BUNDLE_KEYS = ['format', 'bundle_id', 'kennel_id', 'sent_at', 'waitlist_public_id', 'dogs', 'litters', 'pairings', 'heats', 'extras', 'products', 'steps', 'payment', 'partner_kennels'];
+export const BUNDLE_KEYS = ['format', 'bundle_id', 'kennel_id', 'sent_at', 'waitlist_public_id', 'dogs', 'litters', 'pairings', 'heats', 'extras', 'products', 'steps', 'payment', 'partner_kennels', 'waitlist_facts'];
+export const WAITLIST_FACT_KEYS = ['online_form', 'has_fee', 'fee_due_days', 'respond_days', 'max_passes'];
 export const PRODUCT_KEYS = ['id', 'name', 'link_url', 'code', 'code_note'];
 // With a Worker that takes the 'transport' section: whether it's a transport
 // service (for her Getting your pup home page) and its website (shown under its badge).
@@ -456,6 +459,25 @@ export function waitlistSteps(kennel) {
   return steps.map((s) => assertOnlyKeys({ id: s.id, heading: line(s.heading, 80), body: para(s.body, 400) }, STEP_KEYS, 'step'));
 }
 
+// Her waitlist's settings as values (waitlist_facts section), the same ones
+// waitlistSteps words: whether she takes applications online (only while her list is
+// online), whether there's an application fee (never its amount: prices follow the
+// website's prices rule), the days to pay it after approval, the days to accept an
+// offer and send the deposit, and the passes before removal. A count she hasn't set
+// is null. null before her waitlist is set up.
+const count = (v) => (Number.isInteger(Number(v)) && Number(v) >= 1 && v !== '' && v != null ? Number(v) : null);
+export function waitlistFacts(kennel) {
+  if (!waitlistIsSetUp(kennel)) return null;
+  const c = waitlistConfig(kennel);
+  return assertOnlyKeys({
+    online_form: c.online === true && c.online_form === true,
+    has_fee: Number(c.fee_amount) > 0,
+    fee_due_days: count(c.fee_due_days),
+    respond_days: count(c.respond_days),
+    max_passes: count(c.max_passes)
+  }, WAITLIST_FACT_KEYS, 'waitlist facts');
+}
+
 // How to pay the application fee (KennelPort plan 3.9), from her waitlist's
 // payment instructions and the fee account's Pay link: the same words families
 // read on their status pages. null when there's nothing to say. Instructions
@@ -665,7 +687,7 @@ export function bundleChanges(before = {}, after = {}) {
   for (const [id, h] of h1) if (!h0.has(id)) out.push(`Coming up: ${h.dam_name || 'a girl'}'s heat`);
   for (const [id, h] of h0) if (!h1.has(id)) out.push(`${h.dam_name || 'A girl'}'s heat: off Coming up`);
 
-  const other = { extras: 'Extras', products: 'Recommended products', partner_kennels: 'Partner kennels', steps: 'How it works steps', payment: 'How to pay', waitlist_public_id: 'Your waitlist link' };
+  const other = { extras: 'Extras', products: 'Recommended products', partner_kennels: 'Partner kennels', steps: 'How it works steps', payment: 'How to pay', waitlist_facts: 'Waitlist details', waitlist_public_id: 'Your waitlist link' };
   for (const [k, label] of Object.entries(other)) if (!same(before[k], after[k])) out.push(`${label} changed`);
   return out;
 }
@@ -723,6 +745,7 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
 
   const steps = waitlistSteps(kennel);
   const fee = applicationFeePay(kennel, accounts);
+  const facts = has(sections, 'waitlist_facts') ? waitlistFacts(kennel) : null;
   const bundle = {
     format: SITE_BUNDLE_FORMAT,
     bundle_id: bundleId,
@@ -736,7 +759,8 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
     ...(products ? { products } : {}),
     ...(partnerKennels ? { partner_kennels: partnerKennels } : {}),
     ...(steps.length ? { steps } : {}),
-    ...(fee ? { payment: assertOnlyKeys({ application_fee: fee }, PAYMENT_KEYS, 'payment') } : {})
+    ...(fee ? { payment: assertOnlyKeys({ application_fee: fee }, PAYMENT_KEYS, 'payment') } : {}),
+    ...(facts ? { waitlist_facts: facts } : {})
   };
   return assertOnlyKeys(bundle, BUNDLE_KEYS, 'bundle');
 }

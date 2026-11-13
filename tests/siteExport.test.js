@@ -7,7 +7,7 @@ import { test, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
+  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, waitlistFacts, line,
   BUNDLE_KEYS, DOG_KEYS, LITTER_KEYS, PUPPY_KEYS, SiteExportError, SITE_MAX
 } from '../shared/data/siteExport.js';
 
@@ -600,6 +600,19 @@ test('origin and lineage: imported facts, parents and ancestors by name only, fo
   assert.deepEqual(both.ancestors[1].imported, true);
   assert.equal(both.ancestors[1].import_country, null);
   assert.equal(both.ancestors[2].imported, false);
+});
+
+test('waitlist_facts: her waitlist settings as values, for a Worker that takes them; steps and payment still go', () => {
+  const kennel = { ...K, waitlist_config: { fee_amount: 250, fee_due_days: 3, respond_days: 2, max_passes: 1, online: true, online_form: true, payment_instructions: 'Venmo @ak' } };
+  assert.equal('waitlist_facts' in buildSiteBundle({ kennel, today: TODAY, bundleId: 'bundle-0004' }), false, 'an older Worker: never sent');
+  const b = buildSiteBundle({ kennel, today: TODAY, bundleId: 'bundle-0004', sections: ['waitlist_facts'] });
+  assert.deepEqual(b.waitlist_facts, { online_form: true, has_fee: true, fee_due_days: 3, respond_days: 2, max_passes: 1 });
+  assert.doesNotMatch(JSON.stringify(b.waitlist_facts), /250/, 'never the amount');
+  assert.ok(b.steps.length && b.payment, 'the worded steps and How to pay still go');
+  const offline = waitlistFacts({ ...K, waitlist_config: { online: false, online_form: true } });
+  assert.deepEqual(offline, { online_form: false, has_fee: false, fee_due_days: null, respond_days: 3, max_passes: 2 }, 'applications online only while her list is; defaults for what she has not set');
+  assert.equal(waitlistFacts(K), null, 'before her waitlist is set up');
+  assert.equal('waitlist_facts' in buildSiteBundle({ kennel: K, today: TODAY, bundleId: 'bundle-0005', sections: ['waitlist_facts'] }), false);
 });
 
 test('bundleChanges: a litter status change is named once, a pup disposition rides its status line', () => {
