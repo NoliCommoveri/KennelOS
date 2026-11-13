@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   paymentStatement, cleanSchedule, defaultSchedule, scheduleOf, dueDateOf, saleCharges, coveredTotal,
   allocateMoney, scheduleSummary, coversText, scheduleProblem, readSchedule, savedSchedules, readSavedSchedules,
-  scheduleFromSaved, newPayment, paymentsWith, addedFees, paidInFullOffer, finalDueDate
+  scheduleFromSaved, newPayment, paymentsWith, addedFees, paidInFullOffer, finalDueDate, chargePieces
 } from '../shared/data/paymentSchedule.js';
 import { creditsOf, feeCharge, CREDIT_USE_VALUES } from '../shared/data/receivedCredits.js';
 import { incomeLineItems } from '../shared/data/incomeView.js';
@@ -359,11 +359,31 @@ test('every combination: the statement always adds up', () => {
     // anything was left of it to send.
     if (st.deposit === null && !st.ended && s.deposit_amount > 0) assert.fail(`${at}: no deposit`);
 
+    // The pieces (charge × due date) hold exactly the statement's money and owed.
+    const pieces = chargePieces(st);
+    for (const pc of pieces) {
+      assert.ok(pc.amount > 0, `${at}: a $0 piece`);
+      assert.equal(pc.amount, Math.round((pc.owed + sum(pc.paid, (x) => x.amount)) * 100) / 100, at);
+      for (const x of pc.paid) assert.ok(x.amount > 0, at);
+    }
+    for (const [i, r] of st.received.entries()) {
+      const onSale = sum(r.pays.filter((p) => left.has(p.key)), (p) => p.amount);
+      assert.equal(sum(pieces.flatMap((pc) => pc.paid).filter((x) => x.ref === `${r.kind}:${r.id}`), (x) => x.amount), onSale, `${at}: money item ${i}`);
+    }
     if (st.ended) {
       assert.equal(st.remaining, 0, at);
       assert.deepEqual(st.dueDates, [], at);
+      assert.ok(pieces.every((pc) => pc.owed === 0), at);
       continue;
     }
+    for (const c of st.charges) assert.equal(sum(pieces.filter((pc) => pc.key === c.key), (pc) => pc.amount), c.amount, `${at}: ${c.key}`);
+    for (const d of st.dueDates) {
+      const mine = pieces.filter((pc) => pc.dueId === d.id);
+      assert.equal(sum(mine, (pc) => pc.amount), d.ask, `${at}: due ${d.id} ask`);
+      assert.equal(sum(mine, (pc) => pc.owed), d.owed, `${at}: due ${d.id} owed`);
+      assert.ok(mine.every((pc) => pc.dueDate === (d.date || null)), at);
+    }
+    if (st.deposit) assert.equal(sum(pieces.filter((pc) => pc.dueId === 'deposit'), (pc) => pc.owed), st.deposit.owed, at);
     assert.equal(Math.round((st.paid + st.remaining) * 100) / 100, st.total, at);
 
     // Every due date: owed = what it asks − what it took; the asks add up to everything.

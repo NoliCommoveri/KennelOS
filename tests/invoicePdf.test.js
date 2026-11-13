@@ -50,3 +50,14 @@ test('text the standard fonts can\'t draw is made safe', () => {
   assert.equal(pdfText('Zoë café'), 'Zoë café');
   assert.equal(pdfText('🐶 Rex'), '? Rex');
 });
+
+test('a family receipt draws its Received column and the account summary', async () => {
+  const JsPDF = await loadJsPdf();
+  const out = pdfString(renderInvoicePdf(model({
+    colLabel: 'Received',
+    rows: [{ label: 'Deposit (credited)', marker: '', due: '10/20/2026', amount: 300 }, { label: 'Deposit', marker: '', due: '10/21/2026 · Venmo', amount: 200 }],
+    totals: [{ label: 'Paid', amount: 200 }, { label: 'Credited', amount: 300 }, { label: 'Total', amount: 500, total: true }],
+    summary: [{ label: 'Total', amount: 2500 }, { label: 'Paid to date', amount: 500 }, { label: 'Still owed', amount: 2000 }]
+  }), JsPDF));
+  for (const s of ['RECEIVED', 'credited', '10/21/2026', 'ACCOUNT SUMMARY', 'Paid to date', 'Still owed']) assert.ok(out.includes(s), `missing "${s}"`);
+});

@@ -3885,3 +3885,47 @@ tick box per template; buyers get an emailed link.
 - **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
 - **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
   (owner asked, to merge steps 1–2), for this batch and step 1.
+
+## 2026-11-13 — Payment schedules, steps 3–4: Financials and invoices on the statement
+
+- **Owner decisions D25–D28** (plan §10): a family in the generator is a waitlist entry and
+  its one sale, or a sale no entry claims; credit-covered money isn't in Receivables
+  (anticipated in Financials until its due date; undated, earned once received / paid in
+  full); no per-line Due by edit; `paidOnSale` counts recorded payments now.
+- **Pieces:** `paymentSchedule.chargePieces(statement)` splits each charge by due date with
+  the money on it and what's owed; due dates keep `from` (which money filled them), the
+  deposit `asked`.
+- **Step 3 (income):** `incomeView.ledgerComponents` reads each sale's statement:
+  money earned on its own date (payments on theirs), what's owed anticipated on the due date
+  that needs it (`due`, `due_id`); a credit's share earned on the covered charge's due date,
+  never the credit's date (D21). `getIncomeRows` loads the statement's inputs once for all
+  sales (`statementOpts`, shared with `getSaleStatement`). Receivables: one row per sale
+  and due date, credited money left out, "For" lists what it's for. Financials' Anticipated
+  box: one row per due date with a Due by column.
+- **Fixed:** `paidOnSale` ignored recorded payments (the lost-pup carry-over and a
+  contract's balance due were short since step 2); found while testing, a kept extra with
+  nothing paid on a released sale would have dropped out of income.
+- **Changed on purpose:** a sale with a balance paid date and the deposit never marked
+  received now reads paid in full, deposit included (as its Payments card already did);
+  anticipated money without a balance due date is filed under the pickup date, not the
+  sale date.
+- **Step 4 (invoices and receipts):** `data/familyMoney.js` (new, Pro-only): the family's
+  account (fee and sale pieces, money, total / paid / owed, next), picks, document lines and
+  the applicant page's documents. `invoiceDoc` builds a family's documents (older `sale` /
+  `waitlist` links read as the family's) with the account summary, a Received column on
+  receipts, the final payment's methods (D9); the stud path unchanged. Generator per family:
+  lines grouped by due date with Next payment / Everything owed / Bill part of it; receipts
+  of recorded money with Record a payment. The family page's Documents: fee, deposit (always,
+  "(credited)"), each payment's receipt, the next payment's invoice, a combined one.
+  `WaitlistEntry.invoice_number` / `invoice_notes` (private) for a family with no sale.
+  Regression tests for the $0 deposit receipt and the missing deposit receipt.
+- **Not built (no build step):** plan §3.2a / D20. Flagged: Financials' Adjust modal can raise
+  a transport fee without the new-fees question (D17).
+- **Checked** in Chromium at phone width on the Demo build: Financials (Anticipated by due
+  date), Receivables, a family's Documents and their documents, the generator (invoice and
+  receipt). No console errors.
+- **Tests:** `tests/paymentScheduleIncome.test.js`, `tests/familyMoney.test.js` (new);
+  `paymentSchedule`, `paymentScheduleData`, `invoicePdf` added to. Full suite 1,824 passing;
+  editions build.
+- **Docs:** guide §4 aggregators, §21, §21.3, §24, §29, §31; plan D25–D28 and Modified notes.
+- **Service worker:** `data/familyMoney.js` in `PRECACHE_URLS` and `proPages.js`. `CACHE_NAME` v127 (owner asked, at the end of the batch).

@@ -359,8 +359,9 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   and offer share a kennel (§29).
 
 **Derived aggregators** (no table): `incomeView.js` (income rows per Sale / our stud's
-StudService component, earned vs anticipated; `incomeLineItems` feeds invoices, §21, §24)
-and `litterFinances.js` (per-litter P&L, §21).
+StudService component, earned vs anticipated, a sale's from its payment statement, §21,
+§21.3), `familyMoney.js` (a family's money for invoices and receipts, §24) and
+`litterFinances.js` (per-litter P&L, §21).
 
 ---
 
@@ -1246,11 +1247,22 @@ StudServices and (Pro) waitlist fees, and classifies each money component on eve
 Kennel scope applies to the source records here, so every money screen agrees; a
 `kennelId` argument overrides it for the kennel page. Expenses are scoped through their
 subject (`financials.js` `expenseInScope`).
-- **Sale:** deposit, balance (price − deposit), transport, deferred boarding (amount ×
-  count) and one `extra` component per extra charge (§21.2). A part is **earned** once its paid date is set or the status has passed it, else
-  **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
-  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
-  `paidOnSale()` reads what was paid regardless of status.
+- **Sale:** read from its payment statement (§21.3) by `ledgerComponents(sale, statement)`:
+  deposit, balance (price − deposit), transport, deferred boarding (amount × count) and one
+  `extra` component per extra charge or step (§21.2), each split by the money that paid it
+  and the due date it falls in (`chargePieces`). Money received is **earned** on its own
+  date (the deposit's date, each payment's, a step's paid date, the balance paid date for
+  "paid in full"; each else the sale's date). What's still owed is **anticipated** on the
+  due date that needs it, `due` that date ('' when it can't be known yet), `due_id` which
+  due date. Returned/cancelled keeps only what was paid (payments included). A **lost** sale
+  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29). Extras
+  kept after a family backed out stay owed on a released sale. `getIncomeRows` loads each
+  sale's statement as `getSaleStatement` does (one shared `statementOpts`), with everything
+  loaded once. A balance paid date with the deposit never marked received reads as paid in
+  full, the deposit included. `paidOnSale()` reads what was paid regardless of status, from
+  the statement (recorded payments count); `incomeLineItems`, `priceTable` and
+  `saleCreditCharges` still read whole lines (`saleComponents`), for payment requests and
+  contracts until plan steps 5–6.
 - **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
 - **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
   of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
@@ -1276,10 +1288,13 @@ subject (`financials.js` `expenseInScope`).
   card's deposit line and the "Choose <pup>?" dialog say what they'd send after it; and their
   deposit block uses it while a pick they sent waits for her device (no sale yet to work it
   out on). One helper does the sum (`depositAfterCredits` in `cloud/public/family/status.js`).
-- **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
-  of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
-  (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
-  ledger passes `received`; `incomeLineItems` keeps each line whole.
+- **A family's credits for funds already received** (Pro, §29 "Credits") are their money,
+  held, never income themselves (D21). The part of a charge a credit covers is anticipated
+  until that charge's due date (the deposit's: when it was asked for, else when marked
+  received; the rest: the due date the credit's money filled), then earned on that date.
+  One whose due date can't be known yet is earned once the deposit is received (the
+  deposit) or the sale is paid in full (the rest). Marked `credited`; Financials shows it
+  like any other line, and Receivables leaves it out. Leftover credit counts nowhere.
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
@@ -1373,9 +1388,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
 ### 21.3 Payment schedules and payments — `data/paymentSchedule.js`, `assets/paymentScheduleUI.js` (`docs/KennelOS_Payment_Schedule_Plan.md`)
 
 **Editions:** all. Saved schedules and the final-payment methods are on the Kennel page,
-which is Pro. Income, invoices, contracts, the family's page, Companion, messages and Today
-don't read schedules or payments yet (plan build steps 3–7); they still go by the deposit,
-`balance_due_date` and `balance_paid_date`.
+which is Pro. Financials, the money report, Receivables (§21, §31) and invoices and
+receipts (§24) read the statement. Contracts, payment requests, the family's page,
+Companion, messages and Today don't read schedules or payments yet (plan build steps 5–7);
+they still go by the deposit, `balance_due_date` and `balance_paid_date`.
 
 - **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
   percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
@@ -1404,7 +1420,14 @@ don't read schedules or payments yet (plan build steps 3–7); they still go by 
   earlier money has nowhere else to go. → `{ ended, hasSchedule, charges, total, paid,
   remaining, fee, received[], deposit, dueDates[], ownDated[], next }`; statuses met, due soon
   (7 days), coming up, not received, no date. Fee and credit lines label "<charge> (credited)".
-  A returned/cancelled/voided sale: what was paid stands, nothing owed.
+  A returned/cancelled/voided sale: what was paid stands, nothing owed. Each due date keeps
+  `from` (which money filled it), the deposit `asked` (when it was asked for).
+- **Pieces** (`chargePieces(statement)`): each charge split by due date (the deposit's
+  own, each schedule due date, an own-dated charge's own): its amount, the money on it
+  (`paid[]`, each with `ref` = `kind:id` and `credited`) and what's owed. Each money item's
+  pays (in charge order) are matched to the due dates it filled, and what's owed of each
+  charge to the due dates' owed, in order. Income (§21) and invoices and receipts (§24)
+  read these.
 - **Loading it:** `incomeView.getSaleStatement(sale | id)` gathers the birth date (else the
   litter's whelp date), the pickup date as contracts read it (`goHome.expectedPickupDate`),
   her open days, the credited application fee (with its received date), the family's credits
@@ -1443,11 +1466,14 @@ don't read schedules or payments yet (plan build steps 3–7); they still go by 
   per group.
 - **Registries:** all new fields private (`syncRegistry`); `payments[].account_id` guards an
   Account against delete (`referenceRegistry`: a `list[].key` scan).
-- **Tests:** `tests/paymentSchedule.test.js` (the patterns, the four kinds, transport last,
+- **Tests:** `tests/paymentScheduleIncome.test.js` (the ledger against before on every sale
+  without payments, credits or a schedule; payments; D21; released and lost sales; every
+  combination; `paidOnSale`; Receivables by due date), `tests/familyMoney.test.js` (§24),
+  `tests/paymentSchedule.test.js` (the patterns, the four kinds, transport last,
   labels, today's anticipated income unchanged without a schedule, every combination of fee
   credit, credits, deposit, payments, schedule, extras, transport/boarding and status, and the
-  editing helpers), `tests/paymentScheduleData.test.js` (the loader on the sample data, the
-  Account guard), `tests/extraCharges.test.js` (the own-dates rules).
+  editing helpers, the pieces adding up), `tests/paymentScheduleData.test.js` (the loader on
+  the sample data, Financials agreeing with it, the Account guard), `tests/extraCharges.test.js` (the own-dates rules).
 
 ---
 
@@ -1504,37 +1530,73 @@ omitted. Read-only, through the repos.
 **Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules
 are in `proPages.js`).
 
-`pages/invoice.html?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>` is a
-one-page invoice or receipt for one income record. **Nothing about an invoice is stored**
-except the fields the generator saves on the record (`invoice_number`, `invoice_notes`, and
-for receipts `payment_method`/`payment_reference`); everything is rebuilt on each view.
+`pages/invoice.html?source=family&entry=<id>|sale=<id>&doc=invoice|receipt&cfg=<json>` is a
+one-page invoice or receipt for one **family** (a waitlist entry and the sale it goes toward,
+or a sale no entry claims), and `?source=stud&id=<id>` one for a stud service of our stud.
+Older links `source=sale&id=` / `source=waitlist&id=` read as that sale's or that entry's
+family. **Nothing about a document is stored** except what the generator saves: a typed
+`invoice_number` and `invoice_notes` on the sale, else the waitlist entry (D14), and for
+receipts `payment_method` / `payment_reference` on the sale or stud service; everything is
+rebuilt on each view.
 
 - **One model, two renderers:** `assets/invoiceDoc.js` `buildInvoiceDoc()` decides all the
   text; `invoice.js` draws HTML and `assets/invoicePdf.js` draws a PDF with vendored jsPDF
   (`vendor/jspdf.umd.min.js`, loaded only when a PDF is made; `pdfText()` keeps text
-  Latin-1).
-- **Lines** come from `incomeView.incomeLineItems` (§21): Deposit, Remaining Purchase Price,
-  Transport Fee, Boarding Fee, each extra charge under its own name (§21.2), Stud Fee, or the
-  waitlist application fee. A line's `cfg` key is its component, or `extra:<id>`. Never `pick`, never
-  processing fees, and net of a credited waitlist fee.
-- **Per-line choices ride `cfg`:** `{ key, mode: 'full'|'partial', collected, dueDate? }`.
-  Partial prints the collected amount; Full prints the whole amount and treats `collected`
-  as already paid (an invoice subtracts it, a receipt prints the remaining balance).
-- **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
-  placement, read live unless she changed it; Deposit is "Immediately"). A sale's line
-  already paid (the ledger's earned: a deposit received, carried-over ones too, or lines
-  paid with the balance) prints "Paid" and starts as collected in full, in the default and
-  in the Financials generator, so the balance nets it out. Sale
-  disclaimers as footnotes, and accepted payment methods
-  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
-  **Receipt:** a Payment received box and a Paid stamp.
-- **Issuer:** the record's kennel, else the dog's, else the active, else the sole own kennel,
-  with its logo and the owner contact. Number defaults to `INV-/RCT-<yyyymmdd>-<id>`.
-- **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
-  importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
-  synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
-  `onClose` runs whenever the modal closes (Kels's Pups are going home waits on it).
-  A sale's invoice also has **Send payment link** (§32).
+  Latin-1). The middle column is `colLabel`: Due by (invoices), Received (a family's
+  receipts: date and method), none (a stud receipt). A family's documents end with an
+  **Account summary** (`summary`).
+- **A family's money** (`data/familyMoney.js`, Pro-only, pure but its loaders):
+  `familyAccount({ entry, statement, sale })` → `charges` (the entry's application fee, and
+  the sale's pieces, §21.3: each charge by due date, with the money on it and what's owed),
+  `money` (the fee received, the application fee credited toward the price, credits for
+  funds received used, the deposit, each payment, steps marked paid, paid in full; never
+  $0), `total`, `paid`, `owed`, `next`. The fee credited toward the price is the fee's money
+  again, so with the fee on the account it's counted once. `loadFamilyAccount({ entryId |
+  saleId })` loads it (the entry's sale: `creditSale`, else the sale it was placed with);
+  `listInvoiceFamilies()` lists the families in scope (entries with a fee or a sale, sales
+  no entry claims).
+- **Picks** (`resolvePick`): invoice `owed` | `all` | `sale` | `fee` | `deposit` | `next`
+  (exactly what's owed by the next due date); receipt `all` | `sale` | `fee` | `deposit` |
+  `money:<ref>`. A cfg is `{ v: 2, pick? , lines?: [{ ref, amount? }], money?: [{ ref, key? }],
+  number, notes, methods?, payMethod?, payReference? }`; without one, the source's default
+  (`defaultPick`: a sale's whole invoice or all its money, a waitlist link's fee).
+- **Invoice** (`documentLines`): each line ticked prints its whole amount with its Due by
+  (the schedule's date; "Paid", "Immediately" for an undated deposit, "Date not set yet"),
+  or a typed partial amount "(partial)"; then Subtotal, **Less application fee credit**,
+  **Less credit for funds already received**, **Less amount already collected**, and
+  **Balance** (what's owed on those lines). Footnotes: the deposit's * and, on a sale
+  without a schedule, the due-date note **. Payment: her accepted methods
+  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document); an invoice for
+  the final payment only prints the kennel's `final_payment_methods` instead, and one that
+  includes it adds "The final payment: …" (D9); a fee-only invoice gives her waitlist
+  payment instructions.
+- **Receipt:** only money recorded: each item ticked prints what it paid toward, with its
+  date and method; a credit prints as the line it covered, "(credited)". Totals: Paid,
+  Credited, Total (or Total paid). One item of money fills the Payment received box.
+- **Stud service:** its stud fee line, Full or Partial with an amount already collected
+  (`incomeLineItems('stud')`), a due date per line.
+- **Issuer:** the sale's kennel, else the dog's, else the entry's, else the active, else the
+  sole own kennel, with its logo and the owner contact. Number defaults to
+  `INV-/RCT-<yyyymmdd>-<id>`.
+- **Generator** (`assets/invoiceGenerator.js`): pick a family or a stud service, Invoice or
+  Receipt. A family's invoice lists its lines grouped by due date, the ones still owed
+  ticked, with **Next payment**, **Everything owed**, **Clear** and **Bill part of it**; a
+  receipt lists the money recorded, all ticked, with **Record a payment** (the Payments
+  card's dialog, §21.3) so new money is recorded first. Due dates aren't edited here; they're
+  the schedule's. Opened from Financials, a Sale's page (`preselect: { source: 'sale' }`), the
+  waitlist family page (`{ source: 'entry' }`) and Kels's Pups are going home, each importing
+  it only when `editionFlags.invoicing` is on. It opens the new tab **blank, synchronously in
+  the click**, then navigates after saving, or iOS Safari blocks the pop-up. `onClose` runs
+  whenever the modal closes (Kels waits on it). A document with a sale also has **Send payment
+  link** (§32).
+- **The waitlist family page's Documents** (`familyDocs`): the application fee's invoice and
+  receipt, the deposit's invoice and receipt (always while there's a deposit, "(credited)"
+  when credits or the fee covered it), a receipt for each payment, an invoice for the next
+  payment, and **Make a combined invoice or receipt** (the generator on that family). Each is
+  a pick, so the page and the generator agree.
+- **Tests:** `tests/familyMoney.test.js` (the $0 deposit receipt and the missing deposit
+  receipt, every combination, the page's documents through `buildInvoiceDoc`, older links),
+  `tests/invoicePdf.test.js`, `tests/pickToSend.test.js`.
 
 ---
 
@@ -1839,11 +1901,9 @@ restored into Lite keeps its waitlist rows, dormant.
   `getSaleCredits(saleId)`, `getEntryCredit(entryId)` and `getCreditedByLine(source, id)`
   load it. Taken off wherever an amount is shown to the family: their status page's fee
   (`fee_due.amount` less `fee_due.credit`; no Pay link then, since it charges the whole fee)
-  and deposit (`offers[].deposit_credit`); the invoice/receipt generator and the default
-  document (each line's "already collected" starts at the credit's share, carried as the
-  cfg line's `credit`, which prints as its own **Less credit for funds already received**
-  total on invoices and receipts; a receipt's lines stay whole, then Subtotal, the credit
-  line, and Total paid, what they paid now); payment
+  and deposit (`offers[].deposit_credit`); invoices and receipts (§24: an invoice's
+  **Less credit for funds already received**; a receipt prints a credit as the line it
+  covered, "(credited)"); payment
   requests (owed lines less it); `contractSend.balanceDueOn`; the Companion remaining
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
@@ -1853,6 +1913,8 @@ restored into Lite keeps its waitlist rows, dormant.
   next turn are dated today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
   deposit carry only what was paid beyond the credit, which stays on the entry.
   Tests: `tests/receivedCredits.test.js`.
+- **`invoice_number` / `invoice_notes`** (private): a typed document number and notes the
+  invoice generator keeps on the entry while the family has no sale (§24, D14).
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
   `public_icon` (vocab `WAITLIST_PROGRAM_ICON`: star, check, heart, ribbon, medal, shield,
@@ -2717,9 +2779,12 @@ print CSS hides the app chrome and prints the kennel logo and name, the title, r
 filters, and the date.
 
 **Money by period (`data/moneyReport.js`):** reads the same scoped rows as the Financials
-Overview, so they always agree. Cash basis: each income component has `when`
-(`incomeView.saleComponentDate`) and `due` (only a due date she set; Receivables ages by
-it). Anticipated income never enters Net; pick value is never money in.
+Overview, so they always agree. Cash basis: each income component has `when` (a sale's from
+`incomeView.ledgerComponents`: money on its own date, what's owed on its due date) and
+`due` (a due date of money still owed; Receivables ages by it). Receivables
+(`receivableRows`) is one row per sale and due date (`due_id`), listing what it's for, and
+leaves out credit-covered money (nothing is owed on it). Anticipated income never enters
+Net; pick value is never money in.
 
 **The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,

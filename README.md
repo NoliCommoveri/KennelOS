@@ -85,11 +85,11 @@ backup, carries a program from Lite to Pro.
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received, the per-family invoice/receipt generator and Firma fields per template.
-    Steps 1–2 built (guide §21.3): the calculation, and a sale's Payments card, schedule
-    editor and Record a payment on the Sale and applicant pages, saved schedules on the
-    Kennel page. Invoices, Financials, contracts and family pages don't read payments yet,
-    so it isn't ready to ship until step 3 (income, invoices and receipts). Its money shown
-    to families is built with Waitlist fixes step 5.
+    Steps 1–4 built (guide §21.3, §24): the calculation, the sale's Payments card and editor,
+    Financials and Receivables by due date, and per-family invoices and receipts. Next is
+    step 5 (contract prefills); contracts, payment requests, family pages and messages don't
+    read payments yet. §3.2a (lost-pup money as a credit, D20) is in no step yet. Its money
+    shown to families is built with Waitlist fixes step 5.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

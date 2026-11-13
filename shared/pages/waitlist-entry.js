@@ -59,6 +59,7 @@ import {
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { getEntryCredit, getSaleStatement } from '../data/incomeView.js';
+import { loadFamilyAccount, familyDocs } from '../data/familyMoney.js';
 import { savedSchedules } from '../data/paymentSchedule.js';
 import { accountRepo } from '../data/accountRepo.js';
 import { paymentsCardHtml, wirePaymentsCard, askAboutNewFees } from '../assets/paymentScheduleUI.js';
@@ -158,6 +159,8 @@ async function reload() {
   const sale = familySale(ctx.entry, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
   ctx.payments = sale ? await getSaleStatement(sale) : null;
   ctx.paymentAccounts = editionFlags.accounts ? (await accountRepo.getAll({ includeArchived: true })).filter((a) => a.account_type === 'payment_service') : [];
+  // Their money across the fee and the sale, for the Documents card (Payment Schedule plan §6.2).
+  ctx.family = editionFlags.invoicing ? await loadFamilyAccount({ entryId: ctx.entry.id }) : null;
 }
 
 // --- Status card + actions --------------------------------------------------------
@@ -1798,51 +1801,50 @@ function timelineHtml() {
   </section>`;
 }
 
-// --- Documents: fee receipt, Sale invoice + receipt (Spec §15.2) ------------------------
+// --- Documents: one invoice and one receipt per charge (Payment Schedule plan §6.2) ----
 
-function familyDocs() {
-  const e = ctx.entry;
-  const docs = [];
-  if (e.fee_received_date && Number(e.fee_amount) > 0) docs.push({ label: 'Application fee receipt', source: 'waitlist', id: e.id, doc: 'receipt' });
-  for (const o of ctx.offers.filter((x) => isAwaitingDeposit(x) && x.sale_id && !x.is_archived)) {
-    docs.push({ label: `Puppy invoice for ${dogName(o.chosen_dog_id)} (deposit pending)`, source: 'sale', id: o.sale_id, doc: 'invoice' });
-  }
-  if (e.placed_sale_id) {
-    docs.push({ label: 'Puppy invoice', source: 'sale', id: e.placed_sale_id, doc: 'invoice' });
-    docs.push({ label: 'Puppy receipt', source: 'sale', id: e.placed_sale_id, doc: 'receipt' });
-  }
-  return docs;
+// The application fee's, the deposit's, a receipt for each payment and an invoice for
+// the next payment (familyMoney.familyDocs), each a pick the document reads live.
+function familyDocList() {
+  return ctx.family ? familyDocs(ctx.family.account, { money: fmtMoney, date: fmtDate }) : [];
 }
 
+const docHref = (d) => `invoice.html?source=family&entry=${encodeURIComponent(ctx.entry.id)}&doc=${d.doc}&cfg=${encodeURIComponent(JSON.stringify({ v: 2, pick: d.pick }))}`;
+
 function docsHtml() {
-  const docs = familyDocs();
+  const docs = familyDocList();
   if (!docs.length) return '';
-  const href = (d) => `invoice.html?source=${encodeURIComponent(d.source)}&id=${encodeURIComponent(d.id)}&doc=${d.doc}`;
   return `<section class="card">
       <h2 style="margin-top:0;">Documents</h2>
-      ${docs.map((d, i) => `<div class="row-between" style="padding:6px 0;border-top:${i ? '1px solid var(--border)' : '0'};">
+      ${docs.map((d, i) => `<div class="row-between" style="padding:6px 0;border-top:${i ? '1px solid var(--border)' : '0'};gap:8px;flex-wrap:wrap;">
           <span>${esc(d.label)}</span>
-          <span class="pill-row"><a class="btn btn-sm" href="${esc(href(d))}">View</a><button class="btn btn-sm btn-primary" data-pdf="${i}">Download PDF</button></span>
+          <span class="pill-row"><a class="btn btn-sm" href="${esc(docHref(d))}">View</a><button class="btn btn-sm btn-primary" data-pdf="${i}">Download PDF</button></span>
         </div>`).join('')}
-      <p class="field-hint" style="margin-bottom:0;">For partial payments, due dates or a custom number, use Invoice / Receipt in Financials.</p>
+      <div class="pill-row" style="margin-top:8px;"><button class="btn btn-sm" data-act="combined-doc">Make a combined invoice or receipt</button></div>
     </section>`;
 }
 
 function wireDocs(root) {
-  const docs = familyDocs();
+  const docs = familyDocList();
   root.querySelectorAll('[data-pdf]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
         const { downloadInvoicePdf } = await import('../assets/invoicePdf.js');
         const d = docs[Number(btn.dataset.pdf)];
-        await downloadInvoicePdf({ source: d.source, id: d.id, doc: d.doc });
+        await downloadInvoicePdf({ source: 'family', entry: ctx.entry.id, doc: d.doc, cfg: { v: 2, pick: d.pick } });
       } catch (err) {
         showError(err.message || String(err));
       } finally {
         btn.disabled = false;
       }
     });
+  });
+  root.querySelector('[data-act="combined-doc"]')?.addEventListener('click', async () => {
+    try {
+      const { openInvoiceGenerator } = await import('../assets/invoiceGenerator.js');
+      await openInvoiceGenerator({ preselect: { source: 'entry', id: ctx.entry.id }, onClose: () => afterAction() });
+    } catch (err) { showError(err.message || String(err)); }
   });
 }
 
