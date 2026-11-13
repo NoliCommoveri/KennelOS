@@ -236,6 +236,17 @@ test('the facts go to Firma as custom fields, each once, in calls of at most 40'
   assert.ok(names.length > 40, 'more than one call');
 });
 
+test('each fact has its own grouped label in Firma\'s editor; only the first field is relabelled for now', async () => {
+  const fields = esign.factFields();
+  for (const f of fields) assert.match(f.label, /^[A-Z][\w ]* · \S/, `${f.name}: "${f.label}"`);
+  assert.equal(new Set(fields.map((f) => f.label)).size, fields.length, 'no two facts look the same');
+  assert.ok(fields.every((f) => f.label.length <= 100));
+  const { FIRMA_LABELS } = await import('../shared/data/contractForms.js');
+  assert.deepEqual(Object.keys(FIRMA_LABELS).sort(), fields.map((f) => f.name).sort(), 'no label for a fact that isn\'t one');
+  assert.deepEqual(esign.RELABEL_FIELDS, ['buyerEmail']);
+  assert.equal(fields.find((f) => f.name === 'buyerEmail').label, 'Buyer · Email');
+});
+
 test('signed out: nothing is offered and nothing is asked of the server', async () => {
   assert.equal(esign.esignSignedIn(), false);
   await assert.rejects(esign.esignStatus(), api.CloudAuthError);
@@ -547,4 +558,10 @@ test('each of a sale\'s agreements goes out on its own contract record; a pickup
   assert.equal(pickupToSet(forms[2], facts.addOns), null);
   assert.equal(facts.pickupDate, '2026-12-20');
   assert.deepEqual(facts.priceTable, { depositDue: 500, otherPaid: 0, balanceDue: 2500 });
+  // The payment schedule's fields, from the sale's statement (Payment Schedule plan §8.1):
+  // no schedule, so one final payment, at the pickup just logged.
+  const { prefillValues } = await import('../shared/data/contractForms.js');
+  const v = Object.fromEntries(prefillValues('pet_home', facts));
+  assert.deepEqual([v.totalCharges, v.paidToDate, v.payment1Amount, v.finalPaymentAmount, v.finalPaymentDue, v.balanceDue],
+    ['3575.00', '500.00', undefined, '3075.00', '2026-12-20', '3075.00']);
 });

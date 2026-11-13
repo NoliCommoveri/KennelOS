@@ -1389,9 +1389,9 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
 
 **Editions:** all. Saved schedules and the final-payment methods are on the Kennel page,
 which is Pro. Financials, the money report, Receivables (§21, §31) and invoices and
-receipts (§24) read the statement. Contracts, payment requests, the family's page,
-Companion, messages and Today don't read schedules or payments yet (plan build steps 5–7);
-they still go by the deposit, `balance_due_date` and `balance_paid_date`.
+receipts (§24) and contracts (§32, Contract forms) read the statement. Payment requests, the
+family's page, Companion, messages and Today don't read schedules or payments yet (plan build
+steps 6–7); they still go by the deposit, `balance_due_date` and `balance_paid_date`.
 
 - **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
   percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
@@ -2949,6 +2949,24 @@ Share with families hint and the card's badge say so for this type.
   twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
   which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
   everything owed on the sale.
+  **The payment schedule** (Payment Schedule plan §8.1, `contractForms.scheduleValues`, from
+  `facts.statement`: `gatherContractFacts` loads it with `incomeView.getSaleStatement`, as
+  the Payments card does): `totalCharges` (the statement's `total`: the sale's own charges,
+  never the application fee) and `paidToDate` (its `paid`: the deposit, payments, credits for
+  funds received used on the sale and the application fee credited; credit spent on the fee
+  itself or left over isn't on the sale), so `totalCharges` − `paidToDate` = `balanceDue`
+  while the sale is open. `payment1Amount` / `payment1Due` and `payment2…`: the first two due
+  dates **before** the final one (none with no schedule; a third has no slot);
+  `finalPaymentAmount` / `finalPaymentDue`: the last. Each amount is what's still owed by that
+  due date (its ask less the money it took, earlier money only where the due date lets it
+  count: `0.00` once met); each date YYYY-MM-DD, left out while it can't be known. A
+  returned, cancelled or voided sale fills only the first two.
+  On a sale with a schedule, an **extra agreement** for an extra paid through it (not on its
+  own dates) prints its share of each due date (`contractAddOns.extraPayments` with the
+  statement: `chargePieces`, so money pays the price before extras, whatever a due date
+  covers; the final one "with the balance" while undated), and `transportDueDate` is the final
+  payment's date (`paymentSchedule.finalDueDate`; transport is paid last, D16). Without a
+  schedule, and for own-dated extras, both are as before.
 - **A form link has no way back:** she marks the contract Signed herself. The Accounts
   page lists the field names a link fills (`PREFILL_FIELDS`, **Copy** each).
 - **Jotform data kept from Connect Jotform** (retired): a form picked through it keeps its
@@ -2971,7 +2989,16 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     (prefilled by `esignTemplates.signingKennel`: the kennel she's working in, else My kennel,
     else any own kennel; never an outside one),
     then sends the fact names (`cloudEsign.factFields`, every `PREFILL_FIELDS` name once, at
-    most 40 a call) as the workspace's custom fields.
+    most 40 a call) as the workspace's custom fields, each labelled
+    `contractForms.FIRMA_LABELS[name]` (a group prefix: "Buyer · Email", "Payment · 1st due
+    date"; Payment Schedule plan §8.2), so the editor's list sorts into groups. The Worker
+    (`firma.syncFirmaFields`) adds the missing ones and, for the names in the call's `relabel`
+    (`cloudEsign.RELABEL_FIELDS`: `buyerEmail` only, until a send proves a relabelled field
+    still fills), brings an existing field's label up to date: `PATCH
+    /workspace/{ws}/custom-fields/{id}` with the label, else (404/405) `PUT` with its unchanged
+    name too, never fatal, at most 45 outbound calls a request; the log names the fact, method
+    and Firma's status. → `{ added, relabelled, relabelFailed }`. Not proven against Firma
+    yet. The sync runs on Set up and each **Place fields**.
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
   - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
     `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).

@@ -596,7 +596,7 @@ event kinds on Today) is next. **Modified** from the plan above:
 - **Routes** (Pro):
   - `GET /integrations/firma`
   - `POST /integrations/firma/connect`
-  - `POST /integrations/firma/fields`
+  - `POST /integrations/firma/fields` (with `relabel`: existing fields' labels brought up to date, Payment Schedule plan §8.2)
   - `GET` and `POST /integrations/firma/templates` (a base64 PDF, at most about 4.5 MB)
   - `POST /integrations/firma/template-token`
   - `POST /integrations/esign/send`

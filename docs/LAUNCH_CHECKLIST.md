@@ -361,6 +361,15 @@ and Email Routing.
   two hours the `esign previews` cron line should say `freed: 1`.
   Set the ESIGN consumer-consent wording in the signer terms.
   Decide the monthly limit in `/ops`.
+- [ ] **Firma field labels (Payment Schedule plan §8.2, D30), after the Worker deploy:**
+  Contract templates → **Place fields** on any template. The Worker log should say
+  `firma: relabelled buyerEmail (PATCH)` or `(PUT)`; `relabel buyerEmail failed: …` means the
+  best-guess call is wrong (note the method and status, and fix `firma.relabelFields`). In the
+  editor, the field should now read **Buyer · Email**, and the eight new payment fields should
+  be there with their `Sale ·` / `Payment ·` labels. Send a contract from a template with the
+  buyer's email placed (Preview is enough) and check it's still filled. Only then put every
+  fact name in `cloudEsign.RELABEL_FIELDS` (an app release; the next Place fields relabels the
+  rest). Then the test-key check (plan §8.2 step 2) before any per-template fields.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
   days (the privacy policy promises it; Firma has no API to delete one).
 

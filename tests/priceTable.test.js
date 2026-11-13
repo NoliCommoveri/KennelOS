@@ -80,5 +80,5 @@ test('every field label fits Firma\'s 100 characters, and no dropped field is ba
   assert.deepEqual(all.filter(([, label]) => label.length > 100).map(([k]) => k), []);
   const names = new Set(all.map(([k]) => k));
   for (const gone of ['waitlistFeePaid', 'waitlistFeeCredit', 'transportMethod', 'deliveryTime', 'goHomeFrom']) assert.equal(names.has(gone), false, gone);
-  assert.equal(names.size, 80);
+  assert.equal(names.size, 88); // + the payment schedule's 8 (Payment Schedule plan §8.1)
 });

@@ -258,10 +258,14 @@ export async function connectFirma(env, auth, url, body, now = new Date()) {
   return { connected: true, connectedAt: now.toISOString(), usage: await usage(env, auth.programId, now) };
 }
 
-// POST /integrations/firma/fields { fields: [{ name, label }] }: the facts her
-// device can fill (contractForms.js PREFILL_FIELDS), made as her workspace's custom
-// fields so Firma's template editor offers them. Adds the missing ones only, so
+// POST /integrations/firma/fields { fields: [{ name, label }], relabel?: [name] }: the
+// facts her device can fill (contractForms.js PREFILL_FIELDS), made as her workspace's
+// custom fields so Firma's template editor offers them. Adds the missing ones only, so
 // it is safe to repeat; at most 40 per call (a Worker's outbound calls are capped).
+// `relabel`: fields already there whose label is brought up to the one given (the
+// group prefixes, Payment Schedule plan §8.2): only one that differs, never fatal.
+// → { added, relabelled, relabelFailed }
+const FIELD_CALL_BUDGET = 45; // outbound calls per request, under the Worker's 50
 export async function syncFirmaFields(env, auth, body) {
   await herSide(env, auth);
   const { connection, secrets } = await mine(env, auth);
@@ -269,20 +273,61 @@ export async function syncFirmaFields(env, auth, body) {
     .map((f) => ({ name: text(f?.name), label: text(f?.label).slice(0, 100) }))
     .filter((f) => FACT_NAME.test(f.name) && f.label);
   if (wanted.length > 40) fail(400, 'too_many_fields');
+  const relabel = new Set((Array.isArray(body?.relabel) ? body.relabel : []).map(text).filter((n) => FACT_NAME.test(n)).map((n) => n.toLowerCase()));
   const ws = encodeURIComponent(connection.account_ref);
   const list = await firma(env, secrets.apiKey, 'GET', `/workspace/${ws}/custom-fields`);
   if (!ok(list)) fail(502, 'esign_unavailable');
   const rows = Array.isArray(list.data) ? list.data : (list.data?.results ?? list.data?.custom_fields ?? []);
-  const have = new Set(rows.map((r) => String(r?.field_name ?? '').toLowerCase()));
+  const byName = new Map(rows.map((r) => [String(r?.field_name ?? '').toLowerCase(), r]));
+  let calls = 1;
   let added = 0;
   for (const f of wanted) {
-    if (have.has(f.name.toLowerCase())) continue;
+    if (byName.has(f.name.toLowerCase())) continue;
     const r = await firma(env, secrets.apiKey, 'POST', `/workspace/${ws}/custom-fields`, { field_label: f.label, field_name: f.name });
+    calls++;
     if (!ok(r)) fail(502, 'esign_unavailable', { added });
-    have.add(f.name.toLowerCase());
+    byName.set(f.name.toLowerCase(), { field_name: f.name, field_label: f.label });
     added++;
   }
-  return { added };
+  const relabelled = await relabelFields(env, secrets.apiKey, ws, wanted.filter((f) => relabel.has(f.name.toLowerCase())), byName, FIELD_CALL_BUDGET - calls);
+  return { added, ...relabelled };
+}
+
+// Bring existing fields' labels up to date. Firma's docs say a workspace custom
+// field's label can be changed and its name can't; the call isn't proven yet (Payment
+// Schedule plan §8.2: one field first, then a real send). Tried as
+// PATCH /workspace/{ws}/custom-fields/{id} { field_label }, and if Firma answers that
+// there's no such route or method (404 / 405), PUT with its name too, for the rest of
+// this request. A field whose relabel fails keeps its old label and still fills.
+// Logged: the fact name, the method and Firma's status and code; never a value.
+async function relabelFields(env, key, ws, fields, byName, budget) {
+  let relabelled = 0;
+  let relabelFailed = 0;
+  let method = 'PATCH';
+  let calls = 0;
+  for (const f of fields) {
+    const row = byName.get(f.name.toLowerCase());
+    if (!row || row.id == null || !ALIAS.test(String(row.id)) || text(row.field_label) === f.label) continue;
+    if (calls >= budget) break; // the next sync carries on
+    const path = `/workspace/${ws}/custom-fields/${encodeURIComponent(String(row.id))}`;
+    const attempt = (m) => {
+      calls++;
+      return firma(env, key, m, path, m === 'PATCH' ? { field_label: f.label } : { field_label: f.label, field_name: text(row.field_name) || f.name });
+    };
+    let r = await attempt(method);
+    if (method === 'PATCH' && (r.status === 404 || r.status === 405) && calls < budget) {
+      method = 'PUT';
+      r = await attempt(method);
+    }
+    if (ok(r)) {
+      relabelled++;
+      console.log(`firma: relabelled ${f.name} (${method})`);
+    } else {
+      relabelFailed++;
+      console.warn(`firma: relabel ${f.name} failed: ${method} ${r.status}${firmaCode(r) ? ` ${firmaCode(r)}` : ''}`);
+    }
+  }
+  return { relabelled, relabelFailed };
 }
 
 // GET /integrations/firma/templates
