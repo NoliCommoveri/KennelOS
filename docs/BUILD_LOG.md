@@ -3883,4 +3883,5 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/paymentScheduleData.test.js` (new), `paymentSchedule` and `extraCharges`
   added to. Full suite 1,805 passing; editions build.
 - **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
-- **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.
+- **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
+  (owner asked, to merge steps 1–2), for this batch and step 1.
