@@ -4063,4 +4063,4 @@ tick box per template; buyers get an emailed link.
   337 pass; `node build/assemble.mjs` builds.
 - **Docs:** End-State guide §20, §21.3, §29, §32; Waitlist Spec §8.1 (a Modified row); Waitlist
   Fixes plan step 5 (Modified); plan step 6; README Status.
-- **Service worker:** no new files.
+- **Service worker:** no new files. `CACHE_NAME` v131 (owner asked).
