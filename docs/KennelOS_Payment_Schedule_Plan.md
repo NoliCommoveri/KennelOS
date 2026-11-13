@@ -342,6 +342,14 @@ the applicant page.
   `pickupDate`.
 - **Nothing is removed.** Templates already use the old names.
 
+**Modified (as built, D29, D31):** `payment1` / `payment2` are the first two due dates
+**before** the final one, so nothing prints twice: a sale with no schedule fills only
+`finalPayment…`, and a third earlier due date has no slot. A met due date prints `0.00`; a
+date not known yet is left out. On a sale with a schedule, an extra agreement for an extra
+paid through it prints its share of each due date from the statement (its own steps aren't
+used), and `transportDueDate` is the final payment's date (D16). Without a schedule both are
+as before.
+
 ### 8.2 Firma: only that template's type in the editor
 
 What Firma's docs show:
@@ -367,6 +375,15 @@ Plan:
    time, checking each still fills, before any workspace field is removed.
 5. **Editor display:** pass `autoFit` / `initialZoom` so it opens fitted to the page on a
    phone.
+
+**Modified (as built, D30):** step 1 is built, unproven: every fact has a grouped label
+(`contractForms.FIRMA_LABELS`); new fields are made with it, and the Worker relabels the
+existing fields the device names (`cloudEsign.RELABEL_FIELDS`, `buyerEmail` only for now) by
+a best guess at Firma's call (`PATCH …/custom-fields/{id}`, else `PUT`), never fatal. Firma's
+docs weren't reachable when it was built. Next: one Place fields, then a test send that
+`Buyer · Email` still fills (`docs/LAUNCH_CHECKLIST.md`), then every name in
+`RELABEL_FIELDS`. Steps 2–5 (the test-key check, per-template fields, moving templates,
+`autoFit`) are not built: step 3 waits on what step 2 finds.
 
 ---
 
@@ -415,6 +432,9 @@ Plan:
 | D26 | The part of a charge a credit covers is not in Receivables (nothing is owed on it); it stays Anticipated in Financials until its due date. One whose due date can't be known yet is earned once the deposit is received (the deposit) or the sale is paid in full (the rest). |
 | D27 | The generator doesn't edit a line's Due by; due dates come from the schedule. |
 | D28 | "What was paid on a sale" (`paidOnSale`: the lost-pup carry-over, a contract's balance due) counts recorded payments now, ahead of steps 5 and D20. |
+| D29 | Contract `payment1` / `payment2` are the due dates before the final one; `finalPayment` is the last. Nothing prints twice. |
+| D30 | Firma relabel: built on a best guess at Firma's call, never fatal, one field (`buyerEmail`) first, proven on a send before the rest. |
+| D31 | An extra agreement for an extra paid through the schedule prints its share of each due date from the statement. |
 
 ---
 
@@ -433,6 +453,9 @@ is dated by `deposit_date`, which those three places can still set from a credit
 4. **Invoices and receipts:** the per-family generator, the applicant page's Documents, the
    two regression tests.
 5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
+   **Built:** the prefills (§8.1) and the relabel (§8.2 step 1, one field, unproven). Open:
+   proving the relabel on a send, then relabelling every field; the test-key check;
+   per-template fields.
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
 7. **Today nudges, Kels.**

@@ -3953,3 +3953,37 @@ tick box per template; buyers get an emailed link.
 - **Docs:** guide §4 aggregators, §21, §21.3, §24, §29, §31; plan D25–D28 and Modified notes.
 - **Service worker:** `data/familyMoney.js` in `PRECACHE_URLS` and `proPages.js`. `CACHE_NAME` v127 (owner asked, at the end of the batch). Merged with View their page,
   which also bumped to v127 from v126: one bump carries both batches.
+
+## 2026-11-13 — Payment schedules, step 5: contract prefills and Firma field labels
+
+- **Owner decisions D29–D31** (plan §10): `payment1` / `payment2` are the due dates before the
+  final one; the Firma relabel is built on a best guess at Firma's call, never fatal, one field
+  first; an extra agreement for an extra paid through the schedule reads the statement.
+- **Contracts (`contractForms.js`, `contractSend.js`):** 8 new sale prefills from the sale's
+  payment statement (`gatherContractFacts` loads it with `getSaleStatement`):
+  `totalCharges`, `paidToDate`, `payment1Amount/Due`, `payment2Amount/Due`,
+  `finalPaymentAmount/Due`. Amounts are what's still owed by each due date (0.00 once met).
+  `paidToDate` counts only money on the sale: the credited fee and the part of credits for
+  funds received spent on the sale, not credit spent on the fee itself or left over.
+- **Extra and transport agreements:** with a schedule, an extra paid through it prints its share
+  of each due date (`contractAddOns.extraPayments` + `chargePieces`), and `transportDueDate` is
+  the final payment's date. Unchanged without a schedule and for own-dated extras.
+- **Firma labels:** `contractForms.FIRMA_LABELS` (a group prefix per fact); `factFields` uses
+  them. Worker `syncFirmaFields` takes `relabel` and updates an existing field's label
+  (`PATCH …/custom-fields/{id}`, else `PUT`), never fatal, within 45 outbound calls; the app
+  asks only for `buyerEmail` (`cloudEsign.RELABEL_FIELDS`) until a send proves it. Firma's docs
+  weren't reachable from the build session, so the call is unproven (launch checklist).
+- **Found while testing:** what a due date covers sets how much it asks, not which charge pays
+  it: money pays the price before extras (D16), so a due date covering only an extra is filled
+  by the price on invoices, Financials and now the extra agreement. Left as built (steps 1–4).
+- **Checked:** the existing `balanceDue` equals the statement's `remaining` on every open-sale
+  combination, so `totalCharges − paidToDate = balanceDue`. Over the sample data in Chromium,
+  every sale's fields match its Payments card; the contract pages load with no errors.
+- **Tests:** `tests/contractSchedule.test.js` (new: the fields, credits, D18, ended sales,
+  extras, transport, a 5,000+ combination check against the statement and `balanceDue`);
+  `esign.test.js` (labels, the real `gatherContractFacts`); `priceTable.test.js` (88 facts);
+  `cloud/tests/esign.test.js` (relabel: asked only, PATCH, PUT fallback, failures, the
+  42-call worst case). `node --test` 1,841 pass; `cd cloud && npm test` 334 pass.
+- **Docs:** End-State guide §21.3, §32; plan §8.1, §8.2, §10, §11; Integrations plan routes;
+  launch checklist; README status.
+- **Service worker:** no new files. `CACHE_NAME` v128 (owner asked).

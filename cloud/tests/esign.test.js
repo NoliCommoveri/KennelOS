@@ -89,6 +89,18 @@ function makeFake() {
       list.push({ id: `cf_${list.length}`, field_name: body.field_name, field_label: body.field_label });
       return reply(201, list[list.length - 1]);
     }
+    // One field: its label changed with the method `relabelMethod` names ('PATCH' or
+    // 'PUT'; else none is there), its name never.
+    if ((m = /^\/workspace\/([^/]+)\/custom-fields\/([^/]+)$/.exec(path))) {
+      if (m[1] !== wsOfKey.id) return reply(403, { code: 'FORBIDDEN' });
+      const row = (f.fields.get(m[1]) || []).find((x) => x.id === m[2]);
+      if (method !== (f.relabelMethod ?? 'PATCH')) return reply(405, { code: 'METHOD_NOT_ALLOWED' });
+      if (!row) return reply(404, { code: 'NOT_FOUND' });
+      if (f.relabelFails) return reply(500, { code: 'INTERNAL_ERROR' });
+      if (body.field_name && body.field_name !== row.field_name) return reply(400, { code: 'VALIDATION_ERROR' });
+      row.field_label = body.field_label;
+      return reply(200, row);
+    }
     if (method === 'POST' && path === '/templates') {
       const id = `tpl_${f.templates.size + 1}`;
       f.templates.set(id, { id, name: body.name, ws: wsOfKey.id, page_count: 2 });
@@ -249,11 +261,61 @@ test('fields: her workspace gets the facts as custom fields, the missing ones on
   const env = await envWith();
   const s = await connected(env);
   const fields = [{ name: 'puppyName', label: 'Puppy\'s call name' }, { name: 'price', label: 'Price' }, { name: 'bad name', label: 'x' }];
-  assert.deepEqual(await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields } })).json(), { added: 2 });
-  assert.deepEqual(await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields } })).json(), { added: 0 });
+  assert.deepEqual(await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields } })).json(), { added: 2, relabelled: 0, relabelFailed: 0 });
+  assert.deepEqual(await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields } })).json(), { added: 0, relabelled: 0, relabelFailed: 0 });
   assert.deepEqual(fake.fields.get('ws_1').map((f) => f.field_name), ['puppyName', 'price']);
   const many = Array.from({ length: 41 }, (_, i) => ({ name: `f${i}`, label: 'x' }));
   assert.equal((await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: many } })).status, 400);
+});
+
+test('fields: relabelled only when asked and only when the label differs; the name never changes; a failure is never fatal', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const sync = async (fields, relabel) => (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields, ...(relabel ? { relabel } : {}) } })).json();
+  await sync([{ name: 'buyerEmail', label: 'Buyer\'s email' }, { name: 'price', label: 'Price' }]);
+  const grouped = [{ name: 'buyerEmail', label: 'Buyer · Email' }, { name: 'price', label: 'Sale · Price' }, { name: 'paidToDate', label: 'Sale · Paid to date' }];
+  const labels = () => fake.fields.get('ws_1').map((f) => [f.field_name, f.field_label]);
+
+  // Not asked: only the new field is added, with its grouped label.
+  assert.deepEqual(await sync(grouped), { added: 1, relabelled: 0, relabelFailed: 0 });
+  assert.deepEqual(labels(), [['buyerEmail', 'Buyer\'s email'], ['price', 'Price'], ['paidToDate', 'Sale · Paid to date']]);
+
+  // One asked for (the first check): PATCH, its label only.
+  const before = fake.calls.length;
+  assert.deepEqual(await sync(grouped, ['buyerEmail', 'paidToDate', 'bad name']), { added: 0, relabelled: 1, relabelFailed: 0 });
+  assert.deepEqual(labels(), [['buyerEmail', 'Buyer · Email'], ['price', 'Price'], ['paidToDate', 'Sale · Paid to date']]);
+  const patch = fake.calls.slice(before).find((c) => c.method === 'PATCH');
+  assert.deepEqual([patch.path, patch.body], ['/workspace/ws_1/custom-fields/cf_0', { field_label: 'Buyer · Email' }]);
+  assert.deepEqual(await sync(grouped, ['buyerEmail']), { added: 0, relabelled: 0, relabelFailed: 0 }, 'already right: no call');
+
+  // Firma has no PATCH there: PUT with the same name, for the rest of the request.
+  fake.relabelMethod = 'PUT';
+  assert.deepEqual(await sync(grouped, ['price']), { added: 0, relabelled: 1, relabelFailed: 0 });
+  assert.deepEqual(labels()[1], ['price', 'Sale · Price']);
+  assert.deepEqual(fake.calls.filter((c) => c.method === 'PUT').map((c) => c.body), [{ field_label: 'Sale · Price', field_name: 'price' }]);
+
+  // Neither works, or Firma fails: counted, the fields stay as they were, and the sync still answers 200.
+  fake.relabelMethod = 'POST';
+  const res = await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: [{ name: 'buyerEmail', label: 'Buyer · Email address' }], relabel: ['buyerEmail'] } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { added: 0, relabelled: 0, relabelFailed: 1 });
+  fake.relabelMethod = 'PATCH'; fake.relabelFails = true;
+  assert.deepEqual(await sync([{ name: 'buyerEmail', label: 'Buyer · Email address' }], ['buyerEmail']), { added: 0, relabelled: 0, relabelFailed: 1 });
+  assert.equal(labels()[0][1], 'Buyer · Email');
+});
+
+test('fields: the most a sync can call (40 relabels, PATCH refused once) stays under the Worker\'s outbound cap', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const old = Array.from({ length: 40 }, (_, i) => ({ name: `f${i}`, label: 'old' }));
+  await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: old } });
+  fake.relabelMethod = 'PUT';
+  const before = fake.calls.length;
+  const next = old.map((f) => ({ ...f, label: 'new' }));
+  const r = await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: next, relabel: next.map((f) => f.name) } })).json();
+  assert.deepEqual(r, { added: 0, relabelled: 40, relabelFailed: 0 });
+  assert.equal(fake.calls.length - before, 42, 'the list, one refused PATCH, 40 PUTs');
+  assert.ok(fake.fields.get('ws_1').every((f) => f.field_label === 'new'));
 });
 
 test('templates: made, listed and opened with her workspace key; another kennel\'s is a 404', async () => {
