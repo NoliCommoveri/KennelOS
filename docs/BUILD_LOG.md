@@ -3886,6 +3886,29 @@ tick box per template; buyers get an emailed link.
 - **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
   (owner asked, to merge steps 1–2), for this batch and step 1.
 
+## 2026-11-13 — View their page (a family's live status page, as they see it)
+
+- **Owner asked** for a button on each family's page showing what their status page shows
+  them; both phases at once, on the Interact tab, publishing first (forced).
+- **App:** Interact's **View their page ↗** (`waitlist-entry.js`, shown with
+  `statusLinkFor`), `waitlistUI.openStatusPage` (tab opened at the tap, then pointed at the
+  page; notes for a publish that didn't work or a plain link), `cloudWaitlist.statusPagePreview`,
+  `syncWaitlistOnline({ asked })` (publishes from a tab that just went behind the new one),
+  `cloudApi.previewWaitlistPage`.
+- **Worker:** `POST /waitlist/preview` (`waitlist.previewStatusPage`, `previewUntil`,
+  `PREVIEW_MS`): a signed, hour-long preview per status token, no table, no migration.
+  `GET /f/status` adds `preview: { until }` for a live one and doesn't stamp `last_used_at`.
+- **Family page:** `status.js` reads `#preview=` and sends it as `x-status-preview`; with it
+  the page draws signed in under a Preview note and every send stops at "nothing was sent";
+  an ended one says so. `common.fetchJson` takes `headers`.
+- **Checked** in Chromium on the local Worker (`cloud/tests/helpers/serve.mjs`): the signed-in
+  turn card, Choose → "nothing was sent" with no event on the server, an ended preview.
+- **Tests:** `cloud/tests/familyPages.test.js` (preview signed per page, ended, forged, not a
+  visit, never acts; who may ask), `tests/cloudWaitlist.test.js` (forced publish then
+  preview; not online, signed out, background tab). Cloud 332, app 1,809 passing; editions build.
+- **Docs:** guide §29 (Surfaces, Online), `cloud/README.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` v127 (owner asked).
+
 ## 2026-11-13 — Payment schedules, steps 3–4: Financials and invoices on the statement
 
 - **Owner decisions D25–D28** (plan §10): a family in the generator is a waitlist entry and
@@ -3928,4 +3951,5 @@ tick box per template; buyers get an emailed link.
   `paymentSchedule`, `paymentScheduleData`, `invoicePdf` added to. Full suite 1,824 passing;
   editions build.
 - **Docs:** guide §4 aggregators, §21, §21.3, §24, §29, §31; plan D25–D28 and Modified notes.
-- **Service worker:** `data/familyMoney.js` in `PRECACHE_URLS` and `proPages.js`. `CACHE_NAME` v127 (owner asked, at the end of the batch).
+- **Service worker:** `data/familyMoney.js` in `PRECACHE_URLS` and `proPages.js`. `CACHE_NAME` v127 (owner asked, at the end of the batch). Merged with View their page,
+  which also bumped to v127 from v126: one bump carries both batches.

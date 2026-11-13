@@ -8,7 +8,8 @@
 //  - Interact: what needs her (their status-page requests, a turn they hold, a lost
 //    pup) and what she can start: Offer pups / Move place for a family on the list
 //    (Approve, Fee received, Undo removal or Re-apply in other statuses), and
-//    Communicate… (email from her templates with a preview, or "Message via…").
+//    Communicate… (email from her templates with a preview, or "Message via…"),
+//    and View their page (their live status page as they see it signed in).
 //  - History: their messages and the emails sent, every offer, answer changes, key
 //    dates, and documents (fee receipt, Sale invoice/receipt as PDFs).
 // Archive, Delete and New status link sit in the header's ⋯ menu. Application
@@ -70,7 +71,8 @@ import { editionFlags } from '../data/editionConfig.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal, wireActionMenu } from '../assets/ui.js';
 import {
   resolveWaitlistKennel, prefsSummary, entryFlags, readyHoldText, formModal,
-  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, endSaleDialog, statusLinkFor, copyLink, creditDialog
+  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, endSaleDialog, statusLinkFor, copyLink, creditDialog,
+  openStatusPage
 } from '../assets/waitlistUI.js';
 
 const els = {
@@ -2162,7 +2164,9 @@ function interactButtons(e) {
     else if (e.fee_received_date) main += b('onlist', 'Put back on the list…');
   }
   const end = !lost && endableSale(e) ? b('endsale', 'End the sale…') : '';
-  return lost + main + end + b('communicate', 'Communicate…');
+  // Their live status page, as they see it signed in (only once it's online).
+  const page = statusLinkFor(e, ctx.kennel) ? b('viewpage', 'View their page ↗') : '';
+  return lost + main + end + b('communicate', 'Communicate…') + page;
 }
 
 function renderInteract() {
@@ -2179,12 +2183,13 @@ function renderInteract() {
     <section class="card">
       <h2 style="margin-top:0;">Do something</h2>
       <div class="pill-row">${interactButtons(e)}</div>
+      ${statusLinkFor(e, ctx.kennel) ? '<p class="field-hint" style="margin-bottom:0;"><strong>View their page</strong> publishes your latest changes, then opens their status page as they see it signed in. Its buttons work there, but nothing is sent.</p>' : ''}
     </section>`;
   wireRequests(pane);
   wireOffers(pane);
   wireSideSale(pane);
   wireSuggestions(pane);
-  const handlers = { offlist: () => onFamilyPageOnly(true), onlist: () => onFamilyPageOnly(false), side: onSideSale, offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, undofee: onUndoFee, reapply: onReapply, restore: onRestore, endsale: onEndSale, communicate: onCommunicate };
+  const handlers = { offlist: () => onFamilyPageOnly(true), onlist: () => onFamilyPageOnly(false), side: onSideSale, offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, undofee: onUndoFee, reapply: onReapply, restore: onRestore, endsale: onEndSale, communicate: onCommunicate, viewpage: () => openStatusPage(ctx.entry, ctx.kennel) };
   pane.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });

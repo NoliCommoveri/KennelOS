@@ -14,7 +14,9 @@
 //                              sealed in their browser and sent straight to
 //                              /f/apply, /f/verify and /f/code, which answer her
 //                              KennelPort site cross-origin (lib/cors.js)
-//   GET  /f/status/<token>     one family's own view, cut from the projection
+//   GET  /f/status/<token>     one family's own view, cut from the projection; with
+//                              her preview (x-status-preview, waitlist.js) it says
+//                              so (`preview: { until }`) and isn't counted as a visit
 //   POST /f/code               "See Your Details", part 1: {public_id, email} → a
 //                              6-digit code to that address, if it's on the list
 //   POST /f/verify             part 2: {public_id, code} → their status link and a
@@ -41,7 +43,7 @@ import { limitBucket, ipKey } from './ratelimit.js';
 import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
-import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
+import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor, previewUntil } from './waitlist.js';
 import { handleAct, handleMessage, handlePortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
@@ -930,7 +932,10 @@ export async function handleFamilyApi(request, env, url) {
       view.pending = [];
       view.emails = [];
     }
-    await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
+    // Her own look at their page (waitlist.js previewStatusPage) isn't their visit.
+    const until = await previewUntil(env, status[1], request.headers.get('x-status-preview'));
+    if (until) view.preview = { until };
+    else await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
     return json(view, 200, { 'referrer-policy': 'no-referrer' });
   }
 
