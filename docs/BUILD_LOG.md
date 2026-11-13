@@ -4026,4 +4026,4 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/familyMoney.test.js`: the owner's sale as a regression case; the partial
   transport line on a combined final payment now prints combined. `node --test` 1,844 pass.
 - **Docs:** End-State guide §24 invoice; plan §6.1 Modified note.
-- **Service worker:** no new files; `CACHE_NAME` not bumped.
+- **Service worker:** no new files. `CACHE_NAME` v130 (owner asked).
