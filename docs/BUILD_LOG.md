@@ -4095,3 +4095,13 @@ tick box per template; buyers get an emailed link.
   waitlist record a payment and write the pickup message, no console errors.
 - **Docs:** End-State guide §19, §21.3, §33; plan step 7 (Built, Modified), D36; README Status.
 - **Service worker:** no new files. `CACHE_NAME` v132 (owner asked).
+
+## 2026-11-13 — Website contract plan: the owner's answers
+
+- **Docs only.** `docs/KennelOS_Website_Contract_Plan.md` brought in line with KennelPort's
+  `docs/plans/kennelos-contract.md` and the owner's answers: featured offspring is
+  KennelPort's own (C8 `offspring`, `feature_offspring` and `featured_offspring_ids`
+  dropped); C4 sends `imported` / `import_country` on a dog and each C7 ancestor, with
+  import-descended worked out by KennelPort; no colour list in KennelOS (KennelPort builds
+  one per website from the free-text colours sent); `imported` and `import_country` are
+  cloud, like the Dog's other registration facts. Open questions marked answered.
