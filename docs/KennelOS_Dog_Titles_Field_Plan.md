@@ -112,25 +112,32 @@ The calculation logic doesn't change. It reads the field in two places and write
 - **Dog Card send/receive:** `titles` joins `DOG_FIELDS` as a new list kind. Old cards
   without it read as `[]`.
 
-## 5. Existing data: a prompt she confirms, never a silent write
+## 5. Existing data: part of Kels's Tidy up my records
 
-This is KennelOS asking her, in KennelOS. It isn't done at send time and it isn't done for
-KennelPort. Nothing is written until she says yes.
+This is KennelOS asking her, inside the existing **Tidy up my records** task (guide §33,
+`tidyRules.js` + `tidyUpUI.js`). It isn't done at send time and it isn't done for
+KennelPort. Nothing is written until she says yes. There's no new task, no new nudge and no
+Today card: tidy-up checks run only inside Kels.
 
-- **Finding the dogs.** A pure check, `titlesWaitingInNotes(dogs, events)` in
-  `dogTitles.js`, picks out every dog whose notes have a `Titles: …` line holding any
-  abbreviation that isn't already in `titlesOf` for that dog. It also picks out any dog
-  whose registered name starts with titles ("GCH A-K Bella", D5).
-- **The nudge.** "Titles in notes (N dogs)." Key `titles-in-notes`, every edition. It
-  clears itself once nothing is left to move. Its action opens the Kels task.
-- **The Kels task, "Tidy up titles".** It's on the Kels menu and also reached from the
-  nudge. One screen lists each dog, its titles as they'd be saved, and where they came from
-  (notes, or the front of its name). She can untick a dog or a title. **Save** writes
-  through `dogRepo.update` (so `markDataChanged` fires and it syncs). A name she ticks also
-  has its titles taken off the front. Entries are deduped, so running it again, or on a
-  second device, adds nothing.
-- **The dog page:** a one-line "Titles in notes: GCHB CH. Add to titles?" with Add and
-  Not now, for that one dog.
+- **Two new finding kinds in `TIDY_KINDS`,** placed after `dog-no-parents`, both in every
+  edition:
+  - `dog-titles-in-notes`: a dog (pedigree-only included) whose notes have a `Titles: …`
+    line holding an abbreviation that isn't already in `titlesOf` for that dog.
+  - `dog-titles-in-name`: a dog whose registered name starts with titles ("GCH A-K Bella",
+    D5).
+- **One finding per kind for all the dogs, not one per dog.** A chart import can leave
+  dozens of ancestors, and asking about them one at a time would be tedious. This works the
+  way `event-no-vet` groups its events.
+- **What the finding shows:** each dog, the titles as they'd be saved, ticked. She can untick
+  a dog or a title, then answer **Add to titles** or **Not now**, or **Don't ask again**
+  (the usual `tidy:` key).
+- **The finding key** comes from the dogs and titles in it, so a new import raises it again.
+- **Saving** writes through `dogRepo.update`, so `markDataChanged` fires and it syncs. For
+  the name finding, the titles also come off the front of the name. Entries are deduped,
+  so answering on a second device adds nothing.
+- **The rules are pure functions in `tidyRules.js`** (`titlesInNotesFindings`,
+  `titlesInNameFindings`), using `dogTitles.js`, and they join `tidyFindings`.
+  Tests go in the tidy-up's suite.
 - **The notes line is left as it is** (D4).
 
 ## 6. KennelPort's asks → this plan
@@ -139,8 +146,8 @@ KennelPort. Nothing is written until she says yes.
 |---|---|
 | 1. Every ancestor's `titles` filled, abbreviations or `{abbr, organization, date}` (nulls allowed) | `lineageOf`, `titlesByDog` and `titleDetailsByDog` read `titlesOf`. A field-only title is sent with `date: null` (`ymd` already gives null). |
 | 2. Titles stored as data, not just in notes | `Dog.titles` (§2), written by chart import (§4) |
-| 3. Existing chart imports, once | §5: a KennelOS nudge plus a Kels task she confirms. KennelPort plays no part. |
-| 4. Registered names that still carry titles | D5, and the same Kels task |
+| 3. Existing chart imports, once | §5: two new checks in Kels's Tidy up my records, which she confirms. KennelPort plays no part. |
+| 4. Registered names that still carry titles | D5, and the same tidy-up |
 | 5. Offer Imported for a foreign registry | §4 chart import: pre-ticked on the review screen, which she confirms (D7) |
 
 There's **no contract change**: same sections, same keys. KennelPort needs no release first.
@@ -199,8 +206,10 @@ There's **no contract change**: same sections, same keys. KennelPort needs no re
    - Tests: a foreign-registry ancestor comes through pre-ticked, an AKC one doesn't, and
      unticking it saves `imported: false`.
 5. **UI:** the dog form's Titles row and the dog page header.
-6. **The tidy-up (§5):** `titlesWaitingInNotes`, the `titles-in-notes` nudge, the Kels task
-   "Tidy up titles", and the dog page's one-line offer.
+6. **The tidy-up (§5):**
+   - the `dog-titles-in-notes` and `dog-titles-in-name` kinds and their rules
+   - the finding screen in `tidyUpUI.js`
+   - Kels's knowledge text for the tidy-up
 7. **Docs:**
    - End-State guide: the Dog fields, a `dogTitles.js` entry, §35 website feed, Show
      Tracking **Modified:** note

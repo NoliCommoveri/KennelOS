@@ -4226,6 +4226,6 @@ tick box per template; buyers get an emailed link.
   `Titles:` notes are read in once, and the lineage feed sends them. No contract change. Owner
   decisions D1 to D6 are open. README doc map updated.
 - **Revised (owner):** existing `Titles:` notes lines are now moved only when she says
-  yes: a nudge and a Kels task, "Tidy up titles", in KennelOS, never a silent back-fill. The
+  yes, as two new checks in Kels's existing Tidy up my records (no new task or nudge), never a silent back-fill. The
   chart import now also sets Imported and the country of origin from a foreign registry,
   pre-ticked on its review screen for her to confirm (D7).
