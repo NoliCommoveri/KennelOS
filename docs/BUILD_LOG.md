@@ -4346,3 +4346,23 @@ tick box per template; buyers get an emailed link.
   the KennelPort grandsire case and `origin_country` in `siteExport.test.js`; field and
   name titles in `waitlistProjection.test.js`. Two siteExport expectations changed for the
   new order and the stripped name.
+
+## 2026-11-14: dog titles as a field, phase 3 (Dog form)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 3.
+- Dog form, a **Titles** row: field titles as chips (abbreviation; organization and
+  earned-on date behind "details"; × removes), logged `title_earned` titles as read-only
+  chips that open their event in place, and "in the registered name" chips that follow the
+  Registered name box. The Add box takes several at once ("GCH CH") with suggestions from
+  `TITLE_PREFIXES` plus AKC's suffix list.
+- `dogTitles.js` gains `TITLE_SUFFIXES`, `titleSuggestions`, `splitTitleInput` and
+  `formTitleChips`.
+- **Country of origin** is one row, always shown next to Imported (was: a box only while
+  Imported was ticked, writing `import_country`). It saves `country_of_origin`, and while
+  Imported is ticked the same country goes into `import_country`. An older record's
+  `import_country` fills the row on edit. The view shows Imported "Yes" and Country of
+  origin on its own row.
+- Chip styles in `app.css`. No new files, so `PRECACHE_URLS` is unchanged; no cache bump.
+- Tests: suggestions, the Add box split and the chip split in `dogTitles.test.js`. Checked
+  in the browser at phone width: add, edit details, remove, save, view, re-edit, and a
+  logged GCH opening its event.
