@@ -48,8 +48,10 @@ The shared pages Lite keeps hide their Pro-only parts with the same flags: the i
 button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
 feeding-schedule fields, and the Dashboard's Archived tile. A sale's Payments card (payment
 schedule and payments received, §21.3) is in every edition; Lite has no Kennel page, so no
-saved schedules and no final-payment methods. The full list is in the Editions
-Plan's "Lite scope" section.
+saved schedules and no final-payment methods. A dog's Titles and Country of origin (§4,
+the Dog form, the pedigree import and Kels's tidy-up of titles in notes and names) are in
+every edition; tracking show points toward a title, and the "Log the title?" nudge, stay
+Pro (`editionFlags.shows`). The full list is in the Editions Plan's "Lite scope" section.
 
 **Details live in:** `docs/KennelOS_Lite_Pro_Editions_Plan.md` (tiers, licensing, the Lite→Pro
 bridge, Demo), `docs/KennelOS_Lite_Cap_Enforcement_Spec.md` (the cap, precisely),
@@ -470,7 +472,8 @@ One polymorphic table for all dated history: `subject_type ∈ {dog, pairing, li
 `event_id` = the event; clearing it removes that expense (§21).
 
 **Shows** (Pro, `docs/KennelOS_Show_Tracking_Spec.md`): one `show` event per dog per show
-day. Points, majors and titles are **derived, never stored**: `data/showPoints.js`
+day. Points, majors and track progress are **derived, never stored** (the titles a dog
+holds are stored, on `Dog.titles`, §4): `data/showPoints.js`
 (`trackProgress`, `showRecordFrom`, `getShowRecord`) tallies counting events (`entry_status`
 `shown`, `points_toward` set, points > 0) against `vocab.TITLE_TRACKS`. A track with
 `requires` (GCH → CH) counts only wins after the required title: the earliest of its
@@ -3259,6 +3262,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     in the editor stores for a workspace custom field. A countersigner gets the same values, so a field placed for her fills and a
     required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
     (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
+    A preview's draft is read back (`GET /signing-requests/{id}/fields` and `/users`) and
+    logged as `firma: preview prefills N, filled M (signer 1: …, signer 2: …); empty: …`
+    (`firma.prefillReport`: counts, each prefilled field's owner by signing order, the empty
+    keys; never a value). Best effort, never fatal.
   - On a template she countersigns, `sendBody` adds her as `countersigner`
     (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
     `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else

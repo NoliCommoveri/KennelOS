@@ -449,11 +449,45 @@ export function withFieldAliases(facts, rows) {
 
 // The keys of prefilled fields Firma left empty on a request it made (only the
 // keys: never a value), for the log. → [key]
+const fieldsOf = (data) => (Array.isArray(data) ? data
+  : Array.isArray(data?.fields) ? data.fields
+    : Array.isArray(data?.results) ? data.results
+      : Array.isArray(data?.signing_request?.fields) ? data.signing_request.fields : []);
+const prefillKey = (f) => { const k = f?.format_rules?.prefilledData; return typeof k === 'string' && ALIAS.test(k) ? k : null; };
+const hasValue = (f) => ['value', 'final_value', 'read_only_value'].some((p) => text(String(f?.[p] ?? '')));
 export function emptyPrefills(data) {
-  const fields = Array.isArray(data?.fields) ? data.fields : (Array.isArray(data?.signing_request?.fields) ? data.signing_request.fields : []);
-  return fields.map((f) => f?.format_rules?.prefilledData)
-    .filter((k, i) => typeof k === 'string' && ALIAS.test(k) && !text(String(fields[i]?.value ?? '')))
-    .slice(0, 40);
+  return fieldsOf(data).filter((f) => prefillKey(f) && !hasValue(f)).map(prefillKey).slice(0, 40);
+}
+
+// A preview's prefilled fields, for the log (keys and counts only, never a value):
+// how many there are, how many hold a value, which signer each belongs to (by its
+// place in the signing order: 1 = Firma's first signer), and the keys left empty.
+// `data` is GET /signing-requests/{id}/fields; `users` its /users. Pure.
+// → { prefilled, filled, owners: { <order|'?'>: n }, empty: [key] }
+export function prefillReport(data, users) {
+  const orderOf = new Map((Array.isArray(users) ? users : []).map((u) => [String(u?.id ?? ''), u?.order]));
+  const fields = fieldsOf(data).filter(prefillKey);
+  const owners = {};
+  for (const f of fields) {
+    const id = String(f.recipient_id ?? f.companies_workspaces_signing_requests_users_id ?? '');
+    const order = Number(orderOf.get(id));
+    const k = Number.isInteger(order) && order > 0 ? String(order) : '?';
+    owners[k] = (owners[k] || 0) + 1;
+  }
+  return { prefilled: fields.length, filled: fields.filter(hasValue).length, owners, empty: emptyPrefills(fields) };
+}
+
+// After a preview's draft is made: what Firma holds in its prefilled fields, logged
+// (keys and counts only). Best effort, never fatal: it's how a preview that shows
+// empty fields is told apart from one whose draft holds the values.
+async function logPreviewPrefills(env, key, id) {
+  try {
+    const f = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(id)}/fields`);
+    if (!ok(f)) { console.warn('firma: preview fields not read', f.status); return; }
+    const r = prefillReport(f.data, await requestUsers(env, key, id));
+    const owners = Object.entries(r.owners).map(([o, n]) => `signer ${o}: ${n}`).join(', ') || 'none';
+    console.log(`firma: preview prefills ${r.prefilled}, filled ${r.filled} (${owners})${r.empty.length ? `; empty: ${r.empty.join(',')}` : ''}`);
+  } catch { /* the log only */ }
 }
 
 // POST /integrations/esign/send
@@ -730,6 +764,7 @@ export async function previewSigningRequest(env, auth, body, now = new Date()) {
     await settlePreview(env, secrets.apiKey, { id: rowId, signing_request_id: id, sent_at: at }, now);
     fail(502, 'esign_unavailable');
   }
+  await logPreviewPrefills(env, secrets.apiKey, id);
   return { previewId: id, token: t.data.jwt, expiresAt: t.data.expires_at ?? null };
 }
 

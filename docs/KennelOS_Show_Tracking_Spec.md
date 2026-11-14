@@ -51,8 +51,11 @@
 - Show history goes in the one `events` table — **no** `shows` / `show_entries` /
   `show_results` table (CLAUDE.md: "One Event table for all dated history … no
   per-type tables").
-- **Points are derived, never stored** (guide §4.2). There is no `Dog.points`,
-  `Dog.titles`, or "is major" field anywhere; see §4.
+- **Points are derived, never stored** (guide §4.2). There is no `Dog.points` or "is
+  major" field anywhere; see §4.
+  **Modified:** titles a dog holds are stored, on `Dog.titles`
+  (`docs/KennelOS_Dog_Titles_Field_Plan.md`, D6), so a bought champion or an ancestor's
+  titles have somewhere to live. Points and track progress stay derived.
 - The handler is the canonical top-level `events.related_contact_id` FK, never a
   `details` value (guide §8).
 
@@ -265,6 +268,15 @@ lookup stays in the loader and the core stays db-free. The return shape gains
 `notCounted` (count of excluded wins).
 
 Track completion **never writes anything.** It feeds the nudge in §5.4.
+
+**Modified** (`docs/KennelOS_Dog_Titles_Field_Plan.md`, D6): titles held are stored on
+`Dog.titles`; points and progress stay derived. `requires` is also satisfied by a held
+`Dog.titles` entry for the required title. One with `earned_on` dates the required
+title like a logged event (the earliest date wins). One with no date (a bought champion)
+unlocks the track with every aimed win counting (`trackProgress`'s `requiredHeld`;
+`showRecordFrom(events, tracks, { held })`). The nudge in §5.4 also skips a track whose
+title is already on the dog's Titles (`heldTitle`), and the Show record card says "Held"
+for a field title with no date.
 
 ---
 

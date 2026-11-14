@@ -137,6 +137,10 @@ function makeFake() {
       f.sends.push({ id, ws: wsOfKey.id, body });
       return reply(201, { id, status: 'sent', first_signer: { id: `su_${id}`, email: body.recipients[0].email, signing_link: `https://app.firma.dev/signing/su_${id}` }, credits_remaining: 41 });
     }
+    if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/fields$/.exec(path))) {
+      if (!f.drafts.has(m[1])) return reply(404, {});
+      return reply(200, { results: f.draftFields || [] });
+    }
     if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/users$/.exec(path))) {
       const sent = f.sends.find((x) => x.id === m[1]);
       const recipients = sent?.body.recipients || [{ order: 1 }];
@@ -407,6 +411,33 @@ test('field aliases and empty prefills (pure)', () => {
     { format_rules: { prefilledData: 'phone_number' } }
   ] }), ['cf_1', 'phone_number']);
   assert.deepEqual(firma.emptyPrefills({}), []);
+});
+
+test('prefillReport: counts, owners by signing order, empty keys; never a value', () => {
+  const users = [{ id: 'u1', order: 1 }, { id: 'u2', order: 2 }];
+  const r = firma.prefillReport({ results: [
+    { recipient_id: 'u1', format_rules: { prefilledData: 'custom_workspace_a' }, value: null, final_value: null },
+    { recipient_id: 'u1', format_rules: { prefilledData: 'custom_workspace_b' }, read_only_value: 'Biscuit' },
+    { recipient_id: 'u2', format_rules: { prefilledData: 'price' }, final_value: '2500.00' },
+    { recipient_id: 'u9', format_rules: { prefilledData: 'buyerEmail' } },
+    { recipient_id: 'u1', type: 'signature', format_rules: {} }
+  ] }, users);
+  assert.deepEqual(r, { prefilled: 4, filled: 2, owners: { 1: 2, 2: 1, '?': 1 }, empty: ['custom_workspace_a', 'buyerEmail'] });
+  assert.ok(!JSON.stringify(r).includes('Biscuit'));
+  assert.deepEqual(firma.prefillReport(null, null), { prefilled: 0, filled: 0, owners: {}, empty: [] });
+});
+
+test('a preview logs what its draft holds in prefilled fields (keys and counts only)', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  fake.draftFields = [{ recipient_id: 'su_x', format_rules: { prefilledData: 'puppyName' }, value: '' }];
+  const logs = [];
+  const was = console.log;
+  console.log = (...a) => logs.push(a.join(' '));
+  try { assert.equal((await preview(env, s)).status, 200); } finally { console.log = was; }
+  const line = logs.find((l) => l.startsWith('firma: preview prefills'));
+  assert.equal(line, 'firma: preview prefills 1, filled 0 (signer ?: 1); empty: puppyName');
+  assert.ok(!logs.join('\n').includes('Biscuit'), 'no value is logged');
 });
 
 test('countersign: she is the second Signer of the same request, and gets her own link', async () => {

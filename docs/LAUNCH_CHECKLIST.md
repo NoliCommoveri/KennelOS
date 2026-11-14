@@ -352,7 +352,12 @@ and Email Routing.
   the PDF, and the contract's Signed copy should open the same link. Note whether Firma also
   emailed a copy. Review the privacy policy's new signed-copies lines (§9d).
   Then **Preview** in the Send dialog: it should open your template read-only in a new tab
-  with the contract's details filled in. Check in `/ops` that the credits didn't drop (a
+  with the contract's details filled in. **Not yet seen filled (owner, 2026-11-14).** After the Worker
+  deploy, Preview once and read the Worker log line `firma: preview prefills N, filled M
+  (signer 1: …)`: `filled` 0 with every key listed as empty means the draft holds no values
+  yet (Firma fills them at send); `filled` = `N` means the draft has them and Firma's
+  read-only editor doesn't show them. `signer 1` / `signer 2` is who owns the prefilled fields
+  in that template (1 = whoever signs first). Check in `/ops` that the credits didn't drop (a
   draft should be free), and that closing the Send dialog removed the draft (no stray draft
   in Firma's dashboard for the workspace). Check the Worker's log for "a request status
   KennelOS does not know": Firma's word for a draft must be `draft`, and for a sent request
