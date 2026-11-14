@@ -4282,3 +4282,16 @@ tick box per template; buyers get an emailed link.
   credit, the merge with offers and with two contacts, a refused merge changes nothing).
 
 - **SW cache bumped to `kennelos-shell-v112` (2026-11-08)** for duplicate applications, the owner's go-ahead.
+
+## 2026-11-14: duplicate applications brought up to main; SW cache v135
+
+- PR 168 merged with main (161 commits behind). Conflicts were mechanical: imports in
+  `waitlistActions.js`, the handler map in `waitlist-entry.js` (main's new handlers plus
+  `wireDuplicates`), the cache name, this log. Main's side sales (`sales.side_entry_id`) are
+  in the reference registry, so a merge moves them to the kept entry.
+- The v112 bump above never shipped. **SW cache bumped to `kennelos-shell-v135`** for the
+  duplicate-applications files on top of main's v134. Other sessions' unmerged branches were
+  checked first: their app changes (Kels's review defects, the "DAM" pedigree fix, waitlist
+  policies, the public list's See Your Details tint) are already on main.
+- Review K11's findings (`docs/review/findings/K11-kels.md`, the `INDEX.md` row) brought in
+  from `claude/kennelos-k11-kels-review-6ys8tj`.
