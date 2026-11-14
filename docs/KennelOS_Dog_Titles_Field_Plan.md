@@ -1,6 +1,6 @@
 # KennelOS — A dog's titles as a field (plan)
 
-> **Status: plan, not built.** Open decisions are in §7 (D1 to D7; D8 agreed); nothing is built until they're answered.
+> **Status: decided, not built.** All decisions made (§7). The build runs in six phases (§8); see its Status line.
 > The registry codes, AKC import rules and AKC title lists it relies on are in
 > `docs/KennelOS_Registry_Title_Facts.md` (a fact check against FCI and AKC sources,
 > 2026-11-14).
@@ -284,7 +284,205 @@ To send to KennelPort with this plan.
     `additional_registrations`, which is how a dual-registered dog is spotted.
   - **Website:** the new `origin_country` section, which needs KennelPort (§6.1).
 
-## 8. Steps
+## 8. Build phases
+
+**All decisions are made:** D1–D7 as recommended (owner, 2026-11-14), and D8 as agreed.
+The build runs in six phases, each one a session's worth of work.
+
+Each phase:
+- ends with `node --check` on the touched files, `node --test` passing, and a
+  `docs/BUILD_LOG.md` entry
+- is committed and pushed, then this section's **Status** line is updated
+- updates the End-State guide for what it built, in the same change (CLAUDE.md)
+- adds any new file to `PRECACHE_URLS` in `shared/sw.js` in the same edit
+
+No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
+
+**Status:** no phase started. Nothing was coded before this split.
+
+### 8.0 Findings from reading the code (carry into every phase)
+
+- **AKC Certified Pedigrees already mark foreign-born dogs.** The detail line of an
+  AKC-registered dog born abroad carries the country in brackets, e.g. "(SRB)" or
+  "(Canada)", usually next to an AKC DNA number (AKC requires DNA for imports). See
+  `tests/pedigreeParse.test.js`, "certified details".
+  - `parseDetails` and `parseRunOn` currently turn it into a notes line, `Registered in SRB`.
+  - It's the best country-of-origin source on an AKC chart.
+  - A home-registered dog with a bracketed country is the strongest Imported sign there
+    is, so it's **pre-ticked** (§4), next to "both parents foreign-only" and
+    "dual-registered".
+- **Serbian charts print `KSS JR 71592 BST`** (the test fixture): KSS (the Serbian kennel
+  union) comes before the JR studbook code. Map **KSS → Serbia** as well as JR and JUR.
+- **`pedigreeParse.js` is deliberately import-free.** Where things go:
+  - **The prefix-title list** (D3) lives there: its `TITLES` set, exported as
+    `TITLE_PREFIXES` and extended with AKC's full prefix list (fact check §3).
+    `splitTitles` also accepts a repeat number (GCHP2, MACH3).
+  - **The registry map** goes in a new pure, import-free module,
+    **`shared/data/registryCountries.js`**, not `vocab.js`. `pedigreeParse.js` and
+    `dogTitles.js` both import it. It holds:
+    - `REGISTRY_COUNTRIES` (country → codes)
+    - `countryOfRegistry(code)`, which uppercases, drops dots and a trailing hyphen,
+      and matches the whole code
+    - an ISO alpha-3 → country name map for the bracketed codes ("SRB" → Serbia)
+    - `countryName(text)` (an ISO-3 code → its name, else the text as printed)
+    - `homeCountry(dogs)` (D7)
+  - **Ambiguous codes are left out:** CKC, KCSB, KCB / K.C.B., FCG / F.C.G. (Georgia and
+    Guatemala), ACC/CR, FCC/LGC, LPB, and single letters other than S.
+- **What `dogTitles.js` does:**
+  - **`abbrKey`** uppercases and drops dots and spaces, so `H.CH` = `HCH`.
+  - **Two entries are the same title** when their keys match and their organizations
+    match, or either organization is blank.
+  - **`titlesOf(dog, events)`** merges three sources, each entry tagged with where it
+    came from:
+    - `field`: `Dog.titles`
+    - `event`: non-archived `title_earned` events (`event_id`)
+    - `name`: titles on the front of `registered_name` (D5a)
+
+    A matching event merges into the field entry and gives it the earliest known date.
+  - **Display order:**
+    - The field's own order comes first. That's the order she or the chart arranged,
+      e.g. "GCHB CH".
+    - Event-only **prefix** titles are put in front of the field's prefixes, newest
+      first. So a bought CH that later logs a GCH shows as "GCH CH".
+    - Event-only **suffix** titles go after the field's suffixes, oldest first.
+  - **`displayName(dog, titles)`** gives `prefixes + name without its front titles +
+    suffixes`.
+  - **Feed order** (`titles_detail`): dated titles by date, then undated ones in display
+    order.
+  - **`holdsTitle(list, 'GCH')`** also accepts a repeat number (GCH2), for the show
+    engine and the nudge only.
+  - **`normalizeTitles(list)`** stores `{ abbr, organization, earned_on }`:
+    - `''` for any blank part
+    - `abbr` trimmed and at most 30 characters, organization at most 60
+    - `earned_on` kept only if it's `YYYY-MM-DD`
+    - blank abbreviations dropped and duplicates merged
+
+    `dogRepo` runs it on every write that carries `titles`, like
+    `normalizeRegistrations`.
+- **The show engine:**
+  - `trackProgress` takes a `requiredHeld` option, so a held, undated CH unlocks GCH
+    with every GCH-aimed show counting.
+  - `showRecordFrom(events, tracks, { held })` also takes `Dog.titles`. A held entry
+    with `earned_on` counts like a logged event. Each row gets `heldTitle`.
+- **No dog CSV export exists.** Only the CSV *import* gains columns. The backup already
+  copies dog rows whole, so it needs nothing beyond the fields defaulting when missing.
+
+### Phase 1: Core and data layer (no UI)
+
+- `registryCountries.js` and `dogTitles.js` (§8.0), plus
+  `tests/registryCountries.test.js` and `tests/dogTitles.test.js`.
+- `pedigreeParse.js`: `TITLE_PREFIXES` (the extended `TITLES`), with repeat numbers in
+  `splitTitles`. Extend `tests/pedigreeParse.test.js`.
+- `dogRepo`: normalize `titles` and trim `country_of_origin` on every write that carries
+  them.
+- `syncRegistry` dogs.cloud: add `titles` and `country_of_origin` (D2 and D8, both
+  agreed). Then run
+  `node cloud/scripts/cloud-fields.mjs > cloud/src/lib/cloudFields.js` and
+  `cd cloud && npm test`.
+- Dog Card `DOG_FIELDS`:
+  - `titles` (a new `titles` kind, compared through `normalizeTitles`; supplied when
+    non-empty), from the field only, since events already travel as events
+  - `countryOfOrigin` (text)
+  - Old cards read both as empty.
+- CSV dog import:
+  - `titles`: space- or comma-separated abbreviations. On update it's add-only, so it
+    never drops a title she has.
+  - `country_of_origin`
+  - Add both to `csvImportHelp.js`.
+- `PRECACHE_URLS`: `data/dogTitles.js` and `data/registryCountries.js`.
+- Guide: the Dog row in the data model (both fields), the module entries.
+
+### Phase 2: Readers and display
+
+- `waitlistProjection.titlesByDog(events, dogs)` and
+  `siteExport.titleDetailsByDog(events, dogs)` go through `titlesOf`. Update every caller
+  (siteExport `buildSiteBundle`, waitlist `parentView`) and their tests.
+- `lineageOf`: ancestors' titles go through the same maps, which is KennelPort's ask 1.
+  Add the KennelPort test: chart grandsire "GCH CH X" → `ancestors` at `sire.sire` has
+  `["GCH", "CH"]`.
+- D5a: `registered_name` is sent without the titles on its front, on dogs and
+  ancestors; those titles go into `titles`.
+- The `origin_country` section: `country_of_origin` (`country_of_origin`, else
+  `import_country` when imported) on each dog and ancestor, sent only when the site's
+  Worker lists the section. Update the Website Contract Plan (a new C-row) and guide §35.
+- `showPoints`: the `held` and `requiredHeld` options (§8.0), plus tests (an undated
+  held CH unlocks GCH, a dated one gates like an event).
+- `nudges.js`: pass `d.titles`, and skip when `titleEvent || heldTitle`.
+- `dog.js` (dog page): show the header name with titles (`displayName`). The show
+  record card says "Held" for a field title with no date.
+- The pedigree tree and pedigree page show names with titles, where they show a name.
+- `dogCard.js` and the Dog Card page: nothing more than phase 1.
+
+### Phase 3: Dog form
+
+- **A Titles row of chips:**
+  - **Field titles** can be added and removed, each with an abbreviation and, behind a
+    "details" disclosure, an organization and an earned-on date.
+  - **Event titles** are read-only, each linking to its event.
+  - **Name titles** say "in the registered name".
+  - **Suggestions** come from `TITLE_PREFIXES` plus a suffix suggestion list in
+    `dogTitles.js` (AKC's suffix list, fact check §3), via `<datalist>`.
+- **A Country of origin row:**
+  - always shown, next to Imported
+  - shown on the view as "Country of origin"
+  - while Imported is ticked, the form writes the same country into `import_country`
+  - the existing "Country of origin" box shown only while Imported is ticked becomes
+    this one row
+- Every user value goes through `esc()`.
+
+### Phase 4: Pedigree chart import
+
+- `toDog` gives `titles` (from `splitTitles`) and stops writing the `Titles:` notes line.
+  On an AKC Certified Pedigree (the header says so) the organization is AKC; otherwise
+  it's blank.
+- Country of origin comes from the bracketed country first (`countryName`), then the
+  registry code (`countryOfRegistry`), then blank. Remove the `Registered in …` notes
+  line once that's in the field? **No: keep it** (it's her chart's text, D4's
+  reasoning).
+- Widen `isOtherReg` (and the registry capture in `parseDetails`) to every code on the
+  map, and keep a second registration in `additional_registrations`.
+- Imported, as worked out over the chart's tree:
+  - **pre-ticked:** home registry plus a bracketed foreign country, or both parents
+    foreign-only, or dual-registered
+  - **unticked offer:** home registry with one foreign parent
+  - **none:** foreign-only, or an all-home line
+
+  "Home" is `homeCountry(dogs)`.
+- Review screen (`pedigree-import.js`): titles chips, the country and the Imported tick
+  for each new dog.
+  - For a match to an existing dog, it only offers what that dog lacks (missing titles,
+    a blank country, an unticked Imported), each unticked.
+  - `pedigreeImport.js` saves them.
+- Tests: §8 step 4's list, plus "(SRB) on an AKC dog → Serbia, pre-ticked" and
+  "KSS JR → Serbia".
+
+### Phase 5: Tidy up my records
+
+- `tidyRules.js`: the `dog-titles-in-notes` and `dog-titles-in-name` kinds after
+  `dog-no-parents`, with `titlesInNotesFindings` and `titlesInNameFindings`. One grouped
+  finding each, keyed by its dogs and titles, joined into `tidyFindings`, in every
+  edition.
+- `tidyUpUI.js`: the finding screen. One list with ticks, then Add to titles, Not now,
+  or Don't ask again. The name finding also takes the titles off the front of the name.
+  Writes go through `dogRepo.update`.
+- Kels's knowledge text (`kelsKnowledge.js`) for what the tidy-up now checks.
+- Tests in the tidy-up suite.
+
+### Phase 6: Docs and close
+
+- Show Tracking Spec §4 and guide §4.2: a **Modified:** note (D6). Titles held are stored;
+  points and progress stay derived.
+- The editions doc and guide §0: titles and country of origin are in every edition. The
+  show nudge stays Pro.
+- This plan's status → built. Update the README Status line (and the Website Contract
+  Plan if `origin_country` is waiting on KennelPort).
+- Run `node build/assemble.mjs`, `node --test`, and `cd cloud && npm test`. Check the dog
+  page, Dog form, pedigree import and tidy-up in the browser (`/shared/`).
+- Ask the owner about the `CACHE_NAME` bump.
+
+### 8.1 Earlier step list
+
+These are kept for the test lists phase 4 refers to.
 
 1. **Pure core:** `dogTitles.js` (`titlesOf`, `normalizeAbbr`, the merge), plus
    `tests/dogTitles.test.js`.

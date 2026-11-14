@@ -4252,3 +4252,13 @@ tick box per template; buyers get an emailed link.
   - D3 is flipped to a prefix list. AKC puts most titles after the name, championship
     titles before it.
   - Chart titles on an AKC pedigree get organization AKC.
+- **Decided and split into phases (owner):** D1–D7 as recommended. §8 of the plan now has
+  six build phases with a "findings from reading the code" section to carry between
+  sessions. In short:
+  - AKC Certified Pedigrees bracket a foreign-born dog's country ("(SRB)"), so a bracketed
+    country on an AKC dog pre-ticks Imported.
+  - KSS also maps to Serbia.
+  - The registry map goes in a new pure module, `registryCountries.js`, because
+    `pedigreeParse.js` is import-free.
+
+  No code yet.
