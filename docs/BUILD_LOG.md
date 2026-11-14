@@ -4450,3 +4450,23 @@ tick box per template; buyers get an emailed link.
   editor that doesn't show them (`docs/LAUNCH_CHECKLIST.md`).
 - **Tests:** `cloud/tests/esign.test.js` +2. `cd cloud && npm test` 339 pass.
 - Worker only, so no service-worker bump.
+
+## 2026-11-14: Firma preview: name the empty field; What goes in on the Send dialog
+
+- **Seen (production log):** `firma: preview prefills 5, filled 4 (signer 1: 5); empty:
+  custom_workspace_370f5600-…`. The draft holds the values; Firma's read-only signing request
+  editor draws each field as a "TEXT" box, not its value (owner's photo). All five belong to
+  the buyer (signer 1). One field is empty, unnamed.
+- **Worker:** `firma.prefillFields` names each prefilled field by the workspace custom field
+  it reads (`fact`, `label`, `filled`, `sent`, `signer`; never a value). The preview log line
+  names an empty field `<label> [<fact>, sent|not sent]`, and the preview's response carries
+  the list as `fields`. `requestBody` returns the workspace rows it read.
+- **App:** the Send dialog's **What goes in (N)** lists every detail the send fills, by its
+  label, with its value from the device (`cloudEsign.sendDetails`). After Preview it says how
+  many of the template's detail fields are filled and why each empty one is
+  (`cloudEsign.previewNotes`: blank on this contract and where to add it, a detail KennelOS
+  doesn't fill on that kind of template, not a KennelOS detail, or sent but left empty).
+- **Tests:** `cloud/tests/esign.test.js` (prefillFields, the preview's log and `fields`),
+  `tests/esign.test.js` +2. Checked in Chromium at phone width: the dialog's list, values
+  escaped.
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v137`. Needs the Worker deploy too.

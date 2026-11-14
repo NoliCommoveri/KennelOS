@@ -3262,10 +3262,7 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     in the editor stores for a workspace custom field. A countersigner gets the same values, so a field placed for her fills and a
     required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
     (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
-    A preview's draft is read back (`GET /signing-requests/{id}/fields` and `/users`) and
-    logged as `firma: preview prefills N, filled M (signer 1: …, signer 2: …); empty: …`
-    (`firma.prefillReport`: counts, each prefilled field's owner by signing order, the empty
-    keys; never a value). Best effort, never fatal.
+    A field belongs to one signer and fills from that signer's `custom_fields`.
   - On a template she countersigns, `sendBody` adds her as `countersigner`
     (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
     `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
@@ -3290,7 +3287,20 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     (`POST /signing-requests`: never sent, never charged, never counted as a send) and a
     token for it (`/jwt/generate-signing-request`). It opens in a new tab on
     the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
-    real template with this contract's values.
+    real template with a box where each field is. The draft holds the values, but the editor
+    draws a field's box (its type, "TEXT"), not what's in it.
+    - **What it found:** the Worker reads the draft back (`GET /signing-requests/{id}/fields`
+      and `/users`) and names each prefilled field by the workspace field it reads
+      (`firma.prefillFields`: `fact` = its `field_name`, `label`, `filled`, `sent`, `signer` =
+      its owner's place in the signing order; never a value). It logs `firma: preview prefills
+      N, filled M (signer 1: …); empty: <label> [<fact>, sent|not sent]` and returns the list as
+      `fields` (best effort, never fatal; absent when Firma didn't answer). The dialog shows
+      how many are filled and each empty one with why (`cloudEsign.previewNotes`): blank on
+      this contract (and where to add it), a detail KennelOS doesn't fill on a template of
+      this kind, not a KennelOS detail, or sent but left empty by Firma.
+    - **What goes in** (in the Send dialog, before any preview): every detail this send fills,
+      by its label in Firma's editor, with its value from the device (`cloudEsign.sendDetails`;
+      styles `.esign-detail*` in `app.css`).
     - **A preview holds a place in her month** while it's open: an `esign_sends` row with
       status `preview` (no column of its own; `usage` and `/ops` leave it out). Read-only is
       the editor's setting, not the token's, so for its 7 days the token could send the draft
