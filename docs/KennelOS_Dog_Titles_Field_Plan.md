@@ -1,6 +1,6 @@
 # KennelOS — A dog's titles as a field (plan)
 
-> **Status: plan, not built.** Open decisions are in §7; nothing is built until they're answered.
+> **Status: plan, not built.** Open decisions are in §7 (D1 to D7); nothing is built until they're answered.
 > This plan also covers KennelPort's hand-over "send pedigree-only ancestors' titles (and
 > their import)" (2026-11-14). Its five asks are acceptance criteria here (§6).
 
@@ -95,21 +95,43 @@ The calculation logic doesn't change. It reads the field in two places and write
   remove one, she archives the event.
 - **Dog page header and pedigree tree:** titles shown with the name, e.g. "GCH CH Bella"
   (display rule in §7, D3).
-- **Pedigree chart import:** writes `splitTitles` output into `titles` on each dog it
-  creates. It stops writing the `Titles:` notes line.
+- **Pedigree chart import** collects two things for each dog it reads:
+  - **Titles:** `splitTitles` output goes into `titles` on each dog it creates. It stops
+    writing the `Titles:` notes line. On the review screen, each row shows its titles as
+    chips she can edit before importing.
+  - **Imported and country of origin:** when the registry the chart gives a dog is a
+    foreign one (a new `REGISTRY_COUNTRIES` map in `vocab.js`, e.g. RKF → Russia, PKR →
+    Poland, KCSB → United Kingdom), its review row shows "Imported from Russia" ticked,
+    with the country editable. She sees it and can untick it before pressing Import, so
+    it's never set without her (D7).
+  - **Existing dogs:** a row that matches a dog already in the app only offers to add
+    titles it doesn't have, and to tick Imported if it isn't ticked. Both are off by
+    default. It never overwrites what she set.
 - **The dog CSV import/export** gains a `titles` column, space-separated abbreviations
   (round-trips `GCH CH`).
 - **Dog Card send/receive:** `titles` joins `DOG_FIELDS` as a new list kind. Old cards
   without it read as `[]`.
 
-## 5. Existing data (one-time, idempotent)
+## 5. Existing data: a prompt she confirms, never a silent write
 
-- **The `Titles: …` notes line** on pedigree-only dogs. The first time a build with this
-  feature opens, it reads the line into `Dog.titles` through `dogRepo.update` (so
-  `markDataChanged` fires and it syncs). A settings flag records that it has run. It's
-  safe to run on two devices: entries are deduped, so the second run adds nothing.
-  Whether the notes line is then removed is D4.
-- **Titles on the front of a registered name** ("GCH A-K Bella"): see D5.
+This is KennelOS asking her, in KennelOS. It isn't done at send time and it isn't done for
+KennelPort. Nothing is written until she says yes.
+
+- **Finding the dogs.** A pure check, `titlesWaitingInNotes(dogs, events)` in
+  `dogTitles.js`, picks out every dog whose notes have a `Titles: …` line holding any
+  abbreviation that isn't already in `titlesOf` for that dog. It also picks out any dog
+  whose registered name starts with titles ("GCH A-K Bella", D5).
+- **The nudge.** "Titles in notes (N dogs)." Key `titles-in-notes`, every edition. It
+  clears itself once nothing is left to move. Its action opens the Kels task.
+- **The Kels task, "Tidy up titles".** It's on the Kels menu and also reached from the
+  nudge. One screen lists each dog, its titles as they'd be saved, and where they came from
+  (notes, or the front of its name). She can untick a dog or a title. **Save** writes
+  through `dogRepo.update` (so `markDataChanged` fires and it syncs). A name she ticks also
+  has its titles taken off the front. Entries are deduped, so running it again, or on a
+  second device, adds nothing.
+- **The dog page:** a one-line "Titles in notes: GCHB CH. Add to titles?" with Add and
+  Not now, for that one dog.
+- **The notes line is left as it is** (D4).
 
 ## 6. KennelPort's asks → this plan
 
@@ -117,9 +139,9 @@ The calculation logic doesn't change. It reads the field in two places and write
 |---|---|
 | 1. Every ancestor's `titles` filled, abbreviations or `{abbr, organization, date}` (nulls allowed) | `lineageOf`, `titlesByDog` and `titleDetailsByDog` read `titlesOf`. A field-only title is sent with `date: null` (`ymd` already gives null). |
 | 2. Titles stored as data, not just in notes | `Dog.titles` (§2), written by chart import (§4) |
-| 3. Existing chart imports, once | §5 back-fill |
-| 4. Registered names that still carry titles | D5 |
-| 5. Offer Imported for a foreign registry | Optional step 6 (§8): a suggestion she confirms, never set silently |
+| 3. Existing chart imports, once | §5: a KennelOS nudge plus a Kels task she confirms. KennelPort plays no part. |
+| 4. Registered names that still carry titles | D5, and the same Kels task |
+| 5. Offer Imported for a foreign registry | §4 chart import: pre-ticked on the review screen, which she confirms (D7) |
 
 There's **no contract change**: same sections, same keys. KennelPort needs no release first.
 
@@ -140,9 +162,15 @@ There's **no contract change**: same sections, same keys. KennelPort needs no re
   note, and the hand-over says to keep it if she relies on it. New imports stop writing it.
 - **D5. "GCH A-K Bella"-style names.**
   - **(a)** Split them when sending to the website (non-destructive).
-  - **(b)** Also offer to clean the name when she next opens that dog's form ("Move GCH to
-    titles?").
+  - **(b)** Also offer to clean the name in the §5 tidy-up ("Move GCH to titles?").
   - **Recommended: (a) + (b).** It never silently rewrites a registered name.
+- **D7. Which registries count as foreign.** A chart only gives a registry code, and some
+  codes are ambiguous: CKC is both the Canadian and the Continental Kennel Club. UKC,
+  CKC-Continental and AKC are home registries to a US breeder.
+  - **Recommended:** a registry counts as foreign only when it's in `REGISTRY_COUNTRIES` and
+    isn't the registry most of her own (non-pedigree-only) dogs use.
+  - Ambiguous codes like CKC stay off the map, so they're never pre-ticked.
+  - A registry not on the map leaves the box unticked. She can still tick it.
 - **D6. The show-tracking design rule** (Show Tracking Spec §4, guide §4.2: "no
   `Dog.titles` field"). **Recommended:** keep it for points and majors, and relax it for
   titles. The guide and spec get a **Modified:** note: titles held are stored, progress is
@@ -163,12 +191,16 @@ There's **no contract change**: same sections, same keys. KennelPort needs no re
    - `showRecordFrom` required-title date
    - nudge suppression
    - display name with titles (D3)
-4. **Pedigree chart import:** writes `titles`, plus the KennelPort test: grandsire "GCH CH X"
-   → `ancestors` at `sire.sire` has `titles: ["GCH", "CH"]`.
-5. **UI:** the dog form's Titles row and the dog page header. Then the one-time back-fill
-   (§5) and D5(b).
-6. *(Optional)* Chart import offers Imported plus a country when a dog's registry is foreign.
-   She confirms it.
+4. **Pedigree chart import:**
+   - It writes `titles`, plus the KennelPort test: grandsire "GCH CH X" → `ancestors` at
+     `sire.sire` has `titles: ["GCH", "CH"]`.
+   - The review screen gets the titles chips and the Imported and country choice (§4,
+     D7), with `REGISTRY_COUNTRIES` added to `vocab.js`.
+   - Tests: a foreign-registry ancestor comes through pre-ticked, an AKC one doesn't, and
+     unticking it saves `imported: false`.
+5. **UI:** the dog form's Titles row and the dog page header.
+6. **The tidy-up (§5):** `titlesWaitingInNotes`, the `titles-in-notes` nudge, the Kels task
+   "Tidy up titles", and the dog page's one-line offer.
 7. **Docs:**
    - End-State guide: the Dog fields, a `dogTitles.js` entry, §35 website feed, Show
      Tracking **Modified:** note
