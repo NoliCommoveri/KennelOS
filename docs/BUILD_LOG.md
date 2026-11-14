@@ -4430,3 +4430,23 @@ tick box per template; buyers get an emailed link.
   pedigree import page, and Kels's tidy-up finding titles in notes and in names. No
   console errors.
 - No `CACHE_NAME` bump: no app file changed since v136.
+
+## 2026-11-14: Firma preview: why its fields show empty (diagnosis)
+
+- **Seen (owner):** the live Preview has never shown the contract's details filled in.
+- **Read:** Preview makes a draft (`POST /signing-requests`) and opens it in Firma's signing
+  request editor, read-only; a send uses `create-and-send`. Firma's Field Prefilling guide:
+  prefill "happens at field-creation time once the recipient record exists" and "is re-checked
+  when the signing request is actually sent"; with create-and-send "the field's value is
+  populated immediately in the response". It says nothing about drafts or what the editor
+  shows. The API spec's field `value` is the "final signed value". A field belongs to one
+  recipient (`recipient_id`) and fills from that recipient's `custom_fields`; KennelOS sends
+  the same facts to both signers.
+- **Change (Worker):** after a preview's draft is made, `logPreviewPrefills` reads its fields
+  and users and logs `firma: preview prefills N, filled M (signer 1: …, signer 2: …); empty:
+  …` (`firma.prefillReport`; keys and counts only). `emptyPrefills` also reads a `results`
+  list and counts `final_value` / `read_only_value` as filled. Best effort, never fatal.
+- **Next:** one Preview after the deploy; the log line tells a draft without values from an
+  editor that doesn't show them (`docs/LAUNCH_CHECKLIST.md`).
+- **Tests:** `cloud/tests/esign.test.js` +2. `cd cloud && npm test` 339 pass.
+- Worker only, so no service-worker bump.

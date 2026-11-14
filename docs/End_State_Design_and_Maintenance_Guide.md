@@ -3262,6 +3262,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     in the editor stores for a workspace custom field. A countersigner gets the same values, so a field placed for her fills and a
     required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
     (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
+    A preview's draft is read back (`GET /signing-requests/{id}/fields` and `/users`) and
+    logged as `firma: preview prefills N, filled M (signer 1: …, signer 2: …); empty: …`
+    (`firma.prefillReport`: counts, each prefilled field's owner by signing order, the empty
+    keys; never a value). Best effort, never fatal.
   - On a template she countersigns, `sendBody` adds her as `countersigner`
     (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
     `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
