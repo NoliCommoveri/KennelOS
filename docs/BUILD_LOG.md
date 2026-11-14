@@ -4346,3 +4346,67 @@ tick box per template; buyers get an emailed link.
   the KennelPort grandsire case and `origin_country` in `siteExport.test.js`; field and
   name titles in `waitlistProjection.test.js`. Two siteExport expectations changed for the
   new order and the stripped name.
+
+## 2026-11-14: dog titles as a field, phase 3 (Dog form)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 3.
+- Dog form, a **Titles** row: field titles as chips (abbreviation; organization and
+  earned-on date behind "details"; × removes), logged `title_earned` titles as read-only
+  chips that open their event in place, and "in the registered name" chips that follow the
+  Registered name box. The Add box takes several at once ("GCH CH") with suggestions from
+  `TITLE_PREFIXES` plus AKC's suffix list.
+- `dogTitles.js` gains `TITLE_SUFFIXES`, `titleSuggestions`, `splitTitleInput` and
+  `formTitleChips`.
+- **Country of origin** is one row, always shown next to Imported (was: a box only while
+  Imported was ticked, writing `import_country`). It saves `country_of_origin`, and while
+  Imported is ticked the same country goes into `import_country`. An older record's
+  `import_country` fills the row on edit. The view shows Imported "Yes" and Country of
+  origin on its own row.
+- Chip styles in `app.css`. No new files, so `PRECACHE_URLS` is unchanged; no cache bump.
+- Tests: suggestions, the Add box split and the chip split in `dogTitles.test.js`. Checked
+  in the browser at phone width: add, edit details, remove, save, view, re-edit, and a
+  logged GCH opening its event.
+
+## 2026-11-14: dog titles as a field, phase 4 (pedigree chart import)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 4.
+- `pedigreeParse.js` now imports `registryCountries.js`. A chart box's prefix titles go
+  into `titles` (organization AKC on an AKC Certified Pedigree, `header.certified`) and the
+  `Titles:` notes line is no longer written. The `Registered in …` note stays.
+- `isOtherReg` and `parseDetails` read every code on the registry map: as printed or in
+  capitals, dots optional, accented letters, trailing hyphen, longest first (`KSS JR`).
+  Numbers are kept as printed. A line led by another mapped registry isn't read as an
+  unslashed AKC number (`KC AV01234501`), and `DNA`/`CHIC`/`OFA` lines are never
+  registrations. A second registration goes into `additional_registrations`.
+- New `originSuggestions(dogs, home)`: each dog's country (bracketed country, else a
+  non-home registry) and the Imported suggestion over the chart's tree (pre-ticked,
+  offered unticked, or none, D8).
+- `pedigreeImport.planImport` carries titles, second registrations, country and Imported
+  per row (home = `homeCountry(existing)`), and matches a dog she has by a second number
+  too. A matched dog's row offers only what it lacks, each unticked (`row.fill`).
+  `commitImport` saves them; new `originFields`.
+- Review screen: Titles chips (remove, add with suggestions), an Origin column (country
+  box, Imported tick), "also <number>" under a second registration, and the unticked
+  fill-ins for matched dogs.
+- Tests: §8.1 step 4's list plus "(SRB) on an AKC dog → Serbia, pre-ticked", "KSS JR →
+  Serbia", every map code read as a registration, the KC/AKC look-alike, and the
+  fill-in, edit and save cases in `pedigreeImport.test.js`. Checked in the browser with a
+  generated chart PDF: review, tick Imported, add a title, import.
+
+## 2026-11-14: dog titles as a field, phase 5 (Tidy up my records)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 5.
+- `tidyRules.js`: `dog-titles-in-notes` and `dog-titles-in-name` after `dog-no-parents`, in
+  every edition. `titlesInNotesFindings` (a `Titles: …` notes line naming titles `titlesOf`
+  lacks; words like "none" skipped) and `titlesInNameFindings` (titles on the front of the
+  registered name) each give one grouped finding, keyed by a hash of the dogs and titles.
+  `titlesFix` is the write. `tidyFindings` takes `titleEvents`.
+- `tidyUpUI.js`: one list with a tick per dog and per title, Add to titles or Skip (then
+  Not now / Don't ask me again / Stop for now). Writes through `dogRepo.update`. The name
+  finding also takes the titles off the name; the notes line stays (D4). Each kind is
+  raised once a visit, so an unticked title waits for the next one.
+- Kels's Tidy up task: its description and search words now cover titles (`pages/kels.js`;
+  the plan named `kelsKnowledge.js`, noted as **Modified** there).
+- `CACHE_NAME` bumped to `kennelos-shell-v136` for phases 3–5. No new files.
+- Tests in `tidyRules.test.js`. Checked in the browser: Kels's tidy-up with two notes dogs
+  and one name dog, a title unticked, both lists saved.

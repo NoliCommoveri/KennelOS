@@ -3,8 +3,10 @@
 // column per generation, each box centred between its two parents' boxes).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { REGISTRY_COUNTRIES, countryOfRegistry } from '../shared/data/registryCountries.js';
 import {
-  wordsToSegments, parsePedigree, isAkcReg, isOtherReg, isColorOnly, isDetail, parseDetails, splitTitles, TITLE_PREFIXES
+  wordsToSegments, parsePedigree, isAkcReg, isOtherReg, isColorOnly, isDetail, parseDetails, splitTitles, TITLE_PREFIXES,
+  originSuggestions
 } from '../shared/data/pedigreeParse.js';
 
 // A chart of `gens` ancestor generations. Each box: name line, then reg, then color.
@@ -227,4 +229,110 @@ test('a parent named "DAM …" keeps its name; only a "Sire"/"Dam" label comes o
   const r = parsePedigree(wordsToSegments(words), page);
   assert.equal(r.dogs.get('d').registered_name, 'DAM PRESTIGE TINA');
   assert.equal(r.dogs.get('s').registered_name, 'SALOGAS DAM PRESTIGE STRENGER');
+});
+
+// --- Titles, registrations and origin (Dog Titles Field Plan §8 phase 4) ------
+
+test('titles go to the dog’s titles, not a notes line; organization AKC only on a Certified Pedigree', () => {
+  const { words, page } = chart();
+  for (const w of words) if (w.text === 'Dog SS') w.text = 'GCH CH Dog SS';
+  const r = parsePedigree(wordsToSegments(words), page);
+  const ss = r.dogs.get('ss');
+  assert.equal(ss.registered_name, 'Dog SS');
+  // KennelPort's ask 1 starts here: a grandsire "GCH CH X" carries both titles.
+  assert.deepEqual(ss.titles, [{ abbr: 'GCH', organization: '', earned_on: '' }, { abbr: 'CH', organization: '', earned_on: '' }]);
+  assert.ok(!ss.notes.some((n) => /^Titles:/.test(n)), 'no Titles: notes line');
+  assert.deepEqual(r.dogs.get('s').titles, []);
+
+  const c = certified();
+  for (const w of c.words) if (w.text === 'DOG SD') w.text = 'CH DOG SD';
+  const cr = parsePedigree(wordsToSegments(c.words), c.page);
+  assert.deepEqual(cr.dogs.get('sd').titles, [{ abbr: 'CH', organization: 'AKC', earned_on: '' }]);
+  assert.equal(cr.header.certified, true);
+});
+
+test('every code on the registry map reads as a registration', () => {
+  const misses = [];
+  for (const code of Object.values(REGISTRY_COUNTRIES).flat()) {
+    const line = `${code} 12345/19`;
+    if (!isOtherReg(line)) { misses.push(code); continue; }
+    const d = parseDetails([line]);
+    if (countryOfRegistry(d.registry) !== countryOfRegistry(code)) misses.push(`${code} → ${d.registry}`);
+  }
+  assert.deepEqual(misses, []);
+  for (const t of ['ÖHZB 1234/19', 'ČLP/BT/123', 'K.C.T. 2020/123', 'KIF- 1234', 'NIC-F 99/20', 'S12345/2019']) assert.ok(isOtherReg(t), t);
+  assert.ok(!isOtherReg('AKC DNA V516516'), 'an AKC DNA line is a detail');
+});
+
+test('KSS JR → Serbia; KC is the United Kingdom, never Chile’s KCC; a KC number isn’t read as AKC', () => {
+  const kss = parseDetails(['KSS JR 71592 BST']);
+  assert.equal(kss.registration_number, 'KSS JR 71592 BST', 'as printed');
+  assert.equal(countryOfRegistry(kss.registry), 'Serbia');
+  const kc = parseDetails(['KC AV01234501']);
+  assert.equal(kc.registry, 'KC');
+  assert.equal(kc.registration_number, 'KC AV01234501');
+  assert.equal(countryOfRegistry(kc.registry), 'United Kingdom');
+  assert.equal(countryOfRegistry(parseDetails(['KCC 1234/20']).registry), 'Chile');
+  assert.equal(countryOfRegistry(parseDetails(['CKC 1234']).registry), '', 'CKC gets no country');
+});
+
+test('a second registration is kept in additional_registrations', () => {
+  const d = parseDetails(['NP165114/01 08-08', 'JR 12345/19', 'AKC DNA V1']);
+  assert.equal(d.registration_number, 'NP165114/01 08-08');
+  assert.deepEqual(d.additional_registrations, [{ registry: 'JR', registration_number: 'JR 12345/19', registered_name: '' }]);
+  assert.deepEqual(d.notes, ['AKC DNA V1']);
+  const f = parseDetails(['MET BOST.T.915/19', 'NP165114/01']);
+  assert.equal(f.registry, 'MET');
+  assert.deepEqual(f.additional_registrations, [{ registry: 'AKC', registration_number: 'NP165114/01', registered_name: '' }]);
+});
+
+test('the bracketed country on an AKC chart is kept as printed in notes and read as a country', () => {
+  const d = parseDetails(['NP78894701 (04-23) BLK BRDL & WH', '(SRB) AKC DNA V10076593']);
+  assert.equal(d.country, 'Serbia');
+  assert.ok(d.notes.includes('Registered in SRB'), 'the Registered in line stays (D4)');
+  assert.equal(parseDetails(['NP165114/01 08-08 (Canada)']).country, 'Canada');
+});
+
+// A parsed tree for originSuggestions: [path, registry, extra registries, bracketed country].
+const tree = (rows) => new Map(rows.map(([path, registry, extra = [], printed = '']) => [path, {
+  path, registry, registration_number: `${registry} 1`, origin_printed: printed,
+  additional_registrations: extra.map((r) => ({ registry: r, registration_number: `${r} 2`, registered_name: '' }))
+}]));
+const US = 'United States';
+
+test('origin: a JR ancestor gets Serbia and is never offered Imported; JUR too', () => {
+  const o = originSuggestions(tree([['', 'AKC'], ['s', 'JR'], ['d', 'JUR'], ['ss', 'JR'], ['sd', 'JR']]), US);
+  assert.deepEqual(o.get('s'), { country: 'Serbia', imported: null, importCountry: '' });
+  assert.deepEqual(o.get('d'), { country: 'Serbia', imported: null, importCountry: '' });
+});
+
+test('origin: an AKC dog with two JR parents is offered Imported pre-ticked, from Serbia', () => {
+  const o = originSuggestions(tree([['', 'AKC'], ['s', 'JR'], ['d', 'JR']]), US);
+  assert.deepEqual(o.get(''), { country: '', imported: 'ticked', importCountry: 'Serbia' });
+});
+
+test('origin: a JR sire and an AKC dam → offered unticked', () => {
+  const o = originSuggestions(tree([['', 'AKC'], ['s', 'JR'], ['d', 'AKC']]), US);
+  assert.deepEqual(o.get(''), { country: '', imported: 'offer', importCountry: 'Serbia' });
+  assert.equal(o.get('d').imported, null, 'the home-registered parent is checked on its own line');
+});
+
+test('origin: AKC + JR dual-registered → Serbia, pre-ticked', () => {
+  const o = originSuggestions(tree([['', 'AKC', ['JR']], ['s', 'AKC'], ['d', 'AKC']]), US);
+  assert.deepEqual(o.get(''), { country: 'Serbia', imported: 'ticked', importCountry: 'Serbia' });
+});
+
+test('origin: (SRB) on an AKC dog → Serbia, pre-ticked', () => {
+  const o = originSuggestions(tree([['', 'AKC', [], 'SRB'], ['s', 'AKC'], ['d', 'AKC']]), US);
+  assert.deepEqual(o.get(''), { country: 'Serbia', imported: 'ticked', importCountry: 'Serbia' });
+});
+
+test('origin: an all-AKC line gets nothing; a CKC dog gets no country; home follows her registry', () => {
+  const all = originSuggestions(tree([['', 'AKC'], ['s', 'AKC'], ['d', 'UKC']]), US);
+  for (const v of all.values()) assert.deepEqual(v, { country: '', imported: null, importCountry: '' });
+  assert.deepEqual(originSuggestions(tree([['', 'CKC']]), US).get(''), { country: '', imported: null, importCountry: '' });
+  // Her home is Serbia: a JR dog is home, an AKC parent foreign.
+  const sr = originSuggestions(tree([['', 'JR'], ['s', 'AKC'], ['d', 'AKC']]), 'Serbia');
+  assert.deepEqual(sr.get(''), { country: '', imported: 'ticked', importCountry: 'United States' });
+  assert.equal(sr.get('s').country, 'United States');
 });

@@ -213,7 +213,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form shows **Country of origin** only then and clears it on unticking; shown as Imported, "Yes, from …"; sent to her website, §35), `country_of_origin` (text; cloud; where the dog comes from, a fact on its own apart from `imported`: a Serbian ancestor still in Serbia has it with `imported` false; trimmed by `dogRepo` on every write that carries it; a dog's country reads as `country_of_origin`, else `import_country` when `imported`), `titles[]` (cloud; the titles it holds, `{ abbr, organization, earned_on }` in her order, `''` for a blank part, `earned_on` only `YYYY-MM-DD`; stored through `dogTitles.normalizeTitles` by `dogRepo` on every write that carries it: abbreviation trimmed to 30 characters, organization to 60, blanks dropped, the same title merged; no index; in every edition. The titles shown and sent are `dogTitles.titlesOf(dog, events)`: this field, the dog's non-archived `title_earned` events and any titles still on the front of `registered_name`, merged at read time, see **Titles** below), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form writes its one **Country of origin** box into it then and clears it on unticking; shown as Imported, "Yes", with the country on its own row; sent to her website, §35), `country_of_origin` (text; cloud; where the dog comes from, a fact on its own apart from `imported`: a Serbian ancestor still in Serbia has it with `imported` false; trimmed by `dogRepo` on every write that carries it; a dog's country reads as `country_of_origin`, else `import_country` when `imported`; the Dog form's **Country of origin** row is always shown next to Imported, opens with that reading, and is shown on the view as Country of origin), `titles[]` (cloud; the titles it holds, `{ abbr, organization, earned_on }` in her order, `''` for a blank part, `earned_on` only `YYYY-MM-DD`; stored through `dogTitles.normalizeTitles` by `dogRepo` on every write that carries it: abbreviation trimmed to 30 characters, organization to 60, blanks dropped, the same title merged; no index; in every edition. The titles shown and sent are `dogTitles.titlesOf(dog, events)`: this field, the dog's non-archived `title_earned` events and any titles still on the front of `registered_name`, merged at read time, see **Titles** below), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
@@ -260,6 +260,21 @@ the title and `displayName` under it; a dog with no call name is titled by `disp
 the pedigree tree's boxes (`assets/pedigree.js`, the same rule), waitlist parent cards and
 the website feed (`titlesByDog`, `titleDetailsByDog`, §29, §35), the show engine and the
 `show-title` nudge (§8 Shows, §19).
+
+**The Dog form's Titles row** (`pages/dog.js` `titlesEditor`, styles `.title-chip*` in
+`app.css`). `dogTitles.formTitleChips(draft, events)` splits it three ways: `field` chips
+are `Dog.titles` as she has them, in her order, each an editable abbreviation with
+organization and earned-on date behind a "details" disclosure and a × to remove (a chip
+that is also a logged event shows "logged", opening it); `event` chips are logged titles
+the field doesn't hold, read-only, each opening its event in place with `openEventForm` (to
+change it, or archive it to remove the title; the form's draft is kept and the chips re-read
+on save); `name` chips are titles on the front of the registered name, "in the registered
+name", following what she types there. The Add box takes several at once ("GCH CH",
+`splitTitleInput`: spaces, commas or semicolons). Suggestions (`<datalist>`) are
+`titleSuggestions()`: `TITLE_PREFIXES` then `dogTitles.TITLE_SUFFIXES` (AKC's suffix list,
+`docs/KennelOS_Registry_Title_Facts.md` §3); she can type anything. Blank chips are dropped
+on save by `normalizeTitles`. The dog's `title_earned` events are read once on entering edit
+(`loadTitleEvents`).
 
 **Registry countries** (`data/registryCountries.js`, pure and import-free).
 `REGISTRY_COUNTRIES` maps each country to its studbook, appendix and older registry codes
@@ -1043,6 +1058,36 @@ contact**. The contact is tagged `breeder` (`ensureType`); one new name across c
 contact. A dog's breeder is a kennel, so when the contact has a `kennel_id` and the chart's dog
 has no `breeder_kennel_id`, that kennel becomes it; otherwise the dog's "Breeder: …" note is
 the only link.
+
+*Titles, registrations and origin* (`docs/KennelOS_Dog_Titles_Field_Plan.md` §4, D7, D8). A
+box's prefix titles (`splitTitles`) go into its `titles`, with organization AKC on an AKC
+Certified Pedigree (`header.certified`) and blank otherwise; no `Titles:` notes line is
+written. A registration line is any code on `registryCountries.REGISTRY_COUNTRIES` (as
+printed or in capitals, dots optional after any letter, accented letters, a trailing hyphen:
+`ÖHZB`, `K.C.T.`, `KIF-`, `JoKC`, `N Reg`; longest code first, so `KSS JR 71592 BST` is KSS's),
+else 2–5 capitals; its number is kept as printed, code and all. A line that starts with
+another mapped registry is that registry's even when its number looks like an unslashed AKC
+one (`KC AV01234501`); `DNA`/`CHIC`/`OFA` lines are never registrations. The first
+registration read is the dog's; a second goes into `additional_registrations`. The bracketed
+country on an AKC chart (`(SRB)`, `(Canada)`) stays as the `Registered in …` note and is read
+through `countryName` (`origin_printed`). `pedigreeParse.originSuggestions(dogs, home)` works
+over each chart's tree (home = `homeCountry(existing)`): **country** is the bracketed
+country, else the first mapped registry that isn't home, else blank; **Imported** is
+pre-ticked (`'ticked'`) for a home registration with a foreign bracketed country, a
+dual-registered dog, or both parents foreign-only; offered unticked (`'offer'`) with one
+foreign-only parent; never for a foreign-only dog or an all-home line; `importCountry` is its
+own country, else its foreign parent's. `planImport` carries `titles`,
+`additional_registrations` (a second number also matches a dog she has), `country_of_origin`,
+`imported`, `importOffer` and `importCountry` per row, her review edits (`titles`,
+`country_of_origin`, `imported`) winning. The review table's **Titles** column shows chips
+she can remove or add to; **Origin** shows the country box and, when offered, the Imported
+tick ("from …" when the box is blank). A row matched to a dog she has gets `row.fill`: only
+chart titles it doesn't hold (`titlesOf` without events, `sameTitle`), a country when it has
+none, Imported when it isn't marked, each an unticked box (`decisions['fill:titles|country|imported:<key>']`).
+`commitImport` saves a new dog's titles, second registrations and `originFields` (ticked
+Imported writes the country, or `importCountry` when the box is blank, into both
+`country_of_origin` and `import_country`); an existing dog gets ticked fill-ins only, plus
+second registrations when it has none.
 
 ---
 
@@ -4369,6 +4414,23 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its
   number, the dog's breed, the sex): the same number is that dog (she says so and uses
   it); the others are offered with why, before a new one is made.
+- **Titles in notes** (every edition; `docs/KennelOS_Dog_Titles_Field_Plan.md` §5): dogs,
+  pedigree-only included and program-wide, whose notes have a `Titles: …` line
+  (`notesTitleAbbrs`: spaces or commas, only short words with a capital, so "none" isn't a
+  title) naming titles `titlesOf` lacks (the field, logged `title_earned` events, the name;
+  `tidyFindings`' `titleEvents`) → **one** finding for all of them (`titlesInNotesFindings`).
+- **Titles in names** (every edition): dogs whose registered name starts with titles
+  (`nameTitles`, "GCH A-K Bella", D5b) → one finding for all of them
+  (`titlesInNameFindings`), each with the name it would keep.
+
+  Both show one list with a tick per dog and per title, all ticked, then **Add to titles**
+  or **Skip** (then Not now, Don't ask me again, or Stop for now). Saving is
+  `dogRepo.update(titlesFix(...))`, so `normalizeTitles` dedupes (answering again on a second
+  device adds nothing) and it syncs; the name finding also takes the titles off the front of
+  the name when all of them stay ticked. The notes line stays (D4). The key is the kind, the
+  number of dogs and a hash of each dog's id and title keys (`titlesnotes:` / `titlesname:`),
+  so a new import or title raises it again. Each is raised once a visit (`titleKinds`), so
+  what she unticked waits for the next one.
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the

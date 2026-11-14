@@ -5,7 +5,8 @@ import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  abbrKey, sameTitle, normalizeTitles, titlesOf, displayName, feedOrder, holdsTitle, isPrefixTitle, nameTitles
+  abbrKey, sameTitle, normalizeTitles, titlesOf, displayName, feedOrder, holdsTitle, isPrefixTitle, nameTitles,
+  TITLE_SUFFIXES, titleSuggestions, splitTitleInput, formTitleChips
 } from '../shared/data/dogTitles.js';
 
 const ev = (abbr, date, extra = {}) => ({
@@ -124,4 +125,46 @@ test('dogRepo normalizes titles and trims country_of_origin on every write that 
   assert.equal(after.country_of_origin, '');
   const plain = await repo.dogRepo.create({ ...base, call_name: 'Plain' });
   assert.ok(!('titles' in plain), 'a dog written without titles stays without the field');
+});
+
+// --- The Dog form's Titles row (§8 phase 3) ---------------------------------
+
+test('suggestions: AKC prefixes and suffixes, each once, suffixes not mistaken for prefixes', () => {
+  const all = titleSuggestions();
+  for (const a of ['CH', 'GCH', 'GCHB', 'MACH', 'CGC', 'CGCA', 'TKN', 'JH', 'RN', 'CD', 'BN', 'UDX', 'QA2']) assert.ok(all.includes(a), a);
+  assert.equal(new Set(all.map(abbrKey)).size, all.length, 'no duplicates');
+  assert.ok(all.indexOf('CH') < all.indexOf('CGC'), 'prefixes first');
+  for (const a of TITLE_SUFFIXES) assert.equal(isPrefixTitle(a), false, `${a} goes after the name`);
+});
+
+test('splitTitleInput: spaces, commas and semicolons separate titles', () => {
+  assert.deepEqual(splitTitleInput('GCH CH'), ['GCH', 'CH']);
+  assert.deepEqual(splitTitleInput(' CGC,  TKN; RN '), ['CGC', 'TKN', 'RN']);
+  assert.deepEqual(splitTitleInput('   '), []);
+  assert.deepEqual(splitTitleInput(null), []);
+});
+
+test('formTitleChips: field chips editable in her order, logged and name-only titles read-only', () => {
+  const dog = {
+    id: 'D', registered_name: 'CH GCH A-K Bella',
+    titles: [{ abbr: 'CH', organization: '', earned_on: '' }, { abbr: 'CGC', organization: 'AKC', earned_on: '2021-02-03' }]
+  };
+  const events = [ev('CH', '2019-05-01'), ev('TKN', '2022-01-01'), ev('X', '2020-01-01', { is_archived: true })];
+  const chips = formTitleChips(dog, events);
+  assert.deepEqual(chips.field.map((t) => t.abbr), ['CH', 'CGC']);
+  assert.equal(chips.field[0].event_id, 'e-CH-2019-05-01', 'a field title that is also logged links to its event');
+  assert.equal(chips.field[0].earned_on, '', 'the chip keeps what she typed, not the merged date');
+  assert.equal(chips.field[1].event_id, undefined);
+  assert.deepEqual(abbrs(chips.event), ['TKN'], 'only logged titles the field lacks; archived ones skipped');
+  assert.equal(chips.event[0].event_id, 'e-TKN-2022-01-01');
+  assert.deepEqual(abbrs(chips.name), ['GCH'], 'only name titles the field lacks');
+});
+
+test('formTitleChips: a blank chip being typed stays in place and matches nothing', () => {
+  const chips = formTitleChips({ id: 'D', titles: [{ abbr: '' }, { abbr: 'ch' }] }, [ev('CH', '2019-05-01')]);
+  assert.deepEqual(chips.field.map((t) => t.abbr), ['', 'ch']);
+  assert.equal(chips.field[0].event_id, undefined);
+  assert.equal(chips.field[1].event_id, 'e-CH-2019-05-01', 'case ignored');
+  assert.deepEqual(chips.event, []);
+  assert.deepEqual(formTitleChips(null), { field: [], event: [], name: [] });
 });
