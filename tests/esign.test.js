@@ -565,3 +565,34 @@ test('each of a sale\'s agreements goes out on its own contract record; a pickup
   assert.deepEqual([v.totalCharges, v.paidToDate, v.payment1Amount, v.finalPaymentAmount, v.finalPaymentDue, v.balanceDue],
     ['3575.00', '500.00', undefined, '3075.00', '2026-12-20', '3075.00']);
 });
+
+test('sendDetails: what a send fills in, by its label in Firma\'s editor', () => {
+  const form = { form_type: 'pet_home', label: 'Pet home contract' };
+  const facts = { sale: { id: 's1', price: 2500 }, buyer: { name: 'Ann Lee', email: 'ann@example.com' }, puppy: { call_name: 'Biscuit' } };
+  const d = esign.sendDetails(form, facts);
+  const byName = Object.fromEntries(d.map((x) => [x.name, x]));
+  assert.equal(byName.buyerName.value, 'Ann Lee');
+  assert.equal(byName.puppyName.value, 'Biscuit');
+  assert.ok(byName.buyerEmail.label.length > 0);
+  assert.ok(!('buyerAddress' in byName), 'a blank detail isn\'t listed');
+});
+
+test('previewNotes: each empty prefilled field with why', () => {
+  const form = { form_type: 'pet_home', label: 'Our puppy contract' };
+  const facts = { sale: { id: 's1' }, buyer: { name: 'Ann Lee' } };
+  const n = esign.previewNotes(form, facts, [
+    { fact: 'buyerName', label: 'Buyer · Name', filled: true, sent: true, signer: 1 },
+    { fact: 'buyerAddress', label: 'Buyer · Address', filled: false, sent: false, signer: 1 },
+    { fact: 'studFee', label: 'Stud · Fee', filled: false, sent: false, signer: 1 },
+    { fact: null, label: null, filled: false, sent: false, signer: 1 },
+    { fact: 'buyerName', label: 'Buyer · Name (2)', filled: false, sent: true, signer: 1 }
+  ]);
+  assert.equal(n.total, 5);
+  assert.equal(n.filled, 1);
+  assert.deepEqual(n.empty.map((e) => e.label), ['Buyer · Address', 'Stud · Fee', 'A field', 'Buyer · Name (2)']);
+  assert.match(n.empty[0].why, /^Blank on this contract: add it on the buyer's contact/);
+  assert.match(n.empty[1].why, /doesn't fill this detail on a template marked "Pet home contract"/);
+  assert.match(n.empty[2].why, /^Not one of KennelOS's details/);
+  assert.match(n.empty[3].why, /Firma left it empty/);
+  assert.equal(esign.previewNotes(form, facts, null), null, 'an older Worker sends no list');
+});

@@ -427,17 +427,42 @@ test('prefillReport: counts, owners by signing order, empty keys; never a value'
   assert.deepEqual(firma.prefillReport(null, null), { prefilled: 0, filled: 0, owners: {}, empty: [] });
 });
 
-test('a preview logs what its draft holds in prefilled fields (keys and counts only)', async () => {
+test('prefillFields: each prefilled field named by the workspace field it reads', () => {
+  const rows = [{ id: 'a', field_name: 'buyerAddress', field_label: 'Buyer ·  Address\n' }, { id: 'b', field_name: 'buyerName', field_label: 'Buyer · Name' }];
+  const fields = firma.prefillFields({ results: [
+    { recipient_id: 'u1', format_rules: { prefilledData: 'custom_workspace_a' }, value: '' },
+    { recipient_id: 'u1', format_rules: { prefilledData: 'CUSTOM_WORKSPACE_B' }, read_only_value: 'Ann Lee' },
+    { recipient_id: 'u2', format_rules: { prefilledData: 'custom_workspace_zz' } }
+  ] }, [{ id: 'u1', order: 1 }], rows, ['custom_workspace_b', 'buyerName']);
+  assert.deepEqual(fields, [
+    { key: 'custom_workspace_a', fact: 'buyerAddress', label: 'Buyer · Address', filled: false, sent: false, signer: 1 },
+    { key: 'CUSTOM_WORKSPACE_B', fact: 'buyerName', label: 'Buyer · Name', filled: true, sent: true, signer: 1 },
+    { key: 'custom_workspace_zz', fact: null, label: null, filled: false, sent: false, signer: null }
+  ]);
+  assert.ok(!JSON.stringify(fields).includes('Ann Lee'), 'never a value');
+});
+
+test('a preview logs and returns its prefilled fields by label (never a value)', async () => {
   const env = await envWith();
   const s = await connected(env);
-  fake.draftFields = [{ recipient_id: 'su_x', format_rules: { prefilledData: 'puppyName' }, value: '' }];
+  await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: [{ name: 'puppyName', label: 'Pup · Name' }, { name: 'buyerAddress', label: 'Buyer · Address' }] } });
+  const [pup, addr] = fake.fields.get('ws_1');
+  fake.draftFields = [
+    { recipient_id: 'su_x', format_rules: { prefilledData: `custom_workspace_${pup.id}` }, read_only_value: 'Biscuit' },
+    { recipient_id: 'su_x', format_rules: { prefilledData: `custom_workspace_${addr.id}` }, value: '' }
+  ];
   const logs = [];
   const was = console.log;
   console.log = (...a) => logs.push(a.join(' '));
-  try { assert.equal((await preview(env, s)).status, 200); } finally { console.log = was; }
-  const line = logs.find((l) => l.startsWith('firma: preview prefills'));
-  assert.equal(line, 'firma: preview prefills 1, filled 0 (signer ?: 1); empty: puppyName');
-  assert.ok(!logs.join('\n').includes('Biscuit'), 'no value is logged');
+  let out;
+  try { const r = await preview(env, s); assert.equal(r.status, 200); out = await r.json(); } finally { console.log = was; }
+  assert.equal(logs.find((l) => l.startsWith('firma: preview prefills')),
+    'firma: preview prefills 2, filled 1 (signer ?: 2); empty: Buyer · Address [buyerAddress, not sent]');
+  assert.deepEqual(out.fields, [
+    { fact: 'puppyName', label: 'Pup · Name', filled: true, sent: true, signer: null },
+    { fact: 'buyerAddress', label: 'Buyer · Address', filled: false, sent: false, signer: null }
+  ]);
+  assert.ok(!logs.join('\n').includes('Biscuit') && !JSON.stringify(out).includes('Biscuit'), 'no value is logged or returned');
 });
 
 test('countersign: she is the second Signer of the same request, and gets her own link', async () => {
@@ -579,7 +604,7 @@ test('preview: a free draft of the send, opened by token, never counted; only a 
     facts: { puppyName: 'Biscuit' }, countersigner: { name: 'Jane Doe', email: 'jane@example.com' } } });
   assert.equal(r.status, 200, await r.clone().text());
   const out = await r.json();
-  assert.deepEqual(out, { previewId: 'draft_1', token: 'srjwt_draft_1', expiresAt: '2026-11-19T00:00:00Z' });
+  assert.deepEqual(out, { previewId: 'draft_1', token: 'srjwt_draft_1', expiresAt: '2026-11-19T00:00:00Z', fields: [] });
   const draft = fake.drafts.get('draft_1').body;
   assert.equal(draft.template_id, 'tpl_1');
   assert.equal(draft.recipients[0].custom_fields.puppyName, 'Biscuit');

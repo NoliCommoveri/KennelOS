@@ -459,35 +459,58 @@ export function emptyPrefills(data) {
   return fieldsOf(data).filter((f) => prefillKey(f) && !hasValue(f)).map(prefillKey).slice(0, 40);
 }
 
-// A preview's prefilled fields, for the log (keys and counts only, never a value):
-// how many there are, how many hold a value, which signer each belongs to (by its
-// place in the signing order: 1 = Firma's first signer), and the keys left empty.
-// `data` is GET /signing-requests/{id}/fields; `users` its /users. Pure.
-// → { prefilled, filled, owners: { <order|'?'>: n }, empty: [key] }
-export function prefillReport(data, users) {
+// A preview's prefilled fields, each named by her workspace field it reads (keys,
+// labels and yes/no only, never a value), for the log and her Send dialog:
+//   key     the field's prefilledData key (`custom_workspace_<id>` for a workspace field)
+//   fact    that workspace field's field_name (a KennelOS fact name), or null
+//   label   its label in Firma's editor, or null
+//   filled  Firma holds a value in it
+//   sent    KennelOS sent a value under its key (`sentKeys`)
+//   signer  its owner's place in the signing order (1 = Firma's first signer), or null
+// `data` is GET /signing-requests/{id}/fields, `users` its /users, `rows` her
+// workspace's custom fields. Pure.
+const cleanLabel = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 100) : '') || null;
+export function prefillFields(data, users, rows = [], sentKeys = []) {
   const orderOf = new Map((Array.isArray(users) ? users : []).map((u) => [String(u?.id ?? ''), u?.order]));
-  const fields = fieldsOf(data).filter(prefillKey);
-  const owners = {};
-  for (const f of fields) {
-    const id = String(f.recipient_id ?? f.companies_workspaces_signing_requests_users_id ?? '');
-    const order = Number(orderOf.get(id));
-    const k = Number.isInteger(order) && order > 0 ? String(order) : '?';
-    owners[k] = (owners[k] || 0) + 1;
+  const rowOf = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const ids = [...FIELD_ALIASES.map((p) => row?.[p]), row?.field_name, row?.id != null ? `${WORKSPACE_FIELD_PREFIX}${row.id}` : null];
+    for (const id of ids) if (id != null && String(id) && !rowOf.has(String(id).toLowerCase())) rowOf.set(String(id).toLowerCase(), row);
   }
-  return { prefilled: fields.length, filled: fields.filter(hasValue).length, owners, empty: emptyPrefills(fields) };
+  const sent = new Set([...sentKeys].map((k) => String(k).toLowerCase()));
+  return fieldsOf(data).filter(prefillKey).map((f) => {
+    const key = prefillKey(f);
+    const row = rowOf.get(key.toLowerCase()) || null;
+    const order = Number(orderOf.get(String(f.recipient_id ?? f.companies_workspaces_signing_requests_users_id ?? '')));
+    const fact = typeof row?.field_name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,49}$/.test(row.field_name) ? row.field_name : null;
+    return { key, fact, label: cleanLabel(row?.field_label), filled: hasValue(f), sent: sent.has(key.toLowerCase()), signer: Number.isInteger(order) && order > 0 ? order : null };
+  });
 }
 
-// After a preview's draft is made: what Firma holds in its prefilled fields, logged
-// (keys and counts only). Best effort, never fatal: it's how a preview that shows
-// empty fields is told apart from one whose draft holds the values.
-async function logPreviewPrefills(env, key, id) {
+// The same, as counts for the log line. → { prefilled, filled, owners: { <order|'?'>: n }, empty: [key] }
+export function prefillReport(data, users) {
+  const fields = prefillFields(data, users);
+  const owners = {};
+  for (const f of fields) { const k = f.signer ? String(f.signer) : '?'; owners[k] = (owners[k] || 0) + 1; }
+  return { prefilled: fields.length, filled: fields.filter((f) => f.filled).length, owners, empty: fields.filter((f) => !f.filled).map((f) => f.key).slice(0, 40) };
+}
+
+// After a preview's draft is made: what Firma holds in its prefilled fields. Logged
+// (labels, fact names and counts, never a value) and returned for her Send dialog.
+// Best effort, never fatal: → the fields (prefillFields, without `key`), or null.
+async function previewPrefills(env, key, id, rows, values) {
   try {
     const f = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(id)}/fields`);
-    if (!ok(f)) { console.warn('firma: preview fields not read', f.status); return; }
-    const r = prefillReport(f.data, await requestUsers(env, key, id));
-    const owners = Object.entries(r.owners).map(([o, n]) => `signer ${o}: ${n}`).join(', ') || 'none';
-    console.log(`firma: preview prefills ${r.prefilled}, filled ${r.filled} (${owners})${r.empty.length ? `; empty: ${r.empty.join(',')}` : ''}`);
-  } catch { /* the log only */ }
+    if (!ok(f)) { console.warn('firma: preview fields not read', f.status); return null; }
+    const fields = prefillFields(f.data, await requestUsers(env, key, id), rows, Object.keys(values || {}));
+    const owners = {};
+    for (const x of fields) { const k = x.signer ? String(x.signer) : '?'; owners[k] = (owners[k] || 0) + 1; }
+    const ownerText = Object.entries(owners).map(([o, n]) => `signer ${o}: ${n}`).join(', ') || 'none';
+    const empty = fields.filter((x) => !x.filled).slice(0, 20)
+      .map((x) => (x.fact ? `${x.label || x.fact} [${x.fact}, ${x.sent ? 'sent' : 'not sent'}]` : `${x.key} [no workspace field]`));
+    console.log(`firma: preview prefills ${fields.length}, filled ${fields.filter((x) => x.filled).length} (${ownerText})${empty.length ? `; empty: ${empty.join('; ')}` : ''}`);
+    return fields.slice(0, 80).map(({ key: _k, ...rest }) => rest);
+  } catch { return null; }
 }
 
 // POST /integrations/esign/send
@@ -559,6 +582,7 @@ async function requestBody(env, key, workspaceId, { templateId, title, firstName
   const values = withFieldAliases(facts, rows);
   return {
     values,
+    rows,
     payload: {
       name: title,
       template_id: templateId,
@@ -654,7 +678,8 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
 // --- Preview (a draft that holds a place) -----------------------------------------------------
 
 // POST /integrations/esign/preview: the same body as a send → { previewId, token,
-// expiresAt }. A DRAFT signing request (POST /signing-requests never sends, and
+// expiresAt, fields? } (`fields`: its prefilled fields, prefillFields without `key`:
+// Firma's read-only editor shows a field's box, not its value). A DRAFT signing request (POST /signing-requests never sends, and
 // Firma charges a credit only at send), so it's free and never counts toward her
 // month. Its token opens Firma's signing request editor read-only on the editor
 // page (#t=…&sr=…), showing her real template with this contract's values filled.
@@ -748,7 +773,7 @@ export async function previewSigningRequest(env, auth, body, now = new Date()) {
   if (!held.meta?.changes) fail(409, 'esign_limit_reached', { usage: await usage(env, auth.programId, now) });
   const free = () => env.DB.prepare("DELETE FROM esign_sends WHERE id = ? AND status = 'preview'").bind(rowId).run();
 
-  const { payload } = await requestBody(env, secrets.apiKey, connection.account_ref, parsed, false);
+  const { payload, values, rows } = await requestBody(env, secrets.apiKey, connection.account_ref, parsed, false);
   const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests', payload);
   const id = ok(r) && r.data?.id ? String(r.data.id) : null;
   if (!id) {
@@ -764,8 +789,10 @@ export async function previewSigningRequest(env, auth, body, now = new Date()) {
     await settlePreview(env, secrets.apiKey, { id: rowId, signing_request_id: id, sent_at: at }, now);
     fail(502, 'esign_unavailable');
   }
-  await logPreviewPrefills(env, secrets.apiKey, id);
-  return { previewId: id, token: t.data.jwt, expiresAt: t.data.expires_at ?? null };
+  // The workspace's fields, even for a preview with no facts, so an empty field is named.
+  const fieldRows = rows ?? await customFieldRows(env, secrets.apiKey, connection.account_ref);
+  const fields = await previewPrefills(env, secrets.apiKey, id, fieldRows, values);
+  return { previewId: id, token: t.data.jwt, expiresAt: t.data.expires_at ?? null, ...(fields ? { fields } : {}) };
 }
 
 // DELETE /integrations/esign/preview?id=<signing request id> → { discarded }:
