@@ -5,6 +5,15 @@ build step). Three editions off one shared core: the full app is under `shared/`
 **Pro** ships; Lite adds a cap + reduced surface; Demo is seeded read-only. The only server is
 the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identically without it.
 
+## Session start — before replying to the first request
+- Check for unmerged work: open PRs (GitHub MCP `list_pull_requests`, state open) and pushed
+  branches with commits not on `main` (`git fetch origin '+refs/heads/*:refs/remotes/origin/*'`,
+  then `git rev-list --count origin/main..<branch>`). Many old branches were squashed or rebuilt
+  into main, so count only work main lacks (`git cherry origin/main <branch>`, and for a `+`
+  commit, whether its added lines are already on main).
+- Open the reply with one sentence summarizing what's unmerged (or that nothing is), offer to
+  bring it in, then answer the request. Pull nothing in without the owner's yes.
+
 ## Docs
 - Read **`README.md`** at the start of a session: summary, layout, "where to look" doc map, a
   few-line Status, build/run/test. It's a snapshot of now, not a record of work: never add
