@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  wordsToSegments, parsePedigree, isAkcReg, isOtherReg, isColorOnly, isDetail, parseDetails, splitTitles
+  wordsToSegments, parsePedigree, isAkcReg, isOtherReg, isColorOnly, isDetail, parseDetails, splitTitles, TITLE_PREFIXES
 } from '../shared/data/pedigreeParse.js';
 
 // A chart of `gens` ancestor generations. Each box: name line, then reg, then color.
@@ -116,6 +116,17 @@ test('titles come off the front of a name', () => {
   assert.deepEqual(splitTitles('CH Crazy Crys Key'), { name: 'Crazy Crys Key', titles: ['CH'] });
   assert.deepEqual(splitTitles('GCH. CH Dog'), { name: 'Dog', titles: ['GCH', 'CH'] });
   assert.deepEqual(splitTitles('Chester'), { name: 'Chester', titles: [] });
+});
+
+test('titles: AKC’s full prefix list, and a repeat number on a prefix title', () => {
+  assert.deepEqual(splitTitles('GCHP2 CH Dog'), { name: 'Dog', titles: ['GCHP2', 'CH'] });
+  assert.deepEqual(splitTitles('MACH3 RACH Dog'), { name: 'Dog', titles: ['MACH3', 'RACH'] });
+  assert.deepEqual(splitTitles('NAFC FC Dog'), { name: 'Dog', titles: ['NAFC', 'FC'] });
+  // A suffix title, or a number on a word that isn't a title, stays in the name.
+  assert.deepEqual(splitTitles('CGC Dog'), { name: 'CGC Dog', titles: [] });
+  assert.deepEqual(splitTitles('BOB2X Dog'), { name: 'BOB2X Dog', titles: [] });
+  assert.deepEqual(splitTitles('CH2'), { name: 'CH2', titles: [] }, 'a lone token is the name');
+  assert.ok(TITLE_PREFIXES.has('GCHB') && TITLE_PREFIXES.has('VCCH') && !TITLE_PREFIXES.has('CGC'));
 });
 
 // An AKC Certified Pedigree: unslashed numbers with the date in brackets,

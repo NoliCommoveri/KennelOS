@@ -559,7 +559,7 @@ test('titles_detail: each title with its organization and date, for a Worker tha
     ev('t4', '2026-01-01', 'GCH', ''),
     ev('t5', '2026-02-01', 'BISS', 'AKC', { is_archived: true })
   ];
-  assert.deepEqual(build({ dogs: [dog('willow')], events }).dogs[0].titles, ['CH', 'ch', 'GCH'], 'an older Worker: the abbreviations, as before');
+  assert.deepEqual(build({ dogs: [dog('willow')], events }).dogs[0].titles, ['GCH', 'CH'], 'an older Worker: the abbreviations, in display order, each once');
   assert.deepEqual(build({ dogs: [dog('willow')], events, sections: ['titles_detail'] }).dogs[0].titles, [
     { abbr: 'CH', organization: 'AKC', date: '2025-01-01' },
     { abbr: 'CH', organization: 'UKC', date: '2025-06-01' },
@@ -588,7 +588,8 @@ test('origin and lineage: imported facts, parents and ancestors by name only, fo
   assert.equal(lin.sire_id, 'rex');
   assert.equal(lin.dam_id, 'meg');
   assert.deepEqual(lin.ancestors, [
-    { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: ['CH'] },
+    // The name goes without its front titles (D5a); its "Ch" merges with the logged CH.
+    { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Rex of Glen', titles: ['CH'] },
     { id: 'meg', path: 'dam', call_name: 'Meg', registered_name: null, titles: [] },
     { id: 'old', path: 'sire.sire', call_name: null, registered_name: 'Glen Old Hemp', titles: [] }
   ]);
@@ -596,7 +597,7 @@ test('origin and lineage: imported facts, parents and ancestors by name only, fo
   assert.doesNotMatch(JSON.stringify(lin), /2015-01-01|c1|kx|private/, 'never a date of birth, owner, kennel or note of a dog that is not hers');
 
   const both = build({ dogs, events, sections: ['lineage', 'origin', 'titles_detail'] }).dogs[0];
-  assert.deepEqual(both.ancestors[0], { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: [{ abbr: 'CH', organization: 'KC', date: '2018-01-01' }], imported: true, import_country: 'Wales' });
+  assert.deepEqual(both.ancestors[0], { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Rex of Glen', titles: [{ abbr: 'CH', organization: 'KC', date: '2018-01-01' }], imported: true, import_country: 'Wales' });
   assert.deepEqual(both.ancestors[1].imported, true);
   assert.equal(both.ancestors[1].import_country, null);
   assert.equal(both.ancestors[2].imported, false);
@@ -692,4 +693,44 @@ test('a lapsed or missing license stops Update website, except on support\'s hel
     editionFlags.licenseGate = was;
     localStorage.removeItem('kennelOS.cloudSession');
   }
+});
+
+test('titles held and on the front of the name go with the logged ones; the name goes without them (D5a)', () => {
+  const dogs = [
+    dog('willow', { registered_name: 'GCH AK Willow', sire_id: 'rex', titles: [{ abbr: 'CH', organization: 'AKC' }, { abbr: 'CGC' }] }),
+    { id: 'rex', call_name: 'Rex', registered_name: 'Rex of Glen', sex: 'male', pedigree_only: true, sire_id: 'gs' },
+    // KennelPort's ask 1: a chart grandsire "GCH CH X" has his titles on the feed.
+    { id: 'gs', registered_name: 'X', sex: 'male', pedigree_only: true, titles: [{ abbr: 'GCH' }, { abbr: 'CH' }] }
+  ];
+  const events = [{ id: 't1', subject_type: 'dog', subject_id: 'willow', event_type: 'title_earned', event_date: '2024-02-01', details: { title_abbreviation: 'CH', organization: 'AKC' } }];
+  const [w] = build({ dogs, events, sections: ['lineage'] }).dogs;
+  assert.equal(w.registered_name, 'AK Willow');
+  assert.deepEqual(w.titles, ['CH', 'GCH', 'CGC']);
+  assert.deepEqual(w.ancestors.find((a) => a.path === 'sire.sire').titles, ['GCH', 'CH']);
+  const [d] = build({ dogs, events, sections: ['lineage', 'titles_detail'] }).dogs;
+  assert.deepEqual(d.titles, [
+    { abbr: 'CH', organization: 'AKC', date: '2024-02-01' },
+    { abbr: 'GCH', organization: null, date: null },
+    { abbr: 'CGC', organization: null, date: null }
+  ]);
+  assert.deepEqual(d.ancestors.find((a) => a.path === 'sire.sire').titles, [{ abbr: 'GCH', organization: null, date: null }, { abbr: 'CH', organization: null, date: null }]);
+  const named = build({ dogs: [dog('n', { call_name: '', registered_name: 'CH Only Name' })] }).dogs[0];
+  assert.equal(named.call_name, 'Only Name');
+  assert.deepEqual(named.titles, ['CH']);
+});
+
+test('origin_country: a country of origin on each dog and ancestor, only for a Worker that takes it', () => {
+  const dogs = [
+    dog('willow', { sire_id: 'rex', dam_id: 'meg', country_of_origin: 'Serbia' }),
+    { id: 'rex', call_name: 'Rex', sex: 'male', pedigree_only: true, imported: true, import_country: 'Wales' },
+    { id: 'meg', call_name: 'Meg', sex: 'female', pedigree_only: true, imported: false, import_country: 'Wales' }
+  ];
+  const old = build({ dogs, sections: ['lineage', 'origin'] }).dogs[0];
+  assert.equal('country_of_origin' in old, false);
+  assert.ok(old.ancestors.every((a) => !('country_of_origin' in a)), 'an older Worker: never sent');
+  const b = build({ dogs, sections: ['lineage', 'origin_country'] }).dogs[0];
+  assert.equal(b.country_of_origin, 'Serbia');
+  assert.equal('imported' in b, false, 'origin is its own section');
+  assert.deepEqual(b.ancestors.map((a) => [a.id, a.country_of_origin]), [['rex', 'Wales'], ['meg', null]], 'else the import country while Imported is ticked');
+  assert.equal(build({ dogs: [dog('plain')], sections: ['origin_country'] }).dogs[0].country_of_origin, null);
 });

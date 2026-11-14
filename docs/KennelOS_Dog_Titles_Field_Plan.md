@@ -192,6 +192,13 @@ To send to KennelPort with this plan.
     `country_of_origin` other than the breeder's own.
 - **Still KennelPort's to work out.** KennelOS keeps sending facts as she set them. It
   never sends a worked-out "import-descended".
+- **KennelPort's reply (2026-11-14).** Titles: agreed, nothing more needed. It takes both
+  shapes (abbreviations, or `{ abbr, organization, date }` in `titles_detail`, nulls fine),
+  evens out case and dots when comparing (so send them as she typed them), and shows titles
+  before the name in a pedigree, so `registered_name` goes without its front titles (D5a).
+  Champion-descended is built and counts whatever titles arrive. `origin_country` is built
+  on KennelPort's branch, not yet merged; once it is, the Worker's answer lists the section,
+  and phase 2 sends it only then.
 
 ## 7. Decisions for the owner
 
@@ -298,7 +305,7 @@ Each phase:
 
 No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
 
-**Status:** no phase started. Nothing was coded before this split.
+**Status:** phases 1 (core and data layer) and 2 (readers and display) built. Next is phase 3, the Dog form.
 
 ### 8.0 Findings from reading the code (carry into every phase)
 

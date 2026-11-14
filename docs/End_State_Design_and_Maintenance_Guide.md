@@ -213,7 +213,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form shows **Country of origin** only then and clears it on unticking; shown as Imported, "Yes, from …"; sent to her website, §35), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form shows **Country of origin** only then and clears it on unticking; shown as Imported, "Yes, from …"; sent to her website, §35), `country_of_origin` (text; cloud; where the dog comes from, a fact on its own apart from `imported`: a Serbian ancestor still in Serbia has it with `imported` false; trimmed by `dogRepo` on every write that carries it; a dog's country reads as `country_of_origin`, else `import_country` when `imported`), `titles[]` (cloud; the titles it holds, `{ abbr, organization, earned_on }` in her order, `''` for a blank part, `earned_on` only `YYYY-MM-DD`; stored through `dogTitles.normalizeTitles` by `dogRepo` on every write that carries it: abbreviation trimmed to 30 characters, organization to 60, blanks dropped, the same title merged; no index; in every edition. The titles shown and sent are `dogTitles.titlesOf(dog, events)`: this field, the dog's non-archived `title_earned` events and any titles still on the front of `registered_name`, merged at read time, see **Titles** below), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
@@ -239,6 +239,38 @@ raises a whelped litter without it (§33); the litter CSV import takes a `delive
 column (labels, or words like "elective c-section"). A dog's Litters list shows it as a pill
 after the status, by its `short` label (Natural, Assisted, Planned C-sec, Emergency C-sec;
 the full name on hover).
+
+**Titles** (`data/dogTitles.js`, pure; `docs/KennelOS_Dog_Titles_Field_Plan.md`). A dog's
+titles are `titlesOf(dog, events)`: `Dog.titles` (source `field`), its non-archived
+`title_earned` events (`event`, with `event_id`) and titles on the front of `registered_name`
+(`name`, from `pedigreeParse.splitTitles`). Two entries are the same title when their
+`abbrKey` (upper case, no dots or spaces: `H.CH` = `HCH`) matches and their organizations
+match or either is blank (`sameTitle`); a match merges and keeps the earliest known date.
+Order: the field's own order, then name-only titles; event-only prefix titles go in front,
+newest first (a bought CH that later logs GCH reads "GCH CH"); event-only suffix titles go
+last, oldest first. A title is a prefix (`isPrefixTitle`) when it's on
+`pedigreeParse.TITLE_PREFIXES` (AKC's prefix titles and the show-win abbreviations charts
+print in front), a repeat number allowed (GCHP2); every other title goes after the name.
+`displayName` = prefixes + the name without its front titles + suffixes; `feedOrder` = dated
+by date, then undated; `holdsTitle(list, 'GCH')` also accepts GCH2. The event is unchanged:
+it stays the dated record; nothing copies between the two. `titlesByDogId(events, dogs)`
+gives every dog's list at once (a dog with title events and no record gets those);
+`titleAbbrs` the abbreviations once each. Read by: the dog page header (the call name as
+the title and `displayName` under it; a dog with no call name is titled by `displayName`),
+the pedigree tree's boxes (`assets/pedigree.js`, the same rule), waitlist parent cards and
+the website feed (`titlesByDog`, `titleDetailsByDog`, §29, §35), the show engine and the
+`show-title` nudge (§8 Shows, §19).
+
+**Registry countries** (`data/registryCountries.js`, pure and import-free).
+`REGISTRY_COUNTRIES` maps each country to its studbook, appendix and older registry codes
+(FCI list, plus KC, ZA, ANKC, NZKC, UKC, AKC; `docs/KennelOS_Registry_Title_Facts.md`) and KSS
+(printed before JR) to Serbia. `countryOfRegistry(code)` matches the whole code with case,
+dots and a trailing hyphen ignored (`normCode`), so KC never matches KCC. Left off on
+purpose: CKC, KCSB, the Bahrain/Bolivia, Costa Rica and Cuba codes, FCG / F.C.G., and single
+letters other than S. `countryName` turns an ISO alpha-3 code (`(SRB)` on an AKC chart) into
+its country, else returns the text as printed. `homeCountry(dogs)` is the country of the
+registry most of her own (owned or co-owned, not pedigree-only or archived) dogs use, a tie
+going to the United States, else the United States.
 
 **Kennel scope.** `Pairing`, `Litter`, `Sale`, `Contract`, `StudService`, `Document`, and
 owned dogs carry a required own-kennel `kennel_id`, **stamped on create** from the parent (a
@@ -426,8 +458,13 @@ One polymorphic table for all dated history: `subject_type ∈ {dog, pairing, li
 day. Points, majors and titles are **derived, never stored**: `data/showPoints.js`
 (`trackProgress`, `showRecordFrom`, `getShowRecord`) tallies counting events (`entry_status`
 `shown`, `points_toward` set, points > 0) against `vocab.TITLE_TRACKS`. A track with
-`requires` (GCH → CH) counts only wins after the required title. Saving odd results raises
-a soft confirm, never a block.
+`requires` (GCH → CH) counts only wins after the required title: the earliest of its
+logged `title_earned`, its `Dog.titles` entry's `earned_on` and the date its own track
+completed. A required title held on `Dog.titles` with no date (a bought champion) unlocks
+the track with every aimed win counting (`trackProgress`'s `requiredHeld`;
+`showRecordFrom(events, tracks, { held })`, each row's `heldTitle`); the Show Record card
+says "CH Held" or "CH earned <date>" for one. Saving odd results raises a soft confirm,
+never a block.
 
 **Litter-wide logging** (`litter.js` → `openEventForm`'s `cascadeTargets`) writes one event
 per checked puppy with the same `details`, except fields in `eventForm.js`
@@ -499,6 +536,10 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
   resolved; `commitPlan` writes every row, then `linkBatchParents` sets the links.
 - **Previewed = committable.** When a repo gains a required field, its mapping must fill it
   or send rows without it to review.
+- **Titles and country of origin** (dogs file): `titles` is abbreviations split on spaces or
+  commas (`GCH CH`), stored through `normalizeTitles`; on an update it's add-only (the dog's
+  titles plus the row's), so a row never drops a title. `country_of_origin` (alias
+  `origin_country`) is plain text.
 - **Column guide:** `data/csvImportHelp.js` (rendered by `assets/importHelp.js`, with a
   blank-template download). `tests/csvImportHelp.test.js` pins it to each mapping's
   `templateHeaders`, so **a new column needs its help line**.
@@ -1137,7 +1178,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
 | `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
-| `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
+| `show-title` | a show track is complete with no `title_earned` event and its title not on the dog's Titles (`heldTitle`) | prefilled title event |
 | `int-review` | a vendor event wasn't applied, or a payment it recorded now covers everything on a sale not marked paid in full (`integrationApply.COVERS_ALL_REASON`, D34, §21.3) (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
@@ -4502,13 +4543,22 @@ KennelPort Site Manager.
   result's event `type` (`genetic_test`, `ofa_pennhip`, `breed_specific_test`, the latest
   result's, from `completedTestsByDog`); `account_type`, a product's `account_type` (an
   `ACCOUNT_TYPE` value, else null); `titles_detail`, a dog's `titles` as
-  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`: from
-  `title_earned` events in the order earned, the same title and organization once, at its
-  first date); `origin`, a dog's `imported` and `import_country` (null unless imported);
+  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`:
+  `dogTitles.titlesOf` per dog, in `feedOrder`, dated by date then undated, a title held
+  with no date or organization sent with nulls; the same title with the same or a blank
+  organization once, at its earliest date); without it the abbreviations in display order,
+  each once (`waitlistProjection.titlesByDog`, the same `titlesOf`). Every dog's and
+  ancestor's titles come from its Titles field, its `title_earned` events and titles on the
+  front of its registered name, and `registered_name` goes **without** those front titles
+  (KennelPort shows titles before the name). `origin`, a dog's `imported` and
+  `import_country` (null unless imported); `origin_country`, a dog's and each ancestor's
+  `country_of_origin` (its Country of origin, else `import_country` while imported; null
+  when neither);
   `lineage`, a dog's `breed`, `sire_id`, `dam_id` and `ancestors` to four generations
   (`data/pedigreeWalk.js` `ancestorsOf`: nearest first, sire's side first, `path` like
   `sire.dam`, a loop in the data stops its line, at most 30), each `{ id, path, call_name,
-  registered_name, titles }` and, with `origin`, its `imported` / `import_country`.
+  registered_name, titles }` and, with `origin`, its `imported` / `import_country`, with
+  `origin_country` its `country_of_origin`.
   Ancestors go by name and titles only, pedigree-only dogs and dogs not hers included:
   never an owner, contact, kennel or date of birth. Import-descended isn't worked out
   here; KennelPort does it from the ancestors. `waitlist_facts` (`waitlistFacts`), her
@@ -4705,7 +4755,8 @@ updates the same dogs.
   ways): the sending kennel's card fields; each breeder kennel named by a dog; per dog
   `DOG_FIELDS` (call and registered name, sex, breed, birthday and whether estimated, date of
   death, colour, registry and number, other registrations, microchip, photos link, recorded
-  COI) plus status, sire and dam by public id and breeder kennel; for the dogs sent (not
+  COI, titles held (the `titles` field only, a `titles` kind compared through
+  `normalizeTitles`; earned events travel as events), country of origin) plus status, sire and dam by public id and breeder kennel; for the dogs sent (not
   ancestors), their `SHARED_EVENT_TYPES` events (genetic, OFA / PennHIP, breed-specific tests,
   titles earned) with date, title and the type's cloud detail keys (`cloudDetailKeys`). Up to
   `ANCESTOR_GENERATIONS` (4) above each dog. Never notes, contacts, money, litters, other events,

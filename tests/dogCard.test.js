@@ -232,3 +232,36 @@ test('the file name says whose and how many', async () => {
   const card = await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id, s.sire.id] });
   assert.equal(C.dogCardFileName(card), 'thornfield-2-dogs.kosdogs');
 });
+
+test('titles held and country of origin travel on the card; an old card without them reads as empty', async () => {
+  const s = await senderProgram();
+  await dogRepo.update(s.maple.id, { titles: [{ abbr: 'GCH' }, { abbr: 'CH', organization: 'AKC' }], country_of_origin: 'Serbia' });
+  const built = await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id] });
+  const card = C.decodeDogCard(C.encodeDogCard(built));
+  const sent = card.dogs.find((d) => d.sent);
+  assert.deepEqual(sent.titles, [{ abbr: 'GCH', organization: '', earned_on: '' }, { abbr: 'CH', organization: 'AKC', earned_on: '' }]);
+  assert.equal(sent.countryOfOrigin, 'Serbia');
+  assert.deepEqual(card.dogs.find((d) => !d.sent && d.registeredName === 'Thornfield Duke').titles, []);
+
+  // An older build's card: no titles or countryOfOrigin keys at all.
+  const old = JSON.parse(JSON.stringify(built));
+  for (const d of old.dogs) { delete d.titles; delete d.countryOfOrigin; }
+  const oldCard = C.decodeDogCard(C.encodeDogCard(old));
+  assert.deepEqual(oldCard.dogs.find((d) => d.sent).titles, []);
+  assert.equal(oldCard.dogs.find((d) => d.sent).countryOfOrigin, '');
+
+  clear();
+  const mine = await receiver();
+  await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
+  const maple = (await dogRepo.getAll()).find((d) => d.call_name === 'Maple');
+  assert.deepEqual(maple.titles.map((t) => t.abbr), ['GCH', 'CH']);
+  assert.equal(maple.country_of_origin, 'Serbia');
+  // Sent again unchanged: nothing to update; a new title is a change.
+  assert.deepEqual((await C.previewDogCard(card)).dogs[0].changes, []);
+  const again = JSON.parse(JSON.stringify(built));
+  again.dogs.find((d) => d.sent).titles.push({ abbr: 'CGC', organization: '', earned_on: '' });
+  const p = await C.previewDogCard(C.decodeDogCard(C.encodeDogCard(again)));
+  assert.deepEqual(p.dogs[0].changes.map((c) => c.field), ['titles']);
+  // An old card leaves her titles alone.
+  assert.deepEqual((await C.previewDogCard(oldCard)).dogs[0].changes, []);
+});

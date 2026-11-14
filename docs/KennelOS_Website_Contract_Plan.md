@@ -45,6 +45,7 @@ moved to the new one.
 | C5 | `health_detail` | `completedTestsByDog`: name, result, outcome, date | Also `type` (the event type) and `verify_url` where one is held |
 | C6 | `account_type` | The type becomes one `transport` yes or no | On a product: `account_type`; which accounts go is unchanged for now |
 | C7 | `lineage` | No parents, no breed | On a dog: `breed`, `sire_id`, `dam_id`, and `ancestors` to four generations: `[{ id, path, call_name, registered_name, titles }]`, pedigree-only dogs included, by name only |
+| C10 | `origin_country` | Nothing: a country goes only as `import_country`, while Imported is ticked | On a dog, and on each C7 ancestor: `country_of_origin` (text or null): her Country of origin, else `import_country` while Imported is ticked. `imported` and `import_country` stay as C4 has them (Dog Titles Field Plan §6.1) |
 | C9 | `waitlist_facts` | `waitlistSteps` and `applicationFeePay` write whole sentences | `{ online_form, has_fee, fee_due_days, respond_days, max_passes }`; `steps` and `payment` still go to a Worker without the section |
 
 All of it stays pure: plain records in, one object out. C7 walks `sire_id` /
@@ -113,6 +114,13 @@ starts at KennelPort's step 4:
    **Built 2026-11-13:** `data/pedigreeWalk.js` for the walk; an ancestor's `path` is the
    key named `path` (KennelPort's plan calls it "role path"); its `titles` follow the
    dog's (`titles_detail` or not). At most 30 ancestors (four full generations).
+5. **C10:** country of origin (Dog Titles Field Plan §6.1, D8).
+   **Built 2026-11-14:** sent only to a Worker that lists `origin_country`. KennelPort
+   built its side on its branch `claude/kennelos-kennelport-fields-eu9n15`, not yet
+   merged; until it is, KennelOS sends nothing new. In the same batch, titles (C3 and the
+   bare abbreviations, on dogs and ancestors) come from the dog's Titles field and its
+   name as well as its events (`dogTitles.titlesOf`), and `registered_name` goes without
+   the titles on its front. KennelPort agreed both need no contract change.
 4. **C9:** waitlist facts.
    **Built 2026-11-13** (`waitlistFacts`): a top-level `waitlist_facts` object, sent once
    her waitlist is set up. `online_form` is true only while her list is online, as the

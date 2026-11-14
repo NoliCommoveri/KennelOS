@@ -4300,3 +4300,49 @@ tick box per template; buyers get an emailed link.
 
 - `CLAUDE.md` gains "Session start": before replying to the first request, check open PRs and
   branches with commits main lacks, give a one-sentence summary and offer to bring them in.
+
+## 2026-11-14: dog titles as a field, phase 1 (core and data layer)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 1. No UI yet.
+- New pure modules: `data/registryCountries.js` (`REGISTRY_COUNTRIES`, `countryOfRegistry`,
+  ISO-3 `countryName`, `homeCountry`; KSS → Serbia; the ambiguous codes left off) and
+  `data/dogTitles.js` (`titlesOf` merging the field, `title_earned` events and name titles;
+  `normalizeTitles`, `displayName`, `feedOrder`, `holdsTitle`, `abbrKey`, `sameTitle`).
+- `pedigreeParse.js`: `TITLE_PREFIXES` exported (the old `TITLES` plus AKC's prefix lists);
+  `splitTitles` takes a repeat number (GCHP2, MACH3).
+- New plain fields `Dog.titles` and `Dog.country_of_origin`, both cloud (D2, D8):
+  `dogRepo` normalizes / trims them on every write that carries them; `syncRegistry` and
+  the regenerated `cloud/src/lib/cloudFields.js` list them.
+- Dog Card: `titles` (a new `titles` kind, field only) and `countryOfOrigin`; old cards read
+  both as empty. CSV dog import: `titles` (add-only on an update) and `country_of_origin`
+  columns, with help lines.
+- `PRECACHE_URLS` gains both modules. No cache bump.
+- KennelPort's reply on titles and `origin_country` recorded in the plan's §6.1.
+- Tests: `registryCountries.test.js`, `dogTitles.test.js`, plus prefix/repeat-number cases in
+  `pedigreeParse.test.js`, a card round trip in `dogCard.test.js`, the CSV columns in
+  `csvImport.test.js`.
+
+## 2026-11-14: dog titles as a field, phase 2 (readers and display)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 2.
+- `dogTitles.js` gains `titlesByDogId` and `titleAbbrs`. `waitlistProjection.titlesByDog`
+  and `siteExport.titleDetailsByDog` now take `(events, dogs)` and go through `titlesOf`, so
+  waitlist parent cards and the website feed (dogs and C7 ancestors) carry Titles-field and
+  name titles as well as logged ones: KennelPort's ask 1. Bare abbreviations go in display
+  order, once each (was: the order earned, by exact spelling); `titles_detail` in
+  `feedOrder`, a held title with null date and organization.
+- D5a: the feed's `registered_name` (dogs and ancestors) goes without its front titles.
+- New optional section `origin_country` (Website Contract Plan C10): `country_of_origin` on
+  each dog and ancestor, else `import_country` while imported. KennelPort's side is on its
+  branch, unmerged, so nothing new goes until its Worker lists it.
+- `showPoints`: `trackProgress` `requiredHeld`; `showRecordFrom(events, tracks, { held })`
+  reads `Dog.titles` (a dated held CH gates like a logged one, an undated one unlocks GCH
+  with every win counting) and gives each row `heldTitle`. `getShowRecord(id, { held })`.
+- `nudges.js`: no "log the title?" when the title is on the dog's Titles.
+- Dog page: the header subtitle (or the title, with no call name) is `displayName`; the
+  Show Record card says "CH Held" / "CH earned …" for a held title. Pedigree tree boxes
+  show the registered name with titles.
+- Tests: held-title cases in `showPoints.test.js`; titles from the field and name, D5a,
+  the KennelPort grandsire case and `origin_country` in `siteExport.test.js`; field and
+  name titles in `waitlistProjection.test.js`. Two siteExport expectations changed for the
+  new order and the stripped name.
