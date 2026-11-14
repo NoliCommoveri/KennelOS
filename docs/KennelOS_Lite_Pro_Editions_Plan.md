@@ -73,7 +73,7 @@ without a server, and good enough.
 | Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
 | Kels, the scripted guided-task helper (floating "Ask Kels" button): "Record a new litter" as a chat (parents, breeding, birth, each pup, plans & prices; End-State guide §33) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
 | Kels's "Check in on a litter": weights compared with the last ones, health care for chosen pups, puppy plans, microchips, dates, status; offers Weaning, Ready, Sold / reopen / close, and each sold pup's pickup, boarding and delivery (End-State guide §33) | ✅ | ✅ + offers to open waitlist picks (or move the deposit date) once the accept-deposits date comes |
-| Kels's "Tidy up my records": litter counts vs. pups, puppy plans and dogs that went home, litter / breeding / pup parents, dogs with no parents (pick or add them), duplicate dogs and merging them (End-State guide §33) | ✅ (a dog that went home leaves the roster) | ✅ + stud services with no breeding, breeders without a kennel, kennels without a contact, duplicate contacts and merging them |
+| Kels's "Tidy up my records": litter counts vs. pups, puppy plans and dogs that went home, litter / breeding / pup parents, dogs with no parents (pick or add them), duplicate dogs and merging them, titles left in a dog's notes or on the front of its registered name (End-State guide §33) | ✅ (a dog that went home leaves the roster) | ✅ + stud services with no breeding, breeders without a kennel, kennels without a contact, duplicate contacts and merging them |
 | Kels's "Pups are going home": the run-up to go-home day for one litter's chosen pups — optional checks to tick (microchips, the litter's registration number, each pup's registered name and number), pups marked Available or Placed with no sale (record the sale or change the plan), then one missing item at a time: shots, deworming, the drop-off date, payments (recording what's come in, then Mark paid in full), registration type; then a pickup message per family (the day, what's owed by then) to send from the composer (End-State guide §33) | ✅ | ✅ + her final-payment methods in the pickup message, contract signed, feeding schedule (optional), a payment request then an invoice for each family still owing money, the Furever link, and printing the puppy records with a cover page |
 | Kels's "Set up my waitlist": the fee, offers, going online, programs, then the families she already has; re-runnable to change one part (End-State guide §33) | ❌ | ✅ |
 | Kels's "Check account health": a status report, then fixes — this device's storage, backups, Sensitive records, updates, other devices (End-State guide §33) | ✅ (the checks for what Lite has) | ✅ + the license, Stripe keys replaced in the chat, online waitlists |
@@ -91,7 +91,8 @@ without a server, and good enough.
 | Companion app (buyer/partner share-out) | ❌ | ✅ |
 | Assistant app | ❌ | ✅ |
 | Receipts & file storage | ❌ | ✅ |
-| Show tracking (show history, championship points, upcoming shows) | ❌ | ✅ |
+| A dog's Titles (bought champions and ancestors too) and Country of origin, on the Dog form and filled by the pedigree import (End-State guide §4) | ✅ | ✅ |
+| Show tracking (show history, championship points, upcoming shows, the "Log the title?" nudge) | ❌ | ✅ |
 | Cloud backup (optional free account: email + code) | ✅ | ✅ |
 | Erase a lost device remotely | ✅ | ✅ (+ free its license slot) |
 | Private vault (Cloud Proposal §6.3; built, released 2026-10-08) | ✅ | ✅ |

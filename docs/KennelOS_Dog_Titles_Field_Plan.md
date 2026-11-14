@@ -1,6 +1,6 @@
 # KennelOS — A dog's titles as a field (plan)
 
-> **Status: decided, not built.** All decisions made (§7). The build runs in six phases (§8); see its Status line.
+> **Status: built** (2026-11-14), all six phases (§8). The code is described in the End-State guide (§4's Dog row and **Titles**, the Dog form's Titles row, the pedigree import, the show engine, Kels's tidy-up). Waiting on KennelPort: the `origin_country` section (Website Contract Plan, C10).
 > The registry codes, AKC import rules and AKC title lists it relies on are in
 > `docs/KennelOS_Registry_Title_Facts.md` (a fact check against FCI and AKC sources,
 > 2026-11-14).
@@ -305,7 +305,7 @@ Each phase:
 
 No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
 
-**Status:** phases 1 to 5 built (core and data layer, readers and display, Dog form, pedigree chart import, Tidy up my records). Next is phase 6, docs and close.
+**Status:** all six phases built (core and data layer, readers and display, Dog form, pedigree chart import, Tidy up my records, docs and close). Nothing is left in this plan; `origin_country` waits on KennelPort merging its side.
 
 ### 8.0 Findings from reading the code (carry into every phase)
 

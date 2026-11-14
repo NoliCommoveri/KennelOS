@@ -4410,3 +4410,23 @@ tick box per template; buyers get an emailed link.
 - `CACHE_NAME` bumped to `kennelos-shell-v136` for phases 3–5. No new files.
 - Tests in `tidyRules.test.js`. Checked in the browser: Kels's tidy-up with two notes dogs
   and one name dog, a title unticked, both lists saved.
+
+## 2026-11-14: dog titles as a field, phase 6 (docs and close)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 6. Docs only, no app files changed.
+- Show Tracking Spec §1 and §4: **Modified** notes (D6). Titles a dog holds are stored on
+  `Dog.titles`; points and track progress stay derived; a held title satisfies `requires`
+  (dated like an event, or undated and unlocking every aimed win). The guide's Shows
+  paragraph says the same. (The plan said "guide §4.2", which is Relationship direction;
+  the derived-not-stored rule the change touches is in the Shows paragraph, §8.)
+- Editions: guide §0 and the Editions Plan's feature table say Titles and Country of origin
+  are in every edition (Dog form, pedigree import, Kels's tidy-up of titles in notes and
+  names); show points and the "Log the title?" nudge stay Pro.
+- The plan's status → built; README Status. The Website Contract Plan already says C10
+  (`origin_country`) waits on KennelPort's branch.
+- `node build/assemble.mjs`, `node --test` (1943 pass) and `cd cloud && npm test` (337
+  pass). Checked in the browser (`/shared/`): the dog page (name with titles, Country of
+  origin), the Dog form's title chips, the pedigree page with a titled ancestor, the
+  pedigree import page, and Kels's tidy-up finding titles in notes and in names. No
+  console errors.
+- No `CACHE_NAME` bump: no app file changed since v136.
