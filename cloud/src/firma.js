@@ -282,22 +282,51 @@ export async function syncFirmaFields(env, auth, body) {
   if (wanted.length > 40) fail(400, 'too_many_fields');
   const relabel = new Set((Array.isArray(body?.relabel) ? body.relabel : []).map(text).filter((n) => FACT_NAME.test(n)).map((n) => n.toLowerCase()));
   const ws = encodeURIComponent(connection.account_ref);
-  const list = await firma(env, secrets.apiKey, 'GET', `/workspace/${ws}/custom-fields`);
-  if (!ok(list)) fail(502, 'esign_unavailable');
-  const rows = Array.isArray(list.data) ? list.data : (list.data?.results ?? list.data?.custom_fields ?? []);
-  const byName = new Map(rows.map((r) => [String(r?.field_name ?? '').toLowerCase(), r]));
-  let calls = 1;
+  const { rows, complete, calls: listCalls } = await workspaceFields(env, secrets.apiKey, ws);
+  // The first copy of a name is the one kept (relabelled); a later copy is never made.
+  const byName = new Map();
+  for (const r of rows) {
+    const key = String(r?.field_name ?? '').toLowerCase();
+    if (key && !byName.has(key)) byName.set(key, r);
+  }
+  let calls = listCalls;
   let added = 0;
   for (const f of wanted) {
     if (byName.has(f.name.toLowerCase())) continue;
+    // Not sure the list was all of them: adding could make a second copy, so wait.
+    if (!complete) { console.warn(`firma: fields list incomplete, ${f.name} not added`); continue; }
     const r = await firma(env, secrets.apiKey, 'POST', `/workspace/${ws}/custom-fields`, { field_label: f.label, field_name: f.name });
     calls++;
+    if (r.status === 409) { byName.set(f.name.toLowerCase(), { field_name: f.name }); continue; } // already there
     if (!ok(r)) fail(502, 'esign_unavailable', { added });
     byName.set(f.name.toLowerCase(), { field_name: f.name, field_label: f.label });
     added++;
   }
   const relabelled = await relabelFields(env, secrets.apiKey, ws, wanted.filter((f) => relabel.has(f.name.toLowerCase())), byName, FIELD_CALL_BUDGET - calls);
   return { added, ...relabelled };
+}
+
+// Every custom field in her workspace, page by page (Firma pages its lists; reading
+// only the first page made a second copy of each field past it). → { rows, complete,
+// calls }: complete = the last page was short, so no field can be missing; a page
+// that repeats one already read (paging not honoured) or the page cap leaves it false.
+const FIELD_PAGE = 100;
+const FIELD_PAGES_MAX = 4;
+async function workspaceFields(env, key, ws) {
+  const rows = [];
+  const seen = new Set();
+  let calls = 0;
+  for (let page = 1; page <= FIELD_PAGES_MAX; page++) {
+    const r = await firma(env, key, 'GET', `/workspace/${ws}/custom-fields?page=${page}&page_size=${FIELD_PAGE}`);
+    calls++;
+    if (!ok(r)) fail(502, 'esign_unavailable');
+    const list = Array.isArray(r.data) ? r.data : (r.data?.results ?? r.data?.custom_fields ?? r.data?.data ?? []);
+    const fresh = list.filter((x) => { const id = String(x?.id ?? x?.field_name ?? ''); if (seen.has(id)) return false; seen.add(id); return true; });
+    rows.push(...fresh);
+    if (list.length < FIELD_PAGE) return { rows, complete: fresh.length === list.length, calls };
+    if (!fresh.length) break;
+  }
+  return { rows, complete: false, calls };
 }
 
 // Bring existing fields' labels up to date. Firma's docs say a workspace custom

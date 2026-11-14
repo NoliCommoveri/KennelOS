@@ -4525,3 +4525,23 @@ tick box per template; buyers get an emailed link.
   step 5; End-State guide §32; launch checklist (first field ticked, every-field check added);
   README Status.
 - No new files. `CACHE_NAME` bumped to `kennelos-shell-v139` (owner asked).
+
+## 2026-11-14: Firma fields never made twice (paged list)
+
+- **Seen (owner):** after every field was relabelled, Firma's editor showed every field twice.
+- **Cause (likely; Firma's docs weren't reachable):** the Worker read `GET …/custom-fields`
+  without paging, so only Firma's first page. Every field past it looked missing and was added
+  again on each sync. The extra copies carried the grouped labels and the originals the old
+  ones, so they didn't look alike until the relabel.
+- **Change (Worker, no migration):** `firma.workspaceFields` reads the list page by page
+  (`page`, `page_size=100`, at most 4 pages, inside the 45-call budget). A field is added only
+  when the list is known whole (a short last page); a repeated page or the cap means none is
+  added, with a log line. A name already there twice keeps its first copy (the one relabelled).
+  A 409 on add counts as already there.
+- **Cleanup (owner):** no contract template is in use, so the owner deletes the templates and
+  the duplicate fields in Firma; the next Set up or Place fields makes each field once.
+- **Tests:** `cloud/tests/esign.test.js` +2 (150 fields over two pages: nothing added, 40
+  relabelled; a name there twice; paging not honoured adds nothing; 409), the fake pages
+  like Firma (20 without `page_size`). `cd cloud && npm test` 342 pass, `node --test` 1954 pass.
+- **Docs:** End-State guide §32.
+- No new files; no app change, so no cache bump. Needs the Worker deploy.

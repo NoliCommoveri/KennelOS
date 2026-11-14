@@ -85,7 +85,13 @@ function makeFake() {
       if (m[1] !== wsOfKey.id) return reply(403, { code: 'FORBIDDEN' });
       const list = f.fields.get(m[1]) || [];
       f.fields.set(m[1], list);
-      if (method === 'GET') return reply(200, list);
+      // Paged like Firma: page_size (20 when not given), page from 1; `ignorePaging` = always the first.
+      if (method === 'GET') {
+        const size = Number(u.searchParams.get('page_size')) || 20;
+        const page = f.ignorePaging ? 1 : Number(u.searchParams.get('page')) || 1;
+        return reply(200, { results: list.slice((page - 1) * size, page * size) });
+      }
+      if (f.refuseFieldWith409) return reply(409, { code: 'CONFLICT' });
       list.push({ id: `cf_${list.length}`, field_name: body.field_name, field_label: body.field_label });
       return reply(201, list[list.length - 1]);
     }
@@ -318,8 +324,38 @@ test('fields: the most a sync can call (40 relabels, PATCH refused once) stays u
   const next = old.map((f) => ({ ...f, label: 'new' }));
   const r = await (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: next, relabel: next.map((f) => f.name) } })).json();
   assert.deepEqual(r, { added: 0, relabelled: 40, relabelFailed: 0 });
-  assert.equal(fake.calls.length - before, 42, 'the list, one refused PATCH, 40 PUTs');
+  assert.equal(fake.calls.length - before, 42, 'the list (one page), one refused PATCH, 40 PUTs');
   assert.ok(fake.fields.get('ws_1').every((f) => f.field_label === 'new'));
+});
+
+test('fields: a long list is read page by page, so a field past the first page is never made twice', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const list = Array.from({ length: 150 }, (_, i) => ({ id: `cf_${i}`, field_name: `f${i}`, field_label: `old ${i}` }));
+  fake.fields.set('ws_1', list);
+  const sync = async (fields, relabel) => (await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields, ...(relabel ? { relabel } : {}) } })).json();
+  const late = Array.from({ length: 40 }, (_, i) => ({ name: `f${110 + i}`, label: `Sale · ${110 + i}` }));
+  assert.deepEqual(await sync(late, late.map((f) => f.name)), { added: 0, relabelled: 40, relabelFailed: 0 });
+  assert.equal(fake.fields.get('ws_1').length, 150, 'no second copies');
+  assert.ok(fake.calls.some((c) => c.method === 'GET' && c.path.endsWith('/custom-fields')), 'listed');
+  // A name already there twice (from before): the first copy is relabelled, no third is made.
+  list.push({ id: 'cf_dup', field_name: 'f5', field_label: 'old 5' });
+  assert.deepEqual(await sync([{ name: 'f5', label: 'Sale · 5' }], ['f5']), { added: 0, relabelled: 1, relabelFailed: 0 });
+  assert.equal(list[5].field_label, 'Sale · 5');
+  assert.equal(list.at(-1).field_label, 'old 5');
+  // Paging not honoured (the same first page every time): the list can't be known whole, so nothing is added.
+  fake.ignorePaging = true;
+  assert.deepEqual(await sync([{ name: 'brandNew', label: 'Sale · New' }]), { added: 0, relabelled: 0, relabelFailed: 0 });
+  assert.ok(!fake.fields.get('ws_1').some((f) => f.field_name === 'brandNew'));
+});
+
+test('fields: Firma saying a name is already there (409) is not a failure', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  fake.refuseFieldWith409 = true;
+  const r = await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: [{ name: 'price', label: 'Sale · Price' }] } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { added: 0, relabelled: 0, relabelFailed: 0 });
 });
 
 test('templates: made, listed and opened with her workspace key; another kennel\'s is a 404', async () => {

@@ -3219,7 +3219,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     most 40 a call) as the workspace's custom fields, each labelled
     `contractForms.FIRMA_LABELS[name]` (a group prefix: "Buyer · Email", "Payment · 1st due
     date"; Payment Schedule plan §8.2), so the editor's list sorts into groups. The Worker
-    (`firma.syncFirmaFields`) adds the missing ones and, for the names in the call's `relabel`
+    (`firma.syncFirmaFields`) reads her fields page by page (`workspaceFields`: 100 a page, at most
+    4 pages; a name seen twice keeps its first copy), adds the missing ones only when the list
+    is known whole (a short last page; else it logs and adds none, so no field is ever made
+    twice; a 409 counts as already there) and, for the names in the call's `relabel`
     (`cloudEsign.RELABEL_FIELDS`: every fact name; a relabelled field keeps its name and
     still fills), brings an existing field's label up to date: `PATCH
     /workspace/{ws}/custom-fields/{id}` with the label, else (404/405) `PUT` with its unchanged
