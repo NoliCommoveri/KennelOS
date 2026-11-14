@@ -4215,3 +4215,13 @@ tick box per template; buyers get an emailed link.
   price and the table adds up to the price. `node --test` 1,871 pass.
 - **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
 - **Service worker:** no files added or renamed. `CACHE_NAME` v134 (owner asked for the bump if needed): main's website work had already shipped v133.
+
+## 2026-11-14 — Plan: a dog's titles as a field
+
+- **Plan only:** `docs/KennelOS_Dog_Titles_Field_Plan.md`. It adds a `Dog.titles` field for
+  titles typed in by hand (bought champions, pedigree ancestors), and the shown and sent
+  titles become the field and `title_earned` events together. The show engine reads the field
+  (an undated CH unlocks GCH, and the title nudge is skipped) but never writes it. It takes in
+  KennelPort's hand-over on ancestors' titles: the chart import keeps titles as data, existing
+  `Titles:` notes are read in once, and the lineage feed sends them. No contract change. Owner
+  decisions D1 to D6 are open. README doc map updated.
