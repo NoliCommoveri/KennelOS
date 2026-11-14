@@ -4215,3 +4215,50 @@ tick box per template; buyers get an emailed link.
   price and the table adds up to the price. `node --test` 1,871 pass.
 - **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
 - **Service worker:** no files added or renamed. `CACHE_NAME` v134 (owner asked for the bump if needed): main's website work had already shipped v133.
+
+## 2026-11-14 — Plan: a dog's titles as a field
+
+- **Plan only:** `docs/KennelOS_Dog_Titles_Field_Plan.md`. It adds a `Dog.titles` field for
+  titles typed in by hand (bought champions, pedigree ancestors), and the shown and sent
+  titles become the field and `title_earned` events together. The show engine reads the field
+  (an undated CH unlocks GCH, and the title nudge is skipped) but never writes it. It takes in
+  KennelPort's hand-over on ancestors' titles: the chart import keeps titles as data, existing
+  `Titles:` notes are read in once, and the lineage feed sends them. No contract change. Owner
+  decisions D1 to D6 are open. README doc map updated.
+- **Revised (owner):** existing `Titles:` notes lines are now moved only when she says
+  yes, as two new checks in Kels's existing Tidy up my records (no new task or nudge), never a silent back-fill. The
+  chart import now also sets Imported and the country of origin from a foreign registry,
+  pre-ticked on its review screen for her to confirm (D7).
+- **Revised (owner), D8:** country of origin is its own fact, apart from Imported, because
+  a Serbian ancestor still in Serbia isn't an import. A new `Dog.country_of_origin` field;
+  `imported` and `import_country` stay as shipped. The chart import fills the country from
+  a foreign registry and suggests Imported only on the line's boundary dog: pre-ticked when
+  it's dual-registered, unticked otherwise (frozen semen, in-utero). A note for KennelPort
+  asks for an optional `origin_country` section and two tag conditions: Import-descended
+  and Foreign bloodlines.
+- **Revised after a web check (D7, D8):** AKC gives a foreign frozen-semen sire an AKC
+  number through foreign registration, so having both a home and a foreign number doesn't
+  prove a dog was imported. The chart import now only ever offers Imported unticked, at
+  the boundary dog. It keeps a second registration, which gives the country of origin.
+  `REGISTRY_COUNTRIES` is to come from the FCI's list of studbook initials. JR, MET and LOE
+  are still to confirm, and fci.be and akc.org aren't reachable from the session.
+- **Revised after the FCI/AKC fact check** (`docs/KennelOS_Registry_Title_Facts.md`, added):
+  - JR (Serbia), MET (Hungary) and LOE (Spain) are confirmed. `REGISTRY_COUNTRIES` takes
+    studbook, appendix and older codes from the FCI list, and leaves CKC, KCSB and the
+    rows that couldn't be placed off the map.
+  - AKC doesn't register a foreign frozen-semen sire who never came over. So Imported is
+    suggested from the parents' registrations: pre-ticked when both parents are
+    foreign-only (or the dog is dual-registered), unticked when one parent is foreign.
+  - D3 is flipped to a prefix list. AKC puts most titles after the name, championship
+    titles before it.
+  - Chart titles on an AKC pedigree get organization AKC.
+- **Decided and split into phases (owner):** D1–D7 as recommended. §8 of the plan now has
+  six build phases with a "findings from reading the code" section to carry between
+  sessions. In short:
+  - AKC Certified Pedigrees bracket a foreign-born dog's country ("(SRB)"), so a bracketed
+    country on an AKC dog pre-ticks Imported.
+  - KSS also maps to Serbia.
+  - The registry map goes in a new pure module, `registryCountries.js`, because
+    `pedigreeParse.js` is import-free.
+
+  No code yet.
