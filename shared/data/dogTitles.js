@@ -134,3 +134,33 @@ export function holdsTitle(list, abbr) {
 export function nameTitles(registeredName) {
   return splitTitles(text(registeredName));
 }
+
+// Every dog's titles at once, for the readers that build many dogs (the website
+// feed, waitlist parent cards, ancestors): `dogs` gives the field and name titles,
+// `events` the title_earned ones. A dog with title events but no record in `dogs`
+// still gets its event titles. → Map(dogId → titlesOf list).
+export function titlesByDogId(events = [], dogs = []) {
+  const evBy = new Map();
+  for (const e of events || []) {
+    if (!e || e.event_type !== 'title_earned' || e.subject_type !== 'dog') continue;
+    if (!evBy.has(e.subject_id)) evBy.set(e.subject_id, []);
+    evBy.get(e.subject_id).push(e);
+  }
+  const out = new Map();
+  for (const d of dogs || []) if (d?.id && !out.has(d.id)) out.set(d.id, titlesOf(d, evBy.get(d.id) || []));
+  for (const [id, list] of evBy) if (!out.has(id)) out.set(id, titlesOf({ id }, list));
+  return out;
+}
+
+// The abbreviations alone, in display order, each once (case and dots ignored).
+export function titleAbbrs(titles) {
+  const seen = new Set();
+  const out = [];
+  for (const t of titles || []) {
+    const k = abbrKey(t.abbr);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(t.abbr);
+  }
+  return out;
+}

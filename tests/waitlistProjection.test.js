@@ -347,6 +347,16 @@ test('titlesByDog: logged title_earned abbreviations, oldest first, once each, n
   assert.deepEqual(t.get('sire'), ['JH']);
 });
 
+test('titlesByDog: the dog’s Titles field and name titles too, in display order, once each', () => {
+  const events = [{ id: 'e1', subject_type: 'dog', subject_id: 'dam', event_type: 'title_earned', event_date: '2025-01-01', details: { title_abbreviation: 'GCH' } }];
+  const t = titlesByDog(events, [
+    { id: 'dam', registered_name: 'BIS Willow', titles: [{ abbr: 'CH' }, { abbr: 'ch' }, { abbr: 'CGC' }] },
+    { id: 'none', registered_name: 'Plain' }
+  ]);
+  assert.deepEqual(t.get('dam'), ['GCH', 'CH', 'BIS', 'CGC']);
+  assert.equal(t.has('none'), false);
+});
+
 test('whelp notes (Spec §16.6): per family, for a born litter before picks open, whatever her switches say (Q34)', () => {
   const p = buildProjection(upcomingFixture(null));
   // Spring litter (born, picks not open, one female pup): e1 skips Willow's litters; e2 wants a female.

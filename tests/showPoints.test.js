@@ -243,3 +243,35 @@ test('only tracks the dog has show events for get a row; history is newest first
   assert.deepEqual(rec.history.map((e) => e.event_date), ['2026-02-03', '2026-01-03']);
   assert.deepEqual(showRecordFrom([]).tracks, []);
 });
+
+// --- titles held (Dog.titles; Dog Titles Field Plan §3) -----------------------------
+
+test('a held, undated CH unlocks GCH with every GCH-aimed win counting', () => {
+  const evs = [gch('2025-10-01', 3, 'Judge A'), gch('2026-01-01', 3, 'Judge B')];
+  assert.ok(showRecordFrom(evs).tracks[0].progress.missing.includes('CH not yet earned'), 'without it: blocked');
+  const [row] = showRecordFrom(evs, undefined, { held: [{ abbr: 'ch' }] }).tracks;
+  assert.equal(row.since, null);
+  assert.equal(row.progress.points, 6);
+  assert.equal(row.progress.notCounted, 0);
+  assert.ok(!row.progress.missing.includes('CH not yet earned'));
+  assert.equal(row.heldTitle, null, 'GCH itself is not held');
+  assert.equal(trackProgress(evs, GCH, { requiredHeld: true }).points, 6);
+});
+
+test('a held CH with a date gates GCH like a logged event; the earliest date wins', () => {
+  const evs = [gch('2025-10-01', 3, 'Judge A'), gch('2026-01-01', 3, 'Judge B')];
+  let [row] = showRecordFrom(evs, undefined, { held: [{ abbr: 'CH', earned_on: '2025-11-01' }] }).tracks;
+  assert.equal(row.since, '2025-11-01');
+  assert.equal(row.progress.points, 3);
+  assert.equal(row.progress.notCounted, 1);
+  [row] = showRecordFrom([...evs, titled('2025-09-01', 'CH')], undefined, { held: [{ abbr: 'CH', earned_on: '2025-11-01' }] }).tracks;
+  assert.equal(row.since, '2025-09-01');
+});
+
+test('heldTitle: the track’s own title on the dog, a repeat number counting', () => {
+  const evs = [...finishedCh(), gch('2026-03-15', 3, 'Judge X')];
+  const rec = showRecordFrom(evs, undefined, { held: [{ abbr: 'GCH2' }, { abbr: 'C.H.', earned_on: '2020-01-01' }] });
+  assert.deepEqual(rec.tracks.find((r) => r.track.value === 'akc_ch').heldTitle, { abbr: 'C.H.', organization: '', earned_on: '2020-01-01' });
+  assert.equal(rec.tracks.find((r) => r.track.value === 'akc_gch').heldTitle.abbr, 'GCH2');
+  assert.equal(showRecordFrom(evs).tracks[0].heldTitle, null);
+});

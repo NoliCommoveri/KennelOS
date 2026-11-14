@@ -253,7 +253,13 @@ last, oldest first. A title is a prefix (`isPrefixTitle`) when it's on
 print in front), a repeat number allowed (GCHP2); every other title goes after the name.
 `displayName` = prefixes + the name without its front titles + suffixes; `feedOrder` = dated
 by date, then undated; `holdsTitle(list, 'GCH')` also accepts GCH2. The event is unchanged:
-it stays the dated record; nothing copies between the two.
+it stays the dated record; nothing copies between the two. `titlesByDogId(events, dogs)`
+gives every dog's list at once (a dog with title events and no record gets those);
+`titleAbbrs` the abbreviations once each. Read by: the dog page header (the call name as
+the title and `displayName` under it; a dog with no call name is titled by `displayName`),
+the pedigree tree's boxes (`assets/pedigree.js`, the same rule), waitlist parent cards and
+the website feed (`titlesByDog`, `titleDetailsByDog`, §29, §35), the show engine and the
+`show-title` nudge (§8 Shows, §19).
 
 **Registry countries** (`data/registryCountries.js`, pure and import-free).
 `REGISTRY_COUNTRIES` maps each country to its studbook, appendix and older registry codes
@@ -452,8 +458,13 @@ One polymorphic table for all dated history: `subject_type ∈ {dog, pairing, li
 day. Points, majors and titles are **derived, never stored**: `data/showPoints.js`
 (`trackProgress`, `showRecordFrom`, `getShowRecord`) tallies counting events (`entry_status`
 `shown`, `points_toward` set, points > 0) against `vocab.TITLE_TRACKS`. A track with
-`requires` (GCH → CH) counts only wins after the required title. Saving odd results raises
-a soft confirm, never a block.
+`requires` (GCH → CH) counts only wins after the required title: the earliest of its
+logged `title_earned`, its `Dog.titles` entry's `earned_on` and the date its own track
+completed. A required title held on `Dog.titles` with no date (a bought champion) unlocks
+the track with every aimed win counting (`trackProgress`'s `requiredHeld`;
+`showRecordFrom(events, tracks, { held })`, each row's `heldTitle`); the Show Record card
+says "CH Held" or "CH earned <date>" for one. Saving odd results raises a soft confirm,
+never a block.
 
 **Litter-wide logging** (`litter.js` → `openEventForm`'s `cascadeTargets`) writes one event
 per checked puppy with the same `details`, except fields in `eventForm.js`
@@ -1167,7 +1178,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
 | `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
-| `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
+| `show-title` | a show track is complete with no `title_earned` event and its title not on the dog's Titles (`heldTitle`) | prefilled title event |
 | `int-review` | a vendor event wasn't applied, or a payment it recorded now covers everything on a sale not marked paid in full (`integrationApply.COVERS_ALL_REASON`, D34, §21.3) (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
@@ -4532,13 +4543,22 @@ KennelPort Site Manager.
   result's event `type` (`genetic_test`, `ofa_pennhip`, `breed_specific_test`, the latest
   result's, from `completedTestsByDog`); `account_type`, a product's `account_type` (an
   `ACCOUNT_TYPE` value, else null); `titles_detail`, a dog's `titles` as
-  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`: from
-  `title_earned` events in the order earned, the same title and organization once, at its
-  first date); `origin`, a dog's `imported` and `import_country` (null unless imported);
+  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`:
+  `dogTitles.titlesOf` per dog, in `feedOrder`, dated by date then undated, a title held
+  with no date or organization sent with nulls; the same title with the same or a blank
+  organization once, at its earliest date); without it the abbreviations in display order,
+  each once (`waitlistProjection.titlesByDog`, the same `titlesOf`). Every dog's and
+  ancestor's titles come from its Titles field, its `title_earned` events and titles on the
+  front of its registered name, and `registered_name` goes **without** those front titles
+  (KennelPort shows titles before the name). `origin`, a dog's `imported` and
+  `import_country` (null unless imported); `origin_country`, a dog's and each ancestor's
+  `country_of_origin` (its Country of origin, else `import_country` while imported; null
+  when neither);
   `lineage`, a dog's `breed`, `sire_id`, `dam_id` and `ancestors` to four generations
   (`data/pedigreeWalk.js` `ancestorsOf`: nearest first, sire's side first, `path` like
   `sire.dam`, a loop in the data stops its line, at most 30), each `{ id, path, call_name,
-  registered_name, titles }` and, with `origin`, its `imported` / `import_country`.
+  registered_name, titles }` and, with `origin`, its `imported` / `import_country`, with
+  `origin_country` its `country_of_origin`.
   Ancestors go by name and titles only, pedigree-only dogs and dogs not hers included:
   never an owner, contact, kennel or date of birth. Import-descended isn't worked out
   here; KennelPort does it from the ancestors. `waitlist_facts` (`waitlistFacts`), her

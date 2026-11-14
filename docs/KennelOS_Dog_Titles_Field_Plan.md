@@ -305,7 +305,7 @@ Each phase:
 
 No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
 
-**Status:** phase 1 (core and data layer) built. Next is phase 2, readers and display.
+**Status:** phases 1 (core and data layer) and 2 (readers and display) built. Next is phase 3, the Dog form.
 
 ### 8.0 Findings from reading the code (carry into every phase)
 
