@@ -4229,3 +4229,10 @@ tick box per template; buyers get an emailed link.
   yes, as two new checks in Kels's existing Tidy up my records (no new task or nudge), never a silent back-fill. The
   chart import now also sets Imported and the country of origin from a foreign registry,
   pre-ticked on its review screen for her to confirm (D7).
+- **Revised (owner), D8:** country of origin is its own fact, apart from Imported, because
+  a Serbian ancestor still in Serbia isn't an import. A new `Dog.country_of_origin` field;
+  `imported` and `import_country` stay as shipped. The chart import fills the country from
+  a foreign registry and suggests Imported only on the line's boundary dog: pre-ticked when
+  it's dual-registered, unticked otherwise (frozen semen, in-utero). A note for KennelPort
+  asks for an optional `origin_country` section and two tag conditions: Import-descended
+  and Foreign bloodlines.

@@ -1,6 +1,6 @@
 # KennelOS — A dog's titles as a field (plan)
 
-> **Status: plan, not built.** Open decisions are in §7 (D1 to D7); nothing is built until they're answered.
+> **Status: plan, not built.** Open decisions are in §7 (D1 to D8); nothing is built until they're answered.
 > This plan also covers KennelPort's hand-over "send pedigree-only ancestors' titles (and
 > their import)" (2026-11-14). Its five asks are acceptance criteria here (§6).
 
@@ -99,14 +99,23 @@ The calculation logic doesn't change. It reads the field in two places and write
   - **Titles:** `splitTitles` output goes into `titles` on each dog it creates. It stops
     writing the `Titles:` notes line. On the review screen, each row shows its titles as
     chips she can edit before importing.
-  - **Imported and country of origin:** when the registry the chart gives a dog is a
-    foreign one (a new `REGISTRY_COUNTRIES` map in `vocab.js`, e.g. RKF → Russia, PKR →
-    Poland, KCSB → United Kingdom), its review row shows "Imported from Russia" ticked,
-    with the country editable. She sees it and can untick it before pressing Import, so
-    it's never set without her (D7).
-  - **Existing dogs:** a row that matches a dog already in the app only offers to add
-    titles it doesn't have, and to tick Imported if it isn't ticked. Both are off by
-    default. It never overwrites what she set.
+  - **Country of origin (D8):** when the registry the chart gives a dog is a foreign one
+    (a new `REGISTRY_COUNTRIES` map in `vocab.js`, e.g. RKF → Russia, JR → Serbia, PKR →
+    Poland, KCSB → United Kingdom), its review row shows the country filled in. She can
+    edit or clear it before pressing Import (D7).
+  - **Imported, suggested at the boundary (D8):** on each line of the chart, the dog
+    nearest the subject that holds a home registration (her home registry, D7) but whose
+    parent is foreign-registered is the likely import. Its review row offers "Imported
+    from Serbia?":
+    - **pre-ticked** when the chart also shows a foreign registration for that same dog
+      (dual-registered is the strongest sign it was brought over)
+    - **unticked** otherwise, because a home-registered pup of a foreign parent may just
+      be a frozen-semen or in-utero litter
+    - never offered on a dog with only a foreign registration: a chart can't say it left
+      its country
+  - **Existing dogs:** a row that matches a dog already in the app only offers what it
+    doesn't have yet: missing titles, a blank country of origin, an unticked Imported. All
+    three start unticked, and it never overwrites what she set.
 - **The dog CSV import/export** gains a `titles` column, space-separated abbreviations
   (round-trips `GCH CH`).
 - **Dog Card send/receive:** `titles` joins `DOG_FIELDS` as a new list kind. Old cards
@@ -148,9 +157,32 @@ Today card: tidy-up checks run only inside Kels.
 | 2. Titles stored as data, not just in notes | `Dog.titles` (§2), written by chart import (§4) |
 | 3. Existing chart imports, once | §5: two new checks in Kels's Tidy up my records, which she confirms. KennelPort plays no part. |
 | 4. Registered names that still carry titles | D5, and the same tidy-up |
-| 5. Offer Imported for a foreign registry | §4 chart import: pre-ticked on the review screen, which she confirms (D7) |
+| 5. Offer Imported for a foreign registry | §4 chart import: country of origin from a foreign registry, and Imported suggested only at the boundary dog (D7, D8), which she confirms |
 
-There's **no contract change**: same sections, same keys. KennelPort needs no release first.
+The titles work needs **no contract change**: same sections, same keys, and KennelPort
+needs no release first. **Country of origin does need one** (D8, §6.1).
+
+### 6.1 Note for KennelPort: country of origin
+
+To send to KennelPort with this plan.
+
+- **What changes in KennelOS.** A dog gains a country of origin that stands on its own,
+  without Imported. A Serbian ancestor that never left Serbia has country Serbia and
+  `imported: false`. Today C4 sends `import_country` only while `imported` is ticked, so
+  that ancestor goes out with no country.
+- **The contract ask.** A new optional section, `origin_country`, adds `country_of_origin`
+  (text or null) to each dog and each C7 ancestor.
+  - `imported` and `import_country` stay exactly as C4 has them.
+  - A Worker that doesn't take the section gets what it gets now.
+- **What "Import-descended" should mean, as the owner defines it:** the dog itself is born
+  in her country, some ancestor was imported, and the bloodlines beyond that ancestor are
+  foreign. Breeders advertise both, so KennelPort could offer two tag conditions:
+  - **Import-descended:** an ancestor within the owner's generations has
+    `imported: true`.
+  - **Foreign bloodlines:** an ancestor within the owner's generations has a
+    `country_of_origin` other than the breeder's own.
+- **Still KennelPort's to work out.** KennelOS keeps sending facts as she set them. It
+  never sends a worked-out "import-descended".
 
 ## 7. Decisions for the owner
 
@@ -176,12 +208,33 @@ There's **no contract change**: same sections, same keys. KennelPort needs no re
   CKC-Continental and AKC are home registries to a US breeder.
   - **Recommended:** a registry counts as foreign only when it's in `REGISTRY_COUNTRIES` and
     isn't the registry most of her own (non-pedigree-only) dogs use.
-  - Ambiguous codes like CKC stay off the map, so they're never pre-ticked.
-  - A registry not on the map leaves the box unticked. She can still tick it.
+  - Ambiguous codes like CKC stay off the map, so they never fill in a country.
+  - A registry not on the map leaves the country blank. She can still type one.
 - **D6. The show-tracking design rule** (Show Tracking Spec §4, guide §4.2: "no
   `Dog.titles` field"). **Recommended:** keep it for points and majors, and relax it for
   titles. The guide and spec get a **Modified:** note: titles held are stored, progress is
   derived.
+- **D8. Country of origin as its own fact, apart from Imported.** **Agreed with the owner
+  2026-11-14:** an ancestor from Serbia that's still in Serbia isn't an import, but it does
+  have a country of origin.
+  - **A new plain field `Dog.country_of_origin`** (text, optional; cloud, a fact like
+    `registry`). The Dog form always shows it as **Country of origin**, beside the registry
+    fields.
+  - **`imported` keeps its meaning:** brought into her country. While it's ticked, the form
+    also writes the country into the shipped `import_country`, so older builds and the C4
+    feed work unchanged. No shipped field is renamed or given a new meaning.
+  - **Reading a dog's country:** `country_of_origin`, else `import_country` when
+    `imported`. That covers the dogs she has already marked imported, with no migration.
+  - **The chart import** fills in the country from the registry and suggests Imported only
+    at the boundary dog (§4).
+  - **The boundary rule is a likely sign, not a fact.** The first home-registered dog on a
+    line whose parent is foreign is usually the import, but not always. A frozen-semen or
+    in-utero litter is born at home from a parent that never came over. That's why
+    Imported is pre-ticked only on a dual-registered dog.
+  - **To check on real charts:** `parseDetails` keeps the first registration it finds and
+    may put a second one in notes. Dual-registration detection needs it to keep both
+    (into `additional_registrations`).
+  - **Website:** the new `origin_country` section, which needs KennelPort (§6.1).
 
 ## 8. Steps
 
@@ -201,10 +254,19 @@ There's **no contract change**: same sections, same keys. KennelPort needs no re
 4. **Pedigree chart import:**
    - It writes `titles`, plus the KennelPort test: grandsire "GCH CH X" → `ancestors` at
      `sire.sire` has `titles: ["GCH", "CH"]`.
-   - The review screen gets the titles chips and the Imported and country choice (§4,
-     D7), with `REGISTRY_COUNTRIES` added to `vocab.js`.
-   - Tests: a foreign-registry ancestor comes through pre-ticked, an AKC one doesn't, and
-     unticking it saves `imported: false`.
+   - The review screen gets the titles chips, the country of origin and the boundary
+     Imported suggestion (§4, D7, D8), with `REGISTRY_COUNTRIES` added to `vocab.js`.
+   - `parseDetails` keeps a second registration into `additional_registrations`.
+   - Tests:
+     - a JR-registered ancestor gets country Serbia and `imported: false`
+     - an AKC dog with JR parents is offered Imported unticked
+     - an AKC + JR dual-registered dog is offered it pre-ticked
+     - an AKC line gets neither
+4a. **Country of origin (D8):**
+   - the field in `dogRepo`, `syncRegistry` (cloud, regenerate `cloudFields.js`), backup,
+     CSV and Dog Card
+   - the Dog form row, with `import_country` kept in step while Imported is ticked
+   - the `origin_country` website section once KennelPort takes it (§6.1)
 5. **UI:** the dog form's Titles row and the dog page header.
 6. **The tidy-up (§5):**
    - the `dog-titles-in-notes` and `dog-titles-in-name` kinds and their rules
