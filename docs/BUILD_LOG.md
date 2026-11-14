@@ -4242,3 +4242,13 @@ tick box per template; buyers get an emailed link.
   the boundary dog. It keeps a second registration, which gives the country of origin.
   `REGISTRY_COUNTRIES` is to come from the FCI's list of studbook initials. JR, MET and LOE
   are still to confirm, and fci.be and akc.org aren't reachable from the session.
+- **Revised after the FCI/AKC fact check** (`docs/KennelOS_Registry_Title_Facts.md`, added):
+  - JR (Serbia), MET (Hungary) and LOE (Spain) are confirmed. `REGISTRY_COUNTRIES` takes
+    studbook, appendix and older codes from the FCI list, and leaves CKC, KCSB and the
+    rows that couldn't be placed off the map.
+  - AKC doesn't register a foreign frozen-semen sire who never came over. So Imported is
+    suggested from the parents' registrations: pre-ticked when both parents are
+    foreign-only (or the dog is dual-registered), unticked when one parent is foreign.
+  - D3 is flipped to a prefix list. AKC puts most titles after the name, championship
+    titles before it.
+  - Chart titles on an AKC pedigree get organization AKC.

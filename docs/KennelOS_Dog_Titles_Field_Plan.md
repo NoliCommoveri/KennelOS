@@ -1,6 +1,9 @@
 # KennelOS — A dog's titles as a field (plan)
 
-> **Status: plan, not built.** Open decisions are in §7 (D1 to D8); nothing is built until they're answered.
+> **Status: plan, not built.** Open decisions are in §7 (D1 to D7; D8 agreed); nothing is built until they're answered.
+> The registry codes, AKC import rules and AKC title lists it relies on are in
+> `docs/KennelOS_Registry_Title_Facts.md` (a fact check against FCI and AKC sources,
+> 2026-11-14).
 > This plan also covers KennelPort's hand-over "send pedigree-only ancestors' titles (and
 > their import)" (2026-11-14). Its five asks are acceptance criteria here (§6).
 
@@ -89,8 +92,8 @@ The calculation logic doesn't change. It reads the field in two places and write
 
 - **Dog form, a Titles row.** Chips she can add and remove. Each chip has an abbreviation,
   plus an optional organization and date behind a small "details" disclosure. Abbreviations
-  are suggested from a list (`TITLE_SUGGESTIONS` in `vocab.js`, seeded from
-  `pedigreeParse`'s `TITLES` set plus common suffix titles), but she can type anything.
+  are suggested from a list (`TITLE_SUGGESTIONS` in `vocab.js`: AKC's published prefix and
+  suffix titles, plus `pedigreeParse`'s `TITLES` set), but she can type anything.
 - **Chips that come from an event** are shown read-only, with a link to that event. To
   remove one, she archives the event.
 - **Dog page header and pedigree tree:** titles shown with the name, e.g. "GCH CH Bella"
@@ -99,21 +102,26 @@ The calculation logic doesn't change. It reads the field in two places and write
   - **Titles:** `splitTitles` output goes into `titles` on each dog it creates. It stops
     writing the `Titles:` notes line. On the review screen, each row shows its titles as
     chips she can edit before importing.
+    - `TITLES` (the prefixes `splitTitles` strips) gains AKC's full prefix list, so more
+      of a chart's titles are caught.
+    - On an AKC Certified Pedigree the titles' organization is AKC: AKC prints no foreign
+      titles on its documents. On any other chart the organization is left blank.
   - **Country of origin (D8):** when the registry the chart gives a dog is a foreign one
-    (a new `REGISTRY_COUNTRIES` map in `vocab.js`, e.g. RKF → Russia, JR → Serbia, PKR →
-    Poland, KCSB → United Kingdom), its review row shows the country filled in. She can
-    edit or clear it before pressing Import (D7).
-  - **Imported, suggested at the boundary (D8):** on each line of the chart, the dog
-    nearest the subject that holds a home registration (her home registry, D7) but whose
-    parent is foreign-registered is the likely import. Its review row offers "Imported
-    from Serbia?":
-    - **always unticked**, even when the chart shows both a home and a foreign number for
-      that dog. AKC gives a foreign frozen-semen sire its own AKC number too, so having
-      both numbers doesn't prove the dog came over (D8)
-    - a home-registered pup of a foreign parent may also be from a frozen-semen or in-utero
-      litter, so the offer explains what Imported means ("came to live in the US")
-    - never offered on a dog with only a foreign registration: a chart can't say it left
-      its country
+    (`REGISTRY_COUNTRIES`, D7, e.g. JR or JUR → Serbia, RKF → Russia, MET → Hungary), its
+    review row shows the country filled in. She can edit or clear it before pressing
+    Import.
+  - **Imported, suggested by the parents' registrations (D8).** For each dog the chart
+    gives a home registration (her home registry, D7), look at its parents:
+    - **Both parents have only foreign registrations:** the dog is the likely import.
+      Its review row shows "Imported from Serbia" **pre-ticked**, with the country
+      editable. She can untick it before pressing Import.
+    - **One parent is foreign, the other home-registered:** the dog was most likely born
+      at home, from frozen semen, a mating abroad or a dam imported in whelp. Imported is
+      offered, **unticked**. The home-registered parent is checked on its own line.
+    - **A dog with only a foreign registration:** never offered Imported, because a chart
+      can't say it left its country. It only gets its country of origin.
+    - **A dog with a home and a foreign number** (dual-registered): treated like "both
+      parents foreign", so pre-ticked.
   - **Existing dogs:** a row that matches a dog already in the app only offers what it
     doesn't have yet: missing titles, a blank country of origin, an unticked Imported. All
     three start unticked, and it never overwrites what she set.
@@ -194,32 +202,50 @@ To send to KennelPort with this plan.
 - **D2. Sync class `cloud`.** **Recommended.** Titles are facts about the dog, like
   `registry`, and `title_earned` events already go to the cloud. This is a privacy call,
   so it needs your yes.
-- **D3. Display order.** AKC puts titles before the name (CH, GCH) and some after it (CGC,
-  JH). **Recommended:** a built-in suffix list (CGC, TKN, JH, RN, …), so a title on it goes
-  after the name and every other title goes before it. There would be no per-title setting
-  for her.
+- **D3. Display order.** AKC: "Most titles go at the end of a dog's registered name. The
+  exceptions are championship titles."
+  - **Recommended:** a built-in **prefix** list, `TITLE_PREFIXES` in `vocab.js`: AKC's
+    published prefix titles (CH, GCH/B/S/G/P, DC, FC, AFC, MACH, OTCH, …) plus the
+    championship and show-win abbreviations charts print in front (INT, MBIS, BIS, …,
+    from `pedigreeParse`'s `TITLES`). A title on the list goes before the name; every
+    other title goes after it, AKC's default.
+  - A repeat number stays on the title (GCHP2, UDX2). It counts as the same title as
+    GCHP when matching, e.g. for the nudge.
+  - Within each side, titles keep her order (or the chart's). AKC publishes no rule for
+    ordering several titles on one side.
+  - There's no per-title setting for her.
 - **D4. The `Titles:` notes line after the back-fill.** **Recommended: leave it.** It's her
   note, and the hand-over says to keep it if she relies on it. New imports stop writing it.
 - **D5. "GCH A-K Bella"-style names.**
   - **(a)** Split them when sending to the website (non-destructive).
   - **(b)** Also offer to clean the name in the §5 tidy-up ("Move GCH to titles?").
   - **Recommended: (a) + (b).** It never silently rewrites a registered name.
-- **D7. Which registries count as foreign.** A chart only gives a registry code, and some
-  codes are ambiguous: CKC is both the Canadian and the Continental Kennel Club. UKC,
-  CKC-Continental and AKC are home registries to a US breeder.
-  - **Recommended:** a registry counts as foreign only when it's in `REGISTRY_COUNTRIES` and
-    isn't the registry most of her own (non-pedigree-only) dogs use.
-  - **Source the map from the FCI's published list of studbook initials**
-    (`FCI-LDO-23747.pdf` on fci.be), plus the non-FCI registries (KC/KCSB United Kingdom,
-    CKC Canada is ambiguous, ANKC Australia, NZKC New Zealand, JKC Japan), not from
-    memory.
-    - Confirmed by search 2026-11-14: VDH Germany, LOF France, RKF Russia, LOI Italy
-      (with an appendix code), PKR Poland (with an older code beside it).
-    - **Not yet confirmed:** JR Serbia, MET Hungary, LOE Spain.
-    - fci.be and akc.org aren't reachable from the build session's network, so the list
-      needs either those hosts allowed or the PDF supplied.
-  - Ambiguous codes like CKC stay off the map, so they never fill in a country.
-  - A registry not on the map leaves the country blank. She can still type one.
+- **D7. Which registries count as foreign.** A chart gives only a registry code.
+  - **`REGISTRY_COUNTRIES` in `vocab.js`** maps each code to a country, from the FCI's list
+    of studbook initials (footer 28-09-26) and the non-FCI registries in the fact check
+    (§1a and §1b of `docs/KennelOS_Registry_Title_Facts.md`). It includes:
+    - every **studbook and appendix code**: an appendix-registered dog is still from that
+      country (JR and JUR → Serbia, RKF and RKF R. → Russia, LOE and RRC → Spain)
+    - **older codes still seen on pedigrees**: Italy LOI/LIR, Poland PKR/KW, Sweden S,
+      Slovakia SHPK, Israel ISBR
+    - the main non-FCI registries: KC → United Kingdom, ZA → South Africa, ANKC → Australia,
+      NZKC → New Zealand, UKC and AKC → United States
+  - **Off the map on purpose:**
+    - **CKC**, which is both the Canadian and the Continental Kennel Club
+    - **KCSB**, which is a third-party abbreviation, not the Kennel Club's own
+    - the few FCI rows the fact check couldn't place for certain: Bahrain/Bolivia KCB,
+      Costa Rica ACC/CR, Cuba FCC/LGC
+
+    An unmapped registry leaves the country blank, and she can type one.
+  - **Matching** is on the whole code as printed, ignoring case and a trailing dot. KC
+    doesn't match KCC (Chile) or KCU (Uruguay).
+  - **Foreign** means mapped to a country other than her home country. Her home country is
+    the country of the registry most of her own (non-pedigree-only) dogs use, else the
+    United States.
+  - **The chart reader's code pattern needs widening.** `isOtherReg` only takes 2 to 5
+    plain capital letters. Codes like ÖHZB, ČLP, CMKU, AESKC, LOMAD, K.C.B., KIF- and
+    NIC-F need accented letters, dots and hyphens, and the full list's codes go in its
+    tests.
 - **D6. The show-tracking design rule** (Show Tracking Spec §4, guide §4.2: "no
   `Dog.titles` field"). **Recommended:** keep it for points and majors, and relax it for
   titles. The guide and spec get a **Modified:** note: titles held are stored, progress is
@@ -235,27 +261,27 @@ To send to KennelPort with this plan.
     feed work unchanged. No shipped field is renamed or given a new meaning.
   - **Reading a dog's country:** `country_of_origin`, else `import_country` when
     `imported`. That covers the dogs she has already marked imported, with no migration.
-  - **The chart import** fills in the country from the registry and suggests Imported only
-    at the boundary dog (§4).
-  - **The boundary rule is a likely sign, not a fact.** The first home-registered dog on a
-    line whose parent is foreign is usually the import, but not always:
-    - **Frozen semen.** AKC registers a litter by a foreign sire only once the sire has
-      been through its foreign registration. So a sire that never left Serbia can still
-      have an AKC number, and his pups are born in the US.
-    - **In-utero imports.** The dam is imported in whelp, and the pups are born and
-      registered in the US.
-    - **What AKC's own rules confirm (checked 2026-11-14):** an imported dog is registered
-      under the name on its foreign certificate, from a pedigree issued in its country of
-      birth. The FCI's rules have the new studbook's number written onto the export
-      pedigree, so an import usually carries both numbers.
-
-    Imported is therefore only ever offered unticked, at the boundary dog, and she
-    decides. Country of origin, which a foreign registry does establish, is filled in.
-  - **Worth keeping a second registration:** `parseDetails` keeps the first registration
-    it finds and may put a second one in notes. Keeping both (the second into
-    `additional_registrations`) means a dual-registered dog gets both numbers and its
-    foreign registry gives its country of origin. That's a fact worth having even though
-    it doesn't settle Imported.
+  - **The chart import** fills in the country from the registry and suggests Imported from
+    the parents' registrations (§4).
+  - **Why the parents' registrations are the sign** (fact check §2):
+    - An imported dog is registered with AKC under the name on its foreign certificate,
+      from the pedigree of its country of birth, so it has a home number and foreign-only
+      parents.
+    - A **foreign sire used by frozen semen who never came to the US is not registered**:
+      "We will not register the sire, but we will use the information provided to
+      register the litter." His pups have a home number, one foreign parent and one home
+      parent.
+    - A sire whose semen was collected in the US must be AKC-registered first. Such a dog
+      was here, so dual-registered counts as a likely import.
+    - A **dam imported in whelp** must be AKC-registered before her litter. She's the
+      import (home number, foreign parents), and her US-born pups have one foreign
+      parent (the sire), so they aren't flagged.
+  - **It's still a sign, not a proof.** Whether AKC pedigrees print an import's foreign
+    number, and how they show foreign ancestors, is unconfirmed. So every suggestion shows
+    on the review screen for her to confirm or untick, and nothing is set behind her back.
+  - **Keeping a second registration:** `parseDetails` keeps the first registration it
+    finds and may put a second one in notes. It now keeps the second too, in
+    `additional_registrations`, which is how a dual-registered dog is spotted.
   - **Website:** the new `origin_country` section, which needs KennelPort (§6.1).
 
 ## 8. Steps
@@ -276,15 +302,21 @@ To send to KennelPort with this plan.
 4. **Pedigree chart import:**
    - It writes `titles`, plus the KennelPort test: grandsire "GCH CH X" → `ancestors` at
      `sire.sire` has `titles: ["GCH", "CH"]`.
-   - The review screen gets the titles chips, the country of origin and the boundary
-     Imported suggestion (§4, D7, D8), with `REGISTRY_COUNTRIES` added to `vocab.js`.
-   - `parseDetails` keeps a second registration into `additional_registrations`.
+   - The review screen gets the titles chips, the country of origin and the Imported
+     suggestion (§4, D7, D8). `REGISTRY_COUNTRIES` and `TITLE_PREFIXES` are added to
+     `vocab.js`, and `TITLES` is extended.
+   - `isOtherReg` is widened to every code on the map (D7).
+   - `parseDetails` keeps a second registration in `additional_registrations`.
    - Tests:
-     - a JR-registered ancestor gets country Serbia and `imported: false`
-     - an AKC dog with JR parents is offered Imported unticked
-     - an AKC + JR dual-registered dog keeps both numbers, gets country Serbia, and is
-       still offered Imported unticked
-     - an AKC line gets neither
+     - a JR ancestor gets country Serbia and `imported: false`, and is never offered
+       Imported
+     - a JUR (appendix) ancestor also gets Serbia
+     - an AKC dog with two JR parents is offered Imported pre-ticked
+     - an AKC dog with a JR sire and an AKC dam is offered it unticked
+     - an AKC + JR dual-registered dog keeps both numbers, gets Serbia, and is pre-ticked
+     - an all-AKC line gets nothing
+     - a CKC dog gets no country
+     - KC doesn't match KCC
 4a. **Country of origin (D8):**
    - the field in `dogRepo`, `syncRegistry` (cloud, regenerate `cloudFields.js`), backup,
      CSV and Dog Card

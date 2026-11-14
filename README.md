@@ -51,6 +51,7 @@ backup, carries a program from Lite to Pro.
 | Several due dates on a sale (payment schedules, payments received), and the invoices, receipts, contracts and family pages that use them (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
 | A dog's titles as a field (bought champions, ancestors), with show tracking still working them out (plan) | `docs/KennelOS_Dog_Titles_Field_Plan.md` |
+| Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
 ## Status (2026-10-15)
