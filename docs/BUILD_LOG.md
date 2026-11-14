@@ -4524,4 +4524,4 @@ tick box per template; buyers get an emailed link.
 - **Docs:** Payment Schedule plan §8.2 (Modified note, step 2), D15 Modified, D37, build order
   step 5; End-State guide §32; launch checklist (first field ticked, every-field check added);
   README Status.
-- No new files. `CACHE_NAME` not bumped.
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v139` (owner asked).
