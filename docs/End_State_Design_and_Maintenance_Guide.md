@@ -3231,6 +3231,12 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     name too, never fatal, at most 45 outbound calls a request; the log names the fact, method
     and Firma's status. → `{ added, removed, relabelled, relabelFailed }`. The sync runs on Set up
     and each **Place fields**.
+  - **A workspace deleted in Firma:** when her workspace key is refused (401/403, or 404 on a
+    list), the Worker asks Firma with the master key whether the workspace is still there
+    (`firma.failFirma`). Gone: it stops the webhook, drops her `int_connections` row and answers
+    409 `esign_workspace_gone`; Contract templates then shows **Set up e-signing**, which makes
+    a new workspace (her device forgets the old templates from the new, complete list). Still
+    there: 502 `esign_unavailable`, connection kept.
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
   - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
     `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).

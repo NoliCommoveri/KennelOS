@@ -97,6 +97,27 @@ async function secretsOf(env, connection) {
   try { return JSON.parse(await openToken(env, connection)) || {}; } catch { return {}; }
 }
 
+// Her workspace key was refused: is the workspace still there? Asked with the master
+// key. Gone (deleted in Firma's dashboard): the connection is dropped, so status says
+// not connected and Set up makes a new workspace; → 409 esign_workspace_gone. Still
+// there, or no clear answer: 502 esign_unavailable, as before.
+const REFUSED = new Set([401, 403, 404]);
+async function failFirma(env, connection, r, { refused = REFUSED } = {}) {
+  if (connection && refused.has(r.status) && env.FIRMA_API_KEY) {
+    const w = await firma(env, env.FIRMA_API_KEY, 'GET', `/workspaces/${encodeURIComponent(connection.account_ref)}`);
+    const gone = w.status === 404 || w.status === 410 || (ok(w) && (w.data?.deleted === true || w.data?.is_deleted === true || !!w.data?.deleted_at));
+    console.warn(`firma: her key refused (${r.status}); workspace check ${w.status}${gone ? ', gone: connection dropped' : ''}`);
+    if (gone) {
+      let webhookId = null;
+      try { webhookId = (await secretsOf(env, connection)).webhookId ?? null; } catch { /* none */ }
+      if (webhookId) await firma(env, env.FIRMA_API_KEY, 'DELETE', `/webhooks/${encodeURIComponent(webhookId)}`);
+      await env.DB.prepare('DELETE FROM int_connections WHERE id = ?').bind(connection.id).run();
+      fail(409, 'esign_workspace_gone');
+    }
+  }
+  fail(502, 'esign_unavailable');
+}
+
 // Her connection and its workspace key, or 409 when she hasn't connected.
 async function mine(env, auth) {
   const connection = await connectionOf(env, auth.programId);
@@ -284,7 +305,7 @@ export async function syncFirmaFields(env, auth, body) {
   if (wanted.length > 40) fail(400, 'too_many_fields');
   const relabel = new Set((Array.isArray(body?.relabel) ? body.relabel : []).map(text).filter((n) => FACT_NAME.test(n)).map((n) => n.toLowerCase()));
   const ws = encodeURIComponent(connection.account_ref);
-  const { rows, complete, calls: listCalls } = await workspaceFields(env, secrets.apiKey, ws);
+  const { rows, complete, calls: listCalls } = await workspaceFields(env, secrets.apiKey, ws, connection);
   // The first copy of a name is the one kept (relabelled); a later copy is never made.
   const byName = new Map();
   const extra = [];
@@ -319,14 +340,14 @@ export async function syncFirmaFields(env, auth, body) {
 // that repeats one already read (paging not honoured) or the page cap leaves it false.
 const FIELD_PAGE = 100;
 const FIELD_PAGES_MAX = 4;
-async function workspaceFields(env, key, ws) {
+async function workspaceFields(env, key, ws, connection) {
   const rows = [];
   const seen = new Set();
   let calls = 0;
   for (let page = 1; page <= FIELD_PAGES_MAX; page++) {
     const r = await firma(env, key, 'GET', `/workspace/${ws}/custom-fields?page=${page}&page_size=${FIELD_PAGE}`);
     calls++;
-    if (!ok(r)) fail(502, 'esign_unavailable');
+    if (!ok(r)) await failFirma(env, connection, r);
     const list = Array.isArray(r.data) ? r.data : (r.data?.results ?? r.data?.custom_fields ?? r.data?.data ?? []);
     const fresh = list.filter((x) => { const id = String(x?.id ?? x?.field_name ?? ''); if (seen.has(id)) return false; seen.add(id); return true; });
     rows.push(...fresh);
@@ -397,9 +418,9 @@ const TEMPLATE_PAGE = 100;
 
 export async function listFirmaTemplates(env, auth) {
   await herSide(env, auth);
-  const { secrets } = await mine(env, auth);
+  const { connection, secrets } = await mine(env, auth);
   const r = await firma(env, secrets.apiKey, 'GET', `/templates?page_size=${TEMPLATE_PAGE}&sort_by=name&sort_order=asc`);
-  if (!ok(r)) fail(502, 'esign_unavailable');
+  if (!ok(r)) await failFirma(env, connection, r);
   const results = Array.isArray(r.data?.results) ? r.data.results : [];
   return {
     templates: results.filter((t) => t?.id).map((t) => ({
@@ -414,7 +435,7 @@ export async function listFirmaTemplates(env, auth) {
 // POST /integrations/firma/templates { name, document: base64 PDF }
 export async function createFirmaTemplate(env, auth, body) {
   await herSide(env, auth);
-  const { secrets } = await mine(env, auth);
+  const { connection, secrets } = await mine(env, auth);
   const name = text(body?.name).slice(0, 255);
   const document = typeof body?.document === 'string' ? body.document.replace(/\s+/g, '') : '';
   if (!name) fail(400, 'name_required');
@@ -422,6 +443,7 @@ export async function createFirmaTemplate(env, auth, body) {
   if (document.length > TEMPLATE_DOC_MAX) fail(413, 'too_large');
   const r = await firma(env, secrets.apiKey, 'POST', '/templates', { name, document });
   if (!ok(r) || !r.data?.id) {
+    if (r.status === 401 || r.status === 403) await failFirma(env, connection, r);
     if (r.status >= 400 && r.status < 500) fail(400, 'esign_refused', { code: firmaCode(r) });
     fail(502, 'esign_unavailable');
   }

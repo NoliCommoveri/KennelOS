@@ -4561,3 +4561,20 @@ tick box per template; buyers get an emailed link.
   `cd cloud && npm test` 343 pass, `node --test` 1955 pass.
 - **Docs:** End-State guide §32.
 - No app change, so no cache bump. Needs the Worker deploy; then one Place fields.
+
+## 2026-11-14: A Firma workspace deleted in Firma's dashboard can be set up again
+
+- **Seen (owner):** removing the doubled fields didn't work, so the owner deleted the whole
+  Firma workspace. KennelOS then said it couldn't reach Firma (`GET /integrations/firma/templates`
+  502): her connection still held the deleted workspace's key, and the app has no Disconnect.
+- **Change (Worker, no migration):** `firma.failFirma`: her key refused (401/403, or 404 on the
+  templates or fields list) → `GET /workspaces/{id}` with the master key. Gone (404/410, or a
+  deleted flag) → the webhook stopped, the connection dropped, 409 `esign_workspace_gone`;
+  else 502 as before. Used by the templates list, the fields list and template upload.
+- **Change (app):** Contract templates shows Set up e-signing on `esign_workspace_gone`, with
+  "Your Firma workspace is gone (deleted in Firma). Set up e-signing again to make a new one."
+- **Tests:** `cloud/tests/esign.test.js` +1 (a refused key on a live workspace keeps the
+  connection; a deleted one drops it, status not connected, Set up makes `ws_2`). `cd cloud &&
+  npm test` 344 pass, `node --test` 1956 pass.
+- **Docs:** End-State guide §32.
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v140` (owner asked) for the app's message.
