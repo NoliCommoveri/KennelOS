@@ -390,6 +390,34 @@ test('fields: Firma saying a name is already there (409) is not a failure', asyn
   assert.deepEqual(await r.json(), { added: 0, removed: 0, relabelled: 0, relabelFailed: 0 });
 });
 
+test('a workspace deleted in Firma drops her connection, so Set up makes a new one; a refused key on a live workspace keeps it', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const list = () => call(env, 'GET', '/integrations/firma/templates', { token: s.token });
+
+  // Her key refused, but the workspace is still there: unavailable, connection kept.
+  fake.workspaces.get('ws_1').api_key = 'rotated';
+  const r1 = await list();
+  assert.equal(r1.status, 502);
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM int_connections'), 1);
+  fake.workspaces.get('ws_1').api_key = 'live_ws_1';
+
+  // Deleted in Firma's dashboard: gone, connection dropped, webhook stopped.
+  fake.workspaces.delete('ws_1');
+  const r2 = await list();
+  assert.equal(r2.status, 409);
+  assert.equal((await r2.json()).error, 'esign_workspace_gone');
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM int_connections'), 0);
+  assert.equal(fake.webhooks.get('wh_1').deleted, true);
+  const st = await (await call(env, 'GET', '/integrations/firma', { token: s.token })).json();
+  assert.equal(st.connected, false);
+
+  // Set up again: a new workspace, and the list works.
+  assert.equal((await call(env, 'POST', '/integrations/firma/connect', { token: s.token, body: { kennelName: 'Maple Ridge Labradors' } })).status, 200);
+  assert.ok(fake.workspaces.has('ws_2'));
+  assert.equal((await list()).status, 200);
+});
+
 test('templates: made, listed and opened with her workspace key; another kennel\'s is a 404', async () => {
   const env = await envWith();
   const s = await connected(env);
