@@ -3164,8 +3164,9 @@ Share with families hint and the card's badge say so for this type.
   A sale's payment table (pure `incomeView.priceTable`, from the sale's `getSaleCredits`;
   the purchase price only: no transport, boarding or extras): `depositDue` is
   the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
-  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit),
-  the same before and after the deposit is marked paid;
+  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit)
+  while the deposit is owed, and 0 once it's received (a deposit date, or a status past it:
+  `incomeView.depositPaid`), the rest of the deposit having come in;
   `otherPaymentsReceived` the credits and payments toward the balance (the credited fee
   when it isn't taken off the deposit, received funds not on the deposit, a paid balance),
   so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts

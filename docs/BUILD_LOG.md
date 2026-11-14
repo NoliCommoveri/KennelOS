@@ -4578,3 +4578,19 @@ tick box per template; buyers get an emailed link.
   npm test` 344 pass, `node --test` 1956 pass.
 - **Docs:** End-State guide §32.
 - No new files. `CACHE_NAME` bumped to `kennelos-shell-v140` (owner asked) for the app's message.
+
+## 2026-11-14: Deposit still due is 0 once the deposit is received
+
+- **Asked (owner):** Deposit Still Due should treat a deposit date as all of that deposit
+  received, while still taking the credits counted toward it off before then.
+- **Change:** `incomeView.priceTable`: `depositDue` is 0 once `depositPaid(sale)` (a deposit
+  date, or a status past it); while it's owed, the deposit less the fee credited toward it and
+  the received funds allocated to it, as before. `otherPaid` / `balanceDue` unchanged, so
+  price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` still holds. This replaces
+  "the same before and after the deposit is marked paid" (2026-11-12). The `depositDue` fact's
+  description (Accounts page) says "0 once received"; its Firma label is unchanged.
+- **Tests:** `tests/priceTable.test.js` (the before/after case now expects 0 after, by date,
+  by status, and both; paid-deposit cases expect 0), `tests/esign.test.js` (a `deposit_paid`
+  sale's facts). `node --test` 1956 pass.
+- **Docs:** End-State guide (the sale's payment table).
+- No new files, no schema change.
