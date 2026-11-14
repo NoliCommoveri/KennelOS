@@ -39,8 +39,12 @@ export class CloudError extends Error {
     super(message);
     this.name = 'CloudError';
     this.status = status;
+    // A body's own `code` (e.g. Firma's reason behind esign_refused) is the
+    // provider's, kept as providerCode: it never replaces the Worker's code.
+    const { code: providerCode, ...rest } = extra || {};
+    Object.assign(this, rest);
     this.code = code;
-    Object.assign(this, extra);
+    if (providerCode != null) this.providerCode = providerCode;
   }
 }
 export class CloudUnavailableError extends CloudError {
@@ -303,6 +307,10 @@ export const releaseWaitlistLease = (token) => getJson('/waitlist/lease', { meth
 export const readWaitlistEvents = (token, since = 0) => getJson(`/waitlist/events?since=${encodeURIComponent(since)}`, { token });
 export const readWaitlistProjection = (token, publicId) =>
   getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { token });
+// Her preview of one family's status page ("View their page"): → { token, preview, until }.
+// 409 not_published / no_link.
+export const previewWaitlistPage = (token, publicId, entryId) =>
+  getJson('/waitlist/preview', { method: 'POST', token, json: { public_id: publicId, entry_id: entryId } });
 export const unpublishWaitlist = (token, publicId) =>
   getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'DELETE', token });
 // An email to one family, in the kennel's name (W2 step 6). → { status: 'sent' | 'failed', sentAt }
@@ -320,6 +328,32 @@ export const disconnectIntegration = (token, id) =>
   getJson(`/integrations/connections/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 // → { events: [{ seq, provider, kind, recordType, recordId, payload, createdAt }], last, more }
 export const readIntegrationEvents = (token, since = 0) => getJson(`/integrations/events?since=${encodeURIComponent(since)}`, { token });
+
+// E-sign through Firma (Integrations plan §2.3a, step 8). Her workspace on
+// KennelOS's Firma account; every send counts against her monthly limit.
+// → { available, connected, connectedAt, usage: { used, limit, own, resetsOn } }
+export const getFirmaStatus = (token) => getJson('/integrations/firma', { token });
+export const connectFirma = (token, kennelName) => getJson('/integrations/firma/connect', { method: 'POST', token, json: { kennelName } });
+// fields: [{ name, label }], at most 40 a call → { added }
+// `relabel`: names of fields already there whose label the Worker updates to the one given.
+export const syncFirmaFields = (token, fields, relabel = []) => getJson('/integrations/firma/fields', { method: 'POST', token, json: { fields, ...(relabel.length ? { relabel } : {}) } });
+// → { templates: [{ id, name, pageCount }] }
+export const listFirmaTemplates = (token) => getJson('/integrations/firma/templates', { token });
+// document: a base64 PDF → { id, name, pageCount }
+export const createFirmaTemplate = (token, { name, document }) =>
+  getJson('/integrations/firma/templates', { method: 'POST', token, json: { name, document }, timeoutMs: 120 * 1000 });
+// → { token, expiresAt }: Firma's editor token for one of her templates
+export const firmaTemplateToken = (token, templateId) => getJson('/integrations/firma/template-token', { method: 'POST', token, json: { templateId } });
+// { contractId, templateId, title, signer: { firstName, lastName, email }, facts, emailSigner, resend }
+// → { signingRequestId, signingLink, usage }
+export const sendForEsign = (token, body) => getJson('/integrations/esign/send', { method: 'POST', token, json: body, timeoutMs: 60 * 1000 });
+// → { url, expiresAt, partial, status }: a short-lived link to the signed PDF
+// A draft of that send, for a read-only preview (never sent, never counted). → { previewId, token, expiresAt }
+export const esignPreview = (token, body) => getJson('/integrations/esign/preview', { method: 'POST', token, json: body, timeoutMs: 60 * 1000 });
+export const discardEsignPreview = (token, id) => getJson(`/integrations/esign/preview?id=${encodeURIComponent(id)}`, { method: 'DELETE', token });
+export const esignDocument = (token, ref) => getJson(`/integrations/esign/document?ref=${encodeURIComponent(ref)}`, { token });
+// → { url }: her own signing link on a contract she countersigns (D32), asked for when she taps Countersign
+export const esignCountersign = (token, ref) => getJson(`/integrations/esign/countersign?ref=${encodeURIComponent(ref)}`, { token });
 
 // --- Notifications: app alerts and the email digest (Notifications plan) ------------------
 // → { kinds, push: { available, publicKey, kinds, hideNames, thisDevice, devices },

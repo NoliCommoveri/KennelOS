@@ -13,8 +13,12 @@ import { checkRecovery, recoveryWrap, requestRecoveryEmail } from './recovery.js
 import { disableSync, enableSync, pullRecords, pushRecords, recordCursor, syncHead, MAX_PUSH_BYTES } from './sync.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
-import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
+import { ackInbox, claimLease, releaseLease, previewStatusPage, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
+import {
+  connectFirma, createFirmaTemplate, esignCountersignLink, esignDocument, firmaStatus, firmaTemplateToken, listFirmaTemplates,
+  sendForSignature, syncFirmaFields, previewSigningRequest, discardPreview,
+} from './firma.js';
 import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
 import { handleGeoDistance } from './geo.js';
 import { handleAssistApi, redeemLink } from './assist.js';
@@ -97,6 +101,19 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/integrations/events' && m === 'GET') return json(await readIntegrationEvents(env, auth, url), 200, cors);
   const intConn = INT_CONNECTION.exec(p);
   if (intConn && m === 'DELETE') return json(await deleteConnection(env, auth, intConn[1]), 200, cors);
+  // E-sign through Firma (Integrations plan §2.3a): her workspace on KennelOS's
+  // Firma account, her templates, and sends within the monthly limit. Pro only.
+  if (p === '/integrations/firma' && m === 'GET') return json(await firmaStatus(env, auth), 200, cors);
+  if (p === '/integrations/firma/connect' && m === 'POST') return json(await connectFirma(env, auth, url, await readJson(request, 4 * 1024)), 200, cors);
+  if (p === '/integrations/firma/fields' && m === 'POST') return json(await syncFirmaFields(env, auth, await readJson(request, 16 * 1024)), 200, cors);
+  if (p === '/integrations/firma/templates' && m === 'GET') return json(await listFirmaTemplates(env, auth), 200, cors);
+  if (p === '/integrations/firma/templates' && m === 'POST') return json(await createFirmaTemplate(env, auth, await readJson(request, 6_100_000)), 200, cors);
+  if (p === '/integrations/firma/template-token' && m === 'POST') return json(await firmaTemplateToken(env, auth, await readJson(request, 4 * 1024)), 200, cors);
+  if (p === '/integrations/esign/send' && m === 'POST') return json(await sendForSignature(env, auth, await readJson(request, 64 * 1024)), 200, cors);
+  if (p === '/integrations/esign/preview' && m === 'POST') return json(await previewSigningRequest(env, auth, await readJson(request, 64 * 1024)), 200, cors);
+  if (p === '/integrations/esign/preview' && m === 'DELETE') return json(await discardPreview(env, auth, url), 200, cors);
+  if (p === '/integrations/esign/document' && m === 'GET') return json(await esignDocument(env, auth, url), 200, cors);
+  if (p === '/integrations/esign/countersign' && m === 'GET') return json(await esignCountersignLink(env, auth, url), 200, cors);
   if (p === '/program/backing-device' && m === 'POST') return json(await takeOver(env, auth), 200, cors);
   if (p === '/devices/check-in' && m === 'POST') return json(await checkIn(env, auth, await readJson(request)), 200, cors);
   if (p === '/devices' && m === 'GET') return json(await listDevices(env, auth), 200, cors);
@@ -171,6 +188,7 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
   if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
   if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);
+  if (p === '/waitlist/preview' && m === 'POST') return json(await previewStatusPage(env, auth, await readJson(request, 4 * 1024)), 200, cors);
   if (p === '/waitlist/messages' && m === 'POST') {
     // Links in the email open the family pages: apply.kennelos.app on production,
     // the same origin on staging.

@@ -12,8 +12,9 @@
 // the steps, most time-sensitive first, each skipped when empty, each item with
 // **Skip for now**: (1) family requests and messages, (2) families backing out,
 // then any other sale to cancel or void, (3) offers past their deadline, (4) picks
-// to open, (5) a turn to offer, (6) new applications, (7) fees to check and extras
-// payments due, (8) "Ready now?" unanswered and recent removals.
+// to open, (5) a turn to offer, (6) new applications, (7) fees to check, scheduled
+// payments due or not marked received, and extras payments due, (8) "Ready now?"
+// unanswered and recent removals.
 //
 // Nothing here is its own rule. The items are Today's own waitlist nudges
 // (nudges.waitlistNudgeItems), whose one-tap actions run as they do on Today;
@@ -21,7 +22,8 @@
 // waitlistRules), or a shared dialog (offerEmails for every "email the family",
 // communicateDialog, pickDialog / depositDialog, salePrompts, restoreLostPupDialog).
 import { kennelRepo } from '../data/kennelRepo.js';
-import { getEntryCredit } from '../data/incomeView.js';
+import { getEntryCredit, getSaleStatement } from '../data/incomeView.js';
+import { newPayment, paymentsWith, paidInFullOffer, paidInFullChanges } from '../data/paymentSchedule.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
@@ -32,26 +34,26 @@ import { waitlistOfferRepo } from '../data/waitlistOfferRepo.js';
 import { waitlistProgramRepo } from '../data/waitlistProgramRepo.js';
 import { ownKennels, getActiveKennel } from '../data/kennelScope.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
-import { waitlistNudgeItems, extraDueItems } from '../data/nudges.js';
+import { waitlistNudgeItems, extraDueItems, paymentDueItems } from '../data/nudges.js';
 import { snooze, snoozedUntil } from '../data/nudgeState.js';
 import { applicationMatches, matchReasonText } from '../data/applicationDuplicates.js';
 import { sameFamilyDialog, mergedMessage, isPairDismissed, markNotSame } from './applicationMergeUI.js';
 import { readNudgeKey, STEP_OF, REVIEW_STEPS, reviewSummary, readinessProblems, outcomeReport } from '../data/waitlistReview.js';
 import * as actions from '../data/waitlistActions.js';
 import {
-  waitlistConfig, waitlistIsSetUp, entryName, describeOfferChanges, contactMatches, contactMatchReason, privateName, publicName,
-  isPupAvailable, eligiblePupsFor, rankedList, turnIdOf, restoresFamily, overallPositions
+  waitlistConfig, waitlistIsSetUp, entryName, describeOfferChanges, contactMatches, contactMatchReason, privateName, publicName, publicSourceName, listedName,
+  isPupAvailable, eligiblePupsFor, rankedList, turnIdOf, restoresFamily, overallPositions, isFamilyPageOnly
 } from '../data/waitlistRules.js';
 import { hasOwnForm } from '../data/guidedForm.js';
 import { entryQuestions, formQuestions, answerText } from '../data/waitlistForm.js';
 import { backOutItems, backOutSummary, suggestOutcome } from '../data/backOut.js';
-import { transportQuote } from '../data/transportFee.js';
+import { transportQuote, mapsLink } from '../data/transportFee.js';
 import { familySale, pendingExtraRequests } from '../data/familyExtras.js';
 import { pendingPickupRequests } from '../data/familyPickup.js';
 import { trainingStaysFor, trainingStayEvent, defaultStart, readyDateOf } from '../data/goHome.js';
 import { chargesWithStepPaid } from '../data/extraCharges.js';
 import { offerSpecs, kennelEmailsOn, familyEmail } from '../data/waitlistOutbox.js';
-import { standardLocation } from '../data/pickupSlots.js';
+import { standardLocation, timeRange } from '../data/pickupSlots.js';
 import { litterLabel } from '../data/litterCheckin.js';
 import { PAYMENT_METHODS, PLACEMENT_METHODS, SEX, isOpenSale, descriptor } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
@@ -151,10 +153,11 @@ class Review {
       litterRepo.getAll({ includeArchived: true }),
       dogRepo.getAll({ includeArchived: true }),
       saleRepo.getAll({ includeArchived: true }),
-      waitlistProgramRepo.getByKennel(k.id),
+      waitlistProgramRepo.getMapForKennel(k.id),
       waitlistNudgeItems(this.today)
     ]);
-    const live = entries.filter((e) => !e.is_archived);
+    // A family page only (E3) is never part of reviewing the list.
+    const live = entries.filter((e) => !e.is_archived && !isFamilyPageOnly(e));
     const entriesById = new Map(live.map((e) => [e.id, e]));
     const contactsById = new Map(contacts.map((c) => [c.id, c]));
     const kennelLitters = litters.filter((l) => l.kennel_id === k.id);
@@ -168,11 +171,16 @@ class Review {
     };
     Object.assign(this, {
       config: waitlistConfig(k), entries: live, entriesById, offers, contactsById, litters: kennelLitters,
-      dogs, dogsById: new Map(dogs.map((d) => [d.id, d])), sales, programs: programs.filter((p) => !p.is_archived),
+      dogs, dogsById: new Map(dogs.map((d) => [d.id, d])), sales,
+      // Positions read every program, archived ones too: an archived program still
+      // applies to the families already in it, as on every other page (K6-5). The
+      // program picker offers only the live ones.
+      programMap: programs, programs: [...programs.values()].filter((p) => !p.is_archived),
       items: items.filter((n) => STEP_OF[readNudgeKey(n.key).kind] && mine(n))
     });
     const familySales = this.familySales();
     this.extras = (await extraDueItems(familySales, this.today));
+    this.payments = await paymentDueItems(familySales, this.today);
     return this;
   }
 
@@ -181,7 +189,7 @@ class Review {
   litterName(id) { const l = this.litters.find((x) => x.id === id); return l ? litterLabel(l, this.dogsById) : 'a litter'; }
   pupName(id) { return this.dogsById.get(id)?.call_name || 'the pup'; }
   canEmail(e) { return kennelEmailsOn(this.kennel) && Boolean(familyEmail(e, this.contactOf(e))); }
-  // The waitlist families' open sales (for extras payments due).
+  // The waitlist families' open sales (for payments and extras payments due).
   familySales() {
     const buyers = new Set(this.entries.map((e) => e.contact_id).filter(Boolean));
     return this.sales.filter((s) => !s.is_archived && s.kennel_id === this.kennel.id && buyers.has(s.buyer_contact_id) && isOpenSale(s));
@@ -226,6 +234,7 @@ class Review {
       applications: this.entries.filter((e) => e.status === 'applied').length,
       fees: this.entries.filter((e) => e.status === 'approved' && !e.fee_received_date).length,
       extrasDue: this.extras.length,
+      paymentsDue: this.payments.length,
       ready: this.items.filter((n) => readNudgeKey(n.key).kind === 'waitlist-ready-overdue').length,
       removals: this.items.filter((n) => readNudgeKey(n.key).kind === 'waitlist-removed').length
     };
@@ -275,7 +284,7 @@ class Review {
       c.picks.length && { label: 'Picks to open', note: c.picks.join(', '), value: 'picks' },
       c.turns && { label: 'A turn to offer', value: 'turns' },
       c.applications && { label: 'New applications', note: String(c.applications), value: 'applications' },
-      (c.fees || c.extrasDue) && { label: 'Fees and payments to check', note: String(c.fees + c.extrasDue), value: 'fees' },
+      (c.fees || c.extrasDue || c.paymentsDue) && { label: 'Fees and payments to check', note: String(c.fees + c.extrasDue + c.paymentsDue), value: 'fees' },
       (c.ready || c.removals) && { label: '"Ready now?" and removals', note: String(c.ready + c.removals), value: 'upkeep' }
     ].filter(Boolean);
   }
@@ -292,7 +301,14 @@ class Review {
   // Run a nudge action as Today does: its message, then its emails.
   async runNudgeAction(action) {
     try {
-      const report = await action.run();
+      let report = await action.run();
+      // Open picks goes through the picks preview (its emails are offered there).
+      if (report?.openPicks) {
+        const [{ openPicksFromCheckin }, { litterRepo }] = await Promise.all([import('./waitlistPicksPanel.js'), import('../data/litterRepo.js')]);
+        const litter = await litterRepo.getById(report.openPicks);
+        report = litter ? await openPicksFromCheckin(litter) : null;
+        if (!report) { await this.chat.say('Okay, picks aren\'t open.'); return; }
+      }
       if (report?.message) await this.chat.say(esc(report.message).replace(/\n\n/g, '<br><br>'));
       else await this.chat.say('Done.');
       if (report?.emails?.length) await this.emails(report.emails);
@@ -504,10 +520,10 @@ class Review {
       title: `<strong>${esc(this.name(e))}'s drop-off</strong><span class="kels-lead">${esc(r.address || '')}</span>`,
       html: `<div class="ck-inline">
           ${field('Day', `<input id="wr-date" type="date" value="${esc(r.date || '')}">`)}
-          ${field('Time', '<input id="wr-time" type="text" placeholder="e.g. 2:00 PM">')}
+          ${field('Time', `<input id="wr-time" type="text" placeholder="e.g. 2:00 PM" value="${esc(r.start_time ? timeRange({ start_time: r.start_time }) : '')}">`)}
         </div>
         ${field('How', `<select id="wr-method">${PLACEMENT_METHODS.map((m) => `<option${m === 'Ground transport' ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select>`)}
-        ${field('Miles, one way', `<input id="wr-miles" type="number" min="0" step="0.1" value="${miles0 ?? ''}">${from ? ' <button type="button" class="gl-more" id="wr-measure">Get driving miles</button>' : ''}`)}
+        ${field('Miles, one way', `<input id="wr-miles" type="number" min="0" step="0.1" value="${miles0 ?? ''}">${from ? ' <button type="button" class="gl-more" id="wr-measure">Get driving miles</button>' : ''}${r.address ? ` <a class="gl-more" href="${esc(mapsLink(from, r.address))}" target="_blank" rel="noopener noreferrer">Open in Maps</a>` : ''}`)}
         ${field('Transport fee', `<input id="wr-fee" type="number" min="0" step="0.01" value="${current ?? (quote(miles0)?.fee ?? '')}">`, current != null ? `On the sale now: ${fmtMoney(current)}. Saving uses what's in the box.` : '')}
         <p class="field-hint" id="wr-working">${esc(quote(miles0)?.text || '')}</p>`,
       wire: (root) => {
@@ -525,7 +541,7 @@ class Review {
             root.querySelector('#wr-miles').value = (await drivingMiles(from, r.address)).miles;
             refresh();
           } catch (err) {
-            root.querySelector('#wr-working').textContent = `Couldn't measure: ${err.code === 'geo_off' ? 'miles aren\'t switched on yet' : err.code === 'not_found' ? 'the address wasn\'t found' : err.message}. Type the miles instead.`;
+            root.querySelector('#wr-working').textContent = `Couldn't measure: ${err.code === 'geo_off' ? 'miles aren\'t switched on yet' : err.code === 'not_found' ? 'the address wasn\'t found' : err.message}. Use Open in Maps and type the miles.`;
           }
           ev.target.disabled = false;
         });
@@ -624,7 +640,7 @@ class Review {
     const changes = this.changeLines(res);
     await this.chat.say(lines([`Done. ${outcome === 'move' ? `${this.name(e)} is back on the list at the end of the line.` : `${this.name(e)}'s sale is ${outcome === 'refund' ? 'voided and refunded' : 'cancelled'}.`}`, ...changes]));
     await this.emails([
-      ...(request ? [{ entryId: e.id, kind: 'request_approved', extra: { request: { field: 'back_out_request', request } } }] : []),
+      ...(request ? [{ entryId: e.id, kind: `backed_out_${outcome}`, extra: { request: { field: 'back_out_request', request } } }] : []),
       ...offerSpecs(res)
     ]);
     if (done.result.pup === 'available') await this.offerPupOnward(sale.dog_id);
@@ -875,10 +891,10 @@ class Review {
       litter = open.find((l) => l.id === id);
     }
     const pups = this.dogs.filter((d) => d.litter_id === litter.id);
-    const progs = new Map(this.programs.map((p) => [p.id, p]));
+    const progs = this.programMap;
     const fits = rankedList(this.entries, this.kennel.id, progs).filter((x) => eligiblePupsFor(x, litter, pups, this.sales, { today: this.today, config: this.config }).length);
     if (!fits.length) { await this.chat.say('Nobody on the list has a pup in that litter they could take right now.'); return; }
-    const pos = overallPositions(this.entries, this.kennel.id, progs);
+    const pos = overallPositions(this.entries, this.kennel.id, progs, { sales: this.sales, dogs: this.dogsById });
     await this.chat.say('<strong>Who should have it?</strong>');
     const id = await this.chat.choose([...fits.map((x) => ({ label: this.name(x), note: pos.get(x.id) ? `#${pos.get(x.id)}` : '', value: x.id })), { label: 'Never mind', value: '' }],
       { search: fits.length > 8 ? { placeholder: 'Find a family' } : null });
@@ -964,6 +980,8 @@ class Review {
   async approveForm(e) {
     const matches = e.contact_id ? [] : contactMatches(e.application || {}, [...this.contactsById.values()].filter((c) => !c.is_archived));
     const full = this.name(e);
+    // The name the public list is built from (K7-8).
+    const listed = publicSourceName(e, this.contactOf(e));
     const asksPrivate = actions.hasPendingRequest(e, 'private_request');
     const fee = this.config.fee_amount;
     const res = await this.chat.form({
@@ -977,8 +995,8 @@ class Review {
           <label class="ck-check"><input type="radio" name="wr-ap-c" value=""${matches.length && matches[0].strength === 'certain' ? '' : ' checked'}> A new contact for ${esc(entryName(e, null))}</label></div>
           ${matches.length ? '<p class="field-hint">A match is only a suggestion. Pick it if it\'s the same family.</p>' : ''}`}
         ${asksPrivate ? `<p class="gl-q">They asked not to show their full name on your public list</p><div class="ck-checks">
-          <label class="ck-check"><input type="radio" name="wr-ap-p" value="yes"> Approve: shown as <strong>${esc(privateName(full))}</strong></label>
-          <label class="ck-check"><input type="radio" name="wr-ap-p" value="no"> Decline: shown as <strong>${esc(publicName(full))}</strong></label></div>` : ''}
+          <label class="ck-check"><input type="radio" name="wr-ap-p" value="yes"> Approve: shown as <strong>${esc(privateName(listed))}</strong></label>
+          <label class="ck-check"><input type="radio" name="wr-ap-p" value="no"> Decline: shown as <strong>${esc(publicName(listed))}</strong></label></div>` : `<p class="field-hint">On your public list they show as <strong>${esc(listedName(e, listed))}</strong>.</p>`}
         <p class="field-hint">A program that waives the fee puts them straight on the list. Otherwise they owe ${esc(fee != null ? fmtMoney(fee) : 'the fee')} and join the list when you mark it received.</p>`,
       submitLabel: 'Approve',
       cancelLabel: 'Not now',
@@ -1002,7 +1020,7 @@ class Review {
     await this.emails([{ entryId: e.id, kind: fresh.status === 'active' ? 'on_list' : 'approved' }]);
   }
 
-  // --- 7. Fees to check, then extras payments due ---------------------------------------------
+  // --- 7. Fees to check, then scheduled payments, then extras payments due ---------------------
 
   async fees() {
     const ids = this.entries.filter((e) => e.status === 'approved' && !e.fee_received_date)
@@ -1049,6 +1067,19 @@ class Review {
       await this.chat.say(`${esc(this.name(e))} is on the list.`);
       await this.emails([{ entryId: e.id, kind: 'on_list' }]);
     }
+    // Scheduled payments due soon or gone by (Today's payment-due / payment-missed),
+    // each rechecked as it comes: a payment for one due date can cover the next.
+    for (const key of this.payments.map((x) => x.key)) {
+      const r = readNudgeKey(key);
+      const sale = await saleRepo.getById(r.saleId);
+      const n = sale ? (await paymentDueItems([sale], this.today)).find((x) => x.key === key) : null;
+      if (!n) continue;
+      await this.chat.say(`<strong>${esc(n.title)}</strong><br>${esc(n.detail || '')}`);
+      const pick = await this.chat.choose([{ label: 'Received', value: 'paid', primary: true }, { label: 'Not yet', value: '__skip' }, { label: 'Open the sale', value: 'open' }]);
+      if (pick === '__skip') { this.skipped++; continue; }
+      if (pick === 'open') return this.openPage(`sale.html?id=${encodeURIComponent(sale.id)}`, 'the sale');
+      if (!(await this.paymentReceived(sale, n.owed))) this.skipped++;
+    }
     for (const n of this.extras) {
       const r = readNudgeKey(n.key);
       await this.chat.say(`<strong>${esc(n.title)}</strong><br>${esc(n.detail || '')}`);
@@ -1060,6 +1091,48 @@ class Review {
       await saleRepo.update(sale.id, { extra_charges: chargesWithStepPaid(sale, r.chargeId, r.stepId, this.today) });
       await this.chat.say(`Marked paid today, ${esc(fmtDate(this.today))}. Change the date on the sale if it came in another day.`);
     }
+  }
+
+  // A payment on the sale's schedule (Payment Schedule plan §3.2), as Record a payment
+  // saves it: the amount (what's owed by that due date), the day, how they paid, a
+  // reference. When that covers everything, one question: mark it paid in full (D22).
+  // → true once recorded.
+  async paymentReceived(sale, owed) {
+    const res = await this.chat.form({
+      title: '<strong>The payment received</strong><span class="kels-lead">It\'s recorded on the sale\'s Payments card, toward its schedule.</span>',
+      html: `<div class="ck-inline">
+          ${field('Date received', `<input id="wr-pay-date" type="date" value="${esc(this.today)}">`)}
+          ${field('Amount', `<input id="wr-pay-amt" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(owed ?? '')}">`)}
+        </div>
+        <div class="ck-inline">${field('Method', `<select id="wr-pay-method"><option value="">—</option>${PAYMENT_METHODS.map((m) => `<option>${esc(m)}</option>`).join('')}</select>`)}${field('Reference (optional)', '<input id="wr-pay-ref" type="text" autocomplete="off">')}</div>`,
+      submitLabel: 'Record it',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        let rec;
+        try {
+          rec = newPayment({ amount: root.querySelector('#wr-pay-amt').value, date: root.querySelector('#wr-pay-date').value,
+            method: root.querySelector('#wr-pay-method').value, reference: root.querySelector('#wr-pay-ref').value.trim() });
+        } catch (err) { return err.message; }
+        const fresh = await saleRepo.getById(sale.id);
+        await saleRepo.update(sale.id, { payments: paymentsWith(fresh, rec) });
+        return rec;
+      },
+      reply: (rec) => `${fmtMoney(rec.amount)} on ${fmtDate(rec.date)}`
+    });
+    if (!res.done) return false;
+    await this.chat.say('Recorded on the sale.');
+    const saved = await saleRepo.getById(sale.id);
+    const loaded = await getSaleStatement(saved);
+    const offer = loaded && paidInFullOffer(loaded.statement, saved);
+    if (offer) {
+      const date = offer.date || this.today;
+      await this.chat.say(`That covers everything on the sale. Mark it paid in full on ${esc(fmtDate(date))}?`);
+      if ((await this.chat.choose([{ label: 'Mark paid in full', value: 'yes', primary: true }, { label: 'Not now', value: '' }])) === 'yes') {
+        await saleRepo.update(saved.id, paidInFullChanges(saved, date));
+        await this.chat.say('Marked paid in full.');
+      }
+    }
+    return true;
   }
 
   // --- 8. "Ready now?" unanswered, recent removals ---------------------------------------------

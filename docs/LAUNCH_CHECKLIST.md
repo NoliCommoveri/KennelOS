@@ -331,11 +331,47 @@ and Email Routing.
 - [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
   kennel pack and a litter pack, and check a family's Furever app receives the files (only its
   own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
-- [ ] **Jotform and Stripe from a real browser:** connect a real Jotform key (Jotform must
-  answer browser calls; check the Full Name / Address prefill naming fills the form) and send a
-  contract that comes back Signed; connect a Stripe restricted key, make a one-time sale link and
-  a waitlist fee link, pay each in test mode, and check the app records them (Stripe must answer
-  browser calls). Neither has been exercised against the real service.
+- [ ] **Stripe from a real browser:** connect a Stripe restricted key, make a one-time sale link
+  and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
+  answer browser calls). Not yet exercised against the real service.
+- [ ] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
+  costs a credit): migrations `0022`, `0023` and `0024` are applied in `/ops`. Check the E-sign (Firma) section
+  shows the key set and the credits. In the app: Contracts → Contract templates → Set up
+  e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
+  loads and saves), send a contract to your own email, sign it, and check it comes back
+  Signed with its signed copy. Then countersign (D32): pick **I sign last** on a template,
+  add a second signer with a signature field in Firma's editor, send to another email of
+  yours, sign as the buyer, tap **Countersign** and sign. Check it stays Sent until you have,
+  that Firma put the two of you in the right signer roles, and which emails Firma sent you.
+  Then sign first: pick **I sign first** on a template whose first signer in Firma's editor
+  has your signature field, send, tap **Sign first** and sign, then sign as the buyer. Check
+  Firma kept the buyer waiting until you'd signed, that the buyer's link KennelOS gave (Copy
+  link again) is the buyer's, not yours, and when Firma emailed the buyer.
+  Then a kept copy (D33): tick **Email the buyer the signed copy**, send, sign. Within the
+  hour the buyer's address should get "Your signed contract from …" with a link that opens
+  the PDF, and the contract's Signed copy should open the same link. Note whether Firma also
+  emailed a copy. Review the privacy policy's new signed-copies lines (§9d).
+  Then **Preview** in the Send dialog: it should open your template read-only in a new tab
+  with the contract's details filled in. Check in `/ops` that the credits didn't drop (a
+  draft should be free), and that closing the Send dialog removed the draft (no stray draft
+  in Firma's dashboard for the workspace). Check the Worker's log for "a request status
+  KennelOS does not know": Firma's word for a draft must be `draft`, and for a sent request
+  one of `firma.js` `SENT_STATES`, or a preview keeps its place until the hourly sweep can't
+  free it either. Preview once more, close the tab without closing the dialog, and within
+  two hours the `esign previews` cron line should say `freed: 1`.
+  Set the ESIGN consumer-consent wording in the signer terms.
+  Decide the monthly limit in `/ops`.
+- [ ] **Firma field labels (Payment Schedule plan §8.2, D30), after the Worker deploy:**
+  Contract templates → **Place fields** on any template. The Worker log should say
+  `firma: relabelled buyerEmail (PATCH)` or `(PUT)`; `relabel buyerEmail failed: …` means the
+  best-guess call is wrong (note the method and status, and fix `firma.relabelFields`). In the
+  editor, the field should now read **Buyer · Email**, and the eight new payment fields should
+  be there with their `Sale ·` / `Payment ·` labels. Send a contract from a template with the
+  buyer's email placed (Preview is enough) and check it's still filled. Only then put every
+  fact name in `cloudEsign.RELABEL_FIELDS` (an app release; the next Place fields relabels the
+  rest). Then the test-key check (plan §8.2 step 2) before any per-template fields.
+- [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
+  days (the privacy policy promises it; Firma has no API to delete one).
 
 ## 5. Recurring (every subsequent release)
 

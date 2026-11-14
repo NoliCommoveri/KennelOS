@@ -101,7 +101,8 @@ test('the public list shows only her published rows, the family holding a turn a
     // Litters with open picks: counts by sex, and the pups by name (2026-11-02).
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
       picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1,
-      pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+      pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], reserved: [], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+    selected: [],
     upcoming: []
   });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
@@ -113,7 +114,7 @@ test("a family's status page shows their own place and offers, never anyone else
   const res = await get(env, `/f/status/${tok('a')}`);
   assert.equal(res.status, 200);
   const v = await res.json();
-  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'emails', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list', 'upcoming']);
+  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'emails', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list', 'public_selected', 'upcoming']);
   assert.deepEqual(v.emails, [], 'none sent yet');
   assert.equal(v.kennel.public_id, KENNEL, 'so the page can find this browser\'s sign-in');
   assert.deepEqual(v.pending, []);
@@ -124,7 +125,7 @@ test("a family's status page shows their own place and offers, never anyone else
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
-    pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
+    pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], reserved: [], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -157,13 +158,21 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.entries.ann.secret = 'x';
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
-  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
+  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'selected', 'upcoming']);
   assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }],
     'Available Puppies names the pups (2026-11-02): name and sex only, never an id or color');
   assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');
   // Their turn closed (by the server, say): their name is back at once.
   p.entries.ann.offers = [];
   assert.equal(listView(p).rows[0].name, 'Ann L.');
+  // A side sale's row (direct) isn't a turn: their row stays theirs on the public
+  // list, and their own page draws it as a turn with a pick, with no marker.
+  p.entries.ann.offers = [{ id: 's1', turn_id: 's1', litter_id: 'l1', offered_date: '2026-10-08', respond_by_date: '2026-10-11', eligible_dog_ids: ['p1'], picked_dog_id: 'p1', direct: true }];
+  assert.equal(listView(p).rows[0].name, 'Ann L.');
+  const annView = statusView(p, 'ann');
+  assert.equal(annView.offers[0].picked_dog_id, 'p1');
+  assert.equal(JSON.stringify(annView).includes('direct'), false, 'the marker never reaches the family');
+  p.entries.ann.offers = [];
   // Their turn, their place for what they want, the litters they passed on: as published.
   p.entries.bo.place_hidden = { reason: 'turn' };
   p.entries.bo.pref_places = { all: 2, sex: 3 };
@@ -174,6 +183,12 @@ test('statusView and listView are allow-lists over the projection', () => {
   // "A litter you match was born" / "Review your preferences" (§16.6): as published.
   p.entries.bo.whelp_notes = [{ litter_id: 'l1', pairing_id: null, label: 'Juniper × Ash', kind: 'review', why: ['sex'] }];
   assert.deepEqual(statusView(p, 'bo').family.whelp_notes, p.entries.bo.whelp_notes);
+  // What's credited toward their pup: amounts only, cleaned; null when nothing.
+  assert.equal(statusView(p, 'bo').family.credits, null);
+  p.entries.bo.credits = { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200, note: 'x' };
+  assert.deepEqual(statusView(p, 'bo').family.credits, { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200 });
+  p.entries.bo.credits = { fee: 50, fee_toward: 'nope', received: -1, deposit: 'lots' };
+  assert.equal(statusView(p, 'bo').family.credits, null, 'nothing valid: nothing shown');
 });
 
 test('pairings and early litters (Spec §16.4): each where she shows it; a litter before picks open only that way', () => {
@@ -703,4 +718,51 @@ test('her waitlist policies: on the list, every family page, the form and her we
   assert.equal(form.questions[0].link, 'policies');
   p.kennel.policies = [want[0]];
   assert.equal(listView(p).kennel.closed_dates, undefined, 'no business-days policy: no closed dates');
+});
+
+// Her "View their page" (waitlist.js previewStatusPage): a signed, short-lived preview.
+test('her preview of a family page: signed for that page only, says so, and is not their visit', async () => {
+  const { env, s } = await published();
+  const res = await call(env, 'POST', '/waitlist/preview', { token: s.token, body: { public_id: KENNEL, entry_id: 'ann' } });
+  assert.equal(res.status, 200);
+  const p = await res.json();
+  assert.equal(p.token, tok('a'), 'the token published for that family');
+  assert.match(p.preview, /^\d{13}\.[0-9a-f]{64}$/);
+  const lastUsed = () => env.DB.raw.prepare('SELECT last_used_at FROM wl_tokens WHERE token = ?').get(tok('a')).last_used_at;
+
+  const seen = await (await get(env, `/f/status/${tok('a')}`, { headers: { 'x-status-preview': p.preview } })).json();
+  assert.deepEqual(seen.preview, { until: p.until });
+  assert.equal(seen.family.name, 'Ann Lee', 'the same view the family gets');
+  assert.equal(lastUsed(), null, 'her look is not counted as their visit');
+
+  // Without it, or with one for another page, a forged one or one past its end: the plain view.
+  const plain = await (await get(env, `/f/status/${tok('a')}`)).json();
+  assert.equal(plain.preview, undefined);
+  assert.notEqual(lastUsed(), null);
+  const bo = await (await get(env, `/f/status/${tok('b')}`, { headers: { 'x-status-preview': p.preview } })).json();
+  assert.equal(bo.preview, undefined, 'signed for Ann\'s page only');
+  const forged = `${p.preview.split('.')[0]}.${'0'.repeat(64)}`;
+  assert.equal((await (await get(env, `/f/status/${tok('a')}`, { headers: { 'x-status-preview': forged } })).json()).preview, undefined);
+  const { previewUntil, PREVIEW_MS } = await import('../src/waitlist.js');
+  assert.equal(await previewUntil(env, tok('a'), p.preview, Date.parse(p.until) + 1), null, 'ended');
+  assert.equal(await previewUntil(env, tok('a'), p.preview, Date.parse(p.until) - PREVIEW_MS - 1), null, 'too far ahead');
+
+  // It never acts for the family: /f/act needs their session.
+  const acted = await call(env, 'POST', '/f/act', { body: { session: p.preview, status_token: tok('a'), action: 'still_interested' } });
+  assert.equal(acted.status, 401);
+});
+
+test('a preview needs her signed-in Pro account, her published kennel and a family with a link', async () => {
+  const { env, s } = await published();
+  assert.equal((await call(env, 'POST', '/waitlist/preview', { body: { public_id: KENNEL, entry_id: 'ann' } })).status, 401);
+  const r = (body) => call(env, 'POST', '/waitlist/preview', { token: s.token, body });
+  assert.equal((await r({ public_id: KENNEL, entry_id: 'dee' })).status, 409, 'Dee has no link');
+  assert.equal((await r({ public_id: 'kos1_99999999-2222-4333-8444-555555555555', entry_id: 'ann' })).status, 409, 'not published');
+  assert.equal((await r({ public_id: KENNEL, entry_id: 'no such/entry' })).status, 400);
+  // Another program can't preview her families.
+  const other = await signIn(env, 'other@example.com');
+  const { email_hash: eh } = env.DB.raw.prepare('SELECT email_hash FROM users ORDER BY rowid DESC LIMIT 1').get();
+  env.DB.raw.prepare(`INSERT INTO pro_purchases (id, email_hash, kind, plan, status, access_until, source_updated_at, received_at)
+    VALUES ('order:2', ?, 'order', 'lifetime', 'paid', NULL, ?, ?)`).run(eh, iso(), iso());
+  assert.equal((await call(env, 'POST', '/waitlist/preview', { token: other.token, body: { public_id: KENNEL, entry_id: 'ann' } })).status, 409, 'kennel_taken');
 });

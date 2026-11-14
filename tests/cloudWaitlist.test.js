@@ -573,7 +573,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
     return new Response(JSON.stringify({ routes: [{ distance: 315000, duration: 11400 }] }));
   };
   try {
-    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12) })).status, 200);
+    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12), time: '14:30' })).status, 200);
     const sent = (await view()).pending.find((p) => p.kind === 'pickup_address');
     assert.deepEqual([sent.payload.miles, sent.payload.far], [195.7, true], 'measured at once: farther than her 150');
   } finally {
@@ -582,16 +582,18 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   }
   await cw.syncWaitlistOnline();
   const addr = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'address');
-  assert.deepEqual([addr.address, addr.miles, addr.far], ['9 Oak St, Dallas TX', 195.7, true]);
+  assert.deepEqual([addr.address, addr.miles, addr.far, addr.date, addr.start_time], ['9 Oak St, Dallas TX', 195.7, true, later(12), '14:30'], 'with the day and time they would like');
   const far = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${addr.id}`);
   assert.deepEqual(far.actions.map((a) => a.label), ['Open', 'Send transport options']);
   const drafted = await far.actions[1].run();
   assert.equal(drafted.emails[0].kind, 'transport_options');
   const { draftFor } = await import('../shared/data/waitlistOutbox.js');
   assert.match((await draftFor(entry.id, 'transport_options', drafted.emails[0].extra)).body, /about 196 miles from us/);
-  await actions.approvePickupRequest(entry.id, addr.id, { time: '2:00 PM', method: 'Flight nanny', fee: 587.1 });
+  const { pickupWishesFor } = await import('../shared/data/waitlistActions.js');
+  assert.deepEqual((await pickupWishesFor([sale])).get(sale.id), { date: later(12), time: '2:30 PM', location: '9 Oak St, Dallas TX', method: '' }, 'what Today and Kels fill in');
+  await actions.approvePickupRequest(entry.id, addr.id, { method: 'Flight nanny', fee: 587.1 });
   const live = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
-  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX']], 'the time it replaced is archived');
+  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location, e.details.placement_time]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX', '2:30 PM']], 'the time it replaced is archived; their time when she gives none');
   charged = await saleRepo.getById(sale.id);
   assert.equal(charged.transport_fee, 587.1);
   assert.deepEqual([charged.deferred_boarding_amount ?? null, charged.boarding_from_pickup], [null, false], 'moving off the boarding date takes the charge off');
@@ -1050,6 +1052,48 @@ test('a syncing device in a background tab asks nothing', async () => {
   } finally {
     delete globalThis.document;
   }
+});
+
+test('View their page: publishes first, forced, then opens their own page with her preview', async () => {
+  await breeder();
+  const k = await putOnline();
+  await cw.syncWaitlistOnline();
+  const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status_token);
+  calls.length = 0;
+  const res = await cw.statusPagePreview(await thornfield(), e.id);
+  assert.equal(res.publish.status, 'ok');
+  assert.ok(calls.includes(`PUT /waitlist/projection/${k.public_id}`), 'republished though nothing changed');
+  assert.equal(calls.at(-1), 'POST /waitlist/preview');
+  assert.equal(res.plain, false);
+  const [link, hash] = res.url.split('#');
+  assert.ok(link.endsWith(`/s/${e.status_token}`), 'their own page');
+  assert.match(hash, /^preview=\d{13}\.[0-9a-f]{64}$/);
+  // The page, asked with that preview, says so.
+  const view = await (await workerFetch(`http://localhost/f/status/${e.status_token}`, { headers: { 'x-status-preview': hash.slice(8) } })).json();
+  assert.ok(view.preview?.until);
+});
+
+test('View their page: signed out, it offers their plain link; not online, none; a background tab still publishes', async () => {
+  await breeder({ backing: false });
+  let k = await putOnline(false);
+  const e = (await waitlistEntryRepo.getByKennel(k.id))[0];
+  assert.deepEqual(await cw.statusPagePreview(await thornfield(), e.id), { url: null });
+  k = await putOnline();
+  syncingProgram();
+  globalThis.document = { visibilityState: 'hidden' };
+  try {
+    const res = await cw.statusPagePreview(await thornfield(), e.id);
+    assert.equal(res.publish.status, 'ok', 'she asked, so the hidden tab (the new one is in front) still publishes');
+    assert.equal(res.plain, false);
+  } finally {
+    delete globalThis.document;
+  }
+  await auth.signOut().catch(() => {});
+  localStorage.clear();
+  const out = await cw.statusPagePreview(await thornfield(), e.id);
+  assert.equal(out.plain, true);
+  assert.equal(out.why, 'signed-out');
+  assert.ok(out.url.endsWith(`/s/${(await waitlistEntryRepo.getById(e.id)).status_token}`));
 });
 
 test('taking the lease over from another device restarts the events cursor from the last publish', async () => {

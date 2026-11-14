@@ -25,7 +25,7 @@ import { getLitterFinances } from './litterFinances.js';
 import { expectedPricing } from './saleDefaults.js';
 import { loadMoney, incomeEntries, plByPeriod, receivableRows, pricingRows, dogReturnRows } from './moneyReport.js';
 import { productionRowsIn, pairingRows, heatRows, testGapRows, studResultRows } from './breedingReports.js';
-import { overallPositions, isPaused, waitlistConfig, kennelBreeds } from './waitlistRules.js';
+import { overallPositions, isPaused, waitlistConfig, kennelBreeds, listRecords } from './waitlistRules.js';
 import { offerAndExitRows, demandSupply, listedSince } from './waitlistReports.js';
 import { inScope, inScopeOnly, dogInScope, subjectInScope, ownKennels, isScoped, getActiveKennelId } from './kennelScope.js';
 import { ourRole } from './studRules.js';
@@ -227,20 +227,23 @@ export async function loadApplications() {
     dogRepo.getAll({ includeArchived: true }),
     kennelRepo.getAll({ includeArchived: true })
   ]);
-  entries.sort(byNewest((e) => e.applied_date));
-  return { href: 'applications-report.html', rows: entries, scope: inScope, date: (e) => e.applied_date, programs, contacts, dogs, kennels };
+  // A family page only (E3) never applied: it isn't an application.
+  const apps = listRecords(entries).sort(byNewest((e) => e.applied_date));
+  return { href: 'applications-report.html', rows: apps, scope: inScope, date: (e) => e.applied_date, programs, contacts, dogs, kennels };
 }
 
 // Waitlist Today: the families on a list now, by kennel then place, as of today.
 // `paused(e)` and `waited(e)` (days on the list) as the report shows them;
 // `pipeline`: the in-scope entries, for those still to review or with a fee due.
 export async function loadWaitlistToday(today) {
-  const [entries, offers, programs, contacts, kennels] = await Promise.all([
+  const [entries, offers, programs, contacts, kennels, sales, dogs] = await Promise.all([
     waitlistEntryRepo.getAll({ includeArchived: false }),
     waitlistOfferRepo.getAll({ includeArchived: false }),
     waitlistProgramRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true }),
-    kennelRepo.getAll({ includeArchived: true })
+    kennelRepo.getAll({ includeArchived: true }),
+    saleRepo.getAll({ includeArchived: true }),
+    dogRepo.getAll({ includeArchived: true })
   ]);
   const programsById = new Map(programs.map((p) => [p.id, p]));
   const kennelsById = new Map(kennels.map((k) => [k.id, k]));
@@ -249,13 +252,13 @@ export async function loadWaitlistToday(today) {
   const waited = (e) => { const s = listedSince(e); return s ? Math.max(0, daysBetween(s, today)) : null; };
   const place = new Map();
   for (const kennelId of new Set(entries.map((e) => e.kennel_id))) {
-    for (const [id, n] of overallPositions(entries, kennelId, programsById)) place.set(id, n);
+    for (const [id, n] of overallPositions(entries, kennelId, programsById, { sales, dogs })) place.set(id, n);
   }
   const rows = entries.filter((e) => e.status === 'active' && place.has(e.id))
     .sort((a, b) => kennelName(a).localeCompare(kennelName(b)) || place.get(a.id) - place.get(b.id));
   return {
     href: 'waitlist-today-report.html', rows, scope: inScope, paused, waited, place, kennelName, offers, programs, programsById, contacts,
-    pipeline: entries.filter(inScope)
+    pipeline: listRecords(entries).filter(inScope)
   };
 }
 
@@ -268,7 +271,7 @@ export async function loadOffersRemovals() {
     litterRepo.getAll({ includeArchived: true }),
     dogRepo.getAll({ includeArchived: true })
   ]);
-  return { href: 'offers-removals-report.html', rows: offerAndExitRows(entries, offers), scope: (r) => inScope(r.entry), date: (r) => r.date, contacts, litters, dogs };
+  return { href: 'offers-removals-report.html', rows: offerAndExitRows(listRecords(entries), offers), scope: (r) => inScope(r.entry), date: (r) => r.date, contacts, litters, dogs };
 }
 
 // Demand vs Supply: families on the list against pups available, now.

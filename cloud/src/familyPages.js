@@ -14,7 +14,9 @@
 //                              sealed in their browser and sent straight to
 //                              /f/apply, /f/verify and /f/code, which answer her
 //                              KennelPort site cross-origin (lib/cors.js)
-//   GET  /f/status/<token>     one family's own view, cut from the projection
+//   GET  /f/status/<token>     one family's own view, cut from the projection; with
+//                              her preview (x-status-preview, waitlist.js) it says
+//                              so (`preview: { until }`) and isn't counted as a visit
 //   POST /f/code               "See Your Details", part 1: {public_id, email} → a
 //                              6-digit code to that address, if it's on the list
 //   POST /f/verify             part 2: {public_id, code} → their status link and a
@@ -41,7 +43,7 @@ import { limitBucket, ipKey } from './ratelimit.js';
 import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
-import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
+import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor, previewUntil } from './waitlist.js';
 import { handleAct, handleMessage, handlePortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
@@ -294,7 +296,8 @@ export const PROGRAM_ICONS = ['star', 'check', 'heart', 'ribbon', 'medal', 'shie
 function publicRows(projection) {
   const rows = Array.isArray(projection.public_list) ? projection.public_list : [];
   const deciding = new Set(Object.values(projection.entries || {})
-    .filter((e) => e && e.status === 'active' && (e.offers || []).length && Number.isInteger(e.position))
+    // A side sale's row (`direct`) isn't a turn: that family's row stays theirs.
+    .filter((e) => e && e.status === 'active' && (e.offers || []).some((o) => !o.direct) && Number.isInteger(e.position))
     .map((e) => e.position));
   return rows.map((r) => (deciding.has(r.position) || r.deciding
     ? { ...r, name: DECIDING_LABEL, deciding: true }
@@ -308,6 +311,23 @@ function publicRows(projection) {
     const icon = PROGRAM_ICONS.includes(program?.icon) ? program.icon : '';
     const about = typeof program?.about === 'string' ? program.about.trim().slice(0, 600) : '';
     return { ...rest, ...(list.length ? { wants_more: list } : {}), ...(icon && about ? { program: { icon, about } } : {}) };
+  });
+}
+
+// The families with a pup selected (Waitlist Fixes Plan §3.1), at the numbers they
+// hold: her device's publicSelected rows (names as public_list's, private names
+// already masked). Never a pup, a date of sale or a price. Absent in an older
+// projection: [].
+function selectedRows(projection) {
+  const rows = Array.isArray(projection.public_selected) ? projection.public_selected : [];
+  return rows.filter((r) => r && Number.isInteger(r.position) && r.position > 0 && typeof r.name === 'string').slice(0, 2000).map((r) => {
+    const icon = PROGRAM_ICONS.includes(r.program?.icon) ? r.program.icon : '';
+    const about = typeof r.program?.about === 'string' ? r.program.about.trim().slice(0, 600) : '';
+    return {
+      position: r.position, name: r.name.slice(0, 80),
+      added: typeof r.added === 'string' && YMD_RE.test(r.added) ? r.added : null,
+      ...(icon && about ? { program: { icon, about } } : {}),
+    };
   });
 }
 
@@ -338,6 +358,9 @@ function litterCard(id, l) {
     pups_female: pups.filter((d) => d.sex === 'female').length,
     pups_male: pups.filter((d) => d.sex === 'male').length,
     pups: cardPups(pups),
+    // Already Reserved (E2): pups whose disposition is Placed, as her device
+    // published them. Never part of a turn: turns read `pups` only.
+    reserved: cardPups(Array.isArray(l.reserved) ? l.reserved : []),
     nickname: l.nickname ?? null,
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
@@ -357,6 +380,7 @@ export function listView(projection) {
     kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection) },
     as_of: projection.as_of ?? null,
     rows: publicRows(projection),
+    selected: selectedRows(projection),
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
   };
@@ -517,10 +541,51 @@ export function feePayFor(projection, entryId) {
     }
   } catch { return null; }
   const amount = Number(f.amount);
+  // The fee itself (Waitlist Fixes K8-10): the card's headline, `amount` (what the
+  // link charges, a passed-on card fee included) on the button.
+  const fee = Number(f.fee);
   return {
     url,
     amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    fee: Number.isFinite(fee) && fee > 0 ? fee : null,
     instructions: typeof f.instructions === 'string' ? f.instructions.slice(0, 1000) : '',
+  };
+}
+
+// What's credited toward their pup, as published (waitlistProjection's
+// creditsView): amounts only, or null.
+function creditsOf(c) {
+  if (!c || typeof c !== 'object') return null;
+  const amt = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0);
+  const out = { fee: amt(c.fee), fee_toward: ['deposit', 'balance'].includes(c.fee_toward) ? c.fee_toward : null, received: amt(c.received), deposit: amt(c.deposit) };
+  if (!out.fee_toward) out.fee = 0;
+  return out.fee > 0 || out.received > 0 ? out : null;
+}
+
+// Their payments as her device published them (Payment Schedule plan §7,
+// paymentSchedule.familyPaymentsView), field by field: amounts, dates, her line and
+// due-date names, and her payment instructions; or null.
+const PAY_STATES = ['met', 'next', 'past', 'later'];
+export function paymentsOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const amt = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e7 ? Math.round(v * 100) / 100 : 0);
+  const day = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const label = (v) => (typeof v === 'string' ? v.slice(0, 120) : '');
+  const state = (v) => (PAY_STATES.includes(v) ? v : 'later');
+  const list = (v, max) => (Array.isArray(v) ? v.slice(0, max).filter((x) => x && typeof x === 'object') : []);
+  const total = amt(p.total);
+  if (!(total > 0)) return null;
+  const d = p.deposit && typeof p.deposit === 'object' ? p.deposit : null;
+  const n = p.next && typeof p.next === 'object' ? p.next : null;
+  return {
+    total, paid: amt(p.paid), remaining: amt(p.remaining),
+    deposit: d ? { amount: amt(d.amount), owed: amt(d.owed), date: day(d.date), state: state(d.state) } : null,
+    due: list(p.due, 20).map((x) => ({ label: label(x.label), date: day(x.date), at_pickup: x.at_pickup === true, amount: amt(x.amount), owed: amt(x.owed), final: x.final === true, state: state(x.state) })),
+    own: list(p.own, 30).map((x) => ({ label: label(x.label), amount: amt(x.amount), owed: amt(x.owed), date: day(x.date), state: state(x.state) })),
+    received: list(p.received, 60).map((x) => ({ date: day(x.date), label: label(x.label), amount: amt(x.amount) })).filter((x) => x.amount > 0),
+    next: n ? { label: label(n.label), date: day(n.date), at_pickup: n.at_pickup === true, owed: amt(n.owed), final: n.final === true, deposit: n.deposit === true } : null,
+    how_to_pay: typeof p.how_to_pay === 'string' ? p.how_to_pay.slice(0, 1000) : '',
+    final_methods: typeof p.final_methods === 'string' ? p.final_methods.slice(0, 200) : '',
   };
 }
 
@@ -569,6 +634,8 @@ export function statusView(projection, entryId, now = new Date()) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // A family page only (Waitlist Fixes Plan E3): its words never mention a waitlist.
+  if (e.page_only === true) family.page_only = true;
   // Her puppy portal: once it has taken over, their page is only its link.
   const portal = portalOf(projection, e, now);
   if (portal) {
@@ -598,16 +665,23 @@ export function statusView(projection, entryId, now = new Date()) {
   // only with an open sale.
   const pickup = e.companion?.available ? pickupOf(e.pickup) : null;
   if (pickup) family.pickup = pickup;
+  // Their payments: only with an open sale.
+  const payments = e.companion?.available ? paymentsOf(e.payments) : null;
+  if (payments) family.payments = payments;
   // Backing out (Family Requests plan §7): only with an open sale; her reasons and
-  // what she wants them to read first.
+  // what she wants them to read first. A back-out she approved shows without one
+  // (it ended the sale), for what happened to their deposit, never as a form.
+  const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const backOutRequest = (r) => (r && typeof r === 'object' ? {
+    reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '', requested_date: ymd(r.requested_date),
+    decided: ['approved', 'declined'].includes(r.decided) ? r.decided : null, decided_date: ymd(r.decided_date),
+    outcome: ['keep', 'move', 'refund'].includes(r.outcome) ? r.outcome : null,
+  } : null);
+  if (e.back_out && !e.back_out.available && e.back_out.request?.decided === 'approved') {
+    family.back_out = { available: false, request: backOutRequest(e.back_out.request) };
+  }
   if (e.companion?.available && e.back_out?.available) {
-    const r = e.back_out.request;
-    const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
-    family.back_out = { available: true, request: r && typeof r === 'object' ? {
-      reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '', requested_date: ymd(r.requested_date),
-      decided: ['approved', 'declined'].includes(r.decided) ? r.decided : null, decided_date: ymd(r.decided_date),
-      outcome: ['keep', 'move', 'refund'].includes(r.outcome) ? r.outcome : null,
-    } : null };
+    family.back_out = { available: true, request: backOutRequest(e.back_out.request) };
     kennel.back_out_reasons = (Array.isArray(projection.kennel?.back_out_reasons) ? projection.kennel.back_out_reasons : []).slice(0, 20)
       .map((x) => ({ id: typeof x?.id === 'string' ? x.id.slice(0, 40) : '', label: typeof x?.label === 'string' ? x.label.slice(0, 80) : '' })).filter((x) => x.id && x.label);
     kennel.back_out_policy_text = typeof projection.kennel?.back_out_policy_text === 'string' ? projection.kennel.back_out_policy_text.slice(0, 2000) : '';
@@ -615,12 +689,16 @@ export function statusView(projection, entryId, now = new Date()) {
   // Getting your pup home: only for a family with an open sale (their pup is picked).
   const transport = e.companion?.available ? transportOf(projection) : [];
   if (transport.length) kennel.transport = transport;
+  // Her policies banner compares her last change with the day they applied: a placed
+  // family with an open sale gets the date too.
+  if (!OPEN_STATUSES.includes(e.status) && e.companion?.available && ymd(e.applied_date)) family.applied_date = e.applied_date;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
   for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_paid_online', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {
     family[k] = e[k] ?? null;
   }
   family.fee_due = feeDueOf(family.fee_due);
+  family.credits = creditsOf(e.credits);
   // Asked for at the end of the application: their Pay button until they've paid.
   if (e.status === 'applied' && !e.fee_paid_online) {
     const pay = feePayFor(projection, entryId);
@@ -685,7 +763,8 @@ export function statusView(projection, entryId, now = new Date()) {
     // A planned heat is no litter yet: nothing to wait for or pass on.
     waiting: u.kind !== 'planned_heat' && mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];
-  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: listView(projection).rows };
+  const list = listView(projection);
+  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: list.rows, public_selected: list.selected };
 }
 
 // Her application form as the form page needs it, or null when she isn't taking
@@ -887,7 +966,10 @@ export async function handleFamilyApi(request, env, url) {
       view.pending = [];
       view.emails = [];
     }
-    await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
+    // Her own look at their page (waitlist.js previewStatusPage) isn't their visit.
+    const until = await previewUntil(env, status[1], request.headers.get('x-status-preview'));
+    if (until) view.preview = { until };
+    else await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
     return json(view, 200, { 'referrer-policy': 'no-referrer' });
   }
 

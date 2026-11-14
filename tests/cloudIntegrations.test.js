@@ -36,12 +36,28 @@ test('payment.paid: a deposit or the balance, only from where the link left the 
   assert.equal(planIntegrationEvent(dep, { status: 'paid_in_full' }).op, 'review');
   assert.match(planIntegrationEvent(dep, { status: 'deposit_pending' }, { waitlistPick: true }).review.reason, /family's page/);
 
-  const bal = ev('payment.paid', 'sale', 's1', { component: 'balance', amount: 2500, date: '2026-11-01' });
-  assert.deepEqual(planIntegrationEvent(bal, { status: 'deposit_paid', deposit_date: '2026-10-12' }).changes,
-    { status: 'paid_in_full', balance_paid_date: '2026-11-01' });
-  assert.deepEqual(planIntegrationEvent(bal, { status: 'deposit_pending' }).changes,
-    { status: 'paid_in_full', balance_paid_date: '2026-11-01', deposit_date: '2026-11-01' }, 'paid in one go');
-  assert.equal(planIntegrationEvent(bal, { status: 'cancelled' }).op, 'review');
+  // Beyond the deposit (Payment Schedule plan D34): a row in the sale's payments,
+  // never paid in full by itself (D22). A link made before schedules ('balance') reads the same.
+  const noId = (list) => list.map(({ id, ...rest }) => rest);
+  for (const component of ['payment', 'balance']) {
+    const bal = ev('payment.paid', 'sale', 's1', { component, amount: 2500, date: '2026-11-01', method: 'Card', reference: 'pi_9' });
+    const one = planIntegrationEvent(bal, { status: 'deposit_paid', deposit_date: '2026-10-12', balance_paid_via_account_id: 'st' });
+    assert.equal(one.op, 'update');
+    assert.deepEqual(noId(one.changes.payments), [{ amount: 2500, date: '2026-11-01', method: 'Card', account_id: 'st', reference: 'pi_9' }]);
+    assert.equal(one.changes.status, undefined, 'not paid in full by itself');
+    assert.equal(one.changes.balance_paid_date, undefined);
+    assert.equal(planIntegrationEvent(bal, { status: 'deposit_paid', payments: one.changes.payments }).op, 'skip', 'once per reference');
+    // Still waiting on the deposit: the deposit owed (after credits) first, the rest a payment.
+    const both = planIntegrationEvent(bal, { status: 'deposit_pending', deposit_amount: 500 }, { depositOwed: 450 });
+    assert.equal(both.changes.status, 'deposit_paid');
+    assert.equal(both.changes.deposit_date, '2026-11-01');
+    assert.deepEqual(both.changes.payments.map((p) => p.amount), [2050]);
+    assert.equal(planIntegrationEvent(bal, { status: 'cancelled' }).op, 'review');
+    assert.equal(planIntegrationEvent(bal, { status: 'paid_in_full' }).op, 'review');
+    assert.match(planIntegrationEvent(bal, { status: 'deposit_pending' }, { waitlistPick: true }).review.reason, /family's page/);
+  }
+  assert.equal(planIntegrationEvent(ev('payment.paid', 'sale', 's1', { component: 'balance', amount: 2500, date: '2026-11-01' }),
+    { status: 'paid_in_full', balance_paid_date: '2026-11-01' }).op, 'skip', 'a balance link applied before schedules');
   assert.equal(planIntegrationEvent(ev('payment.refunded', 'sale', 's1', { amount: 500 }), { status: 'deposit_paid' }).op, 'review');
 });
 

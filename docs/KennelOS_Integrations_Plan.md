@@ -11,6 +11,13 @@
 > go-ahead to build step 4; D16 was decided 2026-10-11: the Jotform API key stays on her device.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
 > brings DocuSign in), and Stripe live-animal terms were confirmed by the owner before step 6 (D8).
+> §2.3a (2026-11-11) makes **Firma** step 8's e-sign provider, on KennelOS's own account with a
+> monthly send limit (D25–D26). D27–D30 (2026-11-11) retire Jotform's API parts (Connect
+> Jotform, the signed check), keep pasted form links as the free fallback, and put Firma's
+> templates on the Contracts page. D31 (2026-11-12) opens Firma's template editor in its own
+> tab, on a sandboxed page of the Worker. D32 (2026-11-12, built) adds her countersignature
+> (a Countersign button in the app); D33 (built) has KennelOS keep the signed PDFs and email
+> buyers a link, per template.
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -283,7 +290,18 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
 - **Sale types** (`pet_home`, `breeding_rights`, `deposit`, sale `co_own`): `saleRef`,
   `buyerFirstName`, `buyerLastName`, `buyerEmail`, `buyerPhone`, `buyerAddress`, `puppyName`,
   `puppySex`, `puppyColor`, `puppyDob`, `puppyMicrochip`, `sireName`, `damName`, `breed`,
-  `registrationType`, `price`, `depositAmount`, `balanceDue`.
+  `registrationType`, `price`, `depositAmount`, `balanceDue`, and for a contract's payment
+  table `depositDue`, `otherPaymentsReceived`,
+  `purchaseBalanceDue` (2026-11-12; End-State guide §32).
+- **A sale's separate agreements** (2026-11-12, owner request): `transport`, `boarding`
+  (delayed pickup) and `extra` form types. An Extra agreement is for one of her price-list
+  extras (e.g. a training package, which is boarded in place of standard boarding), named on
+  its row (`extra_list_id`). Fields: `transportFee`, `deliveryDate`,
+  `deliveryPlace`, `transportDueDate`; `boardingRate`, `boardingPer`,
+  `boardingLength`, `boardingTotal`, `boardingStart`, `boardingEnd`; `extraName`,
+  `extraDescription`, `extraPrice`, `extraPayments`, `extraPayment1–4Amount/Due`,
+  `extraStayDays`, `extraStayStart`, `extraStayEnd`. A boarding or training agreement is
+  dated by the sale's `pickupDate`; sending one with no pickup on the calendar asks for it.
 - **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
   `serviceType`.
 - **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,
@@ -415,6 +433,283 @@ Same flow as DocuSign (template → prefill → link or email → signed webhook
 
 If she just wants "contracts signed and tracked", **one of these behind the same adapter is
 likely the better first e-sign provider**, and DocuSign can be a second adapter later (D5).
+
+### 2.3a Firma: the e-sign provider for step 8 (researched 2026-11-11, D25–D26)
+
+**What Firma is** (firma.dev, docs v1.40):
+- An e-signature API priced at **€0.049 (about 5¢) per signing request**, pay-as-you-go. There's
+  no subscription, seat or minimum. One credit covers one request, however many signers it has.
+  It's charged at send and never refunded. Credits don't expire.
+- Each workspace has a **test key** that's free and watermarks its documents (for building and
+  for Demo-style trials).
+- **Account model:**
+  - One **company** (the billing entity, one credit pool, one master key) holds many
+    **workspaces**.
+  - Each workspace has its own templates, signing requests, branding, webhooks and API keys,
+    with no exposure between workspaces.
+  - Firma's multi-tenant guide is this shape exactly: the platform is the company, and each
+    customer is a workspace.
+- **Legal and data:**
+  - ESIGN/UETA, plus an eIDAS Advanced Electronic Signature, which suits a puppy sale
+    contract.
+  - Audit trail (views, fields, signature, decline, with time and IP). A PAdES seal and a
+    certificate of completion go into the final PDF.
+  - Every service is hosted in the EU (Paris; sealing in Stockholm). There's a published DPA.
+  - SOC 2 / ISO 27001 *aligned*, not certified; no published penetration-test report.
+- **Calls from a browser:** the API answers CORS with `*`. That doesn't matter here, because
+  under D25 the key never reaches a device.
+
+**D25: KennelOS holds the Firma account (decided 2026-11-11).** KennelOS has one Firma company.
+Each cloud program that connects gets **its own workspace**. She never makes a Firma account or
+buys credits: "Send for e-signature" just works, under her kennel's name and logo. This departs
+from D1's "her own account" for e-sign. What it means:
+- Buyer facts (name, email, pup, price) go to Firma under **KennelOS's** account. The Worker is
+  the sender, so KennelOS is the processor's customer. The privacy policy names Firma as a
+  sub-processor (EU-hosted). The connect screen says plainly what is sent and to whom.
+- **The master key is a Worker secret, `FIRMA_API_KEY`**, never stored per program and never
+  sent to a device. Every call names the program's `workspace_id`, which is the pattern Firma
+  recommends.
+- KennelOS pays every send, so every send counts against a monthly limit (D26).
+
+**D26: a monthly send limit (decided 2026-11-11).**
+- **10 signing requests per program per calendar month** by default, reset on the 1st (UTC).
+- The default is **set in `/ops`**.
+- *Proposed:* `/ops` can also set an override for one account (found with Account find), for
+  a large program.
+- **What counts:** a send counts once Firma accepts it, since that's when the credit is spent.
+  A refused or failed send doesn't count. A resend (the old request cancelled, a new one made)
+  counts again, because Firma charges again.
+- **The send dialog shows the count**, e.g. "3 of 10 this month". At the limit, Send is
+  refused with the reset date. Her Jotform forms (§2.1a), which cost KennelOS nothing, stay
+  available beside it.
+
+**Pieces (Worker; Pro + cloud only; `cloudUrl: null` shows none of it):**
+- **Migration `0022_esign`** (one per branch):
+  - `esign_sends (signing_request_id PK, program_id, connection_id, contract_id, sent_at,
+    status)`. This is the month's count (`program_id, sent_at` indexed), and the map from
+    Firma's id back to the KennelOS contract. Firma's webhook doesn't carry our custom
+    fields, so the adapter looks the contract up here; nothing is matched by name or email.
+  - `ops_config (key PK, value, updated_at)`, holding `esign_monthly_limit`.
+  - An override column or key per program (if the override is taken).
+  - Account deletion removes the program's rows. `/ops` export carries them.
+- **Connect** (`POST /integrations/firma/connect`):
+  - Creates the workspace, named for her kennel. Sets her logo and colours when she has them
+    (workspace logo and `color_*` settings).
+  - Creates a **workspace webhook** to `/hooks/firma/<secret>` for
+    `signing_request.completed`, `signing_request.recipient.declined`,
+    `signing_request.expired` and `signing_request.cancelled`. Turns on the workspace master
+    switch (`PATCH /workspaces/{id}` `webhook_enabled`). Without the switch nothing is
+    delivered, and nothing reports the failure.
+  - Stores the connection with `account_ref` = workspace id and **no token** (the master key
+    does the work).
+- **Disconnect** removes the webhook and the connection row. *Proposed:* the workspace (her
+  templates and signed documents) is kept until account deletion, which deletes it.
+- **Templates:**
+  - She uploads her contract (PDF, or DOCX converted by Firma). It becomes a Firma template.
+  - She places the signature and fact fields in **Firma's embedded template editor**: an
+    iframe the app opens with a 24-hour token minted by the Worker
+    (`/generate-template-token`).
+  - Each template is a row in her `contract_forms` (§2.1a) with the provider `firma` and the
+    template id.
+  - KennelOS facts (the same allow-list `esignFields.js` builds for Jotform) reach the template
+    as the buyer's `custom_fields`. Template fields fill from them through
+    `format_rules.prefilledData`.
+- **Send** (`POST /integrations/esign/send`, from the device, with the contract id, template id,
+  the buyer's name and email, and the facts):
+  - The Worker checks the month's count (D26), then calls `POST /signing-requests/create-and-send`.
+    The plain `POST /signing-requests` only makes a draft.
+  - The buyer is the Signer. She can be a second Signer when the form needs her countersignature
+    (D32, built: "Her countersignature" below).
+  - Before any retry, the Worker records the returned id in `esign_sends`. Firma has no
+    idempotency key, so an unrecorded retry would charge twice.
+  - It returns the signing request id and the buyer's signing link
+    (`app.firma.dev/signing/{signing_request_user_id}`, live until the request expires,
+    7 days by default).
+  - The device sets the Contract to `sent` with `esign_provider = 'firma'`, `esign_ref`,
+    `esign_url`, `esign_sent_date` and `esign_form_label`.
+  - Firma emails the buyer by default. With the email off, the link goes into Pick to send's
+    message (§2.6). That request is still sent and charged.
+- **Back:**
+  - `/hooks/firma/<secret>` checks `X-Firma-Signature` (`t=…,v1=…`, HMAC-SHA256 over
+    `t.body`, 5-minute window; `X-Firma-Signature-Old` during rotation). It answers within
+    Firma's 5 seconds.
+  - Completed becomes `contract.signed { date }`. Declined becomes `contract.declined`.
+    Expired or cancelled becomes an `integration_reviews` entry on Today (a new event kind in
+    `EVENT_KINDS`, payload `{ date }`).
+  - The payload's names and emails are dropped before storage, as for every event (§0).
+- **The signed PDF:** Firma's `GET /signing-requests/{id}/download` gives only a short-lived
+  link. *Proposed:* the Contract page fetches it on demand through the Worker, rather than
+  copying the PDF to R2. `document_url` stays hers to set.
+
+**To prove against a test key before the build** (the docs don't settle these):
+- that a workspace webhook's signing secret can be read through the API (else the
+  per-connection URL secret is the check, as Jotform's would be);
+- the exact `prefilledData` syntax for a `custom_fields` key;
+- that the signer terms (workspace terms acceptance) can carry ESIGN's consumer-consent wording;
+- that `PATCH` works from the Worker (CORS lists no `PATCH`, which matters only to a browser).
+
+**As built: the Worker (2026-11-11)** (`cloud/src/firma.js`, migration `0022_esign`,
+`cloud/tests/esign.test.js`). The app side (Connect, templates, the Send dialog, the new
+event kinds on Today) is next. **Modified** from the plan above:
+- **Her workspace's own key does her calls.** The key is sealed in her connection's token, with
+  the webhook secret and webhook id. The master key `FIRMA_API_KEY` only makes the workspace,
+  makes and removes its webhook, and reads the credits for `/ops`. So Firma itself keeps one
+  program out of another's templates and documents. A template is also read with her key
+  before an editor token is made for it.
+- **Three of the four open questions were settled from Firma's OpenAPI spec:**
+  - The workspace carries its `webhook_secret`, with `rotate-secret` as the fallback. Connect
+    fails and undoes itself if it gets neither.
+  - `format_rules.prefilledData` names a key of the recipient's `custom_fields`, matched
+    case-insensitively. Her device sends the fact names and labels (`PREFILL_FIELDS`) to
+    `POST /integrations/firma/fields`, which makes them the workspace's custom fields for the
+    editor, at most 40 per call.
+    **Modified:** the first real sends left these fields empty. The editor's Prefilled Data
+    may store Firma's own id for a custom field rather than its `field_name`, so a send also
+    puts each fact under every id its custom field carries, and as `custom_workspace_<id>`, the
+    key the editor was seen to store.
+  - `PATCH` matters only from a browser.
+  
+  Still open: the ESIGN consumer-consent wording in the workspace's signer terms
+  (`/workspace/{id}/signer-terms/{language}` exists).
+- **Firma has no API to delete a workspace.** Disconnect and account deletion only remove the
+  webhook. A deleted account's workspace is removed by hand in Firma's dashboard
+  (`cloud/README.md`).
+- **`esign_sends`** is keyed by our own id, with Firma's `signing_request_id` unique and filled
+  in once Firma answers.
+  - The row is reserved by a conditional insert, only while the month's count is under the
+    limit, before Firma is called.
+  - Its statuses are `sending`, `sent`, `unknown`, `completed`, `declined`, `expired` and
+    `cancelled`.
+  - A Firma refusal frees the row. A 402 (KennelOS out of credits) answers `503`. No answer
+    keeps the row as `unknown` (`502 esign_unknown`). A 409 that names a request is kept as
+    sent.
+  - A live send for the same contract answers `409 already_sent` unless the device passes
+    `resend: true`.
+  - The rows are kept 400 days, carried in the `/ops` export, and deleted with the account.
+- **Limits:** `ops_config.esign_monthly_limit` holds the default (10 when unset) and
+  `esign_limits` holds an account's own limit. The `/ops` dashboard has an "E-sign (Firma)"
+  section (credits left, kennels connected, sends this month, the default limit), and Account
+  find shows the account's count with its own limit.
+- **Events:** `contract.expired` and `contract.cancelled` are added to `EVENT_KINDS`
+  (`{ date }`). Devices older than this skip them. An adapter's `toEvents` now gets `env` and
+  may be async (Firma's looks up `esign_sends`).
+- **Routes** (Pro):
+  - `GET /integrations/firma`
+  - `POST /integrations/firma/connect`
+  - `POST /integrations/firma/fields` (with `relabel`: existing fields' labels brought up to date, Payment Schedule plan §8.2)
+  - `GET` and `POST /integrations/firma/templates` (a base64 PDF, at most about 4.5 MB)
+  - `POST /integrations/firma/template-token`
+  - `POST /integrations/esign/send`
+  - `GET /integrations/esign/document?ref=`
+  
+  Staging sets `FIRMA_TEST_MODE = "true"`, so its workspaces keep their free test keys.
+
+**As built: the app (2026-11-12)** (End-State guide §32, "E-sign through Firma";
+`data/cloud/cloudEsign.js`, `data/esignTemplates.js`, `assets/esignUI.js`,
+`cloud/public/esign/`, `tests/esign.test.js`).
+- **Contract templates** on the Contracts page (D30):
+  - **Set up e-signing** makes her workspace and sends the fact names as its custom fields.
+  - She uploads a PDF and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab (D31).
+- **Each template's kind** is a `contract_forms` row `{ provider: 'firma', template_id }` on an
+  "E-sign (Firma)" Form service account, made the first time she sets one. So the Accounts
+  page and Send for signature treat it like a form, without a link.
+- **Send for signature** offers her templates beside her pasted forms. On the Contract page,
+  Firma emails the signer by default (she can untick it and send the link herself). Pick to
+  send sends it on step 2 with Firma's email off, and the link goes in her message. The
+  contract keeps Firma's id in the new `esign_ref` (cloud tier: an id, no buyer details).
+- **Back:** Signed and declined apply as before. Expired and cancelled become a Today review
+  while the contract is still Sent. **Signed copy** on the Contract page opens Firma's
+  short-lived link.
+- **The editor page (D31)**, on the Worker:
+  - `/esign/editor` (+ `.js`, `.css`) from `public/esign/`, served with
+    `content-security-policy: sandbox allow-scripts …` (no `allow-same-origin`),
+    `no-referrer` and `no-store`.
+  - Firma's script needs web storage and the Locks API, which a sandboxed page refuses. The
+    page stands them in, in memory.
+  - Checked in a browser that the script loads and calls Firma inside the sandbox. A real
+    token is proven on the first production run.
+- **Preview** (2026-11-12, owner request): the Send dialog's Preview makes a draft signing
+  request of the same send (free: Firma charges at send) and opens it read-only in Firma's
+  embeddable signing request editor, on the Worker's sandboxed editor page. The dialog
+  discards it when it closes. Its token isn't read-only (that's the editor's setting), so a
+  preview **holds a place in her month** while open (an `esign_sends` row, status `preview`,
+  never counted): made only under her limit, discarded by a new preview, a send, the dialog
+  closing or the hourly cron, and counted if its draft is found sent. *To prove on the first production run:* that a draft costs no
+  credit, that the read-only editor shows the prefilled values, and that `DELETE
+  /signing-requests/{id}` removes a draft.
+- **A template deleted in Firma's editor** (2026-11-12) stops being offered: the device
+  drops its row once Firma's complete list lacks it (Contract templates, and each send
+  picker), and the Worker refuses a send of it (`404 template_missing`) before it counts.
+- **Modified** from the plan above:
+  - The editor isn't an iframe in the app (D31).
+  - There's no separate Connect: Set up e-signing in Contract templates is it.
+
+**As built: her countersignature (D32, 2026-11-12).** End-State guide §32, "E-sign through
+Firma".
+- A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
+  `contract_forms` row. She gives the second signer its signature field in Firma's editor.
+- **Modified (2026-11-12, owner decision):** she can sign **first** instead. The tick is now
+  one choice of three per template, **I sign first / I sign last / I don't sign**
+  (`countersign_first: true` beside `countersign: true` for first; a row from before reads
+  as last). A new template starts with the choice she made last (Account
+  `esign_signs_default`, cloud tier), else I don't sign. Signing first, she is `order: 1`
+  and the buyer `order: 2`; the send records it (`esign_sends.countersign_first`, migration
+  0024) so her link, the buyer's link and the kept copy's email each find the right signer.
+  The contract carries `esign_countersign_first` (cloud tier) and shows **Sign first**.
+- She signs as her **cloud account's email** (owner decision), named for her kennel.
+  **Modified (2026-11-12, owner decision):** under a name she chooses, one per own kennel
+  (`Kennel.esign_signer_name`, cloud tier); unset, the contact linked to the kennel, else the
+  kennel's name. The
+  device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
+  and keeps nothing of this send's emails in `esign_sends`.
+- `POST /integrations/esign/send` makes her the second Signer (`order: 2`, with the buyer's custom fields, so fields placed for her fill)
+  of the same request. Firma charges per request, so it is still one credit. Refused before
+  Firma: no name or email for her, or her email as the buyer's.
+- The contract gets `esign_countersign` (cloud tier, a yes/no) so any of her devices shows
+  **Countersign** while it is Sent.
+- **Countersign** asks `GET /integrations/esign/countersign?ref=` for her link: the request's
+  Signer with `order: 2` from Firma's `/signing-requests/{id}/users`, never kept. `409
+  esign_not_open` once the request isn't `sent`, `409 no_countersigner` on a send without her.
+- Signed comes from `signing_request.completed`, which Firma sends once every signer is done.
+- *To prove on the first production run* (docs.firma.dev unreachable from the build session):
+  - that Firma matches the two recipients to the template's two signer roles by `order`;
+  - whether its signing email can be off for her alone. Today `send_signing_email` is per
+    request: on, she gets Firma's email too; off (Pick to send), neither does and she uses the
+    button;
+  - whether Firma has a per-signer event, so the app could say "the buyer signed, waiting on
+    you". Without one, Countersign shows for as long as the contract is Sent, and Firma's
+    page has her wait for the buyer.
+
+**As built: the signed copies (D33, 2026-11-12).** End-State guide §32, "E-sign through
+Firma"; migration `0023_esign_copies`.
+- **Per template** (owner decision): an **Email the buyer the signed copy** tick
+  (`keep_copy: true` on its `contract_forms` row), beside I countersign. Untouched templates
+  keep Signed copy opening Firma's own short-lived link.
+- **Sending:** such a send carries `keepCopy` and her kennel's name. `esign_sends` records
+  `keep_copy` and `kennel_name`.
+- **Firma's completed webhook** queues it (`copy_status = 'pending'`).
+- **The hourly cron (`runEsignCopies`, 10 a run)**, for each queued send:
+  - It fetches the PDF through Firma's download link (never a partial one, at most 25 MB)
+    and stores it at `esign/<program>/<send id>.pdf` in R2.
+  - It reads the buyer's email from Firma's recipient list (the first Signer) and emails
+    them a link. The email comes from "<kennel> via KennelOS", mail kind `esign`. Their
+    email is never stored.
+  - A step that fails is retried hourly for 48 tries. After that the status is `failed`
+    (never copied) or `unsent` (copied, email gave up). `no_email` means Firma gave no
+    address; the copy is kept all the same.
+- **The link** is `/signed/<send id>/<mac>`, with the mac an HMAC of the id under
+  `INT_TOKEN_KEY`. Nothing more is stored, and her **Signed copy** gets the same link
+  (`kept: true`). It has no expiry: it lasts as long as the copy.
+- **Retention:** a row with a kept copy is exempt from the 400-day prune. Account deletion
+  removes `esign/<program>/` with the rows. The privacy policy (`site/privacy.html` §9d and
+  the retention list) says so, for the owner to review.
+- **Modified** from the plan above: the copy is made by the hourly cron, not inside the
+  webhook (Firma wants an answer within 5 seconds, and its PDF may not be ready yet). So a
+  buyer's email comes within the hour after the last signature.
+- *To prove on the first production run:* Firma's recipient list carries `email`; the
+  download link is fetchable without a key; whether Firma's own completion email can be
+  turned off, so the buyer doesn't get two copies.
 
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
@@ -788,12 +1083,12 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a). **Built 2026-10-11** (End-State guide §32, "Contract forms" and "Payment link") | No | S–M |
-| 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account | No | S |
+| 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account **Retired 2026-11-11** (D27): removed; saved form ids and field maps kept read-only (D29) | No | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); the `INT_TOKEN_KEY` secret is set (2026-10-12) | Worker | M |
 | 6 | **Stripe** one-use payment links from her own restricted key, checked from her device, with the fee captured into §5; Payment service accounts and per-payment paid-via; the waitlist application fee online. **Built 2026-10-12** (§4 "As built", D22–D24). Square: not built | No (device ↔ Stripe) | L |
-| 7 | **Jotform signed → Contract signed** (§2.1). **Built 2026-10-12** (End-State guide §32, "Signed forms come back"; `data/jotformSigned.js`), webhook not built. **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
-| 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
+| 7 | **Jotform signed → Contract signed** (§2.1). **Built 2026-10-12** (End-State guide §32, "Signed forms come back"; `data/jotformSigned.js`), webhook not built. **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date **Retired 2026-11-11** (D27): removed; saved form ids and field maps kept read-only (D29) | No (webhook later: Worker after 5) | S |
+| 8 | **E-sign API provider: Firma** (§2.3a, D25–D26): a workspace per program on KennelOS's account, templates in the embedded editor, send from the Worker within the monthly limit, signed back by webhook. (Was SignWell / BoldSign; Firma is the same shape at about 5¢ a send). **Worker built 2026-11-11, the app 2026-11-12** (§2.3a "As built"; End-State guide §32, "E-sign through Firma"); to be proven on production with the live key | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 
 Every step that adds a file updates `shared/sw.js` `PRECACHE_URLS` (Pro-only files also into
@@ -852,6 +1147,15 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D22 | **Decided 2026-10-12.** Stripe through a KennelOS platform (Connect) or her own key? | Her own restricted key, on her device; Stripe checked from the device. Live-animal sales confirmed allowed by the owner (D8) |
 | D23 | **Decided 2026-10-12.** Where a payment's account lives | A **Payment service** account type holds links and keys; a sale's deposit and balance each name theirs (`*_paid_via_account_id`, indexed, `version(4)`); the fee is estimated and captured per payment |
 | D24 | **Decided 2026-10-12.** The waitlist application fee online (D8's opt-in) | Yes: the kennel's fee account, asked for at the end of the application or once approved; a fee paid before approval counts from the day paid once she approves |
+| D25 | **Decided 2026-11-11.** Firma (§2.3a): KennelOS holds the account (a workspace per program, KennelOS pays) or she brings her own account and key? | **KennelOS holds it.** Master key as the Worker secret `FIRMA_API_KEY`; buyer facts go to Firma under KennelOS's account (privacy policy names Firma); supersedes D5's SignWell / BoldSign |
+| D26 | **Decided 2026-11-11.** A limit on sends, since KennelOS pays each one | **10 per program per calendar month**, reset the 1st (UTC), default set in `/ops`; counted when Firma accepts the send. *Proposed:* a per-account override in `/ops` |
+| D27 | **Decided 2026-11-11.** Jotform: keep or retire? | **Retired.** Connect Jotform (her API key, form picking, field matching), the signed-form check and the key's health check are removed. Firma is the e-sign path. Supersedes D14's field map, D16 and step 7 |
+| D28 | **Decided 2026-11-11.** Pasted contract-form links (any form service, sent as a link with the facts in its address)? | **Kept** as the free, manual fallback beside Firma (e.g. at the monthly limit), on a Form service account as before |
+| D29 | **Decided 2026-11-11.** Jotform data already saved | **Kept, read-only.** Contracts sent through Jotform keep their label and link. A form's saved `form_id` / `field_map` stay in the data and are still used when its link is sent, but can't be re-matched. Her Jotform API keys are deleted from each device on update. No field leaves the schema or backups |
+| D31 | **Decided 2026-11-12.** Where Firma's template editor runs: it's a 7.5 MB script from api.firma.dev that runs inside the page that loads it | **In a new tab, on a page the Worker serves** (`/esign/editor`), sandboxed (an opaque origin) so Firma's code reaches neither her app's data nor the Worker's cookies (`/ops`). The 24-hour token goes in the address's fragment. Not in the app page (her whole database, and an exception to no-CDN), and not in a frame |
+| D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
+| D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature"). **Modified 2026-11-12:** or **first**, before the buyer, per template (I sign first / I sign last / I don't sign) |
+| D33 | **Decided 2026-11-12, built.** The signed PDF | **Per template** (an "Email the buyer the signed copy" tick): KennelOS keeps it (R2, copied by the hourly cron once Firma reports completion) and **emails the buyer a link** to it. Kept until account deletion. Supersedes §2.3a's on-demand fetch for those templates (§2.3a "As built: the signed copies") |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---
@@ -862,6 +1166,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 - Jotform Sign API: [sending via API](https://www.jotform.com/answers/26822631-sending-signature-requests-via-api), [create via API](https://www.jotform.com/answers/35218401-create-a-sign-document-via-api), [API support](https://www.jotform.com/answers/22471091-jotform-sign-api-support), [tracking via API](https://www.jotform.com/answers/4871361-track-jotform-sign-documents-via-api)
 - DocuSign: [Envelopes:create](https://developers.docusign.com/docs/esign-rest-api/reference/envelopes/envelopes/create/), [templates](https://developers.docusign.com/docs/esign-rest-api/esign101/concepts/templates/creating/), [embedded signing view](https://www.docusign.com/blog/developers/deep-dive-the-embedded-signing-recipient-view), [embedded reminders](https://community.docusign.com/esignature-api-63/automated-reminders-for-hybrid-embedded-recipients-27579), [Go-Live](https://developers.docusign.com/platform/go-live/), [public integration / own-account](https://community.docusign.com/go-live-70/go-live-for-a-public-integration-when-every-customer-uses-their-own-docusign-account-27596), [developer pricing](https://ecom.docusign.com/plans-and-pricing/developer), [API pricing (Signeasy)](https://signeasy.com/blog/business/docusign-api-pricing), [Connect HMAC](https://www.esign.ai/blog/docusign-connect-securing-webhooks-hmac-signature-verification-code)
 - Other e-sign APIs: [SignWell pricing (Verdocs)](https://verdocs.com/blog/signwell-pricing), [BoldSign vs Dropbox Sign](https://boldsign.com/alternatives/hellosign-dropbox-sign-api/), [Dropbox Sign API (SignWell)](https://www.signwell.com/resources/dropbox-sign-api/)
+- Firma (researched 2026-11-11): [pricing](https://firma.dev/pricing), [multi-tenant](https://docs.firma.dev/guides/multi-tenant.md), [workspaces](https://docs.firma.dev/guides/creating-workspaces.md), [authentication](https://docs.firma.dev/guides/authentication.md), [sending](https://docs.firma.dev/guides/sending-signing-request.md), [field prefilling](https://docs.firma.dev/guides/field-prefilling.md), [webhooks](https://docs.firma.dev/guides/webhooks.md), [embeddable signing](https://docs.firma.dev/guides/embeddable-signing.md), [template editor](https://docs.firma.dev/guides/embeddable-template-editor.md), [rate limits](https://docs.firma.dev/guides/rate-limits.md), [legal validity](https://docs.firma.dev/guides/legal-validity.md), [security](https://docs.firma.dev/guides/security.md), [FAQ](https://docs.firma.dev/guides/faq.md)
 - Stripe: [restricted businesses](https://stripe.com/legal/restricted-businesses), [direct charges](https://stripe.com/docs/connect/direct-charges), [PaymentLink object](https://www.rubydoc.info/github/stripe/stripe-ruby/Stripe/PaymentLink), [fees (NerdWallet)](https://www.nerdwallet.com/business/software/learn/stripe-fees)
 - Square: [Checkout API](https://developer.squareup.com/docs/checkout-api-overview), [CreatePaymentLink](https://developer.squareup.com/reference/square/checkout-api/create-payment-link), [payment link webhooks](https://developer.squareup.com/forums/t/which-webhook-event-will-use-after-payment-received-for-payment-link/22282), [sandbox webhook fields](https://developer.squareup.com/forums/t/checkout-create-payment-link-the-sandbox-environment-webhook-is-missing-parameters/19182), [Payment Links fees](https://Square.com/us/en/payment-links), [fees (NerdWallet)](https://www.nerdwallet.com/business/software/learn/square-fees)
 - PayPal and live animals (anecdotal): [MorphMarket forum](https://community.morphmarket.com/t/paypal-alternative-payment-methods-apms-and-the-risks-for-live-animal-transactions/52004)

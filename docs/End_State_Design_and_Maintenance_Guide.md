@@ -33,7 +33,7 @@ The shared core never checks which edition it is: it reads the two injection poi
 
 | | Lite (free) | Pro (paid) | Demo |
 |---|---|---|---|
-| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `build/assemble.mjs`) |
+| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `data/proPages.js`, read by `build/assemble.mjs` and Kels's Find) |
 | Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, extra charges, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel, website link) | all `false` | all `true` | all `true` |
 | Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
 | Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
@@ -46,7 +46,9 @@ The shared core never checks which edition it is: it reads the two injection poi
 
 The shared pages Lite keeps hide their Pro-only parts with the same flags: the invoice
 button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
-feeding-schedule fields, and the Dashboard's Archived tile. The full list is in the Editions
+feeding-schedule fields, and the Dashboard's Archived tile. A sale's Payments card (payment
+schedule and payments received, §21.3) is in every edition; Lite has no Kennel page, so no
+saved schedules and no final-payment methods. The full list is in the Editions
 Plan's "Lite scope" section.
 
 **Details live in:** `docs/KennelOS_Lite_Pro_Editions_Plan.md` (tiers, licensing, the Lite→Pro
@@ -78,6 +80,11 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   full access from the last successful `/validate`, then 30 days of a reconnect banner,
   then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  Only a network failure, a 5xx or a 429 counts as offline. The store's own "not found"
+  (a 4xx whose JSON says `valid:false`, `isGoneAnswer`: a released activation answers this
+  way) clears the cached record, so the device asks for its key again. A validate's answer is
+  cached only while the device still holds that same record (`stillHeld`): a remote erase
+  that wipes it mid-request isn't undone.
   An unlicensed load is walled. The cached activation lives
   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
   from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
@@ -142,8 +149,8 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 4. **No CDN.** Everything third-party is vendored under `vendor/` and loaded by relative
    path; the app works fully offline after first load. The online-only, opt-in exceptions
    each have one module that makes the calls: cloud backup and sync (`data/cloud/cloudApi.js`,
-   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27), Jotform
-   (`data/jotformApi.js`) and Stripe (`data/stripeApi.js`) (§32).
+   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27) and
+   Stripe (`data/stripeApi.js`) (§32).
 5. **One thin repo per entity**, uniform surface (see §6). New entity = new repo + new
    page; you don't reshape existing ones.
 
@@ -206,12 +213,12 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form shows **Country of origin** only then and clears it on unticking; shown as Imported, "Yes, from …"; sent to her website, §35), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `shared_ref` (cloud; a test or title that came on a Dog Card: `<dog public id>:<the sender's event id>`, §36). No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
@@ -220,7 +227,7 @@ to the cloud unsealed).
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **DoNotSell** (`do_not_sell`) | a `name`, `email` or `phone` | Her do-not-sell list (§29): `reason`, `added_date`, `contact_id` (indexed; a contact moved there, hidden from the Contacts list while listed), `source_entry_id` (the application it was added from; unindexed, a `scan` registry entry). Program-wide. Every field private (`rows: 'none'`, like expenses). Taken off = archived. |
-| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
+| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `esign_signs_default` (cloud; on the E-sign (Firma) account, whether she signs her next new template, §32), `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
 
 **Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
 later (`vocab.WHELPED_OR_LATER`). The Litter page hides the field before that, so a status
@@ -287,8 +294,9 @@ edited. A new plain field needs no block. JSON backups stay backward compatible 
   same, or `JSON.stringify` silently turns it into `{}`.
 
 **Device-only tables** (`db.DEVICE_ONLY_TABLES`): `device_secrets` (the unlocked vault key,
-an open unlock request, her Jotform and Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
-its key-store module) and `sync_meta` (§34). They're not kennel data: no registry entries,
+an open unlock request, her Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
+its key-store module; any `jotform:` row left from the retired Connect Jotform is deleted on app open by
+`jotformKeyStore.forgetJotformKeys`, §32) and `sync_meta` (§34). They're not kennel data: no registry entries,
 never in a backup. Code that means "the records" iterates `db.dataTables()`. Reset App and
 remote erase still clear them.
 
@@ -351,8 +359,9 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   and offer share a kennel (§29).
 
 **Derived aggregators** (no table): `incomeView.js` (income rows per Sale / our stud's
-StudService component, earned vs anticipated; `incomeLineItems` feeds invoices, §21, §24)
-and `litterFinances.js` (per-litter P&L, §21).
+StudService component, earned vs anticipated, a sale's from its payment statement, §21,
+§21.3), `familyMoney.js` (a family's money for invoices and receipts, §24) and
+`litterFinances.js` (per-litter P&L, §21).
 
 ---
 
@@ -377,8 +386,10 @@ and it is blocked while anything points at the record.
   waitlist FKs have entries.
 - A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
 - **Unindexed paths:** an entry with `scan: true` names a dotted path in a row and is
-  counted by reading every row (`countReferences`). The one today: a training stay's
-  `events.details.sale_id` in `SALE_REFERENCES`.
+  counted by reading every row (`countReferences`), e.g. a training stay's
+  `events.details.sale_id` in `SALE_REFERENCES`. A path `list[].key` matches any item of
+  the list whose `key` is the id: a sale's `payments[].account_id` (§21.3) in the Account
+  references.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
@@ -403,7 +414,7 @@ One polymorphic table for all dated history: `subject_type ∈ {dog, pairing, li
   `combobox` = suggest, `select` = enforced; options are strings or `{value,label}`;
   `default` applies on create only).
 - `relatedContact` — shows the `related_contact_id` picker (a string is its label: show →
-  "Handler", vet_visit/surgery → "Vet"). Contacts on events are always the FK, never a
+  "Handler", vet_visit/surgery/screening_test → "Vet"). Contacts on events are always the FK, never a
   `details` value. `contactFallback` keeps a typed vet name only where no contact is linked
   (KennelAssistant has no pickers).
 - `titleFrom` — a `details` key that auto-fills the title until it's hand-edited.
@@ -437,6 +448,12 @@ reference), then sex in `SEX` order (Male, Female, Unknown), then name A→Z (ca
 registered name); a missing status, sex or name sorts last at its level. Its Status and Sex
 columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The other tabs keep
 their own order.
+
+`screening_test` (a fecal, a heartworm test, brucellosis…: `test`, `result`, Normal or
+abnormal, the vet) is a routine vet check, deliberately not a test-bearing type: it never
+feeds planned tests, the test vocabulary, waitlist parent results or Dog Cards, and isn't
+sent to family pages or the puppy portal. It prints on the Puppy Record (its own on/off) and
+is a Veterinary expense.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
 vocabulary through `testTokensOf(event)`; planned tests are matched against
@@ -899,6 +916,11 @@ their own `confirmDialog` (`cloud/public/family/common.js`).
   reloads the page.
 - **cloudBackupUI.js** / **cloudVaultUI.js** — every cloud screen (§30). Imported only
   dynamically and only when `isCloudAvailable()`; the vault UI only by the backup UI.
+- **paymentScheduleUI.js** — a sale's Payments card, the schedule editor, Record a payment
+  and the new-fees question, on the Sale page and the waitlist family page; the Kennel
+  page's saved schedules reuse its steps editor, and the invoice generator its Record a
+  payment (§21.3).
+- **invoiceGenerator.js** — the Invoice / Receipt generator modal (Pro, `invoicing`; §24).
 - **expensePanel.js** (§21), **puppyForm.js**, **importView.js** (§9),
   **onboardingUI.js**, **sampleDataUI.js**, **kennelSetupUI.js** (§11).
 
@@ -1027,6 +1049,9 @@ Don't assume these exist:
    cap hooks (§0).
 8. **Cloud:** nothing runs before `isCloudAvailable()`; `cloudUrl: null` makes no request.
 9. Clean UTF-8, no BOM. `node --check` touched files; `node --test` passes.
+10. **A sale's money** (what's paid, owed, due when) is read from its payment statement
+    (`paymentSchedule.paymentStatement`, loaded by `incomeView.getSaleStatement(s)`, §21.3);
+    money is spread over charges only by `allocateMoney`. No surface does its own sum.
 
 ---
 
@@ -1080,8 +1105,8 @@ checks use the unscoped set, so an answer one kennel over still counts.
 wires each action, and adds one Dismiss button per row. Dismissals are device-local
 (`nudgeState.js`), never in a backup. A nudge can also be snoozed (`nudgeState.snooze(key,
 untilYMD)`: hidden until that day, then back; Kels's Review my waitlist uses it for "remind
-me in a few days" on open picks). `nudges.waitlistNudgeItems()` and `extraDueItems(sales)`
-give the waitlist and extras-due nudges on their own, for that task. While Today is open it redraws the nudges on
+me in a few days" on open picks). `nudges.waitlistNudgeItems()`, `extraDueItems(sales)` and
+`paymentDueItems(sales)` give the waitlist, extras-due and payment nudges on their own, for that task. While Today is open it redraws the nudges on
 `CLOUD_DATA_CHANGED_EVENT` (debounced, one redraw at a time), so a family's message or
 status-page action the waitlist inbox takes in after the page loaded shows without a reload.
 
@@ -1111,12 +1136,13 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
-| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding) / `sale.html?id=…&deliver=1` |
+| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
-| `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
+| `int-review` | a vendor event wasn't applied, or a payment it recorded now covers everything on a sale not marked paid in full (`integrationApply.COVERS_ALL_REASON`, D34, §21.3) (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
-| `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
+| `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid. On a sale with a payment schedule only an extra flagged `own_due_dates` (§21.3); any other is paid through the schedule (`payment-due`) | open the sale |
+| `payment-due` / `payment-missed` | all editions (`paymentDueNudges`, through `paymentDueItems`: `incomeView.getSaleStatements` for the scoped open sales): a due date on a sale's payment schedule (§21.3; a sale with none stored is its one due date, the balance due date else pickup) with money still owed, from `DUE_SOON_DAYS` (7) before its date through the day ("…'s Payment 1 for Maple is due Nov 20: $900.00", what's already paid of it in the detail) / its date gone by ("A scheduled payment was not marked received: *Family*, $X due *date*."; on the sale she records it, types a new date or cancels; no back-out suggestion, D4). Key `payment-due|payment-missed:<sale>:<due id>:<date>`, so a moved date asks again. Not the deposit (offers and side sales ask for it), not extras on their own dates (`extra-due`), not a due date with no date yet. Each nudge carries `owed` | open the sale |
 | `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup, backing out) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
@@ -1161,7 +1187,10 @@ no-account, read-only link. Not sync, not a login, not a live view.
   pup's per-sex list price and deposit. The same for every prospect: nothing private.
 - **`family`** (a buyer with an open sale, `isOpenSale`): one card per pup on an open sale:
   names, parents, computed age (never the DOB), placement or ready date, their own sale's
-  money with a computed remaining balance (net of a credited waitlist fee, §21), contracts
+  money with its remaining balance and `balanceDueDate` (the final due date) from the
+  sale's payment statement (§21.3), and `payments` (`familyPaymentsView` plus her
+  `finalMethods`: each due date, what's been received, the next payment; drawn as a
+  Payments section in `companion-view.html`, older shells ignore it), contracts
   as `{signedDate, documentUrl}`, and a curated event history (one safe field per type for
   vaccination, preventative, weight, milestone, note; never `notes`, never
   illness/injury/evaluation).
@@ -1237,11 +1266,25 @@ StudServices and (Pro) waitlist fees, and classifies each money component on eve
 Kennel scope applies to the source records here, so every money screen agrees; a
 `kennelId` argument overrides it for the kennel page. Expenses are scoped through their
 subject (`financials.js` `expenseInScope`).
-- **Sale:** deposit, balance (price − deposit), transport, deferred boarding (amount ×
-  count) and one `extra` component per extra charge (§21.2). A part is **earned** once its paid date is set or the status has passed it, else
-  **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
-  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
-  `paidOnSale()` reads what was paid regardless of status.
+- **Sale:** read from its payment statement (§21.3) by `ledgerComponents(sale, statement)`:
+  deposit, balance (price − deposit), transport, deferred boarding (amount × count) and one
+  `extra` component per extra charge or step (§21.2), each split by the money that paid it
+  and the due date it falls in (`chargePieces`). Money received is **earned** on its own
+  date (the deposit's date, each payment's, a step's paid date, the balance paid date for
+  "paid in full"; each else the sale's date). What's still owed is **anticipated** on the
+  due date that needs it, `due` that date ('' when it can't be known yet), `due_id` which
+  due date. Returned/cancelled keeps only what was paid (payments included). A **lost** sale
+  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29). Extras
+  kept after a family backed out stay owed on a released sale. `getIncomeRows` loads each
+  sale's statement as `getSaleStatement` does (one shared `statementOpts`), with everything
+  loaded once. A balance paid date with the deposit never marked received reads as paid in
+  full, the deposit included. `paidOnSale()` reads what was paid regardless of status, from
+  the statement (recorded payments count). Three helpers still read whole lines
+  (`saleComponents`, which knows no recorded payments): `incomeLineItems` (a stud
+  service's document lines; a sale's only for `contractSend.balanceDueOn`'s total, less
+  `paidOnSale`), `saleCreditCharges` (the charges a family's credits can pay, at full
+  amounts) and `priceTable` (a contract's price table, §32, which adds the recorded
+  payments' share of the price from the statement).
 - **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
 - **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
   of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
@@ -1260,11 +1303,20 @@ subject (`financials.js` `expenseInScope`).
   `saleComponents(sale, feeCredit)`). Invoices label the line it comes off ("after $X
   application fee credit"); the deposit dialog, the family's deposit block
   (`offers[].deposit_fee_credit`, and "Credited toward your deposit" on their fee card via
-  `fee_due.credit_toward`) and the Companion balance follow it.
-- **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
-  of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
-  (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
-  ledger passes `received`; `incomeLineItems` keeps each line whole.
+  `fee_due.credit_toward`) and the Companion balance follow it. Each family's projection
+  also carries `credits` (`{ fee, fee_toward, received, deposit }` or null; the projection's
+  `creditsView`): their credited fee and what their credits can pay toward the pup after the
+  fee, whatever the sale. Their Current Position card shows it as "Credited"; their turn
+  card's deposit line and the "Choose <pup>?" dialog say what they'd send after it; and their
+  deposit block uses it while a pick they sent waits for her device (no sale yet to work it
+  out on). One helper does the sum (`depositAfterCredits` in `cloud/public/family/status.js`).
+- **A family's credits for funds already received** (Pro, §29 "Credits") are their money,
+  held, never income themselves (D21). The part of a charge a credit covers is anticipated
+  until that charge's due date (the deposit's: when it was asked for, else when marked
+  received; the rest: the due date the credit's money filled), then earned on that date.
+  One whose due date can't be known yet is earned once the deposit is received (the
+  deposit) or the sale is paid in full (the rest). Marked `credited`; Financials shows it
+  like any other line, and Receivables leaves it out. Leftover credit counts nowhere.
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
@@ -1320,7 +1372,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   so today they're only stored. The sale offers its own kennel's list (the dog's, for a new
   sale; every own kennel's when neither is known), grouped. Picking one copies the name and
   amount, so a later price change never rewrites a sale; from the list it also copies
-  `list_id`, `group` and the plan as dated steps.
+  `list_id`, `group`, the stay's `boarding_days` and the plan as dated steps. Every way a
+  price-list extra reaches a sale (the Sale page, Kels's Prep pups, a family's approved
+  request) builds the charge with `extraCharges.chargeFromPriceList`, so each one links to
+  its price-list row the same.
 - **Payment plans on a sale:** `Sale.extra_charges[].payments` = `[{ id, percent, amount, due,
   n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
   `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
@@ -1344,11 +1399,138 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
   earned income. A fee on the balance itself has no later payment to ride on: she adds it as
   an extra charge before invoicing the balance. Payments recorded by an integration (§32)
-  don't ask on their own; Kels's Pups are going home asks before each balance (§33).
+  don't ask on their own; Kels's Pups are going home asks before asking each family for what they owe (§33).
 - **Kels:** Getting Started sets up the price list (`extra-charges`) and her payment services
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
 - **Not in CSV import/export**; the JSON backup carries both lists.
+- **Paid on its own dates:** `own_due_dates` on a price-list extra or group, copied onto a
+  sale's charge as true (§21.3).
+
+### 21.3 Payment schedules and payments — `data/paymentSchedule.js`, `assets/paymentScheduleUI.js` (`docs/KennelOS_Payment_Schedule_Plan.md`)
+
+**Editions:** all. Saved schedules and the final-payment methods are on the Kennel page,
+which is Pro. Financials, the money report, Receivables (§21, §31) and invoices and
+receipts (§24), contracts (§32, Contract forms), the family's status page (§29), Companion
+(§20), Send payment link and the deposit-request message (§32, §29) and Stripe payments read
+the statement. So do Today's `payment-due` / `payment-missed` nudges (§19) and Kels: Pups are
+going home's Payments item, money still owed and pickup message, and Review my waitlist's
+payments to check (§33).
+
+- **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
+  percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
+  `SCHEDULE_BASIS` / `SCHEDULE_PRIOR_FUNDS`; cleaned by `cleanSchedule`, the last always
+  everything at 100%, one at pickup added if missing) and `payments` (`[{ id, amount, date,
+  method?, account_id?, reference?, note?, toward?, marks_step_paid? }]`, made by
+  `newPayment`). No sale starts with a schedule (D23); none stored = `defaultSchedule`:
+  everything once, on `balance_due_date`, else at pickup.
+- **On an extra:** `own_due_dates` (a price-list row: true/false, unset = its group's; a group:
+  true; a sale's charge: true only, copied by `chargeFromPriceList` from `chargeRules`). An
+  extra is on its own dates only when flagged. On a sale with a schedule stored, every other
+  extra is on the schedule (taken by `extras`, `all` or its name), its own steps not used
+  for dates; money already paid on them still counts (a payment `toward` one of its steps,
+  a step marked paid, never twice). With no schedule, an extra with its own steps keeps them.
+- **The statement** (`paymentStatement`): dates (`dueDateOf`: a typed `due_date` wins, else
+  from the birth date, `before_pickup` in open days, or the pickup date); the charges in pay
+  order (`saleCharges`: deposit, the rest of the price, boarding, extras on the schedule,
+  extras on their own dates, transport last); money → charges (`moneyLedger` /
+  `allocateMoney`, shared with `receivedCredits.allocateCredits`): the application fee credit
+  (toward the deposit up to it, else the price), credits oldest first by their ticked uses (the
+  unpaid fee charge first), the deposit marked received, payments toward one own-dated extra or
+  step, own-dated steps marked paid, payments toward the schedule (never the deposit), then
+  "paid in full"; money → due dates: the deposit is asked first, each due date asks its
+  threshold less the previous (percent of total: that percent of what it covers, deposit in
+  `price`; percent of remaining: that percent of what's left after the earlier thresholds;
+  amount: the previous threshold plus it; capped at the whole), filled in order, earlier money
+  (fee, credits, deposit) first; a "new payments only" due date takes only payments unless
+  earlier money has nowhere else to go. → `{ ended, hasSchedule, schedule, charges, total,
+  paid, remaining, fee, received[], deposit, dueDates[], ownDated[], next }`; statuses met, due soon
+  (7 days), coming up, not received, no date. Fee and credit lines label "<charge> (credited)".
+  A returned/cancelled/voided sale: what was paid stands, nothing owed. Each due date keeps
+  `from` (which money filled it), the deposit `asked` (when it was asked for).
+- **Pieces** (`chargePieces(statement)`): each charge split by due date (the deposit's
+  own, each schedule due date, an own-dated charge's own): its amount, the money on it
+  (`paid[]`, each with `ref` = `kind:id` and `credited`) and what's owed. Each money item's
+  pays (in charge order) are matched to the due dates it filled, and what's owed of each
+  charge to the due dates' owed, in order. Income (§21) and invoices and receipts (§24)
+  read these.
+- **Loading it:** `incomeView.getSaleStatement(sale | id)` gathers the birth date (else the
+  litter's whelp date), the pickup date as contracts read it (`goHome.expectedPickupDate`),
+  her open days, the credited application fee (with its received date), the family's credits
+  and the deposit's due date (a side sale's, else the open offer's respond-by) →
+  `{ statement, sale, kennel, birthDate, pickupDate, opts }`; `opts` lets a page preview a
+  changed sale the same way.
+- **The Payments card** (`paymentsCardHtml` / `wirePaymentsCard`): totals, next payment, the
+  deposit and each due date (what it asks, the date, owed, a status badge), extras on their own
+  dates, the kennel's final-payment methods, and the money received (each with what it paid;
+  more than is owed shows as such). **Record a payment** (`openPaymentDialog`: amount prefilled
+  with the next amount owed, date, method, Paid via (Pro: payment-service accounts), toward the
+  schedule or one own-dated extra, reference, note; Edit and Remove on each). A payment toward a
+  step that covers what's owed on it also sets the step's `paid_date` and remembers it
+  (`marks_step_paid`), so removing it clears the date. When everything is paid, one question
+  offers the paid-in-full date (the last money received) and status (D22), after the dialog
+  closes. Whenever everything is paid and the sale isn't marked (`paidInFullOffer`), however the
+  money came in (a Stripe link included), the card shows **Mark paid in full**, the same
+  question (D34).
+- **The schedule editor** (`openScheduleEditor`): rows from the stored schedule, else the sale's
+  single due date; each row's when (an age, a date, days before pickup, at pickup), covers
+  (Everything, or ticks for the price, boarding, extras, transport and each extra on the
+  schedule), and kind (% of the total, % of what's left, $ counting earlier money, $ new
+  payments only), with a live preview from the statement; **Start from a saved schedule**
+  (`scheduleFromSaved`: its steps with ids of their own, dated from the pup and pickup);
+  **Remove the schedule**. Saving (`readSchedule` → `scheduleProblem`) writes the schedule and
+  mirrors the final payment's date into `balance_due_date` (null when not known).
+- **New fees** (`askAboutNewFees`, D17): after a save that added a transport fee, boarding or an
+  extra (`addedFees`: set or raised, or a new extra), whatever the schedule: "Your current
+  payment schedule is: <scheduleSummary>. Do you need to make any adjustments to schedule the
+  new fees?" → **Adjust the schedule** opens the editor; **Keep it**. Never changes anything.
+- **Where:** the Sale page's Payments section (viewing a saved sale; the form shows the final
+  payment's date in place of the Balance due date box when there's a schedule, D24, and keeps
+  the stored date); the waitlist family page's Details tab, for their open sale (`familySale`),
+  where `afterAction` compares the sale before and after every action on the page, so approving
+  an extra, a pickup with a transport fee or standard boarding asks about the new fee; the
+  Kennel page's **Payment schedules** section (saved schedules: a name and due dates by age or
+  pickup, no typed dates or single extras, `savedSchedules` / `readSavedSchedules`; and **How the
+  final payment is paid**) and the price list's **Paid on its own dates** choice per extra and
+  per group.
+- **What the family is shown** (`familyPaymentsView(statement)`, plan §7): built field by
+  field, never a copy: `total`, `paid`, `remaining`, `deposit`, `due[]` (label, date,
+  `at_pickup`, amount, owed, `final`, state), `own[]`, `received[]` (each charge each piece of
+  money paid, credits as "<charge> (credited)"; only money on the sale) and `next`. State:
+  met, next, past (its date gone by, not marked received: "Was due …", never Overdue, D35),
+  later. Read by the projection (§29, `getSaleStatements` for many sales at once, exactly as
+  `getSaleStatement`) and Companion (§20). `nextPaymentText` is the next payment in words.
+  `owedBy(statement, date)`: what's owed by a day (the deposit, due dates and own-dated
+  charges dated then or before, or not dated) and whether that includes the final payment,
+  for the pickup message (§33). `paidInFullChanges(sale, date)`: what Mark paid in full
+  writes (the date; Paid in full from a deposit status), for the Payments card and Kels.
+- **Messages:** Send payment link (§32, `paymentLinks.paymentOptions(statement)`): the deposit
+  still owed, the next payment (what's still owed by its date) and everything owed, each once,
+  her final-payment methods on the final one. The deposit request (§29,
+  `depositRequest.depositMessageMoney`): the deposit after credits ("after $50 already
+  credited"), what's owed after it, and with more than one due date the schedule in words in
+  place of one balance.
+- **Stripe:** a link for anything but the deposit has component `payment` (`makeSaleLink`,
+  named for the buyer by the option, "Final payment: Maple"). Paid, it becomes a row in
+  `payments` (`integrationEvents.planSalePayment`: amount, date, card, the balance's paid-via
+  account, the reference; once per reference), never paid in full (D22, D34); on a sale still
+  waiting for its deposit the deposit owed (`ctx.depositOwed`, from the statement) is marked
+  received first and the rest is the row. When that covers everything, `integrationApply` adds
+  a Today review (`COVERS_ALL_REASON`). Links made before schedules (`balance`) are read the
+  same way.
+- **Registries:** all new fields private (`syncRegistry`); `payments[].account_id` guards an
+  Account against delete (`referenceRegistry`: a `list[].key` scan). Not in CSV import or
+  export, like extra charges; the JSON backup carries them.
+- **Tests:** `tests/paymentScheduleIncome.test.js` (the ledger against before on every sale
+  without payments, credits or a schedule; payments; D21; released and lost sales; every
+  combination; `paidOnSale`; Receivables by due date), `tests/familyMoney.test.js` (§24),
+  `tests/paymentNudges.test.js` (Today's payment nudges, `extra-due` on a schedule, Review my
+  waitlist's keys, `owedBy`, the pickup message),
+  `tests/paymentSchedule.test.js` (the patterns, the four kinds, transport last,
+  labels, today's anticipated income unchanged without a schedule, every combination of fee
+  credit, credits, deposit, payments, schedule, extras, transport/boarding and status, and the
+  editing helpers, the pieces adding up), `tests/paymentScheduleData.test.js` (the loader on
+  the sample data, Financials agreeing with it, the Account guard), `tests/extraCharges.test.js` (the own-dates rules).
 
 ---
 
@@ -1405,37 +1587,77 @@ omitted. Read-only, through the repos.
 **Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules
 are in `proPages.js`).
 
-`pages/invoice.html?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>` is a
-one-page invoice or receipt for one income record. **Nothing about an invoice is stored**
-except the fields the generator saves on the record (`invoice_number`, `invoice_notes`, and
-for receipts `payment_method`/`payment_reference`); everything is rebuilt on each view.
+`pages/invoice.html?source=family&entry=<id>|sale=<id>&doc=invoice|receipt&cfg=<json>` is a
+one-page invoice or receipt for one **family** (a waitlist entry and the sale it goes toward,
+or a sale no entry claims), and `?source=stud&id=<id>` one for a stud service of our stud.
+Older links `source=sale&id=` / `source=waitlist&id=` read as that sale's or that entry's
+family. **Nothing about a document is stored** except what the generator saves: a typed
+`invoice_number` and `invoice_notes` on the sale, else the waitlist entry (D14), and for
+receipts `payment_method` / `payment_reference` on the sale or stud service; everything is
+rebuilt on each view.
 
 - **One model, two renderers:** `assets/invoiceDoc.js` `buildInvoiceDoc()` decides all the
   text; `invoice.js` draws HTML and `assets/invoicePdf.js` draws a PDF with vendored jsPDF
   (`vendor/jspdf.umd.min.js`, loaded only when a PDF is made; `pdfText()` keeps text
-  Latin-1).
-- **Lines** come from `incomeView.incomeLineItems` (§21): Deposit, Remaining Purchase Price,
-  Transport Fee, Boarding Fee, each extra charge under its own name (§21.2), Stud Fee, or the
-  waitlist application fee. A line's `cfg` key is its component, or `extra:<id>`. Never `pick`, never
-  processing fees, and net of a credited waitlist fee.
-- **Per-line choices ride `cfg`:** `{ key, mode: 'full'|'partial', collected, dueDate? }`.
-  Partial prints the collected amount; Full prints the whole amount and treats `collected`
-  as already paid (an invoice subtracts it, a receipt prints the remaining balance).
-- **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
-  placement, read live unless she changed it; Deposit is "Immediately"). A sale's line
-  already paid (the ledger's earned: a deposit received, carried-over ones too, or lines
-  paid with the balance) prints "Paid" and starts as collected in full, in the default and
-  in the Financials generator, so the balance nets it out. Sale
-  disclaimers as footnotes, and accepted payment methods
-  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
-  **Receipt:** a Payment received box and a Paid stamp.
-- **Issuer:** the record's kennel, else the dog's, else the active, else the sole own kennel,
-  with its logo and the owner contact. Number defaults to `INV-/RCT-<yyyymmdd>-<id>`.
-- **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
-  importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
-  synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
-  `onClose` runs whenever the modal closes (Kels's Pups are going home waits on it).
-  A sale's invoice also has **Send payment link** (§32).
+  Latin-1). The middle column is `colLabel`: Due by (invoices), Received (a family's
+  receipts: date and method), none (a stud receipt). A family's documents end with an
+  **Account summary** (`summary`).
+- **A family's money** (`data/familyMoney.js`, Pro-only, pure but its loaders):
+  `familyAccount({ entry, statement, sale })` → `charges` (the entry's application fee, and
+  the sale's pieces, §21.3: each charge by due date, with the money on it and what's owed),
+  `money` (the fee received, the application fee credited toward the price, credits for
+  funds received used, the deposit, each payment, steps marked paid, paid in full; never
+  $0), `total`, `paid`, `owed`, `next`. The fee credited toward the price is the fee's money
+  again, so with the fee on the account it's counted once. `loadFamilyAccount({ entryId |
+  saleId })` loads it (the entry's sale: `creditSale`, else the sale it was placed with);
+  `listInvoiceFamilies()` lists the families in scope (entries with a fee or a sale, sales
+  no entry claims).
+- **Picks** (`resolvePick`): invoice `owed` | `all` | `sale` | `fee` | `deposit` | `next`
+  (exactly what's owed by the next due date); receipt `all` | `sale` | `fee` | `deposit` |
+  `money:<ref>`. A cfg is `{ v: 2, pick? , lines?: [{ ref, amount? }], money?: [{ ref, key? }],
+  number, notes, methods?, payMethod?, payReference? }`; without one, the source's default
+  (`defaultPick`: a sale's whole invoice or all its money, a waitlist link's fee).
+- **Invoice** (`documentLines`): each line ticked prints its whole amount with its Due by
+  (the schedule's date; "Paid", "Immediately" for an undated deposit, "Date not set yet"),
+  or a typed partial amount "(partial)". A schedule due date whose covers take in more
+  than one schedule charge (`combinedDueIds`: the price and an extra, or the final payment
+  with any extra, boarding or transport) prints as one line, **Combined Price (<due date>)**
+  ("Combined Price (Payment 1)"), its pieces' amounts added; a due date covering one charge
+  keeps that charge's name. Then Subtotal, **Less application fee credit**,
+  **Less credit for funds already received**, **Less amount already collected**, and
+  **Balance** (what's owed on those lines). Footnotes: the deposit's * and, on a sale
+  without a schedule, the due-date note **. Payment: her accepted methods
+  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document); an invoice for
+  the final payment only prints the kennel's `final_payment_methods` instead, and one that
+  includes it adds "The final payment: …" (D9); a fee-only invoice gives her waitlist
+  payment instructions.
+- **Receipt:** only money recorded: each item ticked prints what it paid toward, with its
+  date and method; a credit prints as the line it covered, "(credited)". Totals: Paid,
+  Credited, Total (or Total paid). One item of money fills the Payment received box.
+- **Stud service:** its stud fee line, Full or Partial with an amount already collected
+  (`incomeLineItems('stud')`), a due date per line.
+- **Issuer:** the sale's kennel, else the dog's, else the entry's, else the active, else the
+  sole own kennel, with its logo and the owner contact. Number defaults to
+  `INV-/RCT-<yyyymmdd>-<id>`.
+- **Generator** (`assets/invoiceGenerator.js`): pick a family or a stud service, Invoice or
+  Receipt. A family's invoice lists its lines grouped by due date, the ones still owed
+  ticked, with **Next payment**, **Everything owed**, **Clear** and **Bill part of it**; a
+  receipt lists the money recorded, all ticked, with **Record a payment** (the Payments
+  card's dialog, §21.3) so new money is recorded first. Due dates aren't edited here; they're
+  the schedule's. Opened from Financials, a Sale's page (`preselect: { source: 'sale' }`), the
+  waitlist family page (`{ source: 'entry' }`) and Kels's Pups are going home, each importing
+  it only when `editionFlags.invoicing` is on. It opens the new tab **blank, synchronously in
+  the click**, then navigates after saving, or iOS Safari blocks the pop-up. `onClose` runs
+  whenever the modal closes (Kels waits on it). A document with a sale also has **Send payment
+  link** (§32).
+- **The waitlist family page's Documents** (`familyDocs`): the application fee's invoice and
+  receipt, the deposit's invoice and receipt (always while there's a deposit, "(credited)"
+  when credits or the fee covered it), a receipt for each payment, an invoice for the next
+  payment, and **Make a combined invoice or receipt** (the generator on that family). Each is
+  a pick, so the page and the generator agree.
+- **Tests:** `tests/familyMoney.test.js` (the $0 deposit receipt and the missing deposit
+  receipt, every combination, the page's documents through `buildInvoiceDoc`, older links),
+  `tests/invoicePdf.test.js`, `tests/pickToSend.test.js`.
 
 ---
 
@@ -1694,7 +1916,8 @@ restored into Lite keeps its waitlist rows, dormant.
   a back-out), which gives that withdrawal its 7-day undo; `expired_date` and
   `fee_received_manual` do the same for a fee expired and a fee she marked received;
   `program_suggestions_declined` (private) lists the programs she answered No to under
-  "Add to [program]?" (below); see `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
+  "Add to [program]?" (below); `off_list` (cloud) marks a family page only (below); see
+  `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
@@ -1727,22 +1950,21 @@ restored into Lite keeps its waitlist rows, dormant.
   small deposit taken before a litter was born. Each credit is `{ id, amount, date, method?,
   note?, applies_to }`, `applies_to` from `vocab.CREDIT_USES` (application fee, deposit, rest
   of the purchase price, extras/transport/boarding), all ticked on a new one. How a credit is
-  used is never stored: `allocateCredits` spreads the credits, oldest first, over the
-  family's charges in that order, each only toward its ticked uses; what's left is their
-  credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
+  used is never stored: `allocateCredits` (on the shared `paymentSchedule.allocateMoney`,
+  §21.3) spreads the credits, oldest first, over the family's charges in order, each only
+  toward its ticked uses; what's left is their credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
   `fee_credit_amount`, the part a credit paid, which `waitlistActions.feeReceived` records,
   0 for a fee paid online), then the lines of the sale the credit goes toward
   (`familyExtras.creditSale`: `familySale`'s pick, a delivered sale included, never a
-  returned/cancelled/voided one, whose credit is theirs again), at full amounts
+  returned/cancelled/voided one, whose credit is theirs again), at full amounts, in the
+  order money pays them: deposit, price, boarding, extras, transport last
   (`incomeView.saleCreditCharges`). `incomeView.familyCredit(entry, sale)` is the result;
   `getSaleCredits(saleId)`, `getEntryCredit(entryId)` and `getCreditedByLine(source, id)`
   load it. Taken off wherever an amount is shown to the family: their status page's fee
   (`fee_due.amount` less `fee_due.credit`; no Pay link then, since it charges the whole fee)
-  and deposit (`offers[].deposit_credit`); the invoice/receipt generator and the default
-  document (each line's "already collected" starts at the credit's share, carried as the
-  cfg line's `credit`, which prints as its own **Less credit for funds already received**
-  total on invoices and receipts; a receipt's lines stay whole, then Subtotal, the credit
-  line, and Total paid, what they paid now); payment
+  and deposit (`offers[].deposit_credit`); invoices and receipts (§24: an invoice's
+  **Less credit for funds already received**; a receipt prints a credit as the line it
+  covered, "(credited)"); payment
   requests (owed lines less it); `contractSend.balanceDueOn`; the Companion remaining
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
@@ -1752,6 +1974,8 @@ restored into Lite keeps its waitlist rows, dormant.
   next turn are dated today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
   deposit carry only what was paid beyond the credit, which stays on the entry.
   Tests: `tests/receivedCredits.test.js`.
+- **`invoice_number` / `invoice_notes`** (private): a typed document number and notes the
+  invoice generator keeps on the entry while the family has no sale (§24, D14).
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
   `public_icon` (vocab `WAITLIST_PROGRAM_ICON`: star, check, heart, ribbon, medal, shield,
@@ -1803,7 +2027,8 @@ restored into Lite keeps its waitlist rows, dormant.
     (`apply.js` `labelHtml`; wording without the word gets *"Read our policies"*); the status
     page's card before Messages, links at the turn (before a pick), the deposit block and
     Backing out (matched by heading words), and a banner *"[Kennel] updated their waitlist
-    policies on …"* while `policies_updated` is after the family's `applied_date` and this
+    policies on …"* (**Read our policies**) while `policies_updated` is after the family's
+    `applied_date` (published for a placed family with an open sale too) and this
     browser hasn't opened them (`localStorage` `kos-policies-seen:<public_id>`, try/catch).
     Under a `days` policy: *"Upcoming closed dates: Dec 24–26, Jan 1"*.
 
@@ -1886,9 +2111,67 @@ it computes is stored.**
 - **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
   else `fee_received_date` (else `approved_date` when the fee was waived), then
   `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+- **Pup selected** (Waitlist Fixes Plan §3.1): a family the list placed keeps its place and
+  its number until the pup has gone home. `holdsPlace(entry, { sales, dogs })`: `placed`,
+  not archived, not `off_list`, its `placed_sale_id` sale open (`vocab.isOpenSale`: not
+  Delivered, returned, cancelled or voided) and its pup not gone (deceased, pet home,
+  External, archived); a side-sale placement too. **Two lists:** `rankedList` is waiting
+  families only, and every turn rule reads it (a family with a pup selected is never
+  offered a turn); `numberedList` adds the holders in the same order (`compareEntries`), and
+  every number reads it: `overallPositions` (its size is the "of N" total), `prefPlaces`,
+  `publicList`, `publicSelected`. Those require `{ sales, dogs }` (arrays or Maps by id) and
+  throw without them, so no screen can number the old way. A deposit ahead moves nobody; the
+  pup going home (Delivered or External) moves everyone behind up one; a lost pup's family
+  put back in line (`restoreAfterLostSale`) takes back the number it held. Her app: the
+  Waitlist page's **On the list** card shows them at their numbers with a ✓ and a **Pup
+  selected: [pup]** badge (not in Closed), and their own page a "#3 of 7, Pup selected" line.
+- **Placed family** (reports): `isPlacedFamily(entry, sales)`: a `placed_sale_id` whose sale
+  wasn't cancelled or voided (a back-out or a lost pup); a returned sale still was a
+  placement. `holdsPlace` is the narrower "still holds a number".
+- **Litters the waitlist shows:** `isWaitlistLitter(litter, kennel)` / `waitlistLitters(kennel,
+  litters)`: a live stage (`LISTEN_LIVE_LITTER`: expected, whelped, weaning, ready), not
+  archived, this kennel, not `waitlist_off`. The projection, the Waitlist and family pages, the
+  side-sale dialog, Today and the listen-only choices all use it (`waitlistProjection.LIVE_LITTER`
+  is the same list). `isPicksOpen(litter)` is the turn rules' "picks open": a `waitlist_off`
+  litter never is, even with a stale `picks_opened_date` (`turnLittersFor`, `nextTurn`, the
+  projection's turn queue, the server's queued turns, the picks preview).
+- **Family page only:** `isFamilyPageOnly(entry)` (`off_list`); `listRecords(entries)` drops
+  them for every reader that counts the waitlist's families (below).
+- **Reserved pup** (Already Reserved, §3.2): `isPupReserved(dog)`: disposition Placed, not
+  archived, not deceased or External: the website's rule (`siteExport.puppyStatus` over the
+  pups it lists; a test keeps them in step). Never also available.
 - **Available pup:** not archived, not deceased / pet home / external reference,
   disposition `available` (unset reads as `undecided`, never offered), and no live Sale
-  (`waitlistRules.isPupAvailable`).
+  (`waitlistRules.isPupAvailable`), except that a side sale still waiting on its deposit takes
+  the pup only when `side_holds_pup`.
+- **Side sale** (`docs/KennelOS_Side_Sale_Spec.md`): she sells a pup to a family on the list
+  outside the turn order. A deposit-pending Sale with `side_entry_id` (FK → waitlist entry,
+  `referenceRegistry`), `side_deposit_due`, `side_holds_pup` (the pup wasn't Available, so it's
+  held for them), `side_prior_disposition` (put back on a cancel) and `side_request_sent_date`
+  (Review sale & send); all cloud fields. Never a `waitlist_offers` row, so no turn rule sees
+  it and it never counts as a pass. `waitlistActions.recordSideSale` (families on the list
+  only, not while they hold the turn or have one pending; any pup but placed, gone or
+  archived; `sideSaleIssues` names what doesn't fit and she may go ahead; a non-Available pup
+  becomes Available; optional `answersToFit` and intended registration), `confirmSideDeposit`
+  (sale deposit paid, pup and family placed; refused for a family no longer `active`; no turn
+  moves on, unless a turn ended there: one the server gave them, moved on as `accepted`, or
+  another family's turn left with no pup, moved on as `left`), `cancelSideSale` (family keeps
+  their place; a held pup goes back). A family leaving the list loses a pending side sale
+  (below, **Leaving releases turns**). A family with a pending side sale gets no turns
+  (`eligiblePupsFor` → []), and a turn the server gave one while her phone was off isn't
+  recorded (`planServerEvent` notes it). **Two claims on one pup** (`pupClaims`: live sales and open turn
+  picks): she's warned before a second (`waitlistUI.confirmSecondClaim`, the turn pick and
+  switch dialogs, the side sale dialog, the deposit dialogs); when one deposit is recorded the
+  other ends (`resolveOtherClaims`: a side sale cancelled; a turn pick let go, its turn open
+  on what's left or voided with nothing left, never a pass), reported through
+  `describeOfferChanges`' `resolved`. Today: an overdue side deposit (**Cancel side sale**) and
+  **Two sales on [pup]**. Pages: **Record a side sale…** and a Side sale card (Review sale &
+  send, Deposit received, Cancel) on the family's Interact tab; **Sell to a waitlist family…**
+  on the picks panel (`assets/sideSaleUI.js`, Pro-only). The projection publishes it in the
+  family's `offers` exactly as an open turn row with a pick (place hidden, same card), marked
+  `direct: true` for the Worker only: `serverMoves.openTurns` skips it (never blocks, closes or
+  moves a turn) except for reminders, and the public list doesn't mask that family as
+  deciding. The family view never carries the marker.
 - **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
   include the pup's `intended_registration`), and color only with `color_matching`. Unset
   on either side matches.
@@ -1904,6 +2187,17 @@ it computes is stored.**
   turn made only of those is passed at once and reported (`auto_passed`).
 - **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
   undo that forgives the latest pass.
+- **A turn left with no pup** (`turnIsEmpty`, `emptiedTurns`: no pick waiting on its deposit
+  and none of the pups its rows listed, `eligible_dog_ids`, still available) ends, never as a
+  pass: `waitlistActions.endEmptiedTurns` voids its rows with a note, adds a line to the
+  family's activity, and moves the turn on as `left`. It runs after `confirmDeposit` and
+  `confirmSideDeposit`, and after any change to her data: `watchEmptiedTurns`, started by
+  `app.js` (Pro, not Demo), runs it shortly after each `CLOUD_DATA_CHANGED_EVENT` and once on
+  load, waiting while a dialog is open, and the page says whose turn ended and who's next
+  (`waitlistUI.reportEmptiedTurns`, `describeOfferChanges`' `ended`). A pass or no response
+  recorded on such a turn never counts (`recordOutcome`; `passes.empty`). The Worker neither
+  closes it at its deadline nor reminds the family (`serverMoves.turnIsEmpty`, from the
+  projection's available pups).
 - **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
   `overdueFees`).
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
@@ -1926,7 +2220,17 @@ it computes is stored.**
   date added is an ⓘ bubble at the row's end (hover, focus or tap), not a column; the
   copied text leaves it out. The Worker passes `wants_more` on as at most 6 strings of 200
   characters. Names are
-  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
+  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`,
+  read through `publicNameParts`: "Smith, John" as "John Smith", a leading "The" or title
+  dropped, a trailing "Family" / "Household" read as a household ("S. Family", "S**** Family").
+  The name they're built from is `publicSourceName`: the family's name, but the application's
+  own when the linked contact is named as a household or "Last, First". Both Approve dialogs
+  (the family's page and Kels) always show the public form.
+  Numbers come from `numberedList`: a family with a pup selected isn't a row (its number is a
+  gap, read by an older page as "names not displayed", which is true of it); `publicSelected`
+  gives those rows, `{ position, name, added, program? }` (never the pup, a date of sale or a
+  price), published as `public_selected`. The copied text (`publicListText`, `selected`) puts
+  them in at their numbers ("✓ #3 Smith J. · Pup selected") before the gap note is worked out.
   **Paused families are left out and their numbers skipped**, and no family count is shown.
   With `waitlist_config.public_show_paused` on (Waitlist settings, "Show paused families on
   the public list"; off by default) they show at their number instead, as
@@ -1965,12 +2269,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
   back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
   fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
-  `fee_received_at`, back to approved, and only until they're offered a turn). Each keeps the
+  `fee_received_at`, back to approved, and only until they're offered a turn or have a side
+  sale; `canUndoFeeReceived` needs the sales). Each keeps the
   family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
   their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
-  those litters on.
+  those litters on. A side sale still waiting on its deposit is cancelled too
+  (`cancelSideSale` with `leaving`: a held pup goes back), returned as `side_released`.
 - **Automatic offers are off by default**, per moment: `waitlist_config.auto_offer_on`
   lists the closings that offer the next family by themselves (`accepted`, `passed`,
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
@@ -1994,6 +2300,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   noted on each of its offers.
 - **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
   when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
+  It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
+  'closed'`, `closed_by: 'back_out'`): no email is offered for them, their page doesn't list
+  them, and `slotBookings` no longer counts the time (it also skips any record with no open
+  sale, its `live` test). A family page only can't Move the deposit (refused).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -2001,22 +2311,80 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   pick (`carried_payment`, paid as that pick's deposit when it's recorded). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
   `assets/salePrompts.js`.
+- **Family pages without the list** (Waitlist Fixes Plan E3): a family who bought before she
+  used the waitlist (or outside it) gets a status page without ever being on the list. A
+  record `placed`, `off_list: true`, `placed_sale_id` its sale, no application, fee or place
+  (`addFamilyPage(saleId)`; refused for an ended sale, a sale with no buyer, or one another
+  record claims: `waitlistRules.familyPageBlocker`). Its status link is minted on publish like
+  any record's. `soldBeforeWaitlist(litterId)` sets `Litter.waitlist_off` and makes a page for
+  each live sale of its pups with a buyer (`familyPagePlan`, read first through
+  `soldBeforeWaitlistPlan`); refused while picks are open, a turn is open on it, or a side
+  sale waits on its deposit. `putLitterOnWaitlist` undoes the litter flag only.
+  `setFamilyPageOnly(entryId, on)`: a placed family with an open sale stops (or, `on: false`,
+  starts again) holding its place. `openPicks`, `offerNext`, `offerTo` and the picks preview
+  refuse a `waitlist_off` litter. What these records get: the cards a placed family with an
+  open sale gets (pup, pickup, extras, transport, backing out, portal or Companion link,
+  policies, recommended, her messages), and `page_only` on their projected entry, so their
+  page never mentions a waitlist. What never shows them: `holdsPlace` (no number, nobody
+  numbered after them), `rankedList`, the public list and its Pup selected rows, Closed, the
+  funnel, Applications, Waitlist Today's pipeline, Offers & Removals, the year review
+  (`listRecords`), Kels's Review my waitlist, `deriveContactWaitlistStatus` (the contact is
+  never "on the waitlist"), and `lostSaleFamily` (D8: a lost pup never puts them in line; a
+  back-out is Keep or Refund). **Apply to the list…** starts an ordinary application.
 
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
-  list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
+  list, Litters with "Next: <family>" and **Offer to them**, **Family pages only** (each
+  family page: the family, their pup, gone home or not), Closed; everything else under
   **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
   application fields come from `assets/waitlistApplicationForm.js`, shared with Kels; History's
   **Timeline**, newest first, is read from the entry's dates, its offers (offered, picked,
   deposit request sent, accepted / passed / no response / closed, backed out; a placed sale
   with no offer on this device shows as "Placed with [pup]"), their status-page requests and
   her decisions (pause, litters, Companion link, answers, backing out, each extra and pickup;
-  a one-at-a-time request keeps only its latest), and the answer-change log),
+  a one-at-a-time request keeps only its latest), and the answer-change log; Interact's
+  **View their page ↗**, shown once the family has a link online, below),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
-  queue, history. It re-reads the litter after each write.
+  queue, history. It re-reads the litter after each write. **Non-Waitlist Sales…** shows
+  there while picks aren't open and nobody holds a turn on it and a pup has a sale with a buyer
+  (on its own small **Waitlist** card when the panel would be empty); its dialog lists each pup →
+  buyer, any pup with no sale, and a buyer on her do-not-sell list. A `waitlist_off` litter's
+  panel lists its family pages, **Make N more family pages…** and **Put back on the waitlist…**.
+- **Sale page** (Pro, with the waitlist): **Give this family a status page** (`addFamilyPage`)
+  when the sale can have one, else a link to the record that claims it (**Family page** /
+  **Waitlist family**). The Buyer field warns when the chosen contact is on her do-not-sell
+  list (K7-9), as the Side sale dialog does for the family; only a warning.
+- **A family's page** (`waitlist-entry`) for a family page only: "Family page only" in its
+  status, no public-list name row, no **Move the deposit** on a back-out request, **Apply to
+  the list…** in place of Re-apply. A placed family with an open sale gets **Keep off the list
+  (family page only)…**; one that was on the list (fee received) can be **Put back on the list…**.
+- **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
+  panel, the Waitlist page's litter rows, Kels's litter check-in, Today's and Kels's Review my
+  waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
+  `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
+  fresh records first and asks again if the result changed. With picks open, the panel's
+  **Who's in line…** opens it without that button. Its decisions come from
+  `data/picksPreview.js` (pure, shared): `previewPicks(data, { litterId, today, view, eitherAs,
+  configDraft })` simulates `openPicks` / `offerNextTurn` on copies (offer, join with the
+  deadline restart, wait, "Not this litter" passes on the way, none) and lists the turn order
+  across every open litter plus this one (`view: 'combined'`; `'alone'` = this litter only,
+  marking families also in line elsewhere), every pup with why it isn't offered
+  (`pupBlockers`, mirroring `isPupAvailable`) or its setup flags (`pupFlags`), two claims on one
+  pup (`pupClaimCount`), who qualifies for each pup in order (the family holding the turn on it
+  first) and "within reach" per sex, every family left out with every reason
+  (`exclusionReasons`, following `eligiblePupsFor`; `mismatchFields` names the answers that
+  rule a pup out), families applied or with the fee not recorded, and soft checks on the
+  list's families (blank looking for, a breed not among hers, no email, no fee date). The
+  **Either** switch (`withEitherAs`) reads Either families as female or male for the lists;
+  the action line always uses their stated answers. Her turn settings (respond days, passes,
+  no response counts, color matching, open days, closed dates, automatic offers) preview live
+  as a draft and save to `waitlist_config` after `waitlistConfigProblem`; a pup's
+  disposition, intended registration and sex save from its row. `?preview=<litter id>` stays
+  in the address while it's open, so coming back from a family or pup link reopens it.
+  `tests/picksPreview.test.js` checks it against the real actions.
 - **Kennel page:** the Waitlist settings card: folded groups (`<details class="settings-group">`,
   closed at first, open ones kept across Save) under one Save: **Fees & payment**, **Turns &
   offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,
@@ -2029,7 +2397,17 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   KennelOS when the list is online.
 - **Communicate…** (`waitlistEmailUI.communicateDialog`): emails that fit now, or a suggested
   message to share from her phone. KennelOS itself sends only the queued emails below.
-- **Documents:** fee receipt, puppy invoice and receipt as PDFs (§24).
+- **Payments** (the family page's Details tab, with an open sale: `familySale`, the one
+  they're placed with, their open pick's, or an open sale to the same contact that no
+  record of theirs claims): the sale's Payments
+  card, the schedule editor and Record a payment, with **Open the sale** (§21.3).
+  `afterAction` compares that sale before and after every action on the page, so approving
+  an extra, a transport fee or a pickup with boarding asks whether to adjust the schedule
+  (`askAboutNewFees`, D17).
+- **Documents** (History tab, with `invoicing`; `familyMoney.familyDocs`, §24): the
+  application fee's and the deposit's invoice and receipt, a receipt for each payment
+  received, an invoice for the next payment, each **View** or **Download PDF**, and **Make a
+  combined invoice or receipt** (the generator on this family).
 - **Fee paid online** (Pro with Accounts; Integrations plan §4): **Fee paid online via** a
   Payment service account (`kennels.waitlist_fee_account_id`), asked for at application or
   once approved (`fee_link_when`). Reusable Stripe links per fee amount
@@ -2042,7 +2420,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`. With
   the deposit already in (`incomeView.depositPaid`), the message thanks them for it instead
   of asking (`depositRequestMessage`'s `depositPaid`): no due date, no payment link or Stripe
-  link, her payment instructions only for a balance. A placed family's pick whose sale is
+  link, her payment instructions only for a balance. Its money is the sale's payment
+  statement (`depositMessageMoney`, §21.3): the deposit after credits, the Stripe link for
+  that, what's owed after it (or the schedule in words), her final-payment methods. A placed family's pick whose sale is
   still at deposit paid and wasn't sent from here gets **Send contract & invoice…** (the
   same modal). On a pick still awaiting its deposit while the family carries one, the send
   first offers to mark that deposit received (`confirmDeposit` with the carried amount and
@@ -2147,8 +2527,48 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   sex), the label once above each, "None left" under an empty one, each name its photos link
   when it has one, then "· Limited" / "· Full" when set (`common.pupRegistration`; an
   undecided pup shows none, as no prices show there). So available pups' call names are public wherever the list shows that litter.
-  The public list's Available Puppies and Coming up cards are centered, like the status
-  page (`main.centered`), by `#available, #upcoming` in `family.css`.
+  **Already Reserved**: each projection litter also carries `reserved` (`isPupReserved`
+  pups, the same allow-listed `publicPup`), and the Worker's `litterCard` passes it through
+  `cardPups`. `pups` stays available pups only: a turn's pups (`statusView`, `pups` ∩
+  `eligible_dog_ids`), the Worker's automatic offers (`serverMoves.nextFromQueue`) and the
+  turn prices read `pups`, never `reserved`. With a reserved pup, `pupColumnsHtml` draws two
+  sections, **Still Available** then **Already Reserved**, each with Males and Females
+  columns (side by side; stacked under 520px, `.pup-sections`); a litter with nothing left
+  reads "No puppies remaining" over its Already Reserved columns; without one the card is as
+  before. Nothing says who reserved a pup. The Waitlist page's Litters card has a
+  **Reserved** count and keeps a litter while it has a pup available or reserved.
+  **Pup selected rows online:** `listView.selected` / `statusView.public_selected`
+  (`familyPages.selectedRows`: a positive whole number, a name of at most 80, the date, a
+  known program icon) and `common.publicListHtml(rows, query, mine, selected)` puts them in
+  at their numbers: a ✓ by the number, the name, *Pup selected* under Wants
+  (`tr.selected`); search by name or number finds them, and the "names not displayed" note
+  is worked out after they're in. `/f/site` gets `selected` and `available[].reserved` the
+  same way (KennelPort draws them when taught to).
+  **A family page only online:** the projected entry's `page_only: true` passes through as
+  `statusView.family.page_only`; `status.js` then says "This page has your pickup times,
+  extras and messages" for placed (and "Your puppy's sale has ended" under a **Sale ended**
+  badge once they back out), never "your time on the waitlist". They're in no `public_list`
+  or `public_selected` row, and their litter (`waitlist_off`) is in no `litters`,
+  `upcoming` or `turn_queue`.
+  **Their payments** (Payment Schedule plan §7): with an open sale (`companion.available`),
+  the projected entry carries `payments` (`familyPaymentsView` of the sale's statement,
+  §21.3, from `incomeView.getSaleStatements` in `cloudWaitlist.projectionFor`; plus
+  `how_to_pay`, her payment instructions, and `final_methods`). The Worker copies it field by
+  field (`familyPages.paymentsOf`: amounts, dates, her labels cut to 120, states from a fixed
+  list) into `statusView.family.payments`, and `status.js` draws **Your payments**: the next
+  payment (or Paid in full), Total / Paid / Still owed, the deposit and each due date (Paid,
+  Next, "Was due …", or when), extras on their own dates, how to pay, her final-payment
+  methods with the final payment, and what's been received. A pick's turn card takes
+  `deposit_credit` / `deposit_fee_credit` from the same statement. The KennelPort portal feed
+  (§35.1) carries no amounts (D33). The application fee card shows the fee itself as its
+  headline and, when the link charges more (her card fee passed on), "Paying by card adds $X"
+  beside the button (`fee_pay.fee`, K8-10).
+  The public list's Available Puppies and Coming up cards center what's inside them
+  (`#available, #upcoming` in `family.css`); their headings stay left like the page's other
+  folded cards. On the status page (`main.centered`) every card's heading and content are
+  centered. The section labels (Still Available, Already Reserved) are bold in title case,
+  like the cards' other labels, and an empty column's "None left" / "None"
+  (`.pup-col-empty`) sits on the line of a pup's name in the next column.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a
@@ -2158,6 +2578,24 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   The "Choose [pup]?" dialog says the same before they confirm. One sign-in acts on any of
   them (`familyFor` allows the page's entry when it shares the session entry's email;
   the action goes to the page's entry).
+- **View their page** (the family's Interact tab; `waitlistUI.openStatusPage`): their live
+  status page, in a new tab, as they see it signed in. It opens the tab at the tap, then
+  `cloudWaitlist.statusPagePreview` publishes, forced and `asked` (so the app's tab, now
+  behind the new one, still publishes on a syncing program), and asks
+  `POST /waitlist/preview` (`waitlist.previewStatusPage`: Pro, any of her devices, her
+  published kennel, a family with a link) for `{ token, preview, until }`. `preview` is
+  `<until ms>.<HMAC>` over the token and end time (`EMAIL_HMAC_KEY`, `status-preview:`
+  prefix; `PREVIEW_MS` = one hour; no table). The tab goes to `/s/<token>#preview=<value>`:
+  the fragment never reaches a server or a referrer; `status.js` sends it as the
+  `x-status-preview` header on `GET /f/status`, which then adds `preview: { until }`
+  (`previewUntil`) and doesn't stamp the token's `last_used_at`. With it the page draws as
+  signed in (ignoring any family sign-in saved in her browser), a **Preview** note in place
+  of Sign In, every button and form working up to the send, which says "Preview: nothing was
+  sent" (`send`, the portal button); the policies banner isn't marked seen. An ended or
+  forged preview reads as the plain page with "This preview has ended". It never stands in
+  for a family session (`/f/act`, `/f/message`, `/f/portal` don't read it). Signed out, or
+  the server refusing, she gets their plain link with a note that it lacks the signed-in
+  buttons; a publish that didn't work adds `onlineProblemText`.
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;
   `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
   `takeInApplications` opens them on the server-work device and makes `applied` entries
@@ -2199,8 +2637,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **Copy to another litter**; `Litter.pickup_slots`), each date with a rule
   (`Litter.pickup_date_rules`, `pickupSlots.dateRules`: **Requires** one of her extras, or
   **Standard boarding applies** at `waitlist_config.boarding_rate` per day). For a family with an open sale the
-  projection's `entry.pickup` (`familyPickup.familyPickupView`): times from the pup's ready
-  date or the day after its training stay (`pickupFrom`) with room left (`slotBookings`:
+  projection's `entry.pickup` (`familyPickup.familyPickupView`): times from
+  `PICKUP_EARLY_DAYS` (7) before the pup's ready date (seven weeks with the 8-week default),
+  or from the day after its training stay when that's later (`pickupFrom` with `earlyDays`;
+  `ready_from` is that first day), with room left (`slotBookings`:
   placement events with `details.pickup_slot_id` plus waiting requests), their booking with
   `change_until`, the rules on the dates they can see (`dates`: `requires` + `has_it`, or
   `boarding`; a package date's times can't be chosen until the extra is on their sale, and
@@ -2209,15 +2649,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `home_place` at all: a place on file that couldn't be measured isn't asked again; their
   entry's Pickup card says so and she can choose); the projection's `server`
   part carries her standard location's address for the Worker only. Their page's **Pickup**
-  card books a time, changes or cancels it until her cutoff, suggests their own address, or
-  says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
+  card books a time, changes or cancels it until her cutoff, suggests their own address
+  (with the day and time they'd like, both optional; the Worker refuses a time that isn't
+  `HH:MM`, `bad_time`, and the request keeps it as `start_time`, prefilled as the Time when
+  she approves), or says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
   Worker counts other families' unapplied bookings against a time's room, and measures an
   address with Mapbox: `miles`, `far`) become `entry.pickup_requests`; `home_location` sets
   `home_place` / `home_miles`. Her device measures a family's home once from their
   application's City / state or contact address (`cloudWaitlist.measureHomes`, during sync).
   **Approve** (`approvePickupRequest`): a time → the pup's placement event (Local pickup,
   the time, the place, `pickup_slot_id`), and on a boarding date her standard boarding
-  (`standardBoarding`: per day from `pickupFrom` to the day before) as the sale's deferred
+  (`standardBoarding`: per day from `pickupFrom`, the ready date itself, to the day before;
+  a time before the ready date has none) as the sale's deferred
   boarding (`boarding_from_pickup` marks it) plus a logged stay (`details.pickup_boarding`),
   both taken off again (`clearPickupBoarding`) by a later approval or cancel. These fill the
   sale's existing fields (`transport_fee`; the deferred boarding amount / frequency / count),
@@ -2226,11 +2669,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `applyPickupBoarding`), and a transport fee left after a time or a cancel is reported
   (`transportFeeLeft`; the entry page offers **Remove it**, `clearTransportFee`; Today says
   so in its message); the address form starts with the fee already on the sale, with
-  **Use $N** for the suggestion; an address → a form with the day, time, method,
+  **Use $N** for the suggestion; an address → a form with the day, time (prefilled with the
+  time they asked for; `approvePickupRequest` uses that time when it's given none), method,
   miles (**Get driving miles**, **Open in Maps**) and the fee (`transportQuote`, the
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
+  A pickup she logs another way while a family's time or own place still waits
+  (`familyPickup.pickupWish`; `waitlistActions.pickupWishesFor` finds each sale's family)
+  starts with what they asked for: Today's **Schedule pickup** / **No, new pickup date**
+  (the event form's date, `placement_time`, `location` and method; the nudge's detail says
+  so) and Kels's **When's the drop-off?** (`pickupsForm`: the row's day, time and how, the
+  place saved as the event's `location`). Their request still waits for her decision.
   The entry page's **Pickup** card shows where they live and a dropdown, **Can they suggest
   their own meetup place?**: **Use my distance rule** (the default, `own_place_override`
   null; its hint says what the rule decides for them) / **Let them suggest a place** (true) /
@@ -2257,7 +2707,13 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
   health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
   litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
-  extras have a **Done** tick (`completed_date`).
+  extras have a **Done** tick (`completed_date`). **After she decides:** an approved back-out
+  stays on the family's page for the days a decided request does (`requestView`), with or
+  without a sale: `entry.back_out` is `{ available: false, request }` once the sale has ended
+  (no form, no reasons), and the page says what happened to the deposit (kept, moving to
+  their next pup, refunded). The email she's offered is the outcome's own
+  (`backed_out_keep` / `backed_out_move` / `backed_out_refund`, each a template she can
+  reword), not `request_approved`.
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family
   with an open sale, and an address request), never the server; placeholders `[Distance]`
   (" You're about N miles from us.", from their latest measured address) and
@@ -2284,7 +2740,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   active breeding females, as `expected_month` `YYYY-MM` only, never the day; no waiting or
   "Not this litter", and the server refuses a prepass on one); a born litter gives each family a match / review note (`whelpNotes`).
   Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
-  (`depositsDueLitters`).
+  (`depositsDueLitters`); its action returns `{ openPicks: litterId }` and Today (or Kels's
+  Review my waitlist) opens the picks preview with `openPicksFromCheckin`.
 - **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
   carries `kennel.embed.origins` and the Worker sets `frame-ancestors` for `/apply` and
   `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
@@ -2436,7 +2893,9 @@ already lists.
 
 **Editions:** Pro and Demo only (`editionFlags.reports`; every `*-report` page is in
 `proPages.js`). Lite keeps the shared Active Roster and Live-Birth Summary pages, with their
-charts and Print.
+charts and Print; they read only shared modules (the Live-Birth Summary's loader is its own,
+its figures `reportMath.liveBirthFigures`; `tests/liteImportGraph.test.js` checks no page Lite
+keeps imports a Pro-only file), and Lite hides the page's ← All reports.
 
 The hub (`pages/reports.*`) lists `data/reportCatalog.js` in tabs (Money / Breeding /
 Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with **Year in
@@ -2468,9 +2927,12 @@ print CSS hides the app chrome and prints the kennel logo and name, the title, r
 filters, and the date.
 
 **Money by period (`data/moneyReport.js`):** reads the same scoped rows as the Financials
-Overview, so they always agree. Cash basis: each income component has `when`
-(`incomeView.saleComponentDate`) and `due` (only a due date she set; Receivables ages by
-it). Anticipated income never enters Net; pick value is never money in.
+Overview, so they always agree. Cash basis: each income component has `when` (a sale's from
+`incomeView.ledgerComponents`: money on its own date, what's owed on its due date) and
+`due` (a due date of money still owed; Receivables ages by it). Receivables
+(`receivableRows`) is one row per sale and due date (`due_id`), listing what it's for, and
+leaves out credit-covered money (nothing is owed on it). Anticipated income never enters
+Net; pick value is never money in.
 
 **The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
@@ -2496,7 +2958,10 @@ purposes (each picked counts, `purposesWanted`), parents (any / only certain / a
 certain, and the dogs named, `parentsWanted`, `parentsNamed`), breed when more than one is
 named, color when one of her kennels matches on it). **Waitlist Today** (a snapshot, no range:
 active entries in list order per kennel from `overallPositions`, paused by `isPaused`,
-waiting since `listedSince`: anchor, else fee, approval, application). **Offers & Removals**
+waiting since `listedSince`: anchor, else fee, approval, application). A family that backed out
+is never Placed (`isPlacedFamily`): the funnel puts it at Offered, days-to-placement leaves
+it out, its exit is **Backed out** (`exitGroup` `backed_out`), and its accepted offer is
+**Accepted, then backed out** (`accepted_backed_out`). **Offers & Removals**
 (one row per closed offer and per family that left, by when: accepted / passed / no-response
 shares of closed offers, families who passed at least once, and exits by `EXIT_GROUPS`;
 `RULE_REMOVAL_REASONS` (second pass, no check-in answer, no ready-check answer, fee not
@@ -2508,7 +2973,7 @@ apart from removals she made).
 ## 32. Accounts (business logins & referral codes)
 
 **Editions:** Pro and Demo only (`editionFlags.accounts`). The vendor features hanging off
-Accounts (payment links, Stripe, Jotform) are Pro too. Design:
+Accounts (payment links, Stripe, contract-form links) are Pro too. Design:
 `docs/KennelOS_Integrations_Plan.md`.
 
 `pages/accounts.*` (the Storage hub's third tab) keeps her business accounts (AKC, Good Dog,
@@ -2550,24 +3015,231 @@ like `recommendedOf`) shows them only to a family whose entry has an open sale
 Share with families hint and the card's badge say so for this type.
 
 ### Contract forms and e-signature (plan §2.1)
-- A **Form service** account (`form_service`, e.g. Jotform) holds `contract_forms[]`
-  (`{ id, form_type, label, url, form_id?, field_map? }`; types from
-  `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
-  registration by `contractForms.rankForms`).
+- A **Form service** account (`form_service`, any form service) holds `contract_forms[]`:
+  her pasted form links (`{ id, form_type, label, url, form_id?, field_map?, extra_list_id? }`;
+  types from `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for
+  a sale's registration by `contractForms.rankForms`).
+- **A sale's separate agreements** (types with `addOn`): **Transport agreement**, **Boarding
+  agreement**, and **Extra agreement**, one per extra: its row's `extra_list_id` is the
+  price-list row (`Kennel.extra_charge_list`) it's for.
+  - **One pick for a form's kind** (`contractAddOns.formKindOptionsHtml` / `readFormKind`):
+    her contract types, and in place of the bare Extra agreement type each of her extras by
+    name ("Agreement: 2-week training", from `extraChoices`: every own kennel's list). Its
+    value is the type, or `extra:<row id>`. The Accounts page (pasted forms) and Contract
+    templates use it.
+  - `rankForms` lists the sale's own contract forms first, then a separate agreement only
+    when the sale has its charge (`addOnApplies`: a transport fee, deferred boarding, or the
+    extra the form would fill from, `extraFor`, given the sale's `addOns`), else under Show
+    all forms.
+  - **Each agreement has its own contract record** (`contractSend.contractForForm`,
+    `contractForms.agreementKey`: '' for the sale's main contract, `transport`, `boarding`,
+    `extra:<row id>`). A send uses the record she's on while nothing went out on it, or the
+    same agreement did. Once a different agreement went out on it (its `esign_form_label`
+    among her forms), the form goes out on that agreement's own sendable record for the
+    sale, else a new draft titled "<form label>: <pup>". So one being signed never marks
+    another Signed. The Contract page then opens that record; Pick to send does the same.
+  - Each fills the sale fields plus its own group (`contractForms.fieldGroupsFor`), from
+    `contractAddOns.addOnFacts` (pure; `contractSend.saleAddOns` reads the records, and
+    `gatherContractFacts` passes it as `addOns`):
+    - transport: the fee, the date and place of the sale's next pickup event (else its
+      latest), and the balance due date;
+    - boarding: rate, per, length, total, from the day the pup could go home (`pickupFrom`:
+      its ready date, or the day after its last training stay) to the day before its pickup
+      (else `goHome.boardingEnd`);
+    - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with
+      the row's name): name, price-list description, price, the payment plan in words and up
+      to four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
+      training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`),
+      else the one Today's nudge would log, from the ready date. A deposit fee charge-back
+      is no agreement.
+  - **The pickup date** dates a boarding agreement and a training package's agreement (the
+    sale's `pickupDate` field). Sending one with no pickup on the calendar
+    (`contractAddOns.pickupToSet`) asks for the date first, offering the day after the
+    boarding or the last stay ends; Save logs the pickup (`contractSend.logPickup`, the
+    `placement` event `goHome.pickupEvent` builds) and the facts are read again; Skip sends
+    without.
+  `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
   marks the contract `sent` with the `esign_*` fields. The breeder details come from the
   contact linked to the contract's kennel (`contractSend.breederFor`).
-- **Connect Jotform** (a key per account, **this device only**: `jotformKeyStore` in
-  `device_secrets`, never in a backup, sync or the cloud). `jotformApi.js` is the only
-  module calling Jotform, straight from the browser. Connected, she can add forms from her
-  Jotform account and **match fields** (`jotformMatch.suggestFieldMap` → `field_map`), so
-  the link carries only matched facts under her field names (`contractForms.mapValues`).
-- **Signed comes back** (`data/jotformSigned.js`): on app open (at most every 15 minutes,
-  Pro) or **Check for signature**, her device finds each Sent Jotform contract's submission by
-  its `contractRef` and applies `contract.signed` through `integrationApply`. A contract she
-  changed meanwhile becomes a Today review. Nothing else from the submission is kept.
+  A sale's `pickupDate` is `goHome.expectedPickupDate`: the pup's next pickup for that
+  family on the calendar (`goHome.pickupFor`), else its latest, else the litter's ready date
+  (`goHome.readyDateOf`).
+  A sale's payment table (pure `incomeView.priceTable`, from the sale's `getSaleCredits`;
+  the purchase price only: no transport, boarding or extras): `depositDue` is
+  the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
+  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit),
+  the same before and after the deposit is marked paid;
+  `otherPaymentsReceived` the credits and payments toward the balance (the credited fee
+  when it isn't taken off the deposit, received funds not on the deposit, a paid balance),
+  so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
+  twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
+  which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
+  everything owed on the sale. Payments recorded on the sale (`Sale.payments`, §21.3) count
+  in `otherPaymentsReceived` for their share of the price, read from the payment statement
+  (after the credited fee; only what credits for funds received left of it), so
+  `purchaseBalanceDue` is what the statement still has owed on the price. A returned or
+  cancelled sale keeps what was paid; a lost one counts nothing.
+  **The payment schedule** (Payment Schedule plan §8.1, `contractForms.scheduleValues`, from
+  `facts.statement`: `gatherContractFacts` loads it with `incomeView.getSaleStatement`, as
+  the Payments card does): `totalCharges` (the statement's `total`: the sale's own charges,
+  never the application fee) and `paidToDate` (its `paid`: the deposit, payments, credits for
+  funds received used on the sale and the application fee credited; credit spent on the fee
+  itself or left over isn't on the sale), so `totalCharges` − `paidToDate` = `balanceDue`
+  while the sale is open. `payment1Amount` / `payment1Due` and `payment2…`: the first two due
+  dates **before** the final one (none with no schedule; a third has no slot);
+  `finalPaymentAmount` / `finalPaymentDue`: the last. Each amount is what's still owed by that
+  due date (its ask less the money it took, earlier money only where the due date lets it
+  count: `0.00` once met); each date YYYY-MM-DD, left out while it can't be known. A
+  returned, cancelled or voided sale fills only `totalCharges` and `paidToDate`.
+  On a sale with a schedule, an **extra agreement** for an extra paid through it (not on its
+  own dates) prints its share of each due date (`contractAddOns.extraPayments` with the
+  statement: `chargePieces`, so money pays the price before extras, whatever a due date
+  covers; the final one "with the balance" while undated), and `transportDueDate` is the final
+  payment's date (`paymentSchedule.finalDueDate`; transport is paid last, D16). Without a
+  schedule, and for own-dated extras, both are as before.
+- **A form link has no way back:** she marks the contract Signed herself. The Accounts
+  page lists the field names a link fills (`PREFILL_FIELDS`, **Copy** each).
+- **Jotform data kept from Connect Jotform** (retired): a form picked through it keeps its
+  `form_id` and `field_map`. The Accounts page shows "n fields matched" and saves them
+  unchanged; sending it still puts only the matched facts in the link, under her field names
+  (`contractForms.mapValues`). They can't be re-matched. A contract sent through Jotform keeps
+  `esign_provider = 'jotform'`, its label and its link (**Copy link again**). On app open,
+  `jotformKeyStore.forgetJotformKeys` deletes any Jotform API key the device still holds.
+
+### E-sign through Firma (plan §2.3a)
+Pro with a cloud server, signed in (`cloudEsign.esignOffered` / `esignSignedIn`; nothing with
+`cloudUrl: null` or in the Demo). KennelOS holds the Firma account. The Worker makes her
+kennel a workspace and counts her sends against a monthly limit (`/ops`). Her device only sees
+ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `connectFirma`,
+`syncFirmaFields`, `listFirmaTemplates`, `createFirmaTemplate`, `firmaTemplateToken`,
+`sendForEsign`, `esignDocument`, `esignCountersign`).
+- **Contract templates** (Contracts page button, or `contracts.html#templates`;
+  `assets/esignUI.openContractTemplates`):
+  - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name
+    (prefilled by `esignTemplates.signingKennel`: the kennel she's working in, else My kennel,
+    else any own kennel; never an outside one),
+    then sends the fact names (`cloudEsign.factFields`, every `PREFILL_FIELDS` name once, at
+    most 40 a call) as the workspace's custom fields, each labelled
+    `contractForms.FIRMA_LABELS[name]` (a group prefix: "Buyer · Email", "Payment · 1st due
+    date"; Payment Schedule plan §8.2), so the editor's list sorts into groups. The Worker
+    (`firma.syncFirmaFields`) adds the missing ones and, for the names in the call's `relabel`
+    (`cloudEsign.RELABEL_FIELDS`: `buyerEmail` only, until a send proves a relabelled field
+    still fills), brings an existing field's label up to date: `PATCH
+    /workspace/{ws}/custom-fields/{id}` with the label, else (404/405) `PUT` with its unchanged
+    name too, never fatal, at most 45 outbound calls a request; the log names the fact, method
+    and Firma's status. → `{ added, relabelled, relabelFailed }`. Not proven against Firma
+    yet. The sync runs on Set up and each **Place fields**.
+  - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
+    `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).
+    The tab is opened before the await and has no `opener`.
+- **What KennelOS keeps** (`data/esignTemplates.js`):
+  - Only each template's kind, as a `contract_forms` row
+    `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`
+    (`contractForms.isFirmaForm`; no `url`). Contract templates is the only place a row is
+    set: the Accounts page shows it and, on save, keeps it exactly as stored. Whether she
+    signs is one choice of three radio buttons per template, enabled once it has a type
+    (`esignTemplates.signsOf`, `signs`): **I sign first** (`countersign` and
+    `countersign_first` true: before the buyer), **I sign last** (`countersign` true: after
+    the buyer; a row from before the choice reads this way), **I don't sign** (neither). A
+    retype keeps it. The choice she makes is kept as `esign_signs_default` on the account,
+    and a new template (the upload form's own radios) starts with it, else **I don't
+    sign** (`esignTemplates.signsDefault`). `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
+    the signed PDF and emails the buyer a link (below).
+  - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
+    first time she types a template.
+  - The template list comes from Firma, merged with the rows (`mergeTemplates`). The Worker's
+    list says `complete` (fewer than its page of 100). From a complete list, a row whose
+    template Firma no longer has (deleted in Firma's editor) is dropped from every Form
+    service account (`esignTemplates.forgetMissingTemplates`), when Contract templates opens
+    and when a send picker loads (below).
+  - On the Accounts page, a Firma row's type and label can be edited, or the row removed. It
+    shows **Manage** (to Contract templates) instead of a link.
+- **Send for signature** offers her typed templates (`contractSend.loadContractForms`, only
+  while signed in, and only those still in Firma: it asks `cloudEsign.liveTemplateIds` and
+  drops the missing ones; with no complete list, offline say, it keeps them all) beside her
+  pasted forms, marked **E-sign**. Choosing one opens
+  `esignUI.sendWithFirma`:
+  - It shows who signs and their email, and "n of N this month".
+  - **Firma emails them** is on by default. Off, the link goes in her own message (the
+    composer).
+  - `cloudEsign.sendForEsign` sends `sendBody`: the signer, and the facts as
+    `prefillValues` gives them, as the signer's custom fields. The Worker reads her
+    workspace's custom fields and also sends each fact under every id its custom field
+    carries (`firma.withFieldAliases`), including `custom_workspace_<id>`, the key a field placed
+    in the editor stores for a workspace custom field. A countersigner gets the same values, so a field placed for her fills and a
+    required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
+    (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
+  - On a template she countersigns, `sendBody` adds her as `countersigner`
+    (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
+    `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
+    the contact linked to the kennel, else the kennel's name:
+    `esignTemplates.kennelSignerName`), with `first: true` on a template she signs first. The
+    Worker makes her the request's second Signer (`order: 2`), or with `first` its first
+    (`order: 1`, the buyer `order: 2`; `firma.signerOrders`), and records that on the send
+    (`esign_sends.countersign_first`, migration 0024): one request, one credit. The buyer's
+    link it returns is the buyer's place, never Firma's `first_signer` when she signs first.
+    In Firma's editor she gives that place's signer her signature field.
+    The dialog says she countersigns as that email. With no account email on the device, or
+    her email as the buyer's, the send is refused before Firma.
+  - On a template with `keep_copy`, `sendBody` adds `keepCopy` and her kennel's name. The
+    dialog says the buyer will be emailed the signed copy.
+  - It marks the contract `sent` with `esign_provider: 'firma'`, `esign_ref` (Firma's
+    signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
+    `esign_form_label`, `esign_countersign` (cloud tier: she signs it) and
+    `esign_countersign_first` (cloud tier: before the buyer).
+  - A second send needs **Send again** (`resend`).
+  - **Preview** (`cloudEsign.previewLink`): the same `sendBody` goes to
+    `POST /integrations/esign/preview`, which makes a **draft** signing request
+    (`POST /signing-requests`: never sent, never charged, never counted as a send) and a
+    token for it (`/jwt/generate-signing-request`). It opens in a new tab on
+    the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
+    real template with this contract's values.
+    - **A preview holds a place in her month** while it's open: an `esign_sends` row with
+      status `preview` (no column of its own; `usage` and `/ops` leave it out). Read-only is
+      the editor's setting, not the token's, so for its 7 days the token could send the draft
+      from Firma's own editor. A preview is made, and a send reserved, only while her sends
+      plus open previews are under her limit (`HELD`), so however a draft is sent she can't
+      pass it. At the limit a preview is refused (`esign_limit_reached`).
+    - `firma.settlePreview` ends one: the draft is deleted (only while Firma says `draft`)
+      and the row removed; a draft found sent becomes a counted send from then (a webhook for
+      it does the same); with no clear answer, or a status word KennelOS doesn't know, the
+      row keeps its place until the token is dead (8 days).
+    - It runs for all her open previews before a new preview and before a send (one preview
+      at a time; her own preview never blocks her send), when her device closes the Send
+      dialog (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`; one that
+      comes back after the dialog closed is discarded at once), and in the hourly cron for
+      previews over an hour old (`runEsignPreviews`).
+  - The Worker reads the template with her key before it reserves the send: a 404 is
+    `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
+    freed). The dialog then forgets that template (`esignTemplates.forgetTemplate`) and says
+    so; Send stays off.
+  - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
+    answering (don't resend), signed out, and so on. A Firma refusal (`esign_refused`) names
+    Firma's own code (the body's `code`, kept on the error as `providerCode`: `CloudError`
+    never lets a body's `code` replace the Worker's).
+- **Pick to send** (§29): a Firma template is sent on step 2's Continue, with Firma's email
+  off (it counts then). Its link goes in the message, once per template for that modal.
+- **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for
+  any vendor. `contract.expired` / `contract.cancelled` become a Today review while the
+  contract is still Sent (`integrationEvents.planIntegrationEvent`).
+- **Countersign** (Contract page, with `esign_countersign`, while Sent; **Sign first** with
+  `esign_countersign_first`): her own signing link, asked of the Worker when tapped
+  (`cloudEsign.countersignLink`; never kept; the Worker picks her place from
+  `countersign_first`) and opened in a new tab. Firma's page has her wait while the signer
+  before her hasn't signed; signing first, the buyer waits for her. The contract becomes
+  Signed only when both have (Firma's completed event comes once every signer is done).
+- **Signed copy** (Contract page, with `esign_ref`): a short-lived link from the Worker,
+  opened in a new tab (**Copy so far** before it's signed). For a copy KennelOS kept, it's
+  that copy's link (`kept: true`).
+- **Kept copies** (Worker only, D33): once Firma reports a `keepCopy` send completed, the
+  hourly cron copies the signed PDF to R2 and emails the buyer a private link
+  (`/signed/<send id>/<mac>`). The buyer's email is read from Firma then (the buyer's place,
+  per `countersign_first`), never stored. A
+  step that fails is retried hourly for two days. The copy stays until account deletion.
 
 ### Payment services (plan §4–§5)
 - A **Payment service** account (`payment_service`) holds `payment_link` and/or
@@ -2576,15 +3248,18 @@ Share with families hint and the card's badge say so for this type.
   through**, a marketplace). The fee is estimated per payment from them
   (`processingFees.saleFeeEstimate`).
 - **Send payment link** (`assets/paymentRequestUI.js`, an open Sale and its invoice): pick
-  what for (`paymentLinks.paymentOptions`) and the account; with Stripe connected, a
-  **one-time Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the
-  account's own link and instructions.
+  what for (`paymentLinks.paymentOptions` over the sale's statement, §21.3: the deposit owed,
+  the next payment, everything owed) and the account; with Stripe connected, a **one-time
+  Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the account's own
+  link and instructions. The message gives the due date (or at pickup) and, on the final
+  payment, her final-payment methods.
 - **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
   device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
   browser; nothing goes through the Worker and the money goes to her account.
 - **Paid, by itself:** on app open (at most every 15 minutes) or **Check now**,
-  `checkStripePayments` applies a paid link through `integrationApply.js`: deposit or paid in
-  full with the date and reference, and the fee Stripe kept into `processing_fee_reports` /
+  `checkStripePayments` applies a paid link through `integrationApply.js`: the deposit
+  received, or a row in the sale's payments (§21.3, never paid in full by itself), with the
+  date and reference, and the fee Stripe kept into `processing_fee_reports` /
   `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
   that moved on becomes a review.
 - Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
@@ -2673,13 +3348,15 @@ form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its paymen
 both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
 `VAULT_WHY`, `cloudBackupOn`: turning on cloud backup and Sensitive records backup in the
 chat; the waitlist tasks, Getting Started and account health's wording), `assets/kelsSetupUI.js` +
-`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
-replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
+`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe key connected or
+replaced in the chat; account health and the waitlist setup; its link always opens Stripe's API
+keys page, with her account's saved website, made a full address, as a second link), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
 "Stop for now"), `assets/prepPupsUI.js` +
-`data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
-and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
+`data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm` and
+`pickupsForm`, and the care step's `vaccineForm` and `careForm`), `assets/careVisitUI.js` +
+`data/careVisit.js` (the care step, below). The data modules are tested; all but `recordMerge.js` are pure.
 
 **People, not forms:** wherever a near-miss would make a duplicate or a slip (a parent
 on file typed again, a kennel or contact like one she has, a breed spelled unlike her
@@ -2784,8 +3461,8 @@ builds nothing), then a search box.
   asks which first. "Something else" is always the ordinary search. Sales and contacts
   (for buyer names) are loaded in every edition.
   **Shots and vet** ("JJ shots", "JJ vet", "JJ health" = both): `shots` lists the dog's
-  vaccination and preventative events, `vet` its vet visits, illnesses, medications,
-  surgeries and injuries, each opening the event on the dog's page (`?openEvent=`). Kels
+  vaccination and preventative events, `vet` its vet visits, screening tests, illnesses,
+  medications, surgeries and injuries, each opening the event on the dog's page (`?openEvent=`). Kels
   says the last one ("JJ's last shot was DHPP on Mar 1, 2026, and DHPP is due Mar 1, 2027";
   the due date is each vaccine's latest shot's `next_due`, the soonest, "overdue" when
   past). Both topics can `add`: "Add a shot for JJ" / "Add a health event for JJ"
@@ -2956,7 +3633,9 @@ against existing dogs, `dogSearch.findDogMatches` with its names and breed, pedi
 dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only one brings
 it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
 breed stay, hers fill only blanks); outside dogs only in Pro) →
-the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
+the matching litter (`litterCandidates`; an Expected one's whelp date is a placeholder, so it
+never prefills the birth date, and a ready date that was just its whelp date + 8 weeks
+follows the real birth date, `refreshReadyDate`) → the matching breeding (`pairingCandidates`) or when
 she was bred → the stud service (Pro, outside dad) → birth date and counts → how they were
 delivered (`delivery`: a tile per `LITTER_DELIVERY_TYPE`, or "I'll add it later", which saves
 nothing; skipped when the chosen litter already has one) → kennel (only if
@@ -2966,8 +3645,9 @@ prices (prefilled from her last priced litter of that breed, previewed with the
 
 **The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
 `whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
-Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite the litter is written
-first so the cap refuses before anything else is made. **Resumable:** each new id goes back
+Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite a new litter is checked
+against the cap (`enforceLitterCap`) before anything is written, new parents included, so a
+refusal leaves nothing behind. **Resumable:** each new id goes back
 on the draft as it's made, so a retry never duplicates.
 
 **The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;
@@ -2985,19 +3665,27 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    off. Names must differ; an empty row is dropped. In Lite with no room left, she shows
    the upgrade notice in place of the task's questions.
 2. **What do they have in common?** (`common`, only with two or more dogs): breed, status,
-   whose dog, the owner (someone else's) and the kennel (with more than one own kennel; the
+   whose dog, the owner (someone else's), the co-owner (co-owned) and the kennel (with more than one own kennel; the
    active one suggested). `fillFromCommon` fills each dog's blank fields, and any still
    holding the last common answer; her own change on a dog is kept. A lone dog gets the
    defaults (Active breeding, Owned).
 3. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
-   registered name and number, color and markings, microchip, status (`statusChoices`:
-   Active / Retired breeding, Pet home, For sale, Deceased; Lite: Active / Retired breeding,
-   Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
-   and someone else's only with `externalOwnership`), the owner for someone else's (a
-   contact, or a name that becomes a new contact), the kennel with several own kennels.
+   registered name and number, color and markings, microchip, status (`statusChoices`, the
+   Dog page's by edition: Puppy, Active / Retired breeding, Pet home, For sale, Deceased,
+   External reference; Lite: Puppy, Active / Retired breeding, Deceased), whose dog
+   (`ownershipChoices`: Owned, Co-owned, and someone else's only with `externalOwnership`),
+   then what those answers need (`tidyAnswers` clears what no longer applies):
+   - a **puppy**: its plan (`dispositionChoices`: Undecided, Keeping, Available, Health
+     hold; Placed comes from a sale), required, and its intended registration (optional);
+   - someone else's dog or an **external reference** (`needsOwner`): the owner, a contact
+     or a name that becomes a new contact (typed Breeder), required. Picking External
+     reference sets whose dog to External; one marked hers is refused;
+   - a **co-owned** dog (`isCoOwned`): the co-owner, a contact (not her own) or a new name,
+     required, and **Lives with** (Me / The co-owner);
+   - the kennel with several own kennels.
    Checks she can tap past: a breed spelled unlike one her dogs have ("Did you mean Golden
    Retriever?"), a registration number in the registered-name box, a new owner like a
-   contact she has. On save, a breed matching hers but for case or spacing takes her
+   contact she has, a new co-owner the same. On save, a breed matching hers but for case or spacing takes her
    dogs' spelling. (The breeder step asks the same of a kennel or contact like one on file.)
 4. **Is this her?** (`match:<i>`, only when `findMatchesFor` finds dogs on file it may be:
    `dogSearch.findDogMatches` over every dog not archived, pedigree-only and outside ones
@@ -3028,7 +3716,9 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    already in KennelOS, and **Add or take off a dog** (back to the roster).
 
 **The save** (`saveGuidedDogs`), per dog: its owner (one new contact per typed name, typed
-Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
+Breeder), its co-owner (one new contact per typed name, shared with owners'; added to
+`co_owner_contact_ids`, and `lives_with_contact_id` when it lives with them), a puppy's
+`disposition` and `intended_registration`, its typed parents (one pedigree-only dog per name and sex, so littermates share
 it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
 asked), its breeder kennel (`saveBreeder`: hers; or another breeder's, a typed name
 through `kennelRepo.findOrCreateOutside`, the outside kennel on file by that name (trimmed,
@@ -3165,8 +3855,48 @@ questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then
 program, when they applied, **Money they've already paid you** (optional amount, date and
 note: a credit for funds already received, every use ticked, `receivedCredits.newCredit`)
 and her notes, saved as an application (`applied`), as the
-Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
+Waitlist entry page saves one. A family matching her do-not-sell list
+(`doNotSell.entryDoNotSellMatches`) gets the entry page's warning first; a second tap on
+**Add the family** adds them anyway. Set up my waitlist's **Add one by hand** and Add people both
 run it; without a contact it's linked at approval, as ever.
+
+### The care step (vet visits, shots, screening tests, preventatives, medication)
+`assets/careVisitUI.js` + `data/careVisit.js` (pure, tested). One form, then a short form per
+kind she ticked, each already holding the date, the dogs and the vet, so a vet trip with
+shots, a fecal and a dewormer for several dogs is typed once. Each form saves when approved.
+Run whole (`careVisit`) by Check in on my dogs (step 2) and Check in on a litter's **Health
+care**; Pups are going home's shots and deworming fixes and Log health test results' **A
+screening test** open one of its forms alone. `who` words the dog list (`DOG_WHO` in the dog
+check-in, `litterCheckinUI.PUP_WHO`).
+1. **What did they have?** `careVisit.CARE_STEPS` as ticks: **A vet visit**, **Shots**,
+   **Screening tests**, **Deworming or flea & tick**, **Other medication**; a date; the dogs
+   (**All** / **None**). Ticking a visit or screening tests shows the vet picker
+   (`relatedContactInput`, as below); a visit also shows Reason, Findings, **Cost per dog**
+   (one `expenseRepo.createForEvent` each, Veterinary), an optional **Title** of its own
+   (`titleInput`; blank takes the reason) and, with `docType` (Documents, Pro),
+   **Vet summary** filed on each dog as a `vet_summary` document (its own copy of the file,
+   since a document belongs to one dog), titled and dated as the visit, the vet as issuer.
+   The visit is saved here, one `vet_visit` per dog (`careStepsProblem` checks the form).
+2. **Shots** (`vaccineForm`): `vocab.VACCINE_CHOICES` (DHPP, Parvo, Rabies, Bordetella,
+   Leptospirosis, Lyme, Canine influenza) as ticks, each with when it's next due
+   (`VACCINE_NEXT_DUE`: 2, 3 or 4 weeks, 1 or 3 years, or not due again; a puppy's start at 3
+   weeks, rabies and a grown dog's at a year; picking one ticks its shot; a ticked shot opens
+   its own optional **Title**, blank taking the vaccine), an **Other shot**
+   (suggesting names she's logged), date, an optional lot #, **Remind me on Today when
+   they're due** (on) and the dogs → one `vaccination` per shot per dog
+   (`careVisit.vaccineEvents`: titled by the vaccine, `next_due`, and that day as its
+   `reminder_date` when reminded).
+3. **Screening tests** (`screeningForm`): `vocab.SCREENING_TESTS` plus every test name she's
+   typed before as ticks, and **Another test**. A ticked test shows its own optional
+   **Title** (blank takes the test's name), its result (suggestions:
+   `SCREENING_RESULTS` and her own) and Normal or abnormal for every dog; **Different for
+   each dog** opens a row per ticked dog, whose own result wins (`resultFor`). Date, the vet
+   (carried from step 1) and the dogs → one `screening_test` per test per dog
+   (`screeningEvents`, the vet as `related_contact_id`).
+4. **Deworming or flea & tick** / **Other medication** (`careForm`, `litterCheckin.CARE_KINDS`):
+   an optional title, the type's fields, the date (a medication also an optional last dose =
+   `event_end_date`) and the dogs → one event per dog (`careEvents`).
+**Skip** on any of 2–4 moves on to the next.
 
 ### "Check in on my dogs"
 `assets/dogCheckinUI.js`, offered with any Active breeding dog of her own (priority 55 while a heat is
@@ -3176,34 +3906,41 @@ Each thing is saved as she approves it. Every step looks only at the dogs she lo
 1. **Heats:** each of her active breeding females' predicted next heat (`dogCare`, as the
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
-   any date, future included), optional end and notes, and her new prediction.
-2. **Preventatives:** her own active breeding dogs (only those listed), the ones with no
-   `preventative` this month ticked; a form (product, dose, date) → one event each, then
+   any date, future included), optional end and notes, and her new prediction. A heat left
+   without an end counts as over `nudges.HEAT_OPEN_DAYS` (21) after it started, for
+   Today's `heatpair` ("record a pairing?").
+2. **Vet visits, shots, tests, medication:** "Any vet visits, shots, tests or medication to
+   log?" → **Yes, log them** runs the care step (above) over `dogCare.checkinDogs`, none
+   ticked unless only one, then "Anything else, from another day or for other dogs?" (**Log
+   more** / **No, that's all**). Before the preventatives, so one given at the vet counts there.
+3. **Preventatives:** her own active breeding dogs (only those listed), the ones with no
+   `preventative` this month ticked; a form (an optional title, product, dose, date; a
+   blank title takes the product) → one event each, then
    "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
    later form ticking the dogs she picked last time. With none missing it asks first
    whether to log one (flea & tick, say).
-3. **Health test results:** "Do you need to log any new health test results?" (with how many
+4. **Health test results:** "Do you need to log any new health test results?" (with how many
    planned tests wait for one) → **Yes, log results** runs Log health test results' own loop
    (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, never one
    in a pet home, and puppies only when Keeping) / **No thanks**.
-4. **Vet visits:** "Any vet visits to log?" → the same form as step 5 for a `vet_visit`,
-   plus, with Documents (Pro), **Vet summary (optional)** (`kelsSteps.filePicker`): filed on
-   each ticked dog as a `vet_summary` document (its own copy of the file, since a document
-   belongs to one dog and deleting it deletes its file), titled and dated as the visit, the
-   vet as its issuer → "Any other vet visits?".
-5. **Any other events:** "Any other events that need logging, like a new medication, an
-   illness or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
-   the ones this check-in asks itself, heats, preventatives, the three test types and vet
-   visits, and
+5. **Any other events:** "Any other events that need logging, like an illness, an injury or
+   a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
+   the ones this check-in asks itself, heats, preventatives, the three test types and the
+   care step's vet visits, vaccinations, screening tests and medication, and
    the ones another task logs, `acquisition` (Add dogs) and `placement` (Pups are going
    home); `show` only with `shows`; searchable) → one form: an optional title (a note's
-   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldInput`,
-   shared with the litter check-in's care forms; combobox options as suggestions), the date
-   (and end for a span type), **Cost per dog** (optional; one `expenseRepo.createForEvent`
+   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldsHtml`,
+   shared with the litter check-in's care forms; combobox options as suggestions), with a
+   `relatedContact` type's person (a vet, a handler, boarding's host) picked from her
+   contacts in place of the typed `contactFallback` name (`relatedContactInput`: those
+   with the type's role, `vocab.RELATED_CONTACT_ROLE`, first; **Someone new…** makes a
+   contact with that role; a picked one gains it), the date (and end for a span type),
+   **Notes** and **Remind me on** (optional; the event's `reminder_date`), **Cost per dog** (optional; one `expenseRepo.createForEvent`
    per event, the type's default category, as the event form does for several dogs) and the
    dogs (`checkinDogs`, none ticked unless only one) → one event each (`dogCare.dogEvents`:
-   titled by her title, else the type's naming field, `eventNameKey`, else its label; also
-   builds the litter check-in's care events) → "Anything else to log?" (**Log another** /
+   titled by her title, else the type's naming field, `eventNameKey`, else its label; the
+   picked contact as `related_contact_id`, dropping the typed name; also builds the care
+   step's events) → "Anything else to log?" (**Log another** /
    **No, that's all**). Checked by `dogEventProblem`. This is where Kels logs any other
    event; there is no separate Add new events task.
 
@@ -3215,7 +3952,9 @@ with no result, else 28. Each result is saved as she approves it.
    noting "N planned to log"; the first message names them), **Another dog** (the rest, by
    search), **Never mind** / **No, that's all**.
 2. **Which test:** the dog's unlogged planned tests as choices, **A different test** (or
-   **Log a test** when none are planned), **Done with <dog>**.
+   **Log a test** when none are planned), **A screening test** (the care step's screening
+   form for that dog: a `screening_test`, never one of the three test types, so it stays off
+   planned tests, waitlist results and Dog Cards), **Done with <dog>**.
 3. **The form:** Test (her preferred tests and every test name she's logged as
    suggestions), Kind (`testTypeFor`; typing another test moves it until she picks one),
    Date (today), Result (OFA's rating; `testResultSuggestions`), Normal or abnormal, Lab
@@ -3241,7 +3980,8 @@ Each thing she approves is saved at once; there is no draft.
    - When the litter can close (`litterCloseDue`, §19), that is the only litter question.
    - **Open picks** (Pro, `editionFlags.waitlist`, active families in the kennel,
      `waitlistRules.depositsDueLitters`): `waitlistPicksPanel.openPicksFromCheckin` (Pro-only,
-     imported dynamically; the panel's `openPicks` and "Email the family?"), or **move the
+     imported dynamically: the picks preview, then "Email the family?"; closing the preview
+     opens nothing), or **move the
      deposit date** (a date after today, default a week out), or **Not now**.
    - **Weaning** at 4 weeks while Whelped; **Ready** at the ready date while Weaning
      (`goHome.readyDateOf`: `estimated_ready_date`, else whelp + 56); **Sold** / **Reopen to
@@ -3259,12 +3999,8 @@ Each thing she approves is saved at once; there is no draft.
    - **Record weights:** date, AM/PM, pounds + ounces per home pup beside its last weight; one
      `weight_check` "Weight check" per pup entered (`weightDetails`). Kels compares each with
      its last (`weightReport`) and names pups down or flat.
-   - **Health care** → "What did they receive?" → **Deworming or flea & tick**, **Shots**,
-     **Other medication**, **A vet visit** (`CARE_KINDS` → `preventative` / `vaccination` /
-     `medication` / `vet_visit`): the type's vocab fields, a date (medication also an optional
-     last dose = `event_end_date`), and which pups. One event per pup, titled by the named
-     product / vaccine / drug / reason, else the kind's `title`. A vet visit's vet is the
-     plain-text `vet` field.
+   - **Health care** → the care step (above) over the home pups, every one ticked; shots
+     start due in 3 weeks; with Documents, the visit's vet summary is filed on each pup.
    - **Something else:** puppy plans (disposition per pup; Placed is shown, not editable),
      microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
      Expected), the litter's page.
@@ -3302,12 +4038,12 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Microchip (optional) | `microchip_id` set | the check-in's microchip form |
    | Litter registration number (optional) | the litter's `litter_registration_number` | one number for the litter, typed in the chat |
    | Registered name and number (optional) | the pup's `registered_name` and `registration_number` both set | both per pup, typed in the chat; a blank leaves that field as it was |
-   | Shots | a `vaccination` logged | the check-in's care form (Shots) |
-   | Deworming | a `preventative` logged | the check-in's care form |
-   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
-   | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
+   | Shots | a `vaccination` logged | the care step's shots form (`vaccineForm`, puppy series) |
+   | Deworming | a `preventative` logged | the care step's preventative form (`careForm`) |
+   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup, filled in from a family's waiting pickup request (`pickupWishesFor`); `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup; the request's place as `location`) |
+   | Payments (sale; key `balance`) | nothing owed on the sale's payment statement (§21.3, `readiness({ statement })`), or Paid in full / Delivered / a `balance_paid_date` | **What's come in?**: an amount per pup (prefilled with what its next due date still asks; its total owed and next payment as the hint), one date and how they paid; each a payment on its sale toward the schedule (`newPayment`, as Record a payment); a deposit still owed is marked received on the sale instead. Then, per sale now all paid, **Mark paid in full** asked in the chat (`paidInFullOffer`, `paidInFullChanges`, D22) |
    | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
-   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |
+   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked; the pup becomes Co-owned too, `goHome.deliveredOwnershipChanges`, as the Delivered prompt writes it) |
    | Feeding schedule (Pro `feedingSchedule`, optional) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
@@ -3315,20 +4051,28 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    only Furever's fallback for a pup with no drop-off event, and don't count. Every fix but
    the breed feeding schedule happens in the chat; that one leaves Kels, and she says to
    start Pups are going home again after.
-7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
-   Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
-   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date, then **Yes,
-   let's do it**. Each family in turn first gets (Pro, `extraCharges`, §21.2) the deposit's
-   fee charged back when it came through an account set to charge it back and the sale
-   doesn't carry it (`depositFeeChargeBack`, **Add it** / **Skip**), then **Did they get any
-   extras?** (her kennel's price list, less what's already on the sale, ticked; **No
-   extras**), and the new balance when either changed it. Then both, one after the other,
+7. **Money still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
+   Deposit Pending or Deposit paid, with no `balance_paid_date` and money still owed on its
+   payment statement (§21.3), listed with what's owed in all and the next payment
+   (`nextPaymentText`), then **Yes, let's do it**. Each family in turn first gets (Pro,
+   `extraCharges`, §21.2) the deposit's fee charged back when it came through an account set
+   to charge it back and the sale doesn't carry it (`depositFeeChargeBack`, **Add it** /
+   **Skip**), then **Did they get any extras?** (her kennel's price list, less what's already
+   on the sale, ticked; **No extras**), and what they owe now when either changed it. Then both, one after the other,
    each with **Skip**:
    **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
    offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
    key here; otherwise she says to add one on the Accounts page), then **Make an invoice**
    (`openInvoiceGenerator({ preselect, onClose })`, said first to open in a new tab; Kels
    waits for the modal to close).
+7b. **Pickup messages** (all editions): chosen pups with an open sale, a family and a pickup
+   or drop-off today or later (`readiness`'s `pickupDate`), asked once (**Write it** / **Write
+   them** / **Not now**), then one message per family in the composer
+   (`messageComposer.openComposer`: Email, Text or Copy; she sends it): `goHome.pickupMessage`
+   with the day, time (`timeRange` for a typed `HH:MM`) and place from the pickup event, a
+   drop-off worded as one, what's owed by that day (`paymentSchedule.owedBy`) and, when that
+   includes the final payment, her final-payment methods (D9); nothing owed at all says "paid
+   in full". No money line when nothing is due by then.
 8. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens
@@ -3465,7 +4209,8 @@ unpaid fees), else 26.
      it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
      boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
      `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
-     **Get driving miles**, the fee from `transportQuote`; with no standard location or fee
+     **Get driving miles** and **Open in Maps** (`transportFee.mapsLink`) for when measuring
+     fails, the fee from `transportQuote`; with no standard location or fee
      per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
      her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
@@ -3488,14 +4233,20 @@ unpaid fees), else 26.
      (`accept_deposits_date`).
   5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
      months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
-     families with pups in it, `offerTo` with a note) / **Not yet**.
+     families with pups in it, ranked and numbered from `waitlistProgramRepo.getMapForKennel`,
+     archived programs included, as every other reader; `offerTo` with a note) / **Not yet**.
   6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
      program, the contact as `contactMatches` suggests, their private-listing ask; then the
      fee request or "on the list" email) / **Decline** (confirmed; the declined email) /
      **Ask a question** (`communicateDialog`) / **Decide later**.
   7. **Fees to check** (approved, unpaid; soonest due first) → **Received** (date, amount,
      method, reference → `feeReceived`) / **Not yet** / **Remove them** (overdue only,
-     `markFeeExpired`); then extras payments due on waitlist families' sales
+     `markFeeExpired`); then scheduled payments due or not marked received on waitlist
+     families' sales (Today's `payment-due` / `payment-missed`, `paymentDueItems`, each
+     rechecked as it comes) → **Received** (date, amount prefilled with what's owed by that due
+     date, method, reference → a payment toward the schedule; then **Mark paid in full** asked
+     in the chat when that covers everything, D22) / **Not yet** / **Open the sale**; then
+     extras payments due on their sales
      (`extraDueItems`) → **Paid** (today, `extraCharges.chargesWithStepPaid`, the helper the
      Sale page's Paid on box uses) / **Not yet** / **Open the sale**.
   8. **"Ready now?" unanswered** → **They're ready** / **Remove them**
@@ -3521,7 +4272,7 @@ never the business Accounts page. All editions; each check only where its featur
 | `license-grace` | Pro gate on, license in grace | **Check it again now** (`evaluateLicense`), **Renew my subscription** (the checkout in a new tab, announced, then checked again), or **Use a different key** (pasted in the chat, `license.activate`) |
 | `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
 | `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
-| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
+| `key-rejected` | Pro `accounts`: a Stripe key on this device that Stripe refuses (`stripeCheckKey`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency pasted in and checked and saved by `connectStripe`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
 | `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | signed out: **Sign in now** (`cloudBackupUI.signInModal`); failed: why (`waitlistOnlineUI.onlineProblemText`), **Turn on cloud backup** when that's the reason, or **Try again now**. Either way she publishes at once (`syncWaitlistOnline({ force: true })`) and says how it went |
 | `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
@@ -3555,8 +4306,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Delivery:** a live litter at Whelped or later with no `delivery_type`
   (`tidyRules.deliveryFindings`, newest first) → one tap per delivery type; "I don't remember"
   is the remembered answer.
-- **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
-  Placed → Placed.
+- **Puppy plan:** a pup with a sale past Deposit pending and not returned, cancelled or
+  voided whose disposition isn't Placed → Placed (`tidyRules.pupPlacedFindings`). A sale still
+  waiting on its deposit isn't asked about: it may fall through, and Placed takes the pup off
+  the turn of the family holding it.
 - **No plan:** an `owned` pup with no disposition at all and no sale going ahead
   (`tidyRules.pupNoPlanFindings`). Blank reads as Undecided, which the waitlist never offers
   and her website never shows as available → Available, Keeping or Still deciding
@@ -3736,12 +4489,34 @@ KennelPort Site Manager.
   amount. On KennelPort a dog living with a co-owner shows only in the Dogs page's
   Co-owned section, with that kennel's logo (added there); one living with her is grouped
   like her own. A puppy's status is
-  `puppyStatus`: health hold hidden, placed (or a delivered sale) placed, a live sale or an
-  open pick reserved, keeping (or grown into the program) staying, Available available,
-  else undecided. **Prices** (the litter's expected price, deposit and Full surcharge per
+  `puppyStatus`: her disposition and nothing worked out: health hold hidden, placed
+  placed, keeping staying, Available available, else undecided. No pick or sale is read,
+  and there is no reserved status: a pup with an open sale is marked Placed. **Prices** (the litter's expected price, deposit and Full surcharge per
   sex, and extras' amounts, all private) go only while the site says Use my KennelOS prices
   is on (`site.kennelos_prices`). Text is cut to KennelPort's lengths; over its caps
   (`SITE_MAX`) it says so instead of sending.
+- **Raw values for KennelPort's rules** (`docs/KennelOS_Website_Contract_Plan.md`), each
+  only when the site's answer lists its section: `pup_disposition`, a litter puppy's
+  `disposition` as she set it (a `DISPOSITION` value, null when none is set or unknown);
+  `litter_status`, a litter's `status` (`expected` to `ready`); `health_detail`, a health
+  result's event `type` (`genetic_test`, `ofa_pennhip`, `breed_specific_test`, the latest
+  result's, from `completedTestsByDog`); `account_type`, a product's `account_type` (an
+  `ACCOUNT_TYPE` value, else null); `titles_detail`, a dog's `titles` as
+  `[{ abbr, organization, date }]` in place of the abbreviations (`titleDetailsByDog`: from
+  `title_earned` events in the order earned, the same title and organization once, at its
+  first date); `origin`, a dog's `imported` and `import_country` (null unless imported);
+  `lineage`, a dog's `breed`, `sire_id`, `dam_id` and `ancestors` to four generations
+  (`data/pedigreeWalk.js` `ancestorsOf`: nearest first, sire's side first, `path` like
+  `sire.dam`, a loop in the data stops its line, at most 30), each `{ id, path, call_name,
+  registered_name, titles }` and, with `origin`, its `imported` / `import_country`.
+  Ancestors go by name and titles only, pedigree-only dogs and dogs not hers included:
+  never an owner, contact, kennel or date of birth. Import-descended isn't worked out
+  here; KennelPort does it from the ancestors. `waitlist_facts` (`waitlistFacts`), her
+  waitlist's settings as values once it's set up: `online_form` (only while her list is
+  online), `has_fee` (never the amount), `fee_due_days`, `respond_days`, `max_passes`
+  (null when not set), beside the worded `steps` and `payment`. The worked-out values (a puppy's `status`, a
+  product's `transport`) still go beside them. `bundleChanges` names a litter's status
+  change; a puppy's disposition rides its status line.
 - **`data/kennelportApi.js`** is the only module that talks to KennelPort:
   `POST /v1/link` (the code), `GET` / `DELETE /v1/link`, `POST /v1/bundle`, with the token
   as a Bearer header, no cookies, no referrer. `KennelportError.kind`: `network`,
@@ -3840,9 +4615,11 @@ Nothing changes for any other kennel or breeder.
   `pickup_at` (the pickup event's `placement_time` start, read by `parseClock`, in the
   kennel's `time_zone` by `zonedIso`; none without a time), `microchip`, `registration_no`
   (the Dog's main number), `voided` (a voided sale's reason: died, failed_health,
-  backed_out, other; a cancelled sale is backed_out; dated by the sale's last edit),
-  `health` (vaccinations as vaccine, with lot and next due as notes; preventatives as
-  deworming; vet visits by title, never their findings; up to today, newest 40) and
+  backed_out, other; a cancelled sale is backed_out; a returned sale is other; dated by the
+  sale's last edit, `saleEndDay`), `health` (vaccinations as vaccine, with lot and next due
+  as notes; preventatives as deworming; vet visits by title, never their findings; up to
+  today, or for a released sale up to its end day, so a returned pup's next home's records
+  never reach the family; newest 40) and
   `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
   never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
   vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
@@ -3851,10 +4628,14 @@ Nothing changes for any other kennel or breeder.
   set back from Signed, is marked gone there (never deleted). A sale it sent stays while
   it's released (voided, cancelled, returned) even once its contract is voided, so the
   portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
-  go-home or last edit; after that it rests (not removed). Never sent: an amount, a
+  go-home or last edit; after that a delivered one rests (not removed), and a released one
+  (voided, cancelled, returned) goes in `removed`. Never sent: an amount, a
   family's phone or postal address, contract terms, sale notes, vet findings.
-- **`data/portalFeedSync.js`** sends it on its own, from each device linked to the site
-  (`startPortalFeed`, from `app.js`): on a page load at most hourly
+- **`data/portalFeedSync.js`** sends it on its own, from a device linked to the site
+  (`startPortalFeed`, from `app.js`) that may (`mayFeedHere`: with her cloud program on, only
+  the device doing its server work, `serverWork.claimServerWork`, never one in the
+  background; with no cloud session, this device; a cloud that can't be reached doesn't stop
+  it; otherwise `skipped: 'other_device'`): on a page load at most hourly
   (`FEED_OPEN_EVERY_MS`: the site is asked for its facts, then the feed is sent even
   unchanged, so her Site Manager's Last from KennelOS stays fresh and the facts come back),
   and `FEED_DELAY_MS` (20 s) after a data change when it differs from what this device sent
@@ -3862,6 +4643,10 @@ Nothing changes for any other kennel or breeder.
   `POST /v1/portal` (`kennelportApi.sendFamilyFeed`). A `portal_off` refusal, or fresh
   facts without `portal_feed`, stop it and take the portal off the kennel; old facts on a
   device don't. A stopped link forgets the token and the portal, as Update website does.
+  **Disconnect this device** (`kennelportLink.disconnectWebsite`) also turns the portal off
+  on the kennel (`turnPortalOff`: the addresses and key cleared, `home` and `facts` kept; null
+  when there's nothing to keep), since a device can't tell whether it was the last; a device
+  still linked turns it back on with its next send. The card's confirm says so.
   Website pages still wait for Update website.
 - **`Kennel.kennelport_portal`** (cloud; owner decision 2026-11-04) holds what the answer's
   `portal` says, `{ url, handoff_url, handoff_key, handoff_minutes }`, plus `home` (the
@@ -3871,11 +4656,17 @@ Nothing changes for any other kennel or breeder.
   there are matched, never followed (no registry entry). `portalFeed.portalOn(kennel)`.
 - **The facts that come back** (the answer's `facts`), applied without asking her, each
   once (`kennelport_portal.facts`, so a later change in KennelOS isn't undone by the
-  portal's older value; `applyPortalFacts`): `picked_up_at` moves the pup's pickup event
-  (`pickupEventFor`: its next, else its last) to that day and time in her time zone, or makes
-  one with the family on it, and marks the sale Delivered unless it ended; `microchip` sets
-  the Dog's; `died_on` marks the dog Deceased with its `date_of_death`; `portal_only` adds
-  the family to `home`. Nothing with money comes back.
+  portal's older value; `applyPortalFacts`), and only when they fit: the sale is a
+  placement the feed carries now or carried before (`known`), and isn't released.
+  `picked_up_at` (its day no earlier than the sale date or the pup's birth, no later than
+  tomorrow) moves the pup's pickup event (`pickupEventFor`: its next, else its last) to that
+  day and time in her time zone, or makes one with the family on it, and marks the sale
+  Delivered; `microchip` sets the Dog's; `died_on` (on or before today, not before birth)
+  marks the dog Deceased with its `date_of_death`; `portal_only` adds the family to `home`
+  only for the sale's own buyer. Anything else is `refused`. Each applied fact leaves a
+  **Note** on the pup ("From your puppy portal", `details: { portal_fact, sale_id }`), and
+  Today shows each for 14 days (`nudges.portalFactNudges`, dismissable), with a link to
+  the sale or the dog to change it back. Nothing with money comes back.
 - **The status page** (the projection, `waitlistProjection.js`): while `portalOn`, a
   record whose own sale (placed, else open) is signed and not ended carries `portal:
   { family_id, only, pickup_on }` (`portalEntryView`); `only` once the family is in `home`,
@@ -3883,7 +4674,9 @@ Nothing changes for any other kennel or breeder.
   go in `server.portal`, which the server never shows a family. The server (`familyPages
   .statusView`) shows **Your puppy portal is ready** with **Open your puppy portal**, and,
   once `only` (or `pickup_on` has passed in her time zone, so the switch never waits for her
-  device), only **Your puppy portal**. The button posts `/f/portal` (signed in on the status
+  device), only **Your puppy portal**: the page is then that link alone, so its **Your
+  payments** card (§29) goes with the rest, and the portal feed carries no amounts (Payment
+  Schedule plan D33). The button posts `/f/portal` (signed in on the status
   page; `familyActions.handlePortal`), which answers a link that works once, for the
   portal's minutes (at most 10), in KennelPort's token format: base64url JSON `{ f: the
   contact id, x: expiry ms, n: nonce }`, a dot, and its HMAC-SHA256 under the key. Not

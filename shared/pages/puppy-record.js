@@ -21,6 +21,7 @@ import { contractRepo } from '../data/contractRepo.js';
 import { breedFeedingScheduleRepo } from '../data/breedFeedingScheduleRepo.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { pupSale, readiness, doneText } from '../data/prepPups.js';
+import { getSaleStatements } from '../data/incomeView.js';
 import { litterLabel } from '../data/litterCheckin.js';
 import { esc, param, todayYMD } from '../assets/ui.js';
 
@@ -54,7 +55,7 @@ let contactsById = new Map();
 // the address on one line. A linked contact gives all three; a vet only typed
 // as text (`details.vet` — KennelAssistant, or logged before the link) gives
 // the name alone. Empty for every other type, or when nothing's ticked.
-const VET_EVENT_TYPES = ['vet_visit', 'surgery'];
+const VET_EVENT_TYPES = ['vet_visit', 'surgery', 'screening_test'];
 function vetLines(ev) {
   if (!VET_EVENT_TYPES.includes(ev.event_type)) return [];
   const contact = ev.related_contact_id ? contactsById.get(ev.related_contact_id) : null;
@@ -74,6 +75,8 @@ function eventDetail(ev) {
         .filter(Boolean).join(' — ');
     case 'preventative':
       return [d.product, d.dose].filter(Boolean).join(' — ');
+    case 'screening_test':
+      return [d.test, d.result].filter(Boolean).join(' — ');
     case 'genetic_test':
       return [d.panel_name, d.lab, d.result].filter(Boolean).join(' — ');
     case 'ofa_pennhip':
@@ -334,10 +337,13 @@ async function coverHtml(pups) {
   const today = todayYMD();
   // Kels passes the optional checks she ticked (&checks=chip,…); without it, all of them.
   const checks = param('checks') == null ? null : param('checks').split(',').filter(Boolean);
+  // Payments read each sale's payment statement, as Kels's check does.
+  const statements = await getSaleStatements(pups.map((p) => p.sale).filter(Boolean), { today });
   const rows = await Promise.all(pups.map(async ({ dog, sale, events }) => {
     const contracts = sale && editionFlags.contracts ? await contractRepo.getBySale(sale.id) : [];
     const ready = readiness({
       pup: dog, sale, events, contracts, litter: littersById.get(dog.litter_id) || null, today, flags: editionFlags, checks,
+      statement: sale ? statements.get(sale.id) || null : null,
       hasBreedSchedule: schedules.get((dog.breed || '').trim()) || false
     });
     const family = sale?.buyer_contact_id ? contactsById.get(sale.buyer_contact_id)?.name || '' : '';

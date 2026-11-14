@@ -1,18 +1,21 @@
-// contractForms.js — her contract forms (Jotform, Integrations plan §2.1a) and
+// contractForms.js — her contract forms (pasted links, Integrations plan §2.1a, D28) and
 // the prefilled link that sends one out for signature.
 //
 // She keeps the forms on a Form service Account (`contract_forms`: [{ id, form_type, label,
-// url }], D6 / D12), each tagged with a CONTRACT_FORM_TYPE so the Contract page
+// url }], D6 / D12; a Firma template is { id, form_type, label, provider: 'firma',
+// template_id } instead, D30), each tagged with a CONTRACT_FORM_TYPE so the Contract page
 // can offer the right one. "Send for signature" builds the form's URL with the
-// contract's facts as query parameters — Jotform's documented prefill — on her
+// contract's facts as query parameters — the prefill most form services document — on her
 // device: no API call, no server. The parameter names are fixed (PREFILL_FIELDS,
-// D14): she gives her Jotform fields those Unique Names, and any field her form
-// doesn't have is simply ignored by Jotform.
+// D14): she gives her form's fields those names, and any field her form
+// doesn't have is simply ignored by the form.
 //
 // A prefilled link carries its values in the URL, so only short facts go in it,
 // never private notes, terms or end reasons (§2.1). This list IS that allow-list.
 // Pure: no db, no DOM. The callers read the records.
 import { CONTRACT_FORM_TYPE, CONTRACT_TYPE, REGISTRATION_TYPE, SEX, STUD_SERVICE_TYPE, descriptor } from './vocab.js';
+import { extraFor, extraPayments } from './contractAddOns.js';
+import { finalDueDate } from './paymentSchedule.js';
 
 const text = (v) => String(v ?? '').trim();
 
@@ -35,21 +38,50 @@ export function formProvider(url) {
 
 const FORM_TYPES = new Set(CONTRACT_FORM_TYPE.map((t) => t.value));
 
+// A Firma template of hers (Integrations plan §2.3a, D30): kept on an Account's
+// contract_forms like a pasted form, but with Firma's template id and no link.
+// Her device sends it through the Worker (data/cloud/cloudEsign.js), never as a link.
+const TEMPLATE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+export const isFirmaForm = (f) => f?.provider === 'firma' && TEMPLATE_ID.test(text(f.template_id));
+
 // An Account's saved forms, cleaned: a known type, a usable link, a label (the
 // type's name when she left it blank). Older backups have no field: [].
-// A form picked through Connect Jotform (plan §2.1b) also keeps its Jotform
+// A form once picked through Connect Jotform (retired, D27/D29) also keeps its Jotform
 // `form_id` and the `field_map` she confirmed (cleanFieldMap); a pasted one has
 // neither and fills our fixed names.
+// An Extra agreement is for one of her price-list extras: the row's id. Other kinds carry none.
+const EXTRA_ID = /^[A-Za-z0-9_-]{1,64}$/;
+function withExtra(row, f) {
+  if (f.form_type === 'extra' && EXTRA_ID.test(text(f.extra_list_id))) row.extra_list_id = text(f.extra_list_id);
+  return row;
+}
+
 export function cleanForms(list) {
   return (Array.isArray(list) ? list : [])
-    .filter((f) => f && FORM_TYPES.has(f.form_type) && formLink(f.url))
+    .filter((f) => f && FORM_TYPES.has(f.form_type) && (isFirmaForm(f) || formLink(f.url)))
     .map((f) => {
+      if (isFirmaForm(f)) {
+        const row = {
+          id: text(f.id) || crypto.randomUUID(), form_type: f.form_type,
+          label: text(f.label) || descriptor(CONTRACT_FORM_TYPE, f.form_type).label,
+          provider: 'firma', template_id: text(f.template_id)
+        };
+        // She signs it too, after the buyer (Integrations D32). Absent = buyer only.
+        // countersign_first: she signs before the buyer instead (only with countersign).
+        if (f.countersign === true) row.countersign = true;
+        if (f.countersign === true && f.countersign_first === true) row.countersign_first = true;
+        // KennelOS keeps the signed PDF and emails the buyer a link (D33). Absent = no.
+        if (f.keep_copy === true) row.keep_copy = true;
+        withExtra(row, f);
+        return row;
+      }
       const out = {
         id: text(f.id) || crypto.randomUUID(),
         form_type: f.form_type,
         label: text(f.label) || descriptor(CONTRACT_FORM_TYPE, f.form_type).label,
         url: formLink(f.url)
       };
+      withExtra(out, f);
       if (/^\d{1,30}$/.test(text(f.form_id))) out.form_id = text(f.form_id);
       const map = cleanFieldMap(f.field_map);
       if (map) out.field_map = map;
@@ -91,11 +123,34 @@ export function allForms(accounts) {
     .flatMap((a) => cleanForms(a.contract_forms).map((f) => ({ ...f, account_id: a.id, account_name: text(a.name) })));
 }
 
+// Does the sale have what this separate agreement is for? Its transport fee, its
+// deferred-pickup boarding, or the extra the form is for: the same match the form
+// fills from (contractAddOns.extraFor) when the sale's `addOns` are given, else a
+// charge copied from that price-list row.
+export function addOnApplies(form, addOn, sale, addOns = null) {
+  if (!sale) return false;
+  if (addOn === 'transport') return Number(sale.transport_fee) > 0;
+  if (addOn === 'boarding') return Number(sale.deferred_boarding_amount) > 0;
+  if (addOn !== 'extra' || !form.extra_list_id) return false;
+  if (addOns) return Boolean(extraFor(addOns, form.extra_list_id));
+  return (Array.isArray(sale.extra_charges) ? sale.extra_charges : []).some((c) => c && c.list_id === form.extra_list_id);
+}
+
+// Which of a sale's agreements a form is: '' = its main contract, else the separate
+// agreement ('transport', 'boarding', 'extra:<price-list row id>'). Each separate
+// agreement goes out on a contract record of its own (contractSend.contractForForm).
+export function agreementKey(form) {
+  const addOn = descriptor(CONTRACT_FORM_TYPE, form?.form_type).addOn;
+  if (!addOn) return '';
+  return addOn === 'extra' ? `extra:${text(form.extra_list_id)}` : addOn;
+}
+
 // The forms for one contract, best first: `matching` = forms whose type serves
 // this contract_type, ranked by fit to the linked sale (pet home for a limited
 // registration, breeding rights for full, deposit while it's pending), then
-// label; `others` = the rest, for "Show all forms".
-export function rankForms(forms, contract, sale = null) {
+// label; `others` = the rest, for "Show all forms". `addOns`: the sale's
+// contractAddOns.addOnFacts, when the caller has them.
+export function rankForms(forms, contract, sale = null, addOns = null) {
   const order = new Map(CONTRACT_FORM_TYPE.map((t, i) => [t.value, i]));
   const fit = (f) => {
     const t = descriptor(CONTRACT_FORM_TYPE, f.form_type);
@@ -108,15 +163,19 @@ export function rankForms(forms, contract, sale = null) {
   const matching = []; const others = [];
   for (const f of forms || []) {
     const t = descriptor(CONTRACT_FORM_TYPE, f.form_type);
-    ((t.contractTypes || []).includes(contract?.contract_type) ? matching : others).push(f);
+    // A separate agreement (transport, boarding, one extra) only when the sale has it.
+    const fits = (t.contractTypes || []).includes(contract?.contract_type) && (!t.addOn || addOnApplies(f, t.addOn, sale, addOns));
+    (fits ? matching : others).push(f);
   }
-  matching.sort((a, b) => fit(b) - fit(a) || order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
+  // The sale's own contract first, then its separate agreements.
+  const apart = (f) => (descriptor(CONTRACT_FORM_TYPE, f.form_type).addOn ? 1 : 0);
+  matching.sort((a, b) => apart(a) - apart(b) || fit(b) - fit(a) || order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
   others.sort((a, b) => order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
   return { matching, others };
 }
 
 // The parameter names a form can use, by group, with what each holds. Shown on
-// the Accounts page (Copy) so she can set her Jotform fields' Unique Names.
+// the Accounts page (Copy) so she can name her form's fields.
 export const PREFILL_FIELDS = {
   every: [
     ['contractRef', 'This contract\'s reference (make it a hidden field)'],
@@ -150,9 +209,48 @@ export const PREFILL_FIELDS = {
     ['sireName', 'Sire'],
     ['damName', 'Dam'],
     ['registrationType', 'Registration (Limited, Full…)'],
-    ['price', 'Price'],
+    ['pickupDate', 'Estimated pickup date (the pickup on your calendar, else the litter\'s ready date)'],
+    ['price', 'Price (the total purchase price, with any Full registration surcharge)'],
     ['depositAmount', 'Deposit'],
-    ['balanceDue', 'Balance still due']
+    ['balanceDue', 'Balance still due (everything on the sale: with transport, boarding and extras)'],
+    ['depositDue', 'Deposit still due (the deposit, less the application fee and credits counted toward it)'],
+    ['otherPaymentsReceived', 'Credits and payments toward the balance, beyond what covered the deposit'],
+    ['purchaseBalanceDue', 'Balance of the purchase price due at pickup (the price only)'],
+    ['totalCharges', 'Everything on the sale (price, transport, boarding and extras)'],
+    ['paidToDate', 'Paid to date: deposit, payments, credits for funds received and the fee credited, on the sale'],
+    ['payment1Amount', 'First payment before the final one: what\'s still owed by it (blank with no schedule)'],
+    ['payment1Due', 'First payment\'s due date'],
+    ['payment2Amount', 'Second payment before the final one: what\'s still owed by it'],
+    ['payment2Due', 'Second payment\'s due date'],
+    ['finalPaymentAmount', 'Final payment: what\'s still owed by it'],
+    ['finalPaymentDue', 'Final payment\'s due date']
+  ],
+  transport: [
+    ['transportFee', 'Transport fee'],
+    ['deliveryDate', 'Delivery / pickup date (the one on your calendar)'],
+    ['deliveryPlace', 'Delivery / pickup place'],
+    ['transportDueDate', 'When the transport fee is due (with the final payment; without a schedule, the balance due date)']
+  ],
+  boarding: [
+    ['boardingRate', 'Boarding rate'],
+    ['boardingPer', 'Boarding rate per (Day, Week, Month)'],
+    ['boardingLength', 'How long (e.g. 2 weeks)'],
+    ['boardingTotal', 'Boarding total'],
+    ['boardingStart', 'Boarding starts (the day the pup could go home, after any training stay)'],
+    ['boardingEnd', 'Boarding ends (the day before pickup)']
+  ],
+  extra: [
+    ['extraName', 'The extra this agreement is for, as on the sale (e.g. 2-week training)'],
+    ['extraDescription', 'Its description from your price list'],
+    ['extraPrice', 'Its price'],
+    ['extraPayments', 'Its payment plan, in words (e.g. 50% (300.00) due 2026-12-01; 50% (300.00) with the balance)'],
+    ['extraPayment1Amount', 'First payment'], ['extraPayment1Due', 'First payment due'],
+    ['extraPayment2Amount', 'Second payment'], ['extraPayment2Due', 'Second payment due'],
+    ['extraPayment3Amount', 'Third payment'], ['extraPayment3Due', 'Third payment due'],
+    ['extraPayment4Amount', 'Fourth payment'], ['extraPayment4Due', 'Fourth payment due'],
+    ['extraStayDays', 'Days the pup stays for it (a training package)'],
+    ['extraStayStart', 'Its stay starts (as logged; else from the ready date)'],
+    ['extraStayEnd', 'Its stay ends']
   ],
   stud_service: [
     ['studServiceRef', 'The stud service\'s reference (make it a hidden field)'],
@@ -187,11 +285,53 @@ export const PREFILL_FIELDS = {
   ]
 };
 
+// Each fact's label in Firma's template editor (her workspace's custom fields,
+// cloudEsign.factFields): a group prefix, then a short name, so the fields sort into
+// groups in the editor's list (Payment Schedule plan §8.2, D15). Only the label shows
+// there; the field's name (the fact) never changes, so a field already placed keeps
+// filling. A fact shared by two groups (damName, breed, partner…) reads right in both.
+export const FIRMA_LABELS = {
+  contractRef: 'Contract · Reference (hidden)', contractTitle: 'Contract · Title', contractDate: 'Contract · Date',
+  kennelName: 'Kennel · Name', kennelLocation: 'Kennel · Location', kennelWebsite: 'Kennel · Website',
+  breederName: 'Breeder · Full name', breederFirstName: 'Breeder · First name', breederLastName: 'Breeder · Last name',
+  breederEmail: 'Breeder · Email', breederPhone: 'Breeder · Phone', breederAddress: 'Breeder · Address',
+  saleRef: 'Sale · Reference (hidden)',
+  buyerName: 'Buyer · Full name', buyerFirstName: 'Buyer · First name', buyerLastName: 'Buyer · Last name',
+  buyerEmail: 'Buyer · Email', buyerPhone: 'Buyer · Phone', buyerAddress: 'Buyer · Address',
+  puppyName: 'Pup · Call name', puppyRegisteredName: 'Pup · Registered name', puppySex: 'Pup · Sex',
+  puppyColor: 'Pup · Color / markings', puppyDob: 'Pup · Date of birth', puppyMicrochip: 'Pup · Microchip',
+  breed: 'Pup or dog · Breed', sireName: 'Sire · Name', damName: 'Dam · Name',
+  registrationType: 'Sale · Registration', pickupDate: 'Sale · Pickup date', price: 'Sale · Price',
+  depositAmount: 'Sale · Deposit', balanceDue: 'Sale · Balance still due', depositDue: 'Sale · Deposit still due',
+  otherPaymentsReceived: 'Sale · Other payments and credits', purchaseBalanceDue: 'Sale · Price balance due at pickup',
+  totalCharges: 'Sale · Total charges', paidToDate: 'Sale · Paid to date',
+  payment1Amount: 'Payment · 1st amount', payment1Due: 'Payment · 1st due date',
+  payment2Amount: 'Payment · 2nd amount', payment2Due: 'Payment · 2nd due date',
+  finalPaymentAmount: 'Payment · Final amount', finalPaymentDue: 'Payment · Final due date',
+  transportFee: 'Transport · Fee', deliveryDate: 'Transport · Delivery date', deliveryPlace: 'Transport · Delivery place',
+  transportDueDate: 'Transport · Fee due date',
+  boardingRate: 'Boarding · Rate', boardingPer: 'Boarding · Rate per', boardingLength: 'Boarding · Length',
+  boardingTotal: 'Boarding · Total', boardingStart: 'Boarding · Start date', boardingEnd: 'Boarding · End date',
+  extraName: 'Extra · Name', extraDescription: 'Extra · Description', extraPrice: 'Extra · Price', extraPayments: 'Extra · Payment plan',
+  extraPayment1Amount: 'Extra · 1st payment', extraPayment1Due: 'Extra · 1st payment due',
+  extraPayment2Amount: 'Extra · 2nd payment', extraPayment2Due: 'Extra · 2nd payment due',
+  extraPayment3Amount: 'Extra · 3rd payment', extraPayment3Due: 'Extra · 3rd payment due',
+  extraPayment4Amount: 'Extra · 4th payment', extraPayment4Due: 'Extra · 4th payment due',
+  extraStayDays: 'Extra · Stay days', extraStayStart: 'Extra · Stay start', extraStayEnd: 'Extra · Stay end',
+  studServiceRef: 'Stud service · Reference (hidden)', studName: 'Stud · Name', studRegisteredName: 'Stud · Registered name',
+  damRegisteredName: 'Dam · Registered name', studFee: 'Stud service · Fee', serviceType: 'Stud service · Type',
+  partnerName: 'Other party · Full name', partnerFirstName: 'Other party · First name', partnerLastName: 'Other party · Last name',
+  partnerEmail: 'Other party · Email', partnerPhone: 'Other party · Phone', partnerAddress: 'Other party · Address',
+  dogName: 'Dog · Call name', dogRegisteredName: 'Dog · Registered name', dogSex: 'Dog · Sex', dogDob: 'Dog · Date of birth',
+  dogMicrochip: 'Dog · Microchip', leaseStart: 'Lease · Start date', leaseEnd: 'Lease · End date'
+};
+
 // Which groups a form type fills, after `every`.
 export function fieldGroupsFor(formType) {
   if (formType === 'stud_service') return ['stud_service'];
   if (['lease', 'foster', 'other'].includes(formType)) return ['dog'];
   if (formType === 'co_own') return ['sale', 'dog'];
+  if (['transport', 'boarding', 'extra'].includes(formType)) return ['sale', formType];
   return ['sale'];
 }
 
@@ -218,11 +358,34 @@ function person(prefix, c) {
   ];
 }
 
-// The facts to prefill, as [[name, value]] in PREFILL_FIELDS order, empties
-// dropped. `facts` holds the records the contract reaches (the caller reads
-// them): { contract, kennel, breeder, sale, buyer, puppy, sire, dam, balanceDue,
+// The sale's payment schedule on a contract (Payment Schedule plan §8.1, D11), from its
+// payment statement (paymentSchedule.paymentStatement), so the contract says what the
+// Payments card says. totalCharges / paidToDate: the statement's total and paid (the
+// sale's own charges; money on them from the deposit, payments, credits for funds
+// received and the application fee credited; a credit's leftover or the part that paid
+// the fee itself isn't on the sale). payment1 / payment2: the first two due dates before
+// the final one; finalPayment: the last. Each amount is what's still owed by that due
+// date (its ask less the money it took, so 0.00 once met); its date, YYYY-MM-DD, is left
+// out while it can't be known. A returned, cancelled or voided sale has no due dates.
+function scheduleValues(st) {
+  if (!st) return [];
+  const out = [['totalCharges', money(st.total)], ['paidToDate', money(st.paid)]];
+  const dueDates = st.dueDates || [];
+  dueDates.filter((d) => !d.isFinal).slice(0, 2).forEach((d, i) => out.push([`payment${i + 1}Amount`, money(d.owed)], [`payment${i + 1}Due`, text(d.date)]));
+  const last = dueDates.find((d) => d.isFinal);
+  if (last) out.push(['finalPaymentAmount', money(last.owed)], ['finalPaymentDue', text(last.date)]);
+  return out;
+}
+
+// The facts to prefill for a form (or a bare form type), as [[name, value]] in
+// PREFILL_FIELDS order, empties dropped. An Extra agreement fills from the extra
+// its row names (`extra_list_id`). `facts` holds the records the contract reaches (the caller reads
+// them): { contract, kennel, breeder, sale, buyer, puppy, sire, dam, balanceDue, priceTable, pickupDate,
+// statement (the sale's payment statement, incomeView.getSaleStatement), addOns (contractAddOns.addOnFacts),
 // studService, studDog, studDam, partner, dog, today }.
-export function prefillValues(formType, facts = {}) {
+export function prefillValues(formOrType, facts = {}) {
+  const form = typeof formOrType === 'string' ? { form_type: formOrType } : (formOrType || {});
+  const formType = form.form_type;
   const f = facts;
   const c = f.contract || {};
   const out = [
@@ -248,8 +411,38 @@ export function prefillValues(formType, facts = {}) {
       ['sireName', text(f.sire?.registered_name || f.sire?.call_name)],
       ['damName', text(f.dam?.registered_name || f.dam?.call_name)],
       ['registrationType', label(REGISTRATION_TYPE, s.registration_type)],
-      ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)]
+      ['pickupDate', text(f.pickupDate)],
+      ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)],
+      // Her contract's payment table (contractSend: incomeView.priceTable).
+      ['depositDue', money(f.priceTable?.depositDue)],
+      ['otherPaymentsReceived', money(f.priceTable?.otherPaid)], ['purchaseBalanceDue', money(f.priceTable?.balanceDue)],
+      ...scheduleValues(f.statement)
     );
+  }
+  const a = f.addOns;
+  if (groups.includes('transport') && a) {
+    const t = a.transport;
+    // Transport is always paid last (D16), so with a schedule it's due with the final
+    // payment: that due date as it stands now, not the balance due date mirrored when
+    // the schedule was last saved.
+    const st = f.statement;
+    const due = st?.hasSchedule && !st.ended ? text(finalDueDate(st)) : text(t.due);
+    out.push(['transportFee', money(t.fee)], ['deliveryDate', text(t.date)],
+      ['deliveryPlace', text(t.place)], ['transportDueDate', due]);
+  }
+  if (groups.includes('boarding') && a?.boarding) {
+    const b = a.boarding;
+    out.push(['boardingRate', money(b.rate)], ['boardingPer', text(b.per)], ['boardingLength', text(b.length)],
+      ['boardingTotal', money(b.total)], ['boardingStart', text(b.start)], ['boardingEnd', text(b.end)]);
+  }
+  const x = groups.includes('extra') ? extraFor(a, form.extra_list_id) : null;
+  if (x) {
+    const steps = extraPayments(x.charge, f.sale, a.pickupDate || f.pickupDate, f.statement);
+    const stepText = (st) => `${st.percent}% (${money(st.amount)}) ${st.due === 'with the balance' ? 'with the balance' : st.due ? `due ${st.due}` : ''}`.trim();
+    out.push(['extraName', text(x.charge.label)], ['extraDescription', text(x.row?.description)], ['extraPrice', money(x.charge.amount)],
+      ['extraPayments', steps.map(stepText).join('; ')]);
+    steps.slice(0, 4).forEach((st, i) => out.push([`extraPayment${i + 1}Amount`, money(st.amount)], [`extraPayment${i + 1}Due`, text(st.due)]));
+    if (x.stay) out.push(['extraStayDays', text(x.charge.boarding_days)], ['extraStayStart', text(x.stay.start)], ['extraStayEnd', text(x.stay.end)]);
   }
   if (groups.includes('stud_service') && f.studService) {
     const ss = f.studService;

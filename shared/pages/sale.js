@@ -9,8 +9,10 @@ import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { accountRepo } from '../data/accountRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
-import { saleExtraCharges, readExtraCharges, kennelChargeList, kennelChargeGroups, groupedChargeList, newExtraCharge, depositFeeChargeBack, chargeRules, planSteps, cleanSteps, stepWithPaidDate } from '../data/extraCharges.js';
-import { depositPaid } from '../data/incomeView.js';
+import { saleExtraCharges, readExtraCharges, kennelChargeList, kennelChargeGroups, groupedChargeList, newExtraCharge, chargeFromPriceList, depositFeeChargeBack, cleanSteps, stepWithPaidDate } from '../data/extraCharges.js';
+import { depositPaid, getSaleStatement } from '../data/incomeView.js';
+import { hasSchedule, savedSchedules, finalDueDate } from '../data/paymentSchedule.js';
+import { paymentsCardHtml, wirePaymentsCard, askAboutNewFees } from '../assets/paymentScheduleUI.js';
 import { feeRate, isUsableRate, processingFee, priceToNet, netOf, rateLabel, saleFeeEstimate } from '../data/processingFees.js';
 import { isOpenSale, REGISTRATION_TYPE, SALE_STATUS, RELEASED_SALE_STATUSES, TERMINAL_SALE_STATUSES, SALE_END_REASON, saleEndReasonsFor, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
 import { restoresFamily, businessDays, waitlistConfig } from '../data/waitlistRules.js';
@@ -20,6 +22,8 @@ import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal, dogRefHtm
 import { openEventForm } from '../assets/eventForm.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
 import { editionFlags } from '../data/editionConfig.js';
+import { doNotSellRepo } from '../data/doNotSellRepo.js';
+import { doNotSellMatches, doNotSellWarning } from '../data/doNotSell.js';
 import { resolveKennelIdForWrite, dogInScope, isScoped } from '../data/kennelScope.js';
 import { renderScopeNotice } from '../assets/kennelScopeUI.js';
 import { deliveredOwnershipChanges } from '../data/goHome.js';
@@ -34,7 +38,8 @@ const els = {
   profileActions: document.getElementById('profile-actions'),
   body: document.getElementById('profile-body'),
   error: document.getElementById('page-error'),
-  contracts: document.getElementById('contracts-section')
+  contracts: document.getElementById('contracts-section'),
+  payments: document.getElementById('payments-section')
 };
 
 const blankSale = () => ({
@@ -58,19 +63,26 @@ const ctx = {
   // she typed stays put.
   accounts: [], accountsById: new Map(), suggestedFee: null,
   // Own kennels, for the extra charges price list (Pro, §21.2).
-  kennels: []
+  kennels: [],
+  // Her do-not-sell list (Pro, with the waitlist): the chosen buyer is checked (K7-9).
+  doNotSell: [],
+  // The sale's payment statement as last shown (Payments card), for the edit form's
+  // final payment date.
+  statement: null
 };
 
 async function loadRefs() {
-  const [dogs, contacts, leadSources, litters, accounts, kennels] = await Promise.all([
+  const [dogs, contacts, leadSources, litters, accounts, kennels, doNotSell] = await Promise.all([
     dogRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true }),
     saleRepo.getLeadSources(),
     litterRepo.getAll({ includeArchived: true }),
     // Accounts are a Pro page; Lite records the fee on the sale alone.
     editionFlags.accounts ? accountRepo.getAll({ includeArchived: true }) : [],
-    editionFlags.extraCharges ? kennelRepo.getAll() : []
+    editionFlags.extraCharges ? kennelRepo.getAll() : [],
+    editionFlags.waitlist ? doNotSellRepo.getAll() : []
   ]);
+  ctx.doNotSell = doNotSell;
   ctx.kennels = kennels.filter((k) => k.is_own_kennel);
   ctx.accounts = accounts;
   ctx.accountsById = new Map(accounts.map((a) => [a.id, a]));
@@ -383,14 +395,11 @@ function wireExtraCharges() {
     if (!choice) return;
     ctx.draft = readForm();
     const preset = priceList().find((p) => p.id === choice) || null;
-    const charge = newExtraCharge(preset);
     // From the price list: where it came from, and its payment plan as dated steps.
-    if (preset) {
-      const kennel = priceKennel();
-      const dog = ctx.dogsById.get(ctx.draft.dog_id);
-      const payments = planSteps(chargeRules(preset, kennelChargeGroups(kennel)).payment_plan, preset.amount, { approvalDate: todayYMD(), birthDate: dog?.date_of_birth || null, openDays: businessDays(waitlistConfig(kennel)) });
-      Object.assign(charge, { list_id: preset.id, ...(preset.group ? { group: preset.group } : {}), ...(payments ? { payments } : {}), ...(preset.boarding_days ? { boarding_days: preset.boarding_days } : {}) });
-    }
+    const kennel = priceKennel();
+    const charge = preset
+      ? chargeFromPriceList(preset, { groups: kennelChargeGroups(kennel), approvalDate: todayYMD(), birthDate: ctx.dogsById.get(ctx.draft.dog_id)?.date_of_birth || null, openDays: businessDays(waitlistConfig(kennel)) })
+      : newExtraCharge();
     ctx.draft.extra_charges = [...ctx.draft.extra_charges, charge];
     renderEdit();
     const labels = document.querySelectorAll('#xc-rows .xc-label');
@@ -460,7 +469,9 @@ function renderView() {
       ${saleExtraCharges(s).length ? row('Extra charges', saleExtraCharges(s).map((x) => `${esc(x.label)} <span class="muted">${esc(money(x.amount))}</span>${(x.payments || []).map((st) => `<br><span class="faint" style="margin-left:12px;">${esc(`${st.percent}% · ${money(st.amount)}`)} · ${st.paid_date ? `paid ${esc(fmtDate(st.paid_date))}` : st.due_date ? `due ${esc(fmtDate(st.due_date))}` : st.due === 'before_pickup' ? `due ${st.n || 0} days before pickup` : 'due with the balance'}</span>`).join('')}`).join('<br>')) : ''}
       ${row('Sale date', s.sale_date ? esc(fmtDate(s.sale_date)) : '')}
       ${row('Deposit date', s.deposit_date ? esc(fmtDate(s.deposit_date)) : '')}
-      ${row('Balance due date', s.balance_due_date ? esc(fmtDate(s.balance_due_date)) : '')}
+      ${hasSchedule(s)
+        ? row('Final payment due', (finalDueDate(ctx.statement) || s.balance_due_date) ? `${esc(fmtDate(finalDueDate(ctx.statement) || s.balance_due_date))} <span class="faint">(payment schedule)</span>` : '<span class="faint">Not known yet (payment schedule)</span>')
+        : row('Balance due date', s.balance_due_date ? esc(fmtDate(s.balance_due_date)) : '')}
       ${row('Balance paid date', s.balance_paid_date ? esc(fmtDate(s.balance_paid_date)) : '')}
       ${row('Lead source', esc(s.lead_source))}
       ${editionFlags.contactsSection ? row('Referred by', s.referred_by_contact_id
@@ -485,6 +496,17 @@ function endReasonFields(s) {
   return `${field('Why it ended', `<select id="f-end_reason">${vocabOptions(reasons, s.end_reason, 'Select…')}</select>`, { required: true, hint })}
       ${field('About it', `<input id="f-end_note" type="text" value="${esc(s.end_note)}" placeholder="e.g. what the vet found">`)}`;
 }
+// The chosen buyer against her do-not-sell list (K7-9): only a warning, as everywhere.
+function buyerDoNotSellText(contactId) {
+  const c = contactId ? ctx.contactsById.get(contactId) : null;
+  if (!c || !ctx.doNotSell.length) return '';
+  return doNotSellWarning(doNotSellMatches({ name: c.name, email: c.email, phone: c.phone }, ctx.doNotSell, { contactId: c.id }));
+}
+function buyerDoNotSellHtml(contactId) {
+  const warn = buyerDoNotSellText(contactId);
+  return warn ? `<div class="inline-warn field-wide" role="status">${esc(/[.!?]$/.test(warn) ? warn : `${warn}.`)} You can still record the sale.</div>` : '';
+}
+
 function field(label, inner, { required = false, hint = '', wide = false } = {}) {
   return `<div class="field${wide ? ' field-wide' : ''}">
     <label>${esc(label)}${required ? ' <span class="req">*</span>' : ''}</label>
@@ -500,6 +522,7 @@ function renderEdit() {
     <div class="form-grid" id="sale-form" style="margin-top:14px;">
       ${field('Dog', `<select id="f-dog_id">${dogOptions(s.dog_id)}</select>`, { required: true })}
       ${field('Buyer', `<select id="f-buyer_contact_id">${contactOptions(s.buyer_contact_id)}</select>`, { required: true })}
+      ${buyerDoNotSellHtml(s.buyer_contact_id)}
       ${field('Registration', `<select id="f-registration_type">${vocabOptions(REGISTRATION_TYPE, s.registration_type, 'Select…')}</select>`, { required: true, hint: 'Full adds the litter\'s Full-registration surcharge to a prefilled price.' })}
       ${field('Status', `<select id="f-status">${vocabOptions(SALE_STATUS, s.status, 'Select…')}</select>`, { required: true })}
       ${endReasonFields(s)}
@@ -517,7 +540,9 @@ function renderEdit() {
       ${extraChargesField(s)}
       ${field('Sale date', `<input id="f-sale_date" type="date" value="${esc(s.sale_date)}">`)}
       ${field('Deposit date', `<input id="f-deposit_date" type="date" value="${esc(s.deposit_date)}">`)}
-      ${field('Balance due date', `<input id="f-balance_due_date" type="date" value="${esc(s.balance_due_date)}">`)}
+      ${hasSchedule(s)
+        ? field('Final payment due', `<div style="padding:8px 0;">${(finalDueDate(ctx.statement) || s.balance_due_date) ? esc(fmtDate(finalDueDate(ctx.statement) || s.balance_due_date)) : 'Not known yet'}</div>`, { hint: 'This sale has a payment schedule: change its dates with Edit the schedule, under Payments.' })
+        : field('Balance due date', `<input id="f-balance_due_date" type="date" value="${esc(s.balance_due_date)}">`)}
       ${field('Balance paid date', `<input id="f-balance_paid_date" type="date" value="${esc(s.balance_paid_date)}">`)}
       ${field('Lead source', `<input id="f-lead_source" type="text" list="lead-source-list" value="${esc(s.lead_source)}"><datalist id="lead-source-list">${sourceList}</datalist>`, { hint: 'How this specific sale came in. Prefills from the buyer, but may differ.' })}
       ${editionFlags.contactsSection ? field('Referred by', `<select id="f-referred_by_contact_id">${contactOptions(s.referred_by_contact_id)}</select>`, { hint: 'The contact who referred this buyer. Tags them as a Buyer referrer automatically.' }) : ''}
@@ -604,7 +629,8 @@ function readForm() {
     price: val('f-price'),
     deposit_amount: val('f-deposit_amount'),
     deposit_date: val('f-deposit_date'),
-    balance_due_date: val('f-balance_due_date'),
+    // With a payment schedule the box isn't shown (its dates are the schedule's): keep it.
+    balance_due_date: document.getElementById('f-balance_due_date') ? val('f-balance_due_date') : (ctx.draft.balance_due_date || ''),
     balance_paid_date: val('f-balance_paid_date'),
     transport_fee: val('f-transport_fee'),
     deferred_boarding_amount: val('f-deferred_boarding_amount'),
@@ -682,7 +708,14 @@ async function renderHeaderActions() {
   const payBtn = editionFlags.accounts && isOpenSale(s)
     ? '<button class="btn btn-sm" id="btn-pay-link">Send payment link</button>'
     : '';
+  // A family page without the list (E3, Pro with the waitlist): her link to this sale's
+  // family page, or the way to give them one.
+  const famPage = editionFlags.waitlist ? await familyPageFor(s) : null;
+  const famBtn = famPage?.entry
+    ? `<a class="btn btn-sm" href="waitlist-entry.html?id=${encodeURIComponent(famPage.entry.id)}">${famPage.entry.off_list ? 'Family page' : 'Waitlist family'}</a>`
+    : famPage?.can ? '<button class="btn btn-sm" id="btn-family-page" title="Their own status page (pickup times, extras, the puppy portal link, your messages) without being on the waitlist">Give this family a status page</button>' : '';
   els.headerActions.innerHTML = `
+    ${famBtn}
     ${payBtn}
     ${invoiceBtn}
     ${puppyRecordBtn}
@@ -712,8 +745,38 @@ async function renderHeaderActions() {
       } catch (err) { showError(err.message || String(err)); }
     };
   }
+  const fam = document.getElementById('btn-family-page');
+  if (fam) {
+    fam.onclick = async () => {
+      clearError();
+      try {
+        const { addFamilyPage } = await import('../data/waitlistActions.js');
+        const buyer = contactName(s.buyer_contact_id) || 'This family';
+        const warn = ctx.doNotSell.length ? buyerDoNotSellText(s.buyer_contact_id) : '';
+        if (!(await confirmModal({ title: 'Give this family a status page?', message: `This gives ${buyer} their own status page, with their pickup times, extras, the puppy portal link and your messages. They aren't put on the waitlist and show on no list.${warn ? `\n\n${warn}` : ''}\n\nPublish your list (Waitlist, Publish list) to make their link.`, confirmLabel: 'Make their page' }))) return;
+        const entry = await addFamilyPage(s.id);
+        location.href = `waitlist-entry.html?id=${encodeURIComponent(entry.id)}`;
+      } catch (err) { showError(err.message || String(err)); }
+    };
+  }
   const del = document.getElementById('btn-delete');
   if (!blockers.length) del.onclick = doDelete;
+}
+
+// This sale's waitlist record (one claiming it), or whether it can be given a family
+// page: { entry } | { can: true } | null.
+async function familyPageFor(s) {
+  const dog = ctx.dogsById.get(s.dog_id);
+  const litter = dog?.litter_id ? ctx.littersById.get(dog.litter_id) : null;
+  const kennelId = litter?.kennel_id || s.kennel_id || null;
+  if (!kennelId) return null;
+  const [{ waitlistEntryRepo }, { waitlistOfferRepo }, { familyPageBlocker }] = await Promise.all([
+    import('../data/waitlistEntryRepo.js'), import('../data/waitlistOfferRepo.js'), import('../data/waitlistRules.js')
+  ]);
+  const [entries, offers] = await Promise.all([waitlistEntryRepo.getByKennel(kennelId), waitlistOfferRepo.getByKennel(kennelId)]);
+  const entry = entries.find((e) => !e.is_archived && e.placed_sale_id === s.id);
+  if (entry) return { entry };
+  return familyPageBlocker(s, entries, offers) ? null : { can: true };
 }
 
 function showError(msg) {
@@ -734,6 +797,7 @@ function enterEdit() {
   renderEdit();
   renderProfileActions();
   renderContractsSection();
+  renderPaymentsSection();
 }
 
 function cancel() {
@@ -743,6 +807,7 @@ function cancel() {
   renderView();
   renderProfileActions();
   renderContractsSection();
+  renderPaymentsSection();
 }
 
 // Soft prompt on the Delivered transition (Enhancements Batch #7): offer to
@@ -885,6 +950,10 @@ async function doSave() {
     // (a Skip never blocks the save that already happened above). ---
 
     saved = await offerDepositFeeChargeBack(saved, isNew ? null : ctx.original);
+
+    // A transport fee, boarding or an extra just added (Payment Schedule plan D17):
+    // show the schedule and ask whether to adjust it. Never changes it by itself.
+    await askAboutNewFees({ before: isNew ? null : ctx.original, after: saved, savedList: savedSchedules(await saleKennel(saved)) });
 
     // Co-own placement convenience (Data Model v3 §5.6): pairs naturally with
     // adding the buyer to the dog's co_owner_contact_ids — never automatic.
@@ -1086,6 +1155,38 @@ function renderAll() {
   if (ctx.mode === 'view') renderView();
   else renderEdit();
   renderContractsSection();
+  renderPaymentsSection();
+}
+
+// --- Payments (Payment Schedule plan §5) ----------------------------------------
+// The deposit, each due date, extras on their own dates and the money received, with
+// Record a payment and the schedule editor (assets/paymentScheduleUI.js). Shown while
+// viewing a saved sale; hidden in the form.
+const saleKennel = (s) => (s?.kennel_id ? kennelRepo.getById(s.kennel_id) : null);
+let paymentsDraw = 0;
+async function renderPaymentsSection() {
+  const sec = els.payments;
+  if (!sec) return;
+  const mine = ++paymentsDraw;
+  if (ctx.mode !== 'view' || !ctx.original) { sec.hidden = true; sec.innerHTML = ''; return; }
+  try {
+    const [loaded, kennel] = await Promise.all([getSaleStatement(ctx.original), saleKennel(ctx.original)]);
+    if (mine !== paymentsDraw || ctx.mode !== 'view' || !loaded) return;
+    const firstDraw = !ctx.statement;
+    ctx.statement = loaded.statement;
+    sec.innerHTML = paymentsCardHtml(loaded, { accountsById: ctx.accountsById, finalMethods: kennel?.final_payment_methods || '', editable: !ctx.original.is_archived });
+    sec.hidden = false;
+    wirePaymentsCard(sec, {
+      loaded, savedList: savedSchedules(kennel),
+      accounts: ctx.accounts.filter((a) => a.account_type === 'payment_service'),
+      onChanged: async () => { ctx.original = await saleRepo.getById(ctx.original.id); renderAll(); }
+    });
+    // The view's final payment date reads the statement: draw it again once it's known.
+    if (firstDraw && hasSchedule(ctx.original)) renderView();
+  } catch (e) {
+    sec.hidden = false;
+    sec.innerHTML = `<div class="inline-error">${esc(e.message || String(e))}</div>`;
+  }
 }
 
 async function main() {

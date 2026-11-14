@@ -23,7 +23,8 @@
 //     compoundIndex? + discriminatorValue?:  for the polymorphic Event, match
 //       only rows of the right subject_type via the [subject_type+subject_id]
 //       compound index,
-//     scan?: true when `field` is an unindexed dotted path (every row is read) }
+//     scan?: true when `field` is an unindexed dotted path (every row is read);
+//       `list[].key` matches any item of the list `list` whose `key` is the id }
 import { db, existingTableNames } from './db.js';
 
 // --- Dog: what can point at a Dog (Data Model v3 §10) -----------------------
@@ -161,7 +162,9 @@ export const EVENT_REFERENCES = [
 export const WAITLIST_ENTRY_REFERENCES = [
   { table: 'waitlist_offers', field: 'entry_id', label: 'offer to this family' },
   // The application a do-not-sell row was added from. Not indexed (only a delete asks).
-  { table: 'do_not_sell', field: 'source_entry_id', label: 'application a do-not-sell listing came from', scan: true }
+  { table: 'do_not_sell', field: 'source_entry_id', label: 'application a do-not-sell listing came from', scan: true },
+  // A side sale to this family (Side Sale Spec). Not indexed (only a delete asks).
+  { table: 'sales', field: 'side_entry_id', label: 'a side sale to this family', scan: true }
 ];
 
 export const WAITLIST_PROGRAM_REFERENCES = [
@@ -194,7 +197,10 @@ export const ACCOUNT_REFERENCES = [
   { table: 'sales', field: 'deposit_paid_via_account_id', label: 'deposit paid via, on a sale' },
   { table: 'sales', field: 'balance_paid_via_account_id', label: 'balance paid via, on a sale' },
   { table: 'waitlist_entries', field: 'fee_paid_via_account_id', label: 'application fee paid via, on a waitlist family' },
-  { table: 'kennels', field: 'waitlist_fee_account_id', label: 'online application fee account of a kennel' }
+  { table: 'kennels', field: 'waitlist_fee_account_id', label: 'online application fee account of a kennel' },
+  // Each payment recorded on a sale (Payment Schedule plan §3.2): the account it came
+  // in through. Inside a list, so it's a scan.
+  { table: 'sales', field: 'payments[].account_id', label: 'a payment received on a sale', scan: true }
 ];
 
 // --- Document: a leaf entity — nothing points at a Document. Its own FK
@@ -213,8 +219,10 @@ async function countReferences(ref, id) {
   }
   // An unindexed path (`scan`): every row is read. Only for rare deletes.
   if (ref.scan) {
-    const path = ref.field.split('.');
-    return table.filter((row) => path.reduce((v, k) => (v == null ? v : v[k]), row) === id).count();
+    const at = (obj, dotted) => dotted.split('.').reduce((v, k) => (v == null ? v : v[k]), obj);
+    const [list, item] = ref.field.split('[].');
+    if (item != null) return table.filter((row) => { const xs = at(row, list); return Array.isArray(xs) && xs.some((x) => at(x, item) === id); }).count();
+    return table.filter((row) => at(row, ref.field) === id).count();
   }
   // Both single-field and multi-entry (*) indexes answer .where(field).equals(id).
   return table.where(ref.field).equals(id).count();

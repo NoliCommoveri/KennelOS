@@ -19,6 +19,8 @@ export const CLOUD_FIELDS = {
         "dob_is_estimated",
         "heats_online",
         "id",
+        "import_country",
+        "imported",
         "intended_registration",
         "is_archived",
         "kennel_id",
@@ -69,6 +71,7 @@ export const CLOUD_FIELDS = {
     "kennels": {
       "keys": [
         "created_at",
+        "esign_signer_name",
         "id",
         "is_archived",
         "is_own_kennel",
@@ -151,6 +154,7 @@ export const CLOUD_FIELDS = {
         "sire_id",
         "status",
         "updated_at",
+        "waitlist_off",
         "whelp_date"
       ],
       "nested": {}
@@ -176,6 +180,11 @@ export const CLOUD_FIELDS = {
         "registration_type",
         "sale_date",
         "sales_channel_account_id",
+        "side_deposit_due",
+        "side_entry_id",
+        "side_holds_pup",
+        "side_prior_disposition",
+        "side_request_sent_date",
         "status",
         "updated_at"
       ],
@@ -206,8 +215,11 @@ export const CLOUD_FIELDS = {
       "keys": [
         "contract_type",
         "created_at",
+        "esign_countersign",
+        "esign_countersign_first",
         "esign_form_label",
         "esign_provider",
+        "esign_ref",
         "esign_sent_date",
         "id",
         "is_archived",
@@ -286,6 +298,7 @@ export const CLOUD_FIELDS = {
         "account_type",
         "contract_forms",
         "created_at",
+        "esign_signs_default",
         "fee_fixed",
         "fee_passed_to_buyer_default",
         "fee_percent",
@@ -325,6 +338,7 @@ export const CLOUD_FIELDS = {
         "listen_dam_ids",
         "listen_mode",
         "listen_sire_ids",
+        "off_list",
         "paused_until",
         "placed_sale_id",
         "position_anchor_date",
@@ -438,6 +452,12 @@ export const CLOUD_FIELDS = {
       "outcome",
       "result",
       "test_name"
+    ],
+    "screening_test": [
+      "outcome",
+      "result",
+      "test",
+      "vet"
     ],
     "illness": [
       "diagnosis"

@@ -141,12 +141,16 @@ steps that each take a percent of its amount and a due date worked out from a ru
   holds a pup) so two families can't take the last place; her device then creates the pup's
   `placement` event (method Local pickup, the slot's time and location), which is what
   `goHome`, Today, Furever and the Companion page already read.
+  **Modified (2026-11-11):** the page lists times from a week before the ready date (seven
+  weeks with the 8-week default), not from the ready date; standard boarding still counts
+  from the ready date.
 - **Only for families who live far enough away** (decided 2026-11-01): her setting
   `transport_min_home_miles` ("Families can suggest their own meetup place only if they live
   at least __ miles from me"). Closer families see only her listed places and times. That
   needs where they live (§4.1).
 - **Their own address instead** (D5, decided), for an eligible family: "None of these work
-  for us" → they type an address (and the date they'd like). The server measures driving miles from her standard
+  for us" → they type an address (and the date they'd like; **Modified (2026-11-11):** and
+  the time, also optional, prefilled when she approves). The server measures driving miles from her standard
   location with Mapbox (§5) as they submit, and the request reaches her with the miles and
   the suggested transport fee.
   - **Within her range** (`transport_far_miles`, a Waitlist setting, e.g. 150): the page says
@@ -294,6 +298,14 @@ or "18 miles: under your 25, no charge".
     count as income. Record that you refunded it?") with the Refund button off until she
     types **REFUND**. Her deposit policy (above) can't make it the suggested outcome.
 - The family sees the result on their page and gets an email (her template).
+  **Modified (2026-11-11, Waitlist Fixes Plan K8-7):** the decided back-out stays on their
+  page for 30 days after the sale has ended (what happened to the deposit), and each outcome
+  has its own email template (`backed_out_keep` / `_move` / `_refund`) in place of "request
+  approved". The reports count it as **Backed out**, never Placed.
+  **Modified (2026-11-11, Waitlist Fixes Plan K8-8, E3):** approving closes the family's
+  waiting pickup and extras requests (`decided: 'closed'`), so no decline email goes to a
+  family who's gone and the pickup time is free. A family page only (no place on the list)
+  is Keep or Refund only, never Move.
 
 ### 7.2 Approving a back-out: she ticks what goes
 

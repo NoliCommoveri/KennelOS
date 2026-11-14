@@ -91,6 +91,9 @@ test('every Resend send is counted by month and kind, sent or failed; never an a
   assert.ok(mc.countingSince);
   const rows = JSON.stringify(env.DB.raw.prepare('SELECT * FROM mail_counts').all());
   assert.equal(rows.includes('count@example.com'), false);
+  // And by UTC day, all kinds together.
+  const daily = env.DB.raw.prepare('SELECT day, sent, failed FROM mail_daily').all();
+  assert.deepEqual(daily.map((r) => ({ ...r })), [{ day: new Date().toISOString().slice(0, 10), sent: 2, failed: 1 }]);
 });
 
 test('the staging outbox counts nothing: no email went out', async () => {

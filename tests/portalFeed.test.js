@@ -234,7 +234,8 @@ test('the facts come back once: picked up (its time on the pickup, the sale Deli
   reply = () => ({ status: 200, body: { received: 'x', summary: {}, portal: PORTAL, facts: [
     { id: 's1', family_id: 'reed', picked_up_at: '2026-12-23T21:15:00.000Z', portal_only: true, microchip: '985000999' }
   ] } });
-  const out = await sync.sendPortalFeed(K, { today: TODAY });
+  // The day after pickup: a fact is checked against today (K7-2).
+  const out = await sync.sendPortalFeed(K, { today: '2026-12-24' });
   assert.equal(out.status, 'sent', String(out.message));
   assert.deepEqual(out.applied.map((a) => a.what), ['picked_up', 'microchip']);
   const ev = await db.events.get('e1');
@@ -251,7 +252,7 @@ test('the facts come back once: picked up (its time on the pickup, the sale Deli
   reply = () => ({ status: 200, body: { received: 'x', summary: {}, portal: PORTAL, facts: [
     { id: 's1', family_id: 'reed', picked_up_at: '2026-12-23T21:15:00.000Z', portal_only: true, microchip: '985000999', died_on: '2027-03-02' }
   ] } });
-  const again = await sync.sendPortalFeed(await kennelRepo.getById('k1'), { today: TODAY, force: true });
+  const again = await sync.sendPortalFeed(await kennelRepo.getById('k1'), { today: '2027-03-05', force: true });
   assert.deepEqual(again.applied.map((a) => a.what), ['died']);
   const opal = await db.dogs.get('opal');
   assert.deepEqual([opal.microchip_id, opal.status, opal.date_of_death], ['985000123', 'deceased', '2027-03-02']);
@@ -260,7 +261,7 @@ test('the facts come back once: picked up (its time on the pickup, the sale Deli
 test('picked up with no pickup event: one is made, with the family on it', async () => {
   await db.events.delete('e1');
   reply = () => ({ status: 200, body: { received: 'x', summary: {}, portal: PORTAL, facts: [{ id: 's1', family_id: 'reed', picked_up_at: '2026-12-20T17:00:00.000Z', portal_only: true }] } });
-  await sync.sendPortalFeed(K, { today: TODAY });
+  await sync.sendPortalFeed(K, { today: '2026-12-21' });
   const made = (await db.events.toArray()).find((e) => e.event_type === 'placement');
   assert.deepEqual([made.subject_id, made.event_date, made.related_contact_id, made.details.placement_time], ['opal', '2026-12-20', 'reed', '11:00 AM']);
 });
@@ -271,4 +272,83 @@ test('a stopped link: forgotten here, and the portal off the kennel', async () =
   assert.equal((await sync.sendPortalFeed(K, { today: TODAY })).status, 'error');
   assert.equal(await store.getWebsiteLink('k1'), null);
   assert.equal((await kennelRepo.getById('k1')).kennelport_portal, null);
+});
+
+// --- Waitlist fixes plan step 4 (K7-1, K7-2, K7-3, K7-14) ---------------------------
+
+test('K7-1: a returned sale goes voided, keeps no vet visit from the next home, and leaves once it ages out', () => {
+  const b = base();
+  // Opal came back on Dec 10 and was sold to the Lanes on Dec 12; a vet visit on Dec 14.
+  const returned = { ...b.sales[0], status: 'returned', end_reason: 'other', updated_at: '2026-12-10T12:00:00Z' };
+  const resale = sale('s3', 'opal', 'lane', { created_at: '2026-12-12T00:00:00Z', updated_at: '2026-12-12T00:00:00Z' });
+  const visit = { id: 'v-new', subject_type: 'dog', subject_id: 'opal', event_type: 'vet_visit', event_date: '2026-12-14', title: 'Ear infection', details: {} };
+  const input = { ...b, sales: [returned, resale], contracts: [b.contracts[0], signed('c3', 's3', '2026-12-12')], events: [...b.events, visit], today: '2026-12-15',
+    known: [{ type: 'placement', id: 's1', signed_on: '2026-11-15' }, { type: 'family', id: 'reed' }] };
+  const { feed } = buildPortalFeed(input);
+  const reed = feed.families.find((f) => f.id === 'reed');
+  const lane = feed.families.find((f) => f.id === 'lane');
+  assert.deepEqual(reed.placements[0].voided, { reason: 'other', on: '2026-12-10' });
+  assert.ok(!reed.placements[0].health.some((h) => h.id === 'v-new'), 'the next home\'s visit isn\'t theirs');
+  assert.ok(lane.placements[0].health.some((h) => h.id === 'v-new'));
+  // Long after: the returned placement is removed from the portal, not left as it was.
+  const later = buildPortalFeed({ ...input, today: addDaysToYMD('2026-12-23', PORTAL_KEEP_DAYS + 5) });
+  assert.ok(later.feed.removed.some((r) => r.type === 'placement' && r.id === 's1'));
+  assert.ok(!later.feed.families.some((f) => f.placements.some((p) => p.id === 's1')));
+});
+
+test('K7-2: a fact about a sale the feed never carried, a future death, or another family\'s handover is refused; each applied fact leaves a Note', async () => {
+  const today = '2026-12-24';
+  reply = () => ({ status: 200, body: { received: 'x', summary: {}, portal: PORTAL, facts: [
+    { id: 's2', family_id: 'lane', picked_up_at: '2026-12-23T21:15:00.000Z' }, // Lane's contract isn't signed: never sent
+    { id: 's1', family_id: 'lane', portal_only: true, died_on: '2027-05-01', picked_up_at: '2026-12-23T21:15:00.000Z' }
+  ] } });
+  const out = await sync.sendPortalFeed(K, { today });
+  assert.deepEqual(out.applied.map((a) => [a.sale_id, a.what]), [['s1', 'picked_up']]);
+  assert.equal((await db.sales.get('s2')).status, 'deposit_paid', 'untouched');
+  assert.equal((await db.dogs.get('opal')).status, 'puppy', 'a death in the future is refused');
+  assert.deepEqual((await kennelRepo.getById('k1')).kennelport_portal.home, [], 'not Lane\'s pup');
+  const notes = (await db.events.toArray()).filter((e) => e.event_type === 'note' && e.details?.portal_fact);
+  assert.deepEqual(notes.map((n) => [n.subject_id, n.details.portal_fact, n.event_date]), [['opal', 'picked_up', today]]);
+  const { portalFactNudges } = await import('../shared/data/nudges.js');
+  const dogsById = new Map((await db.dogs.toArray()).map((d) => [d.id, d]));
+  const shown = portalFactNudges(notes, dogsById, today);
+  assert.equal(shown.length, 1);
+  assert.match(shown[0].detail, /picked up on 2026-12-23 at 3:15 PM/);
+  assert.equal(portalFactNudges(notes, dogsById, '2027-02-01').length, 0, 'shown for two weeks');
+});
+
+test('K7-2: a fact on a sale that has since ended is refused', async () => {
+  await db.sales.put({ ...(await db.sales.get('s1')), status: 'voided', end_reason: 'pup_died' });
+  await store.notePortalSent('k1', { sent: {}, known: [{ type: 'placement', id: 's1', signed_on: '2026-11-15' }] });
+  reply = () => ({ status: 200, body: { received: 'x', summary: {}, portal: PORTAL, facts: [{ id: 's1', microchip: '985000777', picked_up_at: '2026-12-01T17:00:00.000Z' }] } });
+  const out = await sync.sendPortalFeed(K, { today: TODAY, force: true });
+  assert.deepEqual(out.applied, []);
+  assert.equal((await db.dogs.get('opal')).microchip_id, '985000111');
+});
+
+test('K7-3: disconnecting turns the portal off on the kennel, keeping what it learned; a connected device turns it back on', async () => {
+  const link = await import('../shared/data/kennelportLink.js');
+  await db.kennels.put({ ...K, kennelport_portal: { ...PORTAL, home: ['reed'], facts: { s1: { microchip: 'x' } } } });
+  reply = () => ({ status: 200, body: { linked: false } });
+  const out = await link.disconnectWebsite('k1');
+  assert.deepEqual(out, { reached: true, portal_off: true });
+  const k = await kennelRepo.getById('k1');
+  assert.equal(k.kennelport_portal.handoff_url, null);
+  assert.deepEqual(k.kennelport_portal.home, ['reed']);
+  const { portalOn } = await import('../shared/data/portalFeed.js');
+  assert.equal(portalOn(k), false, 'their status pages stop offering it');
+  // Another device, still linked, sends: the portal is back, as it was.
+  await store.setWebsiteLink('k1', { token: TOKEN, site: SITE });
+  reply = () => ({ status: 200, body: { received: 'x', summary: {}, facts: [], portal: PORTAL } });
+  await sync.sendPortalFeed(k, { today: TODAY });
+  const back = (await kennelRepo.getById('k1')).kennelport_portal;
+  assert.equal(portalOn({ kennelport_portal: back }), true);
+  assert.deepEqual(back.home, ['reed']);
+});
+
+test('K7-14: a device that isn\'t doing the server work sends nothing', async () => {
+  const out = await sync.sendPortalFeed(K, { today: TODAY, mayFeed: async () => false });
+  assert.deepEqual(out, { status: 'skipped', reason: 'other_device' });
+  assert.equal(calls.length, 0);
+  assert.equal(await sync.mayFeedHere(), true, 'no cloud session: this device sends');
 });

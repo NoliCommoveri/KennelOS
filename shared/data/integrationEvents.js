@@ -16,13 +16,16 @@
 // estimate (ctx.estimate, processingFees.saleFeeEstimate), unless she typed her own
 // fee: then the payment is still applied, and the fee difference waits on Today.
 
+import { newPayment } from './paymentSchedule.js';
+
 // → { op: 'update', changes } | { op: 'review', review } | { op: 'skip', reason }
 //   event:   { seq, provider, kind, recordType, recordId, payload, createdAt }
 //   record:  the contract or sale it names, or null
 //   ctx:     { waitlistPick: true when the sale is a waitlist pick (its deposit
 //              is recorded on the family's page, where it places the family),
 //              estimate: { total, parts: { deposit, balance } } from the accounts
-//              each part is paid via (a fee still at it isn't one she typed) }
+//              each part is paid via (a fee still at it isn't one she typed),
+//              depositOwed: what's left of the deposit, from the sale's statement }
 // An 'update' may carry a `review` too (applied, but something to check).
 export function planIntegrationEvent(event, record, ctx = {}) {
   if (!record || record.is_archived) return { op: 'skip', reason: 'not_found' };
@@ -39,6 +42,14 @@ export function planIntegrationEvent(event, record, ctx = {}) {
       if (record.status === 'declined') return { op: 'skip', reason: 'already' };
       if (record.status === 'sent') return { op: 'update', changes: { status: 'declined' } };
       return review(`The contract is ${record.status || 'a draft'}.`);
+    // Firma (plan §2.3a): the request ran out of time, or was cancelled. Never a
+    // status change by itself: Today asks her to send it again or mark it.
+    case 'contract.expired':
+    case 'contract.cancelled':
+      if (record.status !== 'sent') return { op: 'skip', reason: 'moved_on' };
+      return review(event.kind === 'contract.expired'
+        ? 'Its signing link ran out before it was signed. Send it again, or mark the contract yourself.'
+        : 'The signing request was cancelled. Send it again, or mark the contract yourself.');
     case 'payment.paid':
       return planPayment(record, p, date, ctx, review);
     case 'payment.refunded':
@@ -56,14 +67,42 @@ function planPayment(sale, p, date, ctx, review) {
     if (ctx.waitlistPick) return review('This sale is a waitlist pick: record the deposit on the family\'s page, where it places them.');
     return withFee(sale, p, date, ctx, { status: 'deposit_paid', deposit_date: date, ...paidBy(sale, p) });
   }
-  if (p.component === 'balance') {
-    if (sale.balance_paid_date === date && ['paid_in_full', 'delivered'].includes(status)) return { op: 'skip', reason: 'already' };
-    if (!['deposit_pending', 'deposit_paid'].includes(status)) return review(`The sale is ${status}.`);
-    if (status === 'deposit_pending' && ctx.waitlistPick) return review('This sale is a waitlist pick: record the deposit on the family\'s page first.');
-    return withFee(sale, p, date, ctx,
-      { status: 'paid_in_full', balance_paid_date: date, ...(sale.deposit_date ? {} : { deposit_date: date }), ...paidBy(sale, p) });
-  }
+  if (p.component === 'balance' || p.component === 'payment') return planSalePayment(sale, p, date, ctx, review);
   return review('A payment for an unknown part of the sale.');
+}
+
+// Money beyond the deposit (Payment Schedule plan D34): a row in `Sale.payments`
+// (amount, date, card, reference, the account that part is paid via), counted by the
+// statement toward the due dates like any recorded payment, and never paid in full by
+// itself (D22): the sale's Payments card offers that, and Today asks when it covers
+// everything (integrationApply). 'payment' is a link for the next payment or everything
+// owed; 'balance' is a link made before schedules, read the same way. On a sale still
+// waiting for its deposit, the payment marks the deposit received first and the rest
+// is the row (`ctx.depositOwed`: what's left of the deposit after credits, from the
+// statement; else the sale's deposit). Applied once per payment reference.
+function planSalePayment(sale, p, date, ctx, review) {
+  const status = sale.status;
+  const amount = typeof p.amount === 'number' && p.amount > 0 ? cents(p.amount) : 0;
+  const rows = Array.isArray(sale.payments) ? sale.payments : [];
+  if (p.reference && rows.some((r) => r && r.reference === p.reference)) return { op: 'skip', reason: 'already' };
+  // A balance link applied before schedules marked the sale paid in full that day.
+  if (p.component === 'balance' && sale.balance_paid_date === date && ['paid_in_full', 'delivered'].includes(status)) return { op: 'skip', reason: 'already' };
+  if (!['deposit_pending', 'deposit_paid'].includes(status)) return review(`The sale is ${status}.`);
+  if (!amount) return review('A payment with no amount: record it on the sale.');
+  if (status === 'deposit_pending' && ctx.waitlistPick) return review('This sale is a waitlist pick: record the deposit on the family\'s page first.');
+  const changes = { ...paidBy(sale, p) };
+  let rest = amount;
+  if (status === 'deposit_pending') {
+    const owed = num(ctx.depositOwed) ?? num(sale.deposit_amount) ?? 0;
+    changes.status = 'deposit_paid';
+    if (!sale.deposit_date) changes.deposit_date = date;
+    rest = cents(Math.max(amount - Math.max(owed, 0), 0));
+  }
+  if (rest > 0) {
+    const account = sale.balance_paid_via_account_id || sale.deposit_paid_via_account_id || '';
+    changes.payments = [...rows, newPayment({ amount: rest, date, method: p.method || '', account_id: account, reference: p.reference || '' })];
+  }
+  return withFee(sale, p, date, ctx, changes);
 }
 
 const cents = (n) => Math.round(n * 100) / 100;
@@ -124,8 +163,10 @@ export function addReview(list, review) {
   return [...rest, review].slice(-REVIEWS_MAX);
 }
 
-const PROVIDER_LABELS = { stripe: 'Stripe', square: 'Square', jotform: 'Jotform', docusign: 'DocuSign', signwell: 'SignWell', boldsign: 'BoldSign' };
+const PROVIDER_LABELS = { stripe: 'Stripe', square: 'Square', jotform: 'Jotform', firma: 'Firma', docusign: 'DocuSign', signwell: 'SignWell', boldsign: 'BoldSign' };
 export const providerLabel = (p) => PROVIDER_LABELS[p] || String(p || 'A connected service');
+
+const PAYMENT_WORD = { deposit: 'deposit payment', balance: 'balance payment' };
 
 // One line for Today: what the vendor said. `money` formats an amount.
 export function reviewTitle(review, money = (n) => `$${Number(n).toFixed(2)}`) {
@@ -135,7 +176,9 @@ export function reviewTitle(review, money = (n) => `$${Number(n).toFixed(2)}`) {
   switch (review.kind) {
     case 'contract.signed': return `${who} says the contract was signed`;
     case 'contract.declined': return `${who} says the contract was declined`;
-    case 'payment.paid': return `${who} says a ${p.component === 'balance' ? 'balance' : 'deposit'} payment${amount} came in`;
+    case 'contract.expired': return `${who} says the contract's signing link expired`;
+    case 'contract.cancelled': return `${who} says the contract's signing request was cancelled`;
+    case 'payment.paid': return `${who} says a ${PAYMENT_WORD[p.component] || 'payment'}${amount} came in`;
     case 'payment.refunded': return `${who} says a refund${amount} was made`;
     default: return `${who} reported something to check`;
   }

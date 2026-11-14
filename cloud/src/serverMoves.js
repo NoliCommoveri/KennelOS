@@ -102,10 +102,14 @@ export function fillTemplate(template, { kennelName, family, litters = [], respo
 // --- The projection, as the server reads and changes it (pure) -----------------------
 
 // Every open turn in a projection: [{ entryId, turnId, offers, respondBy, offeredDate, picked }].
-export function openTurns(projection) {
+// A row marked `direct` is a side sale (Side Sale Spec §6), not a turn: it never
+// blocks, closes or moves a turn; only the reminders (`includeDirect`) see it, so the
+// family hears about their deposit exactly as after a turn pick.
+export function openTurns(projection, { includeDirect = false } = {}) {
   const out = new Map();
   for (const [entryId, e] of Object.entries(projection.entries || {})) {
     for (const o of e.offers || []) {
+      if (o.direct && !includeDirect) continue;
       const turnId = o.turn_id || o.id;
       if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, offeredDate: o.offered_date, picked: null });
       const t = out.get(turnId);
@@ -114,6 +118,21 @@ export function openTurns(projection) {
     }
   }
   return [...out.values()];
+}
+
+// A turn with no pup left in it: no pick, and none of the pups its rows listed is
+// still among its litter's available pups. Her device ends such a turn, never as a
+// pass (waitlistActions.endEmptiedTurns), so the server neither closes it at its
+// deadline nor reminds the family about it. A litter missing from the projection
+// says nothing about its pups, so it never makes a turn read as empty.
+export function turnIsEmpty(projection, t) {
+  if (t.picked || !t.offers.length) return false;
+  return t.offers.every((o) => {
+    const l = projection.litters?.[o.litter_id];
+    if (!l) return false;
+    const available = new Set((l.pups || []).map((d) => d.id));
+    return !(o.eligible_dog_ids || []).some((id) => available.has(id));
+  });
 }
 
 // Close one family's turn in the projection (their status page stops offering it).
@@ -260,7 +279,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
 
   // 2. Deadlines she lets the server close.
   for (const t of openTurns(projection)) {
-    if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId)) continue;
+    if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
     const trigger = t.picked ? 'no_deposit' : 'no_response';
     if (!autoOn(projection, trigger)) continue;
     const seq = await insertEvent(env, row, {
@@ -282,8 +301,8 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
 
   // 3. Reminders, each once.
   if (projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
-    for (const t of openTurns(projection)) {
-      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy) continue;
+    for (const t of openTurns(projection, { includeDirect: true })) {
+      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy || turnIsEmpty(projection, t)) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);
       const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy };
       const when = today === t.respondBy ? 'last' : (span >= 2 && today >= addDays(t.offeredDate, Math.floor(span / 2)) ? 'half' : null);

@@ -35,7 +35,7 @@
 // so her device doesn't offer a second family.
 import { familySale } from './familyExtras.js';
 import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
-import { isPupAvailable, isListenOnly, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf } from './waitlistRules.js';
+import { isPupAvailable, isListenOnly, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf, sideSaleOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
 import { backOutReasons, BACK_OUT_OTHER } from './backOut.js';
 
@@ -225,7 +225,8 @@ export function planFamilyEvent(event, ctx) {
       if (event.kind === 'pickup_address') {
         const address = clean(p.address).slice(0, 300);
         if (!address) return skip('bad_payload');
-        return { op: 'pickup_request', date, activity: null, request: { ...base, kind: 'address', address, date: ymd(p.date),
+        const hm = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(p.time ?? '')) ? p.time : '';
+        return { op: 'pickup_request', date, activity: null, request: { ...base, kind: 'address', address, date: ymd(p.date), ...(hm ? { start_time: hm } : {}),
           ...(Number.isFinite(p.miles) ? { miles: p.miles } : {}), ...(Number.isFinite(p.minutes) ? { minutes: p.minutes } : {}), far: p.far === true } };
       }
       if (typeof p.slot_id !== 'string' || !p.slot_id) return skip('bad_payload');
@@ -298,12 +299,15 @@ export function planServerEvent(event, ctx) {
   if (offers.some((o) => turnIdOf(o) === p.turn_id)) return skip('already_applied');
   const why = (reason) => note(`${what}, but ${reason}, so it wasn't recorded here. Their status page showed the offer until your next update: let them know where things stand.`);
   if (entry.status !== 'active') return why(`they're no longer on the list (${entry.status})`);
+  // A family buying a pup through a side sale is never offered a turn meanwhile
+  // (Side Sale Spec §2): the server's queue was published before you recorded it.
+  if (sideSaleOf(entry, sales)) return why(`you'd recorded a side sale to them (${pupName(sideSaleOf(entry, sales).dog_id)}, waiting on the deposit)`);
   const open = kennelOffers.filter((o) => !o.is_archived && o.outcome === 'open');
   if (open.length) return why('another turn is open on your records');
   const turnRows = [];
   for (const r of rows) {
     const litter = litters.get(r.litter_id);
-    if (!litter || litter.is_archived || !litter.picks_opened_date) continue;
+    if (!litter || litter.is_archived || litter.waitlist_off || !litter.picks_opened_date) continue;
     const dogIds = (r.dog_ids || []).filter((id) => {
       const d = pups.find((x) => x.id === id);
       return d && d.litter_id === r.litter_id && isPupAvailable(d, sales);

@@ -125,11 +125,10 @@ test('care: one event per chosen pup, titled by what was given; the form refuses
     subject_type: 'dog', subject_id: 'a', event_type: 'medication', event_date: today, event_end_date: ago(-5),
     title: 'Metronidazole', details: { drug: 'Metronidazole', dose: '1 ml' }
   });
-  assert.equal(C.careEvents('vet_visit', ['a'], { date: today, details: {} })[0].title, 'Vet visit');
+  assert.equal(C.careEvents('preventative', ['a'], { date: today, details: { product: '' } })[0].title, 'Preventative');
   assert.equal(C.careProblem('medication', [], form), 'Pick at least one puppy.');
   assert.ok(C.careProblem('medication', ['a'], { ...form, details: { drug: '' } }));
   assert.ok(C.careProblem('medication', ['a'], { ...form, endDate: ago(1) }));
-  assert.equal(C.careProblem('vet_visit', ['a'], { date: today, details: {} }), '');
   assert.equal(C.careProblem('medication', ['a'], form), '');
 });
 
@@ -184,4 +183,14 @@ test('a litter\'s sales include its departed (archived) pups', () => {
   const dogs = [pup('a'), pup('b', { is_archived: true }), { id: 'x', litter_id: 'other' }];
   const sales = [{ dog_id: 'a', status: 'delivered' }, { dog_id: 'b', status: 'delivered' }, { dog_id: 'x', status: 'delivered' }];
   assert.deepEqual(C.litterSalesOf('L', dogs, sales).map((s) => s.dog_id), ['a', 'b']);
+});
+
+test('careEvents: her own title and the named thing are separate; a blank title takes the name', () => {
+  const form = { date: '2026-11-01', title: 'Second round', details: { product: 'Panacur' } };
+  const [e] = C.careEvents('preventative', ['a'], form);
+  assert.equal(e.title, 'Second round');
+  assert.equal(e.details.product, 'Panacur');
+  assert.equal(C.careEvents('preventative', ['a'], { ...form, title: ' ' })[0].title, 'Panacur');
+  const [v] = C.careEvents('medication', ['a'], { date: '2026-11-01', details: { drug: 'Clavamox' }, relatedContactId: 'c1' });
+  assert.equal(v.related_contact_id, 'c1');
 });

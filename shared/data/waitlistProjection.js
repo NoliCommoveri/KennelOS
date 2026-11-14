@@ -23,8 +23,8 @@ import { expectedPricing } from './saleDefaults.js';
 import {
   waitlistConfig, openDays, closedDates, liveClosedDates, entryName, publicList, publicWantsMore, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, plannedHeats, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
-  messengerLink, embedOrigins
+  rankedList, turnLittersFor, turnIdOf, isSideSalePending, passReasons, splitPrepassed, upcomingItems, plannedHeats, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
+  messengerLink, embedOrigins, publicSelected, publicSourceName, isPupReserved, isWaitlistLitter, isPicksOpen, isFamilyPageOnly, LISTEN_LIVE_LITTER
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { completedTestsByDog } from './healthTestLog.js';
@@ -36,16 +36,18 @@ import { sharedReferrals, sharedTransport } from './referralShare.js';
 import { feePay, withClientRef } from './waitlistFeePay.js';
 import { familySale, familyExtrasView, pupBirthDate, creditSale } from './familyExtras.js';
 import { familyCredit, feeCreditSplit } from './incomeView.js';
+import { creditsOf, allocateCredits, feeCharge } from './receivedCredits.js';
 import { familyPickupView } from './familyPickup.js';
 import { backOutReasons, backOutPolicyText } from './backOut.js';
 import { standardLocation } from './pickupSlots.js';
 import { EXTRAS_INTRO_DEFAULT, extrasInfoLink } from './waitlistRules.js';
 import { portalEntryView, portalOn } from './portalFeed.js';
+import { familyPaymentsView } from './paymentSchedule.js';
 
 export const PROJECTION_FORMAT = 1;
 
-// The litter statuses the waitlist works with (as on the Waitlist and family pages).
-export const LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
+// The litter statuses the waitlist works with: waitlistRules' one list (isWaitlistLitter).
+export const LIVE_LITTER = LISTEN_LIVE_LITTER;
 
 const byId = (a, b) => String(a.id).localeCompare(String(b.id));
 const orNull = (v) => (v === undefined || v === '' ? null : v);
@@ -162,6 +164,8 @@ function entryView(entry, ctx) {
   const contact = ctx.contactsById.get(entry.contact_id) || null;
   const view = { name: entryName(entry, contact), email: entryEmail(entry, contact), status: entry.status };
   if (entry.status_token) view.status_token = entry.status_token;
+  // A family page only (E3): their page never mentions a waitlist.
+  if (isFamilyPageOnly(entry)) view.page_only = true;
   // Which time on the list this record is, for a family with more than one (the
   // server links them on each page): when it started, and its own pup's call name.
   if (entry.applied_date) view.since = entry.applied_date;
@@ -179,15 +183,25 @@ function entryView(entry, ctx) {
   // a price; absent without an open sale or anything to show.
   const extras = companion ? ctx.extrasFor(entry) : null;
   if (extras) view.extras = extras;
+  // Their payments (Payment Schedule plan §7): the sale's statement as they may see
+  // it (paymentSchedule.familyPaymentsView), with her payment instructions and her
+  // final-payment methods (D9); absent without an open sale or anything on it.
+  const payments = companion ? ctx.paymentsFor(entry) : null;
+  if (payments) view.payments = payments;
   // Pickup (Family Requests plan §4): their times, booking, requests, and whether
   // they may suggest their own place; absent without an open sale.
   const pickup = companion ? ctx.pickupFor(entry) : null;
   if (pickup) view.pickup = pickup;
   // Backing out (Family Requests plan §7): with an open sale they can tell her; their
   // request as their page shows it (her reason list and policy text are the kennel's).
-  if (companion) {
-    view.back_out = { available: true, request: requestView(entry.back_out_request, ctx.today, (r) => ({ reason: r.reason?.label || '', outcome: r.outcome || null })) };
-  }
+  // A back-out she approved ends that sale, so it shows without one too, for the
+  // days a decided request stays (what happened to their deposit), never as a form.
+  const backOut = requestView(entry.back_out_request, ctx.today, (r) => ({ reason: r.reason?.label || '', outcome: r.outcome || null }));
+  if (companion) view.back_out = { available: true, request: backOut };
+  else if (backOut && backOut.decided === 'approved') view.back_out = { available: false, request: backOut };
+  // Her policies banner (it compares her last change with the day they applied) for a
+  // placed family with an open sale too: a back-out policy matters most to them.
+  if (companion && entry.applied_date && !WAITLIST_OPEN_STATUSES.includes(entry.status)) view.applied_date = entry.applied_date;
   if (!WAITLIST_OPEN_STATUSES.includes(entry.status)) return view;
 
   const program = ctx.programsById.get(entry.waitlist_program_id) || null;
@@ -242,6 +256,9 @@ function entryView(entry, ctx) {
       ...(p.litter_id ? { litter_id: p.litter_id } : { pairing_id: p.pairing_id }), date: orNull(p.date)
     })),
     fee_received_date: orNull(entry.fee_received_date),
+    // What's credited toward their pup (their Current Position card, and their
+    // deposit while a pick they sent waits for her device): null when nothing.
+    credits: ctx.creditsView(entry),
     // They paid the fee online before she approved them (Integrations plan §4): the
     // day, so their page says so instead of asking again.
     fee_paid_online: orNull(entry.fee_paid_online?.date),
@@ -282,6 +299,8 @@ function entryView(entry, ctx) {
         respond_by_date: orNull(o.respond_by_date),
         eligible_dog_ids: [...(o.eligible_dog_ids || [])],
         picked_dog_id: orNull(o.chosen_dog_id),
+        // Server only (never shown): a side sale, not a turn (Side Sale Spec §6).
+        ...(o.direct ? { direct: true } : {}),
         // Sending the deposit (their turn card, once they pick): her payment
         // instructions (already on their page for the fee), and the deposit on the
         // sale their pick made, else her listed deposit for that pup.
@@ -290,9 +309,9 @@ function entryView(entry, ctx) {
         // available pups, so it comes with the offer).
         ...(o.chosen_dog_id ? { deposit_amount: ctx.depositFor(o), picked_pup: ctx.pickedPup(o.chosen_dog_id) } : {}),
         // What their credit for funds already received covers of that deposit, and
-        // what their application fee does when she credits it toward the deposit.
-        ...(o.chosen_dog_id && o.sale_id && ctx.creditFor(entry)?.byKey.deposit ? { deposit_credit: ctx.creditFor(entry).byKey.deposit } : {}),
-        ...(o.chosen_dog_id && o.sale_id && ctx.feeDepositFor(entry, o) > 0 ? { deposit_fee_credit: ctx.feeDepositFor(entry, o) } : {})
+        // what their application fee does when she credits it toward the deposit:
+        // the sale's payment statement, so it agrees with their Payments card.
+        ...(o.chosen_dog_id && o.sale_id ? ctx.depositCreditsFor(entry, o) : {})
       }))
   });
   return view;
@@ -457,7 +476,9 @@ const readyCheckView = (rc) => (rc ? { asked: rc.asked, answer_by: rc.answer_by,
 // `ancestors`: her pedigree-only dogs (dogRepo leaves them out of `dogs`). They're
 // only looked up by id: a parent's own sire and dam, or a parent that is itself
 // pedigree-only; never pups, parent choices or breeds.
-export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], ancestors = [], sales = [], contacts = [], events = [], accounts = [], today, formKey = null, eventsThrough = 0, pickupEvents = [], contracts = [] }) {
+// `statements`: Map(saleId → its payment statement, incomeView.getSaleStatements) for
+// the families' sales; a sale without one shows no Payments card.
+export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], ancestors = [], sales = [], contacts = [], events = [], accounts = [], today, formKey = null, eventsThrough = 0, pickupEvents = [], contracts = [], statements = new Map() }) {
   if (!kennel || !kennel.public_id) throw new Error('This kennel has no public identity yet.');
   if (!today) throw new Error('buildProjection needs today.');
   const config = waitlistConfig(kennel);
@@ -476,7 +497,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   const litterLabels = new Map();
   const notes = new Map();
   const litterViews = {};
-  for (const litter of litters.filter((l) => l.kennel_id === kennel.id && !l.is_archived && LIVE_LITTER.includes(l.status)).sort(byId)) {
+  for (const litter of litters.filter((l) => isWaitlistLitter(l, kennel)).sort(byId)) {
     const pups = dogs.filter((d) => d.litter_id === litter.id);
     const queue = litterQueue(live, litter, pups, sales, opts);
     for (const q of queue) {
@@ -509,7 +530,11 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ...litterLink(litter, kennel),
       ...(config.turn_prices !== false ? { prices: litterPrices(litter, pups.filter((d) => isPupAvailable(d, sales))) } : {}),
       pairing_id: orNull(litter.pairing_id),
+      // Only available pups: what a turn is picked from (the turn card, the server's
+      // automatic offers and the prices read this, never `reserved`).
       pups: pups.filter((d) => isPupAvailable(d, sales)).sort(byId).map((d) => publicPup(d, kennel)),
+      // Already Reserved (E2): pups whose disposition is Placed, the website's rule.
+      reserved: pups.filter(isPupReserved).sort(byId).map((d) => publicPup(d, kennel)),
       open_offer_entry_id: open ? open.entry_id : null
     };
   }
@@ -518,7 +543,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   // in a litter with open picks they haven't spent a turn on, however many (Q13),
   // each with those pups per litter. The list the server walks for automatic
   // offers (W2 step 7); her device decides every entry of it.
-  const openLitters = litters.filter((l) => l.kennel_id === kennel.id && !l.is_archived && l.picks_opened_date);
+  const openLitters = litters.filter((l) => l.kennel_id === kennel.id && isPicksOpen(l));
   const turnQueue = [];
   for (const e of rankedList(live, kennel.id, programsById)) {
     const ls = turnLittersFor(e, kennelOffers, openLitters, dogs, sales, opts);
@@ -536,16 +561,29 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     });
   }
 
-  const hidden = new Map(live.map((e) => [e.id, placeHidden(e, kennelOffers)]));
+  // A pending side sale (Side Sale Spec) reads to the family exactly as a turn with a
+  // pick: an open row in the same shape, from the sale. `direct: true` is for the
+  // server only (it never counts as a turn there, and the family isn't "Currently
+  // deciding" on the public list); no family-facing word differs. Turn decisions
+  // (the litters' open offer, the turn queue) never see these rows.
+  const liveIds = new Set(live.map((e) => e.id));
+  const sideOffers = sales.filter((x) => isSideSalePending(x) && liveIds.has(x.side_entry_id) && dogsById.get(x.dog_id)?.litter_id)
+    .map((x) => ({
+      id: x.id, turn_id: x.id, entry_id: x.side_entry_id, kennel_id: kennel.id, litter_id: dogsById.get(x.dog_id).litter_id,
+      offered_date: x.sale_date || null, respond_by_date: x.side_deposit_due || null,
+      eligible_dog_ids: [x.dog_id], chosen_dog_id: x.dog_id, sale_id: x.id, outcome: 'open', direct: true
+    }));
+  const familyOffers = [...kennelOffers, ...sideOffers];
+  const hidden = new Map(live.map((e) => [e.id, placeHidden(e, familyOffers)]));
   const upcoming = upcomingSection(kennel, config, { litters, pairings, dogs, events, dogsById, titles, testsOf, today });
   const creditMemo = new Map();
   const ctx = {
-    config, contactsById, programsById, offers: kennelOffers, today, upcoming,
+    config, contactsById, programsById, offers: familyOffers, today, upcoming,
     picksOpen: new Set(Object.entries(litterViews).filter(([, l]) => l.picks_open).map(([id]) => id)),
-    positions: overallPositions(live, kennel.id, programsById), prefPlaces: prefPlaces(live, kennel.id, programsById, config), matches, litterLabels, hidden, notes,
+    positions: overallPositions(live, kennel.id, programsById, { sales, dogs: dogsById }), prefPlaces: prefPlaces(live, kennel.id, programsById, config, { sales, dogs: dogsById }), matches, litterLabels, hidden, notes,
     // Each record's own pup's sale (familySale): a family back on the list for a
     // second pup gets its first pup's cards only on that pup's record.
-    saleFor: (entry) => familySale(entry, sales, kennelOffers, live),
+    saleFor: (entry) => familySale(entry, sales, familyOffers, live),
     pickedPup: (id) => (dogsById.get(id) ? publicPup(dogsById.get(id), kennel) : null),
     // The deposit for a family's pick: on its sale, else her listed one for the pup.
     depositFor: (o) => {
@@ -561,7 +599,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     // Where this record stands, in the family's terms, for the list of their
     // records on each status page: { state, until? }. Facts their own page shows.
     recordFor: (entry) => {
-      const own = kennelOffers.filter((o) => o.entry_id === entry.id && o.outcome === 'open' && !o.is_archived);
+      const own = familyOffers.filter((o) => o.entry_id === entry.id && o.outcome === 'open' && !o.is_archived);
       const placedSale = entry.placed_sale_id ? sales.find((x) => x.id === entry.placed_sale_id) : null;
       switch (entry.status) {
         case 'active':
@@ -575,19 +613,19 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       }
     },
     pupFor: (entry) => {
-      const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, kennelOffers, live);
+      const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, familyOffers, live);
       return (sale?.dog_id && dogsById.get(sale.dog_id)?.call_name) || null;
     },
     portalOn: portalOn(kennel),
     // The record's own sale: the one it was placed with, else its open one.
     portalFor: (entry) => {
       if (!portalOn(kennel)) return null;
-      const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, kennelOffers, live);
+      const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, familyOffers, live);
       return portalEntryView(entry, { sale, contracts, events: pickupEvents, home: kennel.kennelport_portal.home || [], today });
     },
-    pickupFor: (entry) => familyPickupView({ entry, sales, offers: kennelOffers, dogsById, litters, kennel, config, entries: live, events: pickupEvents, today }),
+    pickupFor: (entry) => familyPickupView({ entry, sales, offers: familyOffers, dogsById, litters, kennel, config, entries: live, events: pickupEvents, today }),
     extrasFor: (entry) => {
-      const sale = familySale(entry, sales, kennelOffers, live);
+      const sale = familySale(entry, sales, familyOffers, live);
       if (!sale) return null;
       const dog = dogsById.get(sale.dog_id) || null;
       const litter = dog?.litter_id ? litters.find((l) => l.id === dog.litter_id) : null;
@@ -599,12 +637,51 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     feeCreditFor: (entry) => (entry.fee_received_date && Number(entry.fee_amount) > 0 && entry.fee_credit_policy === 'credited_to_purchase'
       ? { amount: Number(entry.fee_amount), toward: config.fee_credit_toward === 'deposit' ? 'deposit' : 'balance' } : 0),
     creditFor: (entry) => {
-      if (!creditMemo.has(entry.id)) creditMemo.set(entry.id, familyCredit(entry, creditSale(entry, sales, kennelOffers, live), ctx.feeCreditFor(entry)));
+      if (!creditMemo.has(entry.id)) creditMemo.set(entry.id, familyCredit(entry, creditSale(entry, sales, familyOffers, live), ctx.feeCreditFor(entry)));
       return creditMemo.get(entry.id);
+    },
+    // A family's credits as their own page shows them, whatever the pup or sale:
+    // { fee, fee_toward, received, deposit } or null. `fee` is their received
+    // application fee credited to the purchase price (`fee_toward` deposit or
+    // balance); `received` is what their credits for funds already received can
+    // pay toward the pup, after the fee; `deposit` is the most of it a deposit
+    // takes (a credit not ticked for the deposit can't pay it).
+    creditsView: (entry) => {
+      const fc = ctx.feeCreditFor(entry);
+      const credits = creditsOf(entry);
+      const BIG = 1e9;
+      const pup = credits.length ? allocateCredits(credits, [...feeCharge(entry),
+        { key: 'deposit', use: 'deposit', amount: BIG }, { key: 'price', use: 'price', amount: BIG }, { key: 'extras', use: 'extras', amount: BIG }]) : null;
+      const deposit = credits.length ? allocateCredits(credits, [...feeCharge(entry), { key: 'deposit', use: 'deposit', amount: BIG }]).byKey.deposit || 0 : 0;
+      const received = pup ? Math.round((pup.applied - (pup.byKey.fee || 0)) * 100) / 100 : 0;
+      if (!fc && !(received > 0)) return null;
+      return { fee: fc ? fc.amount : 0, fee_toward: fc ? fc.toward : null, received, deposit };
     },
     feeDepositFor: (entry, o) => {
       const sale = sales.find((x) => x.id === o.sale_id);
       return sale ? feeCreditSplit(sale, ctx.feeCreditFor(entry)).deposit : 0;
+    },
+    // A pick's deposit as credits pay it: { deposit_credit?, deposit_fee_credit? }.
+    // From the sale's statement (what its application fee and credits for funds
+    // received paid of the deposit); without one, worked out as before.
+    depositCreditsFor: (entry, o) => {
+      const st = statements.get(o.sale_id);
+      const fromSt = (kind) => (st ? Math.round(st.received.filter((r) => r.kind === kind)
+        .reduce((t, r) => t + r.pays.filter((p) => p.key === 'deposit').reduce((u, p) => u + p.amount, 0), 0) * 100) / 100 : null);
+      const credit = st ? fromSt('credit') : (ctx.creditFor(entry)?.byKey.deposit || 0);
+      const fee = st ? fromSt('fee') : ctx.feeDepositFor(entry, o);
+      return { ...(credit > 0 ? { deposit_credit: credit } : {}), ...(fee > 0 ? { deposit_fee_credit: fee } : {}) };
+    },
+    // Their Payments card (Payment Schedule plan §7), or null.
+    paymentsFor: (entry) => {
+      const sale = familySale(entry, sales, familyOffers, live);
+      const view = sale ? familyPaymentsView(statements.get(sale.id)) : null;
+      if (!view) return null;
+      return {
+        ...view,
+        how_to_pay: config.payment_instructions || '',
+        final_methods: String(kennel.final_payment_methods || '').trim()
+      };
     },
     // A family's own Pay link for a fee of `fee` (Integrations plan §4), or null.
     feePayFor: (fee, entryId) => {
@@ -670,7 +747,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       // Above the extras on a family's page (Family Requests plan §3): her message
       // and her own page with the details and prices (opened in a new tab).
       // Backing out: her reasons and what families read first, while any family can.
-      ...(Object.values(entryViews).some((v) => v.back_out) ? {
+      ...(Object.values(entryViews).some((v) => v.back_out?.available) ? {
         back_out_reasons: backOutReasons(config).map((r) => ({ id: r.id, label: r.label })),
         back_out_policy_text: backOutPolicyText(config, kennel.kennel_name)
       } : {}),
@@ -679,13 +756,18 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
         extras_intro: (config.extras_intro_text || '').trim() || EXTRAS_INTRO_DEFAULT,
         ...(extrasInfoLink(config.extras_info_url) ? { extras_info_url: extrasInfoLink(config.extras_info_url) } : {})
       } : {}),
-      ...(applyPay ? { fee_pay: { url: applyPay.url, amount: applyPay.amount, ref_param: applyPay.stripe, instructions: config.payment_instructions || '' } } : {})
+      ...(applyPay ? { fee_pay: { url: applyPay.url, amount: applyPay.amount, fee: Number(feeForEntry(config, null)), ref_param: applyPay.stripe, instructions: config.payment_instructions || '' } } : {})
     },
     // Unmasked: the server shows "Currently deciding" for whoever holds a turn when
     // the page is served (publicList, familyPages.listView).
     public_list: publicList(live, kennel.id, programsById, {
-      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), config,
+      today, nameOf: (e) => publicSourceName(e, contactsById.get(e.contact_id)), config, sales, dogs: dogsById,
       wantsMore: (e) => publicWantsMore(e, { config, breeds: kennelBreeds(kennel, dogs), dogsById })
+    }),
+    // Families with a pup selected (E1), at the numbers they hold: the public list
+    // has gaps there. Names as public_list's (private names masked).
+    public_selected: publicSelected(live, kennel.id, programsById, {
+      nameOf: (e) => publicSourceName(e, contactsById.get(e.contact_id)), config, sales, dogs: dogsById
     }),
     entries: entryViews,
     litters: litterViews,

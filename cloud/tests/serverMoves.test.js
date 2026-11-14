@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
 
-const { localNow, addDays, addOpenDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves } = await import('../src/serverMoves.js');
+const { localNow, addDays, addOpenDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves, turnIsEmpty } = await import('../src/serverMoves.js');
 const { DAILY_CRON } = await import('../src/index.js');
 
 const KENNEL = 'kos1_11111111-2222-4333-8444-555555555555';
@@ -97,6 +97,27 @@ test('the next family comes from her published order: one turn at a time, held p
   assert.equal(nextFromQueue(p, { skip: new Set(['bo']), held: new Set(['p2']) }), null, "Cy's only pup is held");
   p.litters.l1.picks_open = false;
   assert.equal(nextFromQueue(p), null);
+});
+
+test('a turn with no pup left in it: the server neither closes it at its deadline nor reminds them', async () => {
+  const p = projection();
+  const t = openTurns(p)[0];
+  assert.equal(turnIsEmpty(p, t), false);
+  p.litters.l1.pups = [{ id: 'p3' }];
+  assert.equal(turnIsEmpty(p, openTurns(p)[0]), true, 'none of p1, p2 is still available');
+  assert.equal(turnIsEmpty(p, { ...openTurns(p)[0], picked: 'p1' }), false, 'a pick holds it');
+  delete p.litters.l1;
+  assert.equal(turnIsEmpty(p, openTurns(p)[0]), false, 'a litter not in the projection says nothing');
+
+  const env = await makeEnv({ FAMILY_PAGES_ORIGIN: 'https://apply.example' });
+  const s = await breeder(env);
+  const gone = projection();
+  gone.litters.l1.pups = [];
+  assert.equal((await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: gone } })).status, 200);
+  const c = await runKennel(env, row(env), { now: NOW, origin: 'https://apply.example' });
+  assert.deepEqual(c, { closed: 0, offered: 0, reminders: 0 });
+  assert.deepEqual(events(env), []);
+  assert.deepEqual(mails(env), [], 'no "your deadline passed" email');
 });
 
 test("a deadline she lets the server close: closed, the next family offered, both emailed, the status pages show it", async () => {
@@ -251,4 +272,22 @@ test('her open days: a turn the server offers counts only the days she does busi
 test('her closed dates: a turn the server offers skips them too', () => {
   assert.equal(addOpenDays('2026-11-25', 2, [0, 1, 2, 3, 4, 5], ['2026-11-26', '2026-11-27']), '2026-11-30');
   assert.equal(addOpenDays('2026-11-25', 2, null, ['2026-11-26']), '2026-11-28');
+});
+
+test('a side sale row (direct) is never a turn: no block, no close, no "deciding"; reminders still go', async () => {
+  const p = projection();
+  p.entries.ann.offers = [];
+  p.entries.cy.offers = [{ id: 's1', turn_id: 's1', litter_id: 'l1', offered_date: '2026-10-08', respond_by_date: '2026-10-11', eligible_dog_ids: ['p2'], picked_dog_id: 'p2', direct: true }];
+  assert.equal(openTurns(p).length, 0, 'not a turn');
+  assert.equal(openTurns(p, { includeDirect: true }).length, 1, 'the reminders see it');
+  assert.equal(nextFromQueue(p).entryId, 'bo', 'it never blocks the next turn');
+  // Past its deadline with every automatic close ticked: the server leaves it to her.
+  const { env } = await published({ respondBy: '2026-10-20' });
+  const body = stored(env);
+  body.entries.ann.offers = [];
+  body.entries.cy.offers = p.entries.cy.offers;
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(body));
+  await runKennel(env, row(env), NOW);
+  assert.equal(events(env).filter((e) => e.kind === 'server_close').length, 0, 'a side sale is never closed by the server');
+  assert.deepEqual(stored(env).entries.cy.offers.map((o) => o.id), ['s1']);
 });

@@ -2917,6 +2917,1352 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   when unset).
 - **SW cache bumped to `kennelos-shell-v111` (2026-11-06)**, the owner's go-ahead.
 
+## 2026-11-08: Picks preview, and the side sale spec
+
+- **Specs:** `docs/KennelOS_Picks_Preview_Spec.md` (built here) and
+  `docs/KennelOS_Side_Sale_Spec.md` (decided, not built), both from the owner's decisions of
+  2026-11-08. README doc map and Status updated.
+- **Picks preview:** `shared/data/picksPreview.js` (pure, shared) and
+  `shared/assets/picksPreviewModal.js` (Pro-only; `proPages.js`). Every Open picks (the Litter
+  page's picks panel, the Waitlist page's litter rows) shows it first and opens picks only on
+  **Open picks now**, after a fresh recheck. With picks open, the panel has **Who's in line…**.
+  It shows the action `openPicks` will take (offer, join with the deadline restart, wait,
+  "Not this litter" passes), the turn order across every open litter plus this one (or this
+  litter alone), every pup with why it isn't offered or its setup flags, who qualifies per pup in
+  order, within reach per sex, an **Either** switch (Either families as female / male), every
+  family left out with every reason, families not on the list yet, soft checks, and her turn
+  settings, edited and saved in place (previewed live as a draft). A pup's disposition,
+  intended registration and sex save from its row. `?preview=<litter id>` reopens it after a
+  family or pup link.
+- `app.css`: `.modal.modal-wide`. `sw.js` `PRECACHE_URLS`: both new files.
+- Tests: `tests/picksPreview.test.js` (its action matches the real `openPicks` for offer, join,
+  wait, "Not this litter" passes and none; the line equals `litterQueue`; every reason given; the
+  Either switch; the alone view; a settings draft writes nothing; checks).
+- End-State guide §29: the picks preview.
+- SW cache not bumped (asked).
+
+## 2026-11-08: Side sales; Open picks from Kels and Today through the preview
+
+- **Picks preview everywhere:** Kels's litter check-in, Today's Open picks nudge and Kels's
+  Review my waitlist open picks through the preview (`waitlistPicksPanel.openPicksFromCheckin`;
+  the nudge returns `{ openPicks }` for the page to open it). Owner kept the pup inline edits.
+- **Side sales** (`docs/KennelOS_Side_Sale_Spec.md`, built): new Sale fields `side_entry_id`,
+  `side_deposit_due`, `side_holds_pup`, `side_prior_disposition`, `side_request_sent_date`
+  (cloud; `cloudFields.js` regenerated; `side_entry_id` in `referenceRegistry`).
+  `waitlistRules`: the `isPupAvailable` side rule, `isSideSalePending`, `sideSaleOf`,
+  `pupClaims`, `sideSaleBlocker`, `sideSaleIssues`, `answersToFit`; a family with a pending side
+  sale gets no turns. `waitlistActions`: `recordSideSale`, `confirmSideDeposit`,
+  `cancelSideSale`, and the other claim resolved on any deposit. Projection: the side sale in
+  the family's `offers` as a turn row with a pick, `direct: true` for the Worker only. Worker:
+  `serverMoves.openTurns` skips direct rows except for reminders; the public list doesn't mask
+  them. UI: `assets/sideSaleUI.js` (Pro-only; `sw.js`, `proPages.js`), the family page's
+  Record a side sale… and Side sale card, the picks panel's Sell to a waitlist family…, the
+  second-claim warning in the pick / switch / deposit dialogs, `pickToSend` for side sales,
+  Today nudges (overdue side deposit, two sales on a pup), the preview's side-sale lines.
+- Tests: `tests/waitlistSideSale.test.js`; cloud `serverMoves` and `familyPages` tests for
+  direct rows.
+- End-State guide §29: the side sale.
+
+- **SW cache bumped to `kennelos-shell-v112` (2026-11-08)**, the owner's go-ahead, for the picks
+  preview and side sales.
+
+## 2026-11-08: Review plan brought up to date
+
+- `docs/KennelOS_Review_Plan.md` takes in the 57 commits since it was written (2026-11-03):
+  a "New since the first draft" table in §0 mapping each new feature to a session; new
+  evaluate items in K1, K2, K4, K5, K7–K15 for `version(6)`/`version(7)`, Dog Cards,
+  pedigree import and editing, account deletion and migration `0020`, assisted setup,
+  waitlist policies, programs suggested by an answer, the do-not-sell list, the puppy portal
+  feed's KennelOS side (K7 owns it; it postdates both review plans) and the rewritten privacy
+  policy and terms; a new session **K6b** (picks preview, side sales, the 7-day undos).
+  Pending-deploy list, line counts, guide section lines and the baseline refreshed
+  (1639 / 303 pass, build succeeds). `docs/review/INDEX.md` gains the K6b row;
+  `docs/review/SESSION_PROMPTS.md` updated to match. No session has run yet.
+
+## 2026-11-09: Credits on the family status page
+
+- Bug: a family who picked a pup on their status page saw the full deposit ($400) although
+  their $50 application fee (credited toward the deposit) and their $200 remaining credit
+  should have come off it. The projection published `deposit_fee_credit` / `deposit_credit`
+  only once her device recorded the pick and made the sale; while the pick waited, the
+  deposit block had nothing to subtract.
+- Fix: each family's projection carries `credits` (`creditsView`: credited fee, what their
+  credits can pay toward the pup and toward a deposit); the Worker passes it through
+  (`familyPages.creditsOf`, amounts only); the deposit block falls back to it until the pick
+  is recorded. Their Current Position card gains a "Credited" row (before and while picks
+  are open). Before they pick, the turn card's deposit line adds what they'd send after
+  their credits, and the "Choose <pup>?" dialog says it too (`depositAfterCredits` in
+  status.js, shared with the deposit block). Needs a Worker deploy for the page, and her
+  device to republish.
+- Tests: `tests/waitlistProjection.test.js` (credits), cloud `familyPages` (allow-list).
+
+## 2026-11-09: A released Pro device asks for its key again
+
+- Found on assisted setup: support deleted a user's account with **erase its devices**; her
+  phone erased itself and released its Lemon Squeezy activation (0/5), but reopened without
+  the key screen. Two causes in `data/license.js`: the gate's `validate` was in flight when
+  the boot check-in's erase wiped the record, and its answer wrote the record back; and on the
+  next load the store's "activation not found" (a 4xx with `valid:false`) read as offline, so
+  the cached lifetime record kept the device running for its 90-day offline window.
+- `validate` now clears the record on that answer (`isGoneAnswer`: 4xx except 429, JSON
+  `valid:false`) and caches an answer only while the device still holds the same record
+  (`stillHeld`); `evaluateLicense` returns `unactivated` when the record is gone. The renewal
+  wall's Check again goes to the activation wall in that case.
+- Tests: `tests/licenseRevalidate.test.js`. End-State guide §0.3.
+
+- **SW cache bumped to `kennelos-shell-v113` (2026-11-09)**, the owner's go-ahead, for the
+  family credits in the waitlist projection and the released-device license fix above.
+
+## 2026-11-09: /ops shows emails sent yesterday and the 30-day daily average
+
+- Migration `0021_mail_daily` (day UTC, sent, failed, first_at; counts only, all kinds
+  together, not in the D1 export, not pruned: one row a day). `countMail` adds to it beside
+  `mail_counts`, each in its own try so a missing table never stops the other count or a send.
+- `/ops` Emails sent section gains two totals (`mail.mailDailySummary`): sent yesterday, and
+  the average per day over the 30 UTC days ending yesterday. Before 30 days have been counted,
+  the average is over the counted days and says so; before `0021` is applied it says that.
+- Tests: cloud `mail` (daily row), `ops-sections` (yesterday, average, partial window).
+  Needs a Worker deploy, then Apply pending (`0021`) on /ops. README Status marks every
+  migration through `0021` applied (`0017`, `0019`, `0020` confirmed by the owner; `0021` on merge).
+
+## 2026-11-10: the website contract reviewed; a plan to send raw data
+
+- Reviewed `shared/data/siteExport.js` against KennelPort's `kennelos/bundle.js` and rules:
+  where a value is worked out or worded before it is sent (a puppy's status, a litter's
+  status, titles, the How it works steps, an account's type), and what isn't sent (parents,
+  breed, test type, sold litters).
+- Plan written: `docs/KennelOS_Website_Contract_Plan.md` (KennelOS's half; the whole plan is
+  KennelPort's `docs/plans/kennelos-contract.md`). New optional sections that send her own
+  values, and four proposed Dog fields (`imported`, `import_country`, `feature_offspring`,
+  `featured_offspring_ids`) whose sync class is the owner's to confirm.
+- The owner's decision the same day: no `reserved` status; a pup with an open sale is marked
+  Placed. End-State guide §35's line on `puppyStatus` said a live sale or open pick sent
+  reserved, which the code never did; corrected to what is built.
+- Docs only: no code, no schema, no app file changed. README's doc map gains the plan.
+
+## 2026-11-11: a plan for the waitlist reviews' fixes and three enhancements
+
+- Plan written: `docs/KennelOS_Waitlist_Fixes_Plan.md`. It lists all 52 findings of reviews
+  K6, K6b, K7 and K8 with a fix and a build step each, and designs three requests from the
+  owner: a placed family stays on the list as **Pup selected**; its pup stays on the
+  Available Puppies card under **Already Reserved**; and a family of a litter sold before
+  the app gets a status page without being on the list (`WaitlistEntry.off_list`,
+  `Litter.waitlist_off`, both proposed, sync class the owner's to confirm).
+- Twelve decisions are the owner's (the plan's §2), each with a recommendation.
+- Docs only: no code, no schema, no app file changed. README's doc map and Status gain the plan.
+
+## 2026-11-11: the owner's decisions on the waitlist fixes plan
+
+- `docs/KennelOS_Waitlist_Fixes_Plan.md` §2 records them: a family with a pup selected
+  **keeps its number** until the pup goes home (Delivered or External), so a lost pup's
+  family coming back never pushes anyone down; Already Reserved shows pups whose disposition
+  is Placed, the website's rule (`siteExport.puppyStatus`); family-page-only families get
+  their own section on the Waitlist page; `off_list` and `waitlist_off` are `cloud`; such a
+  family backing out gets Keep or Refund only.
+- §3.1 is redesigned for held numbers: `rankedList` stays waiting-only for the turn rules, a
+  new numbering over waiting and holding families feeds every reader of a number, and
+  `sales` and `dogs` become required there. Five decisions about the fixes stay open.
+- Docs only.
+
+
+## 2026-11-11: Waitlist fixes, step 1: a pup leaving a turn, and side sales that outlive their family
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 1 (K6-1, K6b-1, K6b-2, K6b-3, K6b-4, K6b-10). Each
+finding was first reproduced against the real actions, then fixed. The owner chose: check after
+every save, move the turn on as for a family leaving (`left`), and have the Worker skip emptied
+turns too.
+- **A turn left with no pup ends, never as a pass (K6-1, K6b-2).** `waitlistRules.turnIsEmpty` /
+  `emptiedTurns` (no pick waiting on its deposit, none of the listed pups still available;
+  `resolveOtherClaims` now uses it too). `waitlistActions.endEmptiedTurns` voids the rows with a
+  note, adds a family activity line and moves the turn on as `left`. Called from
+  `confirmDeposit` and `confirmSideDeposit` (returned as `ended`), and by
+  `watchEmptiedTurns`, which `app.js` starts on every page (Pro, not Demo): it runs shortly after
+  each data change and once on load, waits while a dialog is open, and the page reports it
+  (`waitlistUI.reportEmptiedTurns`). `recordOutcome` never counts a pass or no response on an
+  emptied turn (`passes.empty`). Worker: `serverMoves.turnIsEmpty`; the deadline close and the
+  reminders skip such a turn, so no "your turn closed" email goes out for it.
+- **Leaving the list cancels a pending side sale (K6b-1).** `releaseOpenOffers` cancels it
+  (`cancelSideSale` with `leaving`: a held pup goes back; no "keeps their place" line) and
+  returns `side_released`; `describeOfferChanges` says so. `confirmSideDeposit` refuses a family
+  that isn't `active`.
+- **Tidy up (K6b-3):** `pupPlacedFindings` skips sales still at Deposit pending.
+- **Undo fee received (K6b-4):** `canUndoFeeReceived(entry, offers, today, sales)`; sales
+  required; false once the family has any side sale.
+- **Server turns (K6b-10):** `planServerEvent` notes, and doesn't record, a server offer to a
+  family with a pending side sale; `confirmSideDeposit` moves the turn on (`accepted`) when it
+  voided their own turn.
+- Tests: `tests/waitlistEmptiedTurns.test.js` (22), one in `cloud/tests/serverMoves.test.js`;
+  `waitlistUndo.test.js` passes the sales. `node --test` 1672 pass; `cd cloud && npm test` 306
+  pass; `node build/assemble.mjs` succeeds. Checked in a browser: keeping a turn's only pup
+  ends the turn and the page says whose and who's next.
+- Docs: End-State guide §29 (rules, side sales, undo windows, leaving, Tidy up); Side Sale
+  spec **Modified** notes. No new file, no schema, no new field. Service-worker cache bumped to `v114`.
+
+## 2026-11-11: Waitlist fixes, step 2: Pup selected and Already Reserved
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 2 (E1, E2, K6-12 item 1, K8-12, K8-7, K7-12, K7-8,
+K6-9, K6-10). The open decisions it touches were built as the plan recommends (D3: the row
+shows the listed name and "Pup selected", her own page names the pup; D12: public names from
+the application's name).
+- **E1, Pup selected.** `waitlistRules.holdsPlace` (placed, open sale, pup not gone, not
+  `off_list`) and `numberedList` (waiting + holding families, one order). `rankedList` stays
+  waiting-only for the turn rules. `overallPositions`, `prefPlaces`, `publicList` and the new
+  `publicSelected` number from `numberedList` and throw without `{ sales, dogs }`; every
+  caller passes them (status page projection, emails, Kels, picks panel and preview, side-sale
+  dialog, lost-pup dialog, Kels's Add people, Waitlist Today report, the family's page). The
+  projection publishes `public_selected`; the Worker serves it as `listView.selected` /
+  `statusView.public_selected`; `common.publicListHtml` puts the rows in at their numbers
+  with a ✓ and "Pup selected"; `publicListText` gains "✓ #3 … · Pup selected". Her Waitlist
+  page's On the list card shows them with a "Pup selected: [pup]" badge, not in Closed.
+- **E2, Already Reserved.** `isPupReserved` (disposition Placed; the website's rule, pinned
+  by a test). Projection litters gain `reserved`; `pups` stays available-only, so no turn,
+  automatic offer or price reads a reserved pup. `litterCard` passes it through; the family
+  pages' card shows Still Available and Already Reserved, Males and Females columns each,
+  stacked on a phone. Her Litters card gains a Reserved count.
+- **One rule for the waitlist's litters (K6-12 item 1):** `isWaitlistLitter` / `waitlistLitters`;
+  the copies on the Waitlist, entry and side-sale pages, Today and the projection now use it.
+- **Placed family (K8-12):** `isPlacedFamily`; the funnel, days to placement and Offers &
+  Removals count a back-out as Backed out, never Placed.
+- **A decided back-out (K8-7)** stays on the family's page for 30 days without a sale, saying
+  what happened to the deposit; three new email kinds (`backed_out_keep|move|refund`, also in
+  the Worker's `EMAIL_KINDS`) replace "request approved" for it.
+- **Policies banner (K7-12):** the applied date is published for a placed family with an
+  open sale; the banner's button reads "Read our policies".
+- **Public names (K7-8):** `publicNameParts`, `publicSourceName`; "Smith, John" → John S., "The
+  Smith Family" → S. Family; the Approve dialogs always show the public form.
+- **Waitlist page:** tables scroll in their cards (K6-10); Paused / Not ready badges format
+  their dates (K6-9).
+- Tests: `tests/waitlistPupSelected.test.js` (21); older tests pass `{ sales, dogs }` and pin
+  the new projection keys. `node --test` 1693 pass; `cd cloud && npm test` 306 pass;
+  `node build/assemble.mjs` succeeds. Checked in a browser at 390px: her Waitlist page and
+  the family pages' list and card.
+- Docs: guide §29 (Pup selected, placed family, waitlist litters, reserved pups, public
+  names, Available Puppies, Backing out, policies banner, reports); Waitlist Spec §15.3 and
+  Family Requests plan §7 **Modified** notes. No new file, no schema, no new stored field.
+  Release: Worker and family pages first, then the app. Service-worker cache rides `v114`.
+
+## 2026-11-11: Waitlist fixes, step 3: family pages without the list
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 3 (E3, K7-9, K8-8), built as the owner decided
+(D6 their own section, D7 both fields `cloud`, D8 Keep or Refund only).
+- **Two plain fields** (no schema block; absent reads as off): `WaitlistEntry.off_list` (a
+  family page only) and `Litter.waitlist_off` (kept off the waitlist), both `cloud` in
+  `syncRegistry.js`; `cloud/src/lib/cloudFields.js` regenerated.
+- **Rules:** `isWaitlistLitter` leaves out `waitlist_off`; `isPicksOpen` (the turn rules,
+  the projection's turn queue, the server's queued turns and the picks preview never see such
+  a litter as open); `isFamilyPageOnly` / `listRecords`; `familyPageBlocker`,
+  `familyPagePlan`; `lostSaleFamily` and `deriveContactWaitlistStatus` skip family pages.
+- **Actions:** `addFamilyPage(saleId)`, `soldBeforeWaitlist(litterId)` (+ `…Plan`),
+  `putLitterOnWaitlist`, `setFamilyPageOnly(entryId, on)`; `openPicks`, `offerNext`,
+  `offerTo` refuse a `waitlist_off` litter; `approveBackOut` refuses Move for a family page.
+- **K8-8:** a back-out closes the waiting pickup and extras requests (`closeRequests`,
+  `decided: 'closed'`); `slotBookings` takes a `live` test and skips a record with no open
+  sale (Litter page's Pickup times and the family's page); closed requests aren't published.
+- **K7-9:** the Sale form's Buyer and the Side sale dialog warn about her do-not-sell list,
+  as does "Sold before the waitlist…" and "Give this family a status page".
+- **Pages:** Waitlist page **Family pages only** section (out of Closed); Litter page
+  waitlist panel **Sold before the waitlist…** and a kept-off view (family pages, Make more,
+  Put back on the waitlist); Sale page **Give this family a status page** / link to it; the
+  family's page says "Family page only", hides the public name and Move the deposit, offers
+  **Apply to the list…**, **Keep off the list (family page only)…** and its undo. Reports
+  (funnel, Applications, Waitlist Today pipeline, Offers & Removals), the year review and
+  Kels's Review my waitlist read `listRecords`.
+- **Online:** projected entries carry `page_only`; the Worker passes it as
+  `statusView.family.page_only`; the status page drops the waitlist wording for them.
+- Tests: `tests/waitlistFamilyPages.test.js` (14). `node --test` 1707 pass; `cd cloud && npm
+  test` 306 pass; `node build/assemble.mjs` succeeds. Checked in a browser at 390px: Sold
+  before the waitlist on a litter, the Waitlist page's section, the family's page, the Sale
+  page's button with a do-not-sell warning; no console errors.
+- Docs: End-State guide §29 (fields, rules, actions, surfaces, online); **Modified** notes in
+  the Fixes plan, Side Sale spec and Family Requests plan. No new file, no schema block.
+  Release: Worker and family pages first, then the app. Service-worker cache bumped to `v115`.
+
+## 2026-11-11: Waitlist fixes, step 4: the puppy portal says only what's true
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 4 (K7-1, K7-2, K7-3, K7-14).
+- **K7-1:** `portalFeed.voidedOf` sends a returned sale as voided (`other`); a released
+  sale's health stops at its end day (`saleEndDay`), so a re-sold pup's next home's records
+  never reach the first family; a released placement that has aged out goes in `removed`
+  instead of resting in the portal.
+- **K7-2:** `applyPortalFacts` applies a fact only for a placement the feed carries (now or
+  before), on a sale not released, with dates in bounds (pickup from the sale date or birth
+  to tomorrow; a death on or before today, not before birth), and a handover only for the
+  sale's buyer; the rest come back as `refused`. Each applied fact writes a Note on the pup
+  (`details.portal_fact`), and Today shows it for 14 days (`nudges.portalFactNudges`).
+- **K7-3:** Disconnect this device (and a stopped link on Update website or prices) turns
+  the portal off on the kennel (`kennelportLink.turnPortalOff`, keeping `home` and `facts`);
+  a device still linked turns it back on with its next send. The card's confirm says so.
+- **K7-14:** the feed goes only from the device doing the cloud program's server work
+  (`portalFeedSync.mayFeedHere`); with no cloud session, as before.
+- Tests: 5 new in `tests/portalFeed.test.js` (two older ones now pick up and die on past
+  days). `node --test` 1712 pass; `cd cloud && npm test` 306 pass; `node build/assemble.mjs`
+  succeeds. Docs: End-State guide §35.1; plan status and a **Modified** note. No new file, no
+  schema. Service-worker cache rides `v115`.
+
+## 2026-11-11: "Non-Waitlist Sales"
+
+The owner renamed step 3's "Sold before the waitlist…" to **Non-Waitlist Sales…** (the Litter
+page's button and dialog, the kept-off panel, the Waitlist page's empty Family pages only
+line, and the refusals that name it). Wording only. Service-worker cache rides `v115`.
+
+## 2026-11-11: Family pages' Available Puppies card, aligned
+
+- Public list: the Available Puppies and Coming up headings sit left like the page's other
+  folded cards; only what's inside them stays centered. The status page (all centered) was
+  checked and needed no change.
+- Both pages: **Still Available** / **Already Reserved** lose the all-caps, letter-spaced
+  style for the cards' own bold title case; "None left" / "None" (`.pup-col-empty`) line up
+  with the pup names beside them.
+- `cloud/public/family/common.js`, `family.css`; one regex in `tests/familyPages.test.js`.
+  `node --test` 1712 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide (public
+  list cards). No new file; service-worker cache rides `v115`.
+
+## 2026-11-11: Pickup times at seven weeks; a time with their own meetup place
+
+Traced from a report: a family (a non-waitlist sale, far enough away to suggest a meetup
+place) saw "hasn't posted pickup times yet" although the litter had times. They were dated
+before the ready date (whelp + 56 days), which a family's page never listed.
+- Families now see her times from `PICKUP_EARLY_DAYS` (7) before the ready date
+  (`familyPickup.pickupFrom(…, { earlyDays })`, used by `familyPickupView`); a training
+  stay's end still wins when later. Standard boarding (`approvePickupRequest`) and the
+  portal feed still count from the ready date, so a time before it has no boarding charge.
+  Their page reads "Times from <date>." (only while that date is still ahead).
+- "None of these work for us" asks **What time works?** (optional) beside the day. The
+  Worker checks it (`HH:MM`, else `bad_time`) and passes `time`; her device keeps it as the
+  request's `start_time`. It shows on their page's Requested line, her entry's request card
+  and history, Today's nudge (`requestText`), and prefills Time in both approve screens
+  (entry page, Review my waitlist).
+- Tests: a new seven-weeks test and the time in `tests/familyPickup.test.js`,
+  `tests/cloudWaitlist.test.js` (end to end) and `cloud/tests/familyActions.test.js`.
+  `node --test` 1713 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide §29
+  Pickup; Family Requests plan §4 **Modified** notes. No new file, field or schema
+  (`start_time` was already a request key).
+
+## 2026-11-11: Pickups she logs start with the family's time
+
+Every pickup event made from a family's choice now carries their time:
+- Approving their own place without a time uses the time they asked for
+  (`approvePickupRequest`'s `time` now defaults to the request's; '' still means none).
+  Approving one of her times already wrote the slot's time.
+- While a family's time or own place still waits, a pickup she logs another way starts
+  with it: `familyPickup.pickupWish` (their newest waiting slot or address: day, time, place,
+  Local pickup for a slot) and `waitlistActions.pickupWishesFor(sales)`. Today's
+  **Schedule pickup** / **No, new pickup date** open the event form with that day,
+  `placement_time`, `location` and method (titled drop-off for their own place) and say
+  so in the detail; Kels's **When's the drop-off?** (`pickupsForm`, Litter check-in and
+  Pups are going home) fills in the row and saves the place as the event's `location`
+  (`goHome.pickupEvent` takes an optional `location`). Their request still waits for her.
+- Tests: `pickupWish` in `tests/familyPickup.test.js`, the Today action's link in
+  `tests/linkedStatusNudges.test.js`, `pickupWishesFor` and the approval's time in
+  `tests/cloudWaitlist.test.js`; `pickupsForm` checked in the browser (prefill and the saved
+  event). `node --test` 1715 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide
+  §19 nudges, §29 Pickup, §33 Kels (Pups are going home). No new file or field.
+
+Service-worker cache bumped to `v116` for this session's pickup changes (seven weeks, the
+meetup time, and pickups that start with the family's time).
+
+## 2026-11-11: A family-page-only entry's header on a phone
+
+Its subtitle ("<kennel> family page (not on the waitlist)") filled the header row, so the
+⋯ menu wrapped onto its own line. The subtitle is now "<kennel> family page" (the Details
+card's **Family page only** badge says they aren't on the list), and the entry page's
+header keeps ⋯ beside the title at any width (title block `flex: 1 1 0; min-width: 0`,
+actions `flex: none`). Checked at phone width (Pixel 5). `waitlist-entry.html` / `.js`;
+no new file. Service-worker cache rides `v116`.
+
+## 2026-11-11: Firma chosen for e-sign (plan only)
+
+Researched firma.dev for step 8 of `docs/KennelOS_Integrations_Plan.md` and wrote it up as
+§2.3a. The owner decided **D25**: KennelOS holds the Firma account, with one workspace per
+cloud program and the master key as the Worker secret `FIRMA_API_KEY`. That supersedes D5's
+SignWell / BoldSign. **D26**: 10 sends per program per calendar month, reset the 1st (UTC),
+with the default set in `/ops`. Step 8's row, the plan status and the README Status are
+updated. No code yet; four Firma details are to be proven on a test key before the build.
+
+## 2026-11-11: Firma e-sign, step 8: the Worker
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a (D25–D26).
+- **New `cloud/src/firma.js`:**
+  - Connect makes a Firma workspace per program, with its webhook and the webhook switch on.
+    Her workspace key and webhook secret are sealed in her connection.
+  - Workspace custom fields come from her device's fact list.
+  - Templates and Firma's editor token.
+  - `POST /integrations/esign/send` reserves a row in `esign_sends` under the monthly limit
+    before calling Firma.
+  - The signed-PDF link.
+  - The `/hooks/firma/<secret>` adapter: an HMAC check, with Firma's id mapped to her
+    contract.
+- **Migration `0022_esign`:** `esign_sends`, `ops_config`, `esign_limits`.
+- **`/ops`:** an "E-sign (Firma)" section with the default limit (10), credits left and sends
+  this month. Account find shows the account's count and its own limit.
+- **`integrations.js`:** `contract.expired` and `contract.cancelled` events. `toEvents` gets
+  `env` and may be async.
+- **Elsewhere in the Worker:** health (the `FIRMA_API_KEY` secret, `esign_sends` counted),
+  export (the three tables), retention (sends kept 400 days), account deletion, and staging's
+  `FIRMA_TEST_MODE`.
+- **Fixed during the build:** an unset default limit read as 0. A test caught it.
+- **Modified from the plan:** her workspace's key does her calls (the master key only sets
+  up). Firma has no API to delete a workspace, so disconnect and deletion stop only the
+  webhook.
+- **Tests:** 12 new in `cloud/tests/esign.test.js`. `cd cloud && npm test` 318 pass;
+  `node --test` 1724 pass; `node build/assemble.mjs` succeeds.
+- **Docs:** the plan's §2.3a "As built", `cloud/README.md`, README Status. No app file, so
+  no service-worker change.
+
+## 2026-11-12: Jotform retired (D27–D30)
+
+The owner decided to shut down Jotform (`docs/KennelOS_Integrations_Plan.md` D27–D30).
+- **Removed:**
+  - Connect Jotform: her API key, picking forms, matching fields (`jotformApi.js`,
+    `jotformConnect.js`, `jotformMatch.js`, the Accounts page's modals).
+  - The signed-form check: `jotformSigned.js`, the app-open check, and the Contract page's
+    **Check for signature**.
+  - Jotform from account health's key check and Kels's "replace a key" flow (now Stripe
+    only).
+  - Their tests.
+- **Kept:**
+  - Pasted contract-form links on a Form service account, as the free fallback beside Firma
+    (D28).
+  - Jotform data already saved stays read-only (D29). A form's `form_id` / `field_map` are
+    shown ("n fields matched"), saved unchanged and still used in its link. A contract sent
+    through Jotform keeps its label and link.
+  - No field leaves the schema or backups.
+- **New:** `jotformKeyStore.forgetJotformKeys`, run on app open, deletes any `jotform:`
+  device secret. One new test.
+- **Site:**
+  - pro, lite, editions and FAQ name Firma e-signing.
+  - Privacy: a new §9d (contracts sent for e-signature), a Firma row in the providers table,
+    a retention line and a "stop it" line. Jotform is gone.
+  - Terms: a new §8b (the monthly allowance, contracts are hers, keep a copy), and §12 names
+    Firma.
+  - Both pages are dated 12 November 2026, for the owner's review.
+- **Docs:** End-State guide §32 and the device-secrets lines, the editions plan, the launch
+  checklist (a Firma test-key run; removing a deleted account's workspace by hand), the Kels
+  roadmap, README Status.
+- **Precache:** four files removed from `shared/sw.js` `PRECACHE_URLS`; service-worker cache bumped to `v117`.
+
+## 2026-11-12: Firma e-sign, step 8: the app
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a (D30, and a new **D31**: Firma's template editor runs
+in its own tab, on a sandboxed page of the Worker).
+- **Contract templates** on the Contracts page (`assets/esignUI.js`, Pro-only):
+  - Set up e-signing makes her workspace and sends the fact names as its fields.
+  - She uploads a PDF and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab.
+- **New `data/cloud/cloudEsign.js`:** the client for the Firma routes, `sendBody`,
+  `sendForEsign` (marks the contract Sent), the signed-copy link, and `esignProblem` for her
+  messages. Plus eight `cloudApi` wrappers.
+- **New `data/esignTemplates.js`:** each template's kind is a `contract_forms` row
+  `{ provider: 'firma', template_id }` on an "E-sign (Firma)" Form service account, made on
+  first use. `contractForms.cleanForms` keeps such rows without a link.
+- **Send for signature:**
+  - The Contract page offers her templates (marked E-sign). Firma emails the signer, or she
+    sends the link herself.
+  - Pick to send sends a template on step 2, and its link goes in her message.
+  - **Signed copy** on the Contract page.
+- **Events:** `contract.expired` and `contract.cancelled` become Today reviews.
+- **New field `esign_ref`** on Contract (cloud tier; `cloudFields.js` regenerated).
+- **Accounts page:** a Firma row's type and label can be edited. It shows **Manage**, and no
+  link.
+- **Worker:** `/esign/editor` (+ `.js`, `.css`) from `public/esign/`, sandboxed with no
+  `allow-same-origin`. The page stands in memory storage and Locks for Firma's script (it
+  needs them, and a sandboxed page refuses them). Checked in a browser that the script loads
+  and calls Firma inside the sandbox.
+- **Fixed in passing:** Pick to send's Continue re-enabled its button through
+  `e.currentTarget` after an await (always null by then).
+- **Tests:** `tests/esign.test.js` (7: the rows, the reviews, and end to end against the
+  Worker with a fake Firma: set up, upload, type, send, send again, signed back, the limit),
+  and one Worker test for the editor page.
+  - `node --test` 1716 pass. `cd cloud && npm test` 319 pass. `node build/assemble.mjs`
+    succeeds.
+  - Checked in a browser: Contract templates signed out, set up, the list, typing a template
+    and the Accounts card.
+- **Docs:** End-State guide §32 "E-sign through Firma", plan §2.3a "As built: the app" and
+  D31, `cloud/README.md`, the launch checklist (the production run), README Status.
+- **Precache:** `assets/esignUI.js`, `data/cloud/cloudEsign.js` and `data/esignTemplates.js`
+  added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). Service-worker cache bumped to `v118`.
+
+## 2026-11-12: Firma countersign and signed PDFs (plan only)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "Planned: her countersignature and the signed PDFs",
+new **D32–D33**. Nothing built.
+- **D32:** she signs second in the same Firma request, at no extra credit, from a Countersign
+  button on the Contract page. This applies to templates marked as needing her signature.
+- **D33:** KennelOS copies the signed PDF to R2 when Firma reports completion and makes it
+  available to buyers. This replaces the on-demand fetch proposal.
+- Open: her signing email, and whether Firma's emails and events can be set per signer. Also
+  open: how buyers reach the PDF and how long it's kept. docs.firma.dev wasn't reachable from
+  the session, so the Firma questions wait for the docs or a test send on staging.
+- README Status updated.
+
+## 2026-11-12: Firma countersign (D32)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: her countersignature". Owner decisions:
+she signs as her cloud account's email; buyers will get the signed PDF as an emailed link
+(D33, not built).
+- **Contract templates:** an **I countersign** tick per template, stored as `countersign: true`
+  on its `contract_forms` row (`contractForms.cleanForms` keeps it, and a retype keeps it).
+- **Send:** `cloudEsign.sendBody` adds `countersigner { name, email }` (her account email,
+  named for her kennel). The send dialog says she countersigns, and refuses with no account
+  email on the device.
+- **Worker:** `POST /integrations/esign/send` puts her as the second Signer (`order: 2`) of the
+  same request, so it's one credit. It refuses her email as the buyer's.
+- **Worker:** new `GET /integrations/esign/countersign?ref=` returns her own signing link from
+  Firma's recipient list, never kept.
+- **Contract page:** **Countersign** while Sent on a contract with the new field
+  `esign_countersign` (cloud tier; `cloudFields.js` regenerated). It stays Sent until Firma's
+  completed event, which comes once both have signed.
+- **Tests:** Worker `esign.test.js` +1. App `tests/esign.test.js` +2: the row flag, and end
+  to end with her as second signer, her link, refusals, and Signed.
+  - `node --test` 1719 pass. `cd cloud && npm test` 320 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser: the button needs a signed-in Pro cloud session with
+    Firma.
+- **To prove on the first production run:** how Firma maps the two recipients to the
+  template's signer roles, and its per-signer email and events (docs.firma.dev unreachable).
+- **Docs:** End-State guide §32, plan §2.3a and D32–D33, `cloud/README.md`, the launch
+  checklist, README Status. No new files, so no precache change.
+
+## 2026-11-12: Firma signed copies kept and emailed to buyers (D33)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: the signed copies". Owner decisions: a
+tick box per template; buyers get an emailed link.
+- **Contract templates:** an **Email the buyer the signed copy** tick beside I countersign,
+  stored as `keep_copy: true` on the `contract_forms` row. `sendBody` sends `keepCopy` and her
+  kennel's name, and the send dialog and the after-send note say so.
+- **Worker, migration `0023_esign_copies`:** new `esign_sends` columns `keep_copy`,
+  `kennel_name`, `copy_status`, `copy_key`, `copy_bytes`, `copy_tries`, `copied_at` and
+  `emailed_at`.
+- **Worker:** Firma's completed webhook queues a kept copy.
+- **Worker, `runEsignCopies` (hourly cron):** copies the PDF to R2
+  (`esign/<program>/<id>.pdf`), then emails the buyer a link (new `mail.js`
+  `sendSignedCopyMail`, mail kind `esign`). The buyer's email is read from Firma's recipient
+  list and never stored. A failed step is retried hourly for two days.
+- **Worker:** `GET /signed/<id>/<mac>` serves the copy. The mac is an HMAC of the id, so
+  nothing more is stored. `/integrations/esign/document` returns that link when a copy is
+  kept, so her Signed copy opens the same one.
+- **Worker:** retention keeps rows with a kept copy, and account deletion removes
+  `esign/<program>/`.
+- **Privacy policy:** `site/privacy.html` §9d and the retention list name the kept copies and
+  the email, for the owner to review.
+- **Tests:** Worker `esign.test.js` +2: the whole path; no buyer email; partial PDFs; giving
+  up. App `tests/esign.test.js` +2.
+  - `node --test` 1723 pass. `cd cloud && npm test` 322 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser (it needs a signed-in Pro cloud session with Firma).
+- **To prove on the first production run:** Firma's recipient list carries `email`; the
+  download link is fetchable without a key; whether Firma's own completion email can be
+  turned off.
+- **Docs:** End-State guide §32, plan §2.3a and D33, `cloud/README.md`, the launch checklist,
+  README Status. No new app files, so no precache change.
+- **Service-worker cache bumped to `v119`** (countersign and kept copies ride it).
+
+## 2026-11-12: Set up e-signing named a linked outside kennel
+
+- **Bug:** Contract templates' **Set up e-signing** prefilled the first kennel on record with
+  a name. For a breeder whose linked outside kennel sorts first, that was the other kennel's
+  name (seen during a support session).
+- **Fix:** new `esignTemplates.signingKennel` picks the kennel she's working in, else My
+  kennel, else any own kennel that isn't archived. It never picks an outside kennel.
+- Sends were never affected: they take the contract's own kennel.
+- **Tests:** `tests/esign.test.js` +1. `node --test` 1724 pass.
+- **Service-worker cache bumped to `v120`:** `v119` had already shipped without this fix.
+
+## 2026-11-12: Contracts fill an estimated pickup date
+
+- **Asked:** a breeder looked for an estimated pickup date among her Firma template's fields.
+  There wasn't one.
+- **Added:** the `pickupDate` fact for sale forms, used by Firma templates and pasted form
+  links alike. It's `goHome.expectedPickupDate`: the pup's next pickup for that family on the
+  calendar, else its latest, else the litter's ready date (whelp + 56 when no estimate).
+  `contractSend.gatherContractFacts` reads the pup's events and litter for it.
+- Firma's editor offers it the next time she opens **Place fields**, which re-syncs the custom
+  fields. The Accounts page's field list shows it too.
+- **Tests:** `goHome.test.js` +1, `pickToSend.test.js` +1, `contractForms.test.js` (one more
+  assertion). `node --test` 1726 pass.
+- **Docs:** End-State guide §32 (Contract forms and e-signature). No new files, so no precache change.
+- **Service-worker cache bumped to `v121`** (the pickup date rides it).
+
+## 2026-11-12: A Firma refusal showed "Cloud request refused (esign_refused)."
+
+- **Bug:** the Worker sends Firma's reason as the body's `code` beside `error: 'esign_refused'`.
+  `CloudError` copied the body over its own `code`, so `esignProblem` never matched and showed
+  the raw message, without Firma's reason (seen on a countersigned Boarding Clause send).
+- **Fix:** `CloudError` keeps a body's `code` as `providerCode` and never lets it replace the
+  Worker's code. `esignProblem` names Firma's code, mentions the countersigner's signature
+  field, and words `RECIPIENT_EMAIL_SUPPRESSED` on its own. App-only: no Worker change.
+- **Tests:** `tests/esign.test.js` +1 (the fake Firma refuses). `node --test` 1727 pass,
+  `cd cloud && npm test` 322 pass.
+- **Service-worker cache bumped to `v122`:** `v121` had already shipped without this fix.
+
+## 2026-11-12: Firma templates' prefilled fields came out empty
+
+- **Seen (first real sends):** fields placed with Prefilled Data set to a KennelOS fact
+  stayed empty. A template with a second signer and prefilled fields was refused, whether
+  or not "I countersign" was ticked.
+- **Firma's docs (Field Prefilling):** a field fills from `format_rules.prefilledData`, a key
+  of the assigned recipient's `custom_fields`, matched case-insensitively. A required,
+  read-only custom-field prefill blocks the send when its recipient lacks the key. Fields made
+  from a template custom field carry an internal identifier.
+- **Likely cause:** the editor stores Firma's own id for the custom field, not the
+  `field_name` KennelOS sends. Firma keeps our `field_name`: re-syncing never duplicated a
+  label.
+- **Change (Worker):** `sendForSignature` reads the workspace's custom fields and sends each
+  fact under every id its row carries as well (`firma.withFieldAliases`). The countersigner
+  gets the same values. The log now names a refusal's Firma code, and the keys (no values)
+  of prefilled fields a sent request left empty (`firma.emptyPrefills`). That confirms the
+  cause on the next send if the guess is wrong.
+- **Tests:** `cloud/tests/esign.test.js` +2. `cd cloud && npm test` 324 pass, `node --test`
+  1729 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a (a **Modified:** note).
+- **Not proven yet:** which identifier the editor stores. Needs a real send and the Worker log.
+- Worker only. The app is unchanged, so no service-worker bump.
+
+## 2026-11-12: Firma's editor names a custom field `custom_workspace_<id>`
+
+- **Seen (production log after #198):** `firma: prefilled fields left empty
+  custom_workspace_aecb2afb-…`. The editor stores the workspace custom field's id with a
+  `custom_workspace_` prefix. #198 sent the bare id, so the field still came out empty.
+- **Change (Worker):** `firma.withFieldAliases` also sends each fact as
+  `custom_workspace_<id>` (`WORKSPACE_FIELD_PREFIX`). The empty-prefill log now marks each key
+  "sent" (sent, still empty: no value, or a Firma-side issue) or "not sent" (a name KennelOS
+  doesn't know).
+- **Tests:** `cloud/tests/esign.test.js` (the production key). `cd cloud && npm test` 324 pass.
+- Worker only, so no service-worker bump.
+
+## 2026-11-12: A template deleted in Firma stops being offered
+
+- **Seen:** a template deleted in Firma's editor left Contract templates but was still offered
+  by Send for signature (the Contract page and Pick to send). The list in Contract templates
+  comes from Firma; the send pickers read the template's saved `contract_forms` row, which
+  nothing removed.
+- **Change (Worker):** `GET /integrations/firma/templates` adds `complete` (fewer than its
+  page of 100). `POST /integrations/esign/send` reads the template with her key first: a 404
+  is `404 template_missing`, before a place in the month's count is reserved. A 404 from
+  Firma's send frees the place and answers the same.
+- **Change (app):** `contractSend.loadContractForms` asks `cloudEsign.liveTemplateIds` (a
+  complete list only, else null) and drops the missing templates, forgetting their rows
+  (`esignTemplates.forgetMissingTemplates`). Contract templates does the same when it opens.
+  A `template_missing` refusal forgets that template (`forgetTemplate`) and says so.
+- **Tests:** `tests/esign.test.js` +1, `cloud/tests/esign.test.js` +1 (the fakes treat a
+  template as there unless deleted). `node --test` 1731 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a.
+- Worker and app. No new files. SW cache not bumped yet.
+
+## 2026-11-12: Her signature name, and a contract's payment table
+
+- **Signature name (owner decision: cloud tier).** `Kennel.esign_signer_name` (one per own
+  kennel, **Your signature name** in Contract templates) and a template's own **Signs as**
+  (`signer_name` on its `contract_forms` row, shown when I countersign is ticked).
+  `esignTemplates.signerNameFor`: the template's, else the kennel's, else the contact linked
+  to the kennel, else the kennel's name. Before this she always signed as the kennel's name.
+  The Send dialog shows the name. `cloud/src/lib/cloudFields.js` regenerated.
+- **Payment table fields** (sale contracts): `waitlistFeePaid` (the fee actually received
+  from the family on this sale, each entry's own amount; 0 outside the waitlist),
+  `waitlistFeeCredit`, `otherPaymentsReceived` (a paid balance, or received funds left
+  after the deposit: never counted twice), `purchaseBalanceDue` (the price only).
+  `incomeView.priceTable` / `getPriceTable`; `contractSend.gatherContractFacts` adds
+  `priceTable`. `price` already carries the Full surcharge (it's in the sale's price).
+- **Open:** her sister to confirm Balance Due is the price only, and how the table should
+  read when the waitlist fee is credited toward the deposit.
+- **Tests:** `tests/priceTable.test.js` (new, 6), `tests/esign.test.js` +1. `node --test`
+  1738 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §2 (Kennel), §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A sale's separate agreements: transport, delayed pickup, one per extra
+
+- **Asked:** her sister sends a separate agreement for transport, for delayed pickup, and
+  for each extra she sells (her extras are training packages, boarded in place of standard
+  boarding, with their stay logged as a linked boarding event).
+- **Change:** `CONTRACT_FORM_TYPE` gains `transport`, `boarding`, `extra` (`addOn`). An Extra
+  agreement's row names its price-list extra (`extra_list_id`), picked beside the type on the
+  Accounts page and in Contract templates. New pure `data/contractAddOns.js` (`addOnFacts`,
+  `extraFor`, `extraPayments`, `extraChoices`, `extraOptionsHtml`); `gatherContractFacts`
+  adds `addOns`; `prefillValues` takes the form. `rankForms` offers a separate agreement
+  first only when the sale has its charge. 34 new field names (84 in all; a send carries at
+  most about 61).
+- **Tests:** `tests/contractAddOns.test.js` (new, 4); `tests/esign.test.js` updated.
+  `node --test` 1742 pass, `cd cloud && npm test` 325 pass. Checked in a browser: the
+  Accounts page's form row shows Which extra with the saved one.
+- **Not checked:** the Contract templates window in a browser (needs a cloud sign-in).
+- **Docs:** End-State guide §32, Integrations plan §2.1a. New file in `PRECACHE_URLS`.
+
+## 2026-11-12: Preview a Firma contract before sending
+
+- **Asked:** a preview against the real template with the fields filled in.
+- **Change (Worker):** `POST /integrations/esign/preview` (the send's body, `parseSend`, shared
+  with `sendForSignature` along with `requestBody` and `templateThere`): a draft signing
+  request and a `/jwt/generate-signing-request` token; nothing stored or counted.
+  `DELETE /integrations/esign/preview?id=` deletes it only while Firma says it's a draft.
+  The editor page opens `#t=…&sr=…` in Firma's signing request editor, read-only.
+- **Change (app):** the Send dialog's **Preview** (`cloudEsign.previewLink`, opened in a new
+  tab); its drafts are discarded when the dialog closes (`discardPreview`).
+- **Unproven** (Firma's docs unreachable from the session; owner pasted the embed guide): a
+  draft is free, the read-only editor shows prefilled values, DELETE on a draft. On the
+  launch checklist.
+- **Tests:** `cloud/tests/esign.test.js` +1, `tests/esign.test.js` +1. `cd cloud && npm test`
+  326 pass, `node --test` 1744 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: Deposit due (less application fee)
+
+- **Asked:** her sister's table is now Total purchase, Deposit, Deposit due (less application
+  fee), additional credits, Balance due at pickup (the waitlist fee rows go).
+- **Change:** `depositDue` (`incomeView.priceTable`): the deposit less the fee credited toward
+  it and the received funds the allocation puts on it (each credit's Applies to). The fee
+  comes off the deposit only with her waitlist setting "A credited fee counts toward:
+  Deposit". `otherPaymentsReceived` is relabelled "credits and payments toward the balance".
+  With the fee toward the deposit the table adds up: price = deposit + credits on the balance
+  + balance due.
+- **Tests:** `tests/priceTable.test.js` +1. `node --test` 1745 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.1a.
+
+## 2026-11-12: A fee not on the deposit is an additional credit
+
+- **Change:** `incomeView.priceTable`'s `otherPaid` (`otherPaymentsReceived`) adds the credited
+  fee's part not taken off the deposit (her setting toward the balance, or a fee above the
+  deposit). Her table now adds up in every case: price = deposit + additional credits +
+  balance due. A credit that paid the fee counts once, as the fee (the allocation spends that
+  share on it; `fee_credit_amount`).
+- **Tests:** `tests/priceTable.test.js` +1 (six cases). `node --test` 1746 pass.
+
+## 2026-11-12: Contract sending made simpler: fewer fields, one home per setting, a record per agreement
+
+- **Asked (owner, after a review of the six commits above):** users struggle with settings in
+  many places that touch automatic logic they can't see. Simplify through the backend, labels
+  and consolidation, not explanatory copy. Drop `waitlistFeePaid`, `waitlistFeeCredit`,
+  `transportMethod`, `deliveryTime`, `goHomeFrom`. Boarding and training agreements use
+  `pickupDate`; prompt for a pickup when one isn't logged.
+- **Fields:** the five are gone (80 fact names). `priceTable` returns `{ depositDue,
+  otherPaid, balanceDue }` and no longer reads entries; `getPriceTable` is gone
+  (`gatherContractFacts` reads the sale's credits once for it and `balanceDueOn`).
+  `depositDue` now reads the same before and after the deposit is marked paid (it used the
+  ledger's unpaid-only credit marker, so a credit on the deposit vanished once it was paid).
+  Its label is under Firma's 100 characters.
+- **Pickup date:** `contractAddOns.pickupToSet`: a boarding agreement, or an extra the pup
+  stays for, sent with no pickup on the calendar asks for the date (the day after the
+  boarding or last stay ends offered), and `contractSend.logPickup` logs it. Contract page
+  and Pick to send.
+- **A record per agreement:** `contractSend.contractForForm` (`contractForms.agreementKey`).
+  Sending a second agreement from one contract record used to need "Send it again?", and the
+  first one signed marked the record Signed. Each agreement now goes out on its own record,
+  made when needed.
+- **One home, one pick:**
+  - A form's kind is one dropdown: her types, and each extra by name
+    (`formKindOptionsHtml` / `readFormKind`), in place of a type and a second "which extra".
+  - E-sign template rows are display-only on the Accounts page; saving there keeps them as
+    stored. It used to drop `countersign` and `keep_copy` (so on `main` too).
+  - The per-template `signer_name` is gone (never on `main`): one **Countersign as** per own
+    kennel (`Kennel.esign_signer_name`).
+  - `extraCharges.chargeFromPriceList` builds a price-list charge for the Sale page, Kels's
+    Prep pups and a family's approved request. Prep pups copied only the name and price, so
+    its extras had no stay nudge and no Extra agreement offered.
+  - `addOnApplies` matches an extra the way the form fills (`extraFor`), given the sale's
+    `addOns`; the picker lists the sale's own contract forms before its separate agreements.
+- **Labels:** "Boarding agreement", "Extra agreement" (the bracketed note reached a buyer's
+  deposit-request message).
+- **Worker:** a send read the template from Firma twice (a leftover of the preview refactor);
+  once now.
+- **Preview:** a draft that comes back after the Send dialog closed is discarded at once.
+- **Left open:** the preview token isn't read-only (Firma's `readOnly` is an editor option),
+  and drafts left by a closed tab aren't swept; the template list's `complete` trusts a page
+  of 100. Firma's docs weren't reachable from the session.
+- **Checked in a browser** (sample data): the Accounts form's rows and save, the picker's
+  order, the pickup prompt and its event. Contract templates needs a cloud sign-in: not
+  opened.
+- **Tests:** `tests/priceTable.test.js` rewritten (7), `tests/contractAddOns.test.js` +3,
+  `tests/esign.test.js` +1, `tests/extraCharges.test.js`, `cloud/tests/esign.test.js`.
+  `node --test` 1748 pass, `cd cloud && npm test` 326 pass.
+- **Docs:** End-State guide §21.2, §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A preview holds a place in the month; cache v123
+
+- **Why:** a preview's token isn't read-only (Firma's `readOnly` is an editor option), so for
+  7 days it could send the draft from Firma's own editor, outside her count; and a draft left
+  by a closed tab was never discarded.
+- **Change (Worker, no migration):** a preview is an `esign_sends` row with status `preview`.
+  `usage` and `/ops` leave it out; a new preview and a send's reservation count it (`HELD`),
+  so sends plus open previews never pass her limit. `settlePreview` deletes the draft and
+  frees the place, or counts a draft found sent; an unknown answer keeps the place until the
+  token is dead (8 days). It runs before each preview and send (one preview at a time), on
+  the device's discard, and hourly for previews over an hour old (`runEsignPreviews`).
+  `discardPreview` only touches a preview this program made.
+- **Unproven:** Firma's status words (`draft`; a sent request's). An unknown word is logged
+  and never counted. On the launch checklist.
+- **Service worker:** `CACHE_NAME` v123 (owner asked), for the app changes since v122.
+- **Tests:** `cloud/tests/esign.test.js` +3. `cd cloud && npm test` 329 pass, `node --test`
+  1751 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: She can sign first
+
+- **Why (owner):** one breeder signs her contracts before sending them. The template's
+  **I countersign** tick becomes one choice of three: **I sign first / I sign last / I don't
+  sign**. A new template starts with her last choice (owner decision), else I don't sign.
+- **App:** a Firma `contract_forms` row adds `countersign_first: true` (only with
+  `countersign`; a row without it reads as last, so older builds read a first-signing row as
+  last). `esignTemplates.signsOf` / `signsDefault` / `SIGNS`; `withTemplateRow` and
+  `setTemplateType` take `signs` (the older `countersign` still works). The choice is kept on
+  the E-sign (Firma) account as `esign_signs_default` (cloud tier). `countersignerFor` adds
+  `first`; the contract keeps `esign_countersign_first` (cloud tier) and shows **Sign first**
+  instead of **Countersign**. Send dialog, sent message and composer hint say so.
+- **Worker (migration 0024):** `esign_sends.countersign_first`. Signing first, she is
+  `order: 1` and the buyer `order: 2` (`firma.signerOrders`), recipients sent in order. The
+  buyer's link returned is the buyer's place (not Firma's `first_signer`); her link
+  (`/integrations/esign/countersign`) and the kept copy's buyer email find each by place.
+- **Unproven:** that Firma holds the buyer until she has signed, and when it emails the
+  buyer. On the launch checklist.
+- **Tests:** `tests/esign.test.js` +3, `cloud/tests/esign.test.js` +1. `node --test` 1755
+  pass, `cd cloud && npm test` 330 pass.
+- **Docs:** End-State guide §5 (Account), §32; Integrations plan §2.3a, D32; launch
+  checklist; README Status; `cloud/README.md`.
+- **Service worker:** `CACHE_NAME` v124 (owner asked). Migrations `0022`–`0024` applied on
+  production (owner).
+
+## 2026-11-12: Kels's defects from the review, and what her forms didn't ask
+
+- **From the review (`docs/review/findings/`; K11, Kels's own session, hasn't run):**
+  - **K6-5:** Review my waitlist ranks and numbers families from `getMapForKennel`, archived
+    programs included, as every other reader; its program picker still offers live ones only.
+  - **K8-5 (Kels's part):** her drop-off address form has **Open in Maps**, and a failed
+    measure says to use it.
+  - **K9-3 (Kels's part):** Record the birth on an Expected litter no longer prefills its
+    placeholder whelp date as the birth date; a ready date that was just whelp + 8 weeks
+    follows the real birth (`guidedLitter.refreshReadyDate`). The litter check-in's picker
+    shows an Expected litter as due on its breeding's due date. The root (litter.js dating
+    a litter made from its pairing today) is not in this batch.
+  - **K9-4:** a heat with no end date counts as over 21 days after it started
+    (`nudges.HEAT_OPEN_DAYS`) for `heatpair`.
+  - **K9-12:** Prep pups' "add them as a co-owner" makes the pup Co-owned too
+    (`goHome.deliveredOwnershipChanges`).
+  - **K12-10:** the Stripe key steps always open Stripe's API keys page; her saved website,
+    made a full address, is a second link.
+  - **K13-7:** Lite's Live-Birth Summary imported two Pro-only modules. It reads only shared
+    ones now (its own loader; `liveBirthFigures` moved to `reportMath.js`, re-exported by
+    `reportFigures.js`) and hides ← All reports in Lite. Kept in Lite, as guide §31 says.
+    New `tests/liteImportGraph.test.js`: no page Lite keeps reaches a Pro-only file by a
+    static import (it fails on the old page).
+  - **K13-8:** Kels's Find in Demo leaves out the pages the Demo build drops.
+    `DEMO_EXCLUDED_PAGES` moved to `proPages.js` (`isDemoExcludedPage`); `assemble.mjs` reads it.
+  - **K13-14:** Record a litter checks Lite's litter cap before writing anything, so a refused
+    litter no longer leaves a new parent behind (no test: the cap hook is Lite's module).
+  - Already fixed before this batch: K6b-3 (waitlist fixes step 1).
+- **Asked (owner):**
+  - **Add dogs** asks what the Dog page needs: statuses are the Dog page's by edition
+    (Puppy added everywhere, External reference in Pro). A puppy is asked its plan
+    (disposition, required; Placed comes from a sale) and intended registration. An external
+    reference is asked its owner (picking it sets whose dog to External; one marked hers is
+    refused). A co-owned dog is asked its co-owner (a contact or a new name, required) and
+    Lives with. Saved as `co_owner_contact_ids` / `lives_with_contact_id` /
+    `disposition` / `intended_registration`. Contacts load in Lite too (co-owners).
+  - **Logging forms:** the litter check-in's care forms (shots, deworming, medication, vet
+    visit; also Prep pups') and the dog check-in's preventatives ask a title of their own
+    beside the named thing (a blank title still takes the name). A type with a related
+    contact (vet visit, surgery, boarding, show) picks it from her contacts, those with the
+    role first (`vocab.RELATED_CONTACT_ROLE`, moved from `eventForm.js`), or **Someone
+    new…**, made with the role, in place of the typed vet name, as the event form does. The
+    dog check-in's event form adds Notes and Remind me on.
+- **Found looking for more:** Kels's add-a-family (`kelsApplicant`) never checked the
+  do-not-sell list; it now warns first, and a second tap adds them anyway.
+- **Tests:** `guidedDogs` +2 (and the edition statuses), `guidedLitter` +1, `dogCare` +1,
+  `litterCheckin` +1, `linkedStatusNudges` +1, `kelsFind` +1, `liteImportGraph` (new).
+  `node --test` 1759 pass; `node build/assemble.mjs` succeeds. Checked in a browser (sample
+  data): Add dogs' puppy, external reference and co-owned answers, and the vet visit form's
+  vet picker.
+- **Docs:** End-State guide §0 table, §31, §33 (Add dogs, Record a new litter, Check in on my
+  dogs, the applicant step, Prep pups' registration, Review my waitlist). No new app files,
+  no schema or field changes. SW cache not bumped.
+
+## 2026-11-12: Screening tests, and Kels's care step (enter it once, for every dog)
+
+- **Includes** the unmerged `claude/kels-scripts-defects-mmhmwz` batch above (owner asked),
+  squashed into this one commit.
+- **Why (owner):** a routine fecal or heartworm test had nowhere to go but a vet visit's
+  free text, and Kels's health flows asked for each kind of care, dog by dog, one form at a time.
+- **New event type `screening_test`** (vocab): `test` (suggests `SCREENING_TESTS`: Fecal,
+  Heartworm, 4Dx, Giardia, Brucellosis, Bloodwork, Urinalysis), `result` (Negative /
+  Positive), Normal or abnormal, the vet (`relatedContact`, role vet). Not a health test
+  type (planned tests, waitlist results, Dog Cards stay breeding clearances). Veterinary
+  expense; on the Puppy Record (own toggle); Kels's "<dog> vet" answer. Not on family pages
+  or the portal (open question for the owner). Event `details` keys classify from vocab:
+  `cloudFields.js` regenerated.
+- **The care step** (`assets/careVisitUI.js` + `data/careVisit.js`, new): "What did they
+  have?" ticks (a vet visit, shots, screening tests, deworming or flea & tick, other
+  medication) with one date, the dogs and the vet; the visit saves there (cost, vet summary),
+  then each ticked kind's form arrives filled in. **Shots** are a checklist
+  (`VACCINE_CHOICES` + Other, each with next due, `VACCINE_NEXT_DUE`) → one vaccination per
+  shot per dog, reminders on. **Screening tests**: ticks with a result for all and
+  **Different for each dog**.
+- **Where:** Check in on my dogs' step 2 (replaces Vet visits, now before the preventatives,
+  so one given at the vet counts); vaccinations and medication leave its "Any other events"
+  list. Check in on a litter's **Health care** runs it (pups ticked, shots due in 3 weeks).
+  Pups are going home's shots fix uses the shots checklist. Log health test results offers
+  **A screening test** for the dog. `litterCheckin.CARE_KINDS` keeps only preventative and
+  medication; `careForm` moved to the care step.
+- **Tests:** `tests/careVisit.test.js` (new); `dogCare`, `litterCheckin` updated. Checked in
+  Chromium at phone width: the dog check-in (visit + shots + per-dog fecal + preventative for
+  two dogs), the litter's Health care, Log health test results' screening test.
+- **Titles kept apart from the named thing** (the batch above's logging-forms fix): the
+  care step's vet visit and each ticked shot and screening test ask an optional title of
+  their own beside the reason, vaccine or test; blank takes that name (`dogEvents`,
+  `NAME_KEYS.screening_test = 'test'`). Preventative and medication forms keep theirs.
+- **Docs:** End-State guide §(event types), §33 (the care step, Check in on my dogs, Log
+  health test results, Check in on a litter, Pups are going home, Kels's shots and vet).
+  New app files in `PRECACHE_URLS`.
+- **Service worker:** `CACHE_NAME` v125 (owner asked), for this batch and the one above.
+
+## 2026-11-13 — Payment schedules on a sale (plan only)
+
+- **New plan:** `docs/KennelOS_Payment_Schedule_Plan.md`, nothing built. A sale gets a general
+  `payment_schedule` (due dates by age, a typed date, before pickup or at pickup; each covers
+  some or all charges as percent of total, percent of remaining, or an amount that earlier
+  money can or can't cover) and `payments[]`. One pure statement (`data/paymentSchedule.js`)
+  feeds every money surface: Sale and applicant pages, invoices and receipts, contracts, the
+  family's page, Companion, messages, Financials, Today. No schedule = today's behavior.
+- **Found while planning:** a receipt for a paid deposit prints $0 in Full mode, and the
+  deposit receipt is missing from the applicant page when the application fee is credited
+  toward the deposit. The plan's receipts print only recorded money, with regression tests.
+- **Owner decisions D1–D19** (plan §10), among them: extras can be flagged to keep their own
+  dates outside the schedule; money pays price → boarding → extras → transport (always last);
+  the "adjust the schedule?" prompt shows every time a fee is added; credits label as
+  "Deposit (credited)"; the generator works per family and includes the application fee;
+  8 new contract prefills; Firma fields relabelled by group now and created per template,
+  labelled by contract type, after a test-key check.
+- **D20:** money carried from a lost pup becomes a credit for funds received instead of the
+  next sale's whole deposit. **D21:** a credit is held money; a charge it covers is earned on
+  that charge's due date (today's code dates it by the family's oldest credit).
+  Found: the deposit-received dialog, picks and side sales with carried money set the
+  deposit date from the credit's date; the plan has them use the ask/received date.
+
+## 2026-11-13 — Payment schedules, step 1: the calculation
+
+- **`data/paymentSchedule.js` (new, pure):** cleans a sale's `payment_schedule`, dates due
+  dates (birth date, pickup, typed), lists the sale's charges in pay order (transport last),
+  spreads money over charges (fee credit, credits, deposit, own-dated steps, payments, paid in
+  full) and over due dates (the four kinds; "doesn't count" ones take only payments), and
+  returns one statement. Not wired to any page yet; no sale stores the new fields.
+- **Credits on the shared allocator:** `receivedCredits.allocateCredits` now calls
+  `allocateMoney`; `incomeView.saleCreditCharges` orders charges deposit, price, boarding,
+  extras, transport (D16; transport was second after the price before).
+- `extraCharges.saleExtraCharges` keeps `own_due_dates`. Vocab `SCHEDULE_DUE`,
+  `SCHEDULE_COVERS`, `SCHEDULE_BASIS`, `SCHEDULE_PRIOR_FUNDS`.
+- **Tests:** `tests/paymentSchedule.test.js` (new): 24 tests, one a 40,320-combination check
+  that the statement adds up. Full suite 1,791 passing; editions build.
+- **Docs:** guide §21.2 (own-dated flag), §21.3 (new), §29 credits (order, shared allocator).
+- **Service worker:** `data/paymentSchedule.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.
+
+## 2026-11-13 — Payment schedules, step 2: the sale's Payments card, editor and payments
+
+- **Owner decisions D22–D24** (plan §10): nothing is marked paid on its own (one question
+  offers the paid-in-full date and status); no default schedule, every schedule added on
+  purpose; with a schedule, the Sale form shows the final payment's date in place of the
+  Balance due date box.
+- **Data:** Sale `payment_schedule`, `payments`; Kennel `payment_schedules`,
+  `final_payment_methods`; `own_due_dates` on price-list rows (true/false) and groups (true),
+  copied onto a sale's charge by `chargeFromPriceList`; all private. `payments[].account_id`
+  guards an Account (`referenceRegistry` scans now step into a list: `list[].key`).
+  `paymentSchedule.js`: `scheduleProblem`, `readSchedule`, `savedSchedules`,
+  `readSavedSchedules`, `scheduleFromSaved`, `newPayment`, `paymentsWith`, `addedFees`,
+  `paidInFullOffer`, `finalDueDate`; payments toward an own-dated step are paid before the
+  step's own paid date, so one that also marked it counts once. `incomeView.getSaleStatement`
+  loads a sale's statement with its dates and credits.
+- **UI (`assets/paymentScheduleUI.js`, new, all editions):** the Payments card, the schedule
+  editor (rows by age, date, before pickup, at pickup; covers; four kinds; live previews;
+  start from a saved schedule; remove), Record a payment (Edit, Remove), the paid-in-full
+  question, and the new-fees question after any save that adds a transport fee, boarding or
+  an extra.
+- **Pages:** Sale page (Payments section; the form's final payment date), waitlist family
+  page (Details tab card; every action there checks for new fees), Kennel page (Payment
+  schedules section; price list "Paid on its own dates").
+- **Sample data:** Cedar's sale has a two-date schedule; Thornfield has a saved schedule,
+  final-payment methods, and Photo packages paid on their own dates.
+- **Fixed while checking:** the schedule vocab sat between `INVOICE_LINE_LABELS` and its
+  comment (step 1); picking a saved schedule wired the editor twice; a new schedule's final
+  row started at pickup instead of the sale's balance due date, replacing her date on save.
+- **Checked** in Chromium at phone width, Pro and Lite: the card, editor, previews and
+  errors, payments, paid in full, the new-fees question on the Sale and family pages (extras
+  approved), saved schedules and the price list choice. No console errors.
+- **Tests:** `tests/paymentScheduleData.test.js` (new), `paymentSchedule` and `extraCharges`
+  added to. Full suite 1,805 passing; editions build.
+- **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
+- **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
+  (owner asked, to merge steps 1–2), for this batch and step 1.
+
+## 2026-11-13 — View their page (a family's live status page, as they see it)
+
+- **Owner asked** for a button on each family's page showing what their status page shows
+  them; both phases at once, on the Interact tab, publishing first (forced).
+- **App:** Interact's **View their page ↗** (`waitlist-entry.js`, shown with
+  `statusLinkFor`), `waitlistUI.openStatusPage` (tab opened at the tap, then pointed at the
+  page; notes for a publish that didn't work or a plain link), `cloudWaitlist.statusPagePreview`,
+  `syncWaitlistOnline({ asked })` (publishes from a tab that just went behind the new one),
+  `cloudApi.previewWaitlistPage`.
+- **Worker:** `POST /waitlist/preview` (`waitlist.previewStatusPage`, `previewUntil`,
+  `PREVIEW_MS`): a signed, hour-long preview per status token, no table, no migration.
+  `GET /f/status` adds `preview: { until }` for a live one and doesn't stamp `last_used_at`.
+- **Family page:** `status.js` reads `#preview=` and sends it as `x-status-preview`; with it
+  the page draws signed in under a Preview note and every send stops at "nothing was sent";
+  an ended one says so. `common.fetchJson` takes `headers`.
+- **Checked** in Chromium on the local Worker (`cloud/tests/helpers/serve.mjs`): the signed-in
+  turn card, Choose → "nothing was sent" with no event on the server, an ended preview.
+- **Tests:** `cloud/tests/familyPages.test.js` (preview signed per page, ended, forged, not a
+  visit, never acts; who may ask), `tests/cloudWaitlist.test.js` (forced publish then
+  preview; not online, signed out, background tab). Cloud 332, app 1,809 passing; editions build.
+- **Docs:** guide §29 (Surfaces, Online), `cloud/README.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` v127 (owner asked).
+
+## 2026-11-13 — Payment schedules, steps 3–4: Financials and invoices on the statement
+
+- **Owner decisions D25–D28** (plan §10): a family in the generator is a waitlist entry and
+  its one sale, or a sale no entry claims; credit-covered money isn't in Receivables
+  (anticipated in Financials until its due date; undated, earned once received / paid in
+  full); no per-line Due by edit; `paidOnSale` counts recorded payments now.
+- **Pieces:** `paymentSchedule.chargePieces(statement)` splits each charge by due date with
+  the money on it and what's owed; due dates keep `from` (which money filled them), the
+  deposit `asked`.
+- **Step 3 (income):** `incomeView.ledgerComponents` reads each sale's statement:
+  money earned on its own date (payments on theirs), what's owed anticipated on the due date
+  that needs it (`due`, `due_id`); a credit's share earned on the covered charge's due date,
+  never the credit's date (D21). `getIncomeRows` loads the statement's inputs once for all
+  sales (`statementOpts`, shared with `getSaleStatement`). Receivables: one row per sale
+  and due date, credited money left out, "For" lists what it's for. Financials' Anticipated
+  box: one row per due date with a Due by column.
+- **Fixed:** `paidOnSale` ignored recorded payments (the lost-pup carry-over and a
+  contract's balance due were short since step 2); found while testing, a kept extra with
+  nothing paid on a released sale would have dropped out of income.
+- **Changed on purpose:** a sale with a balance paid date and the deposit never marked
+  received now reads paid in full, deposit included (as its Payments card already did);
+  anticipated money without a balance due date is filed under the pickup date, not the
+  sale date.
+- **Step 4 (invoices and receipts):** `data/familyMoney.js` (new, Pro-only): the family's
+  account (fee and sale pieces, money, total / paid / owed, next), picks, document lines and
+  the applicant page's documents. `invoiceDoc` builds a family's documents (older `sale` /
+  `waitlist` links read as the family's) with the account summary, a Received column on
+  receipts, the final payment's methods (D9); the stud path unchanged. Generator per family:
+  lines grouped by due date with Next payment / Everything owed / Bill part of it; receipts
+  of recorded money with Record a payment. The family page's Documents: fee, deposit (always,
+  "(credited)"), each payment's receipt, the next payment's invoice, a combined one.
+  `WaitlistEntry.invoice_number` / `invoice_notes` (private) for a family with no sale.
+  Regression tests for the $0 deposit receipt and the missing deposit receipt.
+- **Not built (no build step):** plan §3.2a / D20. Flagged: Financials' Adjust modal can raise
+  a transport fee without the new-fees question (D17).
+- **Checked** in Chromium at phone width on the Demo build: Financials (Anticipated by due
+  date), Receivables, a family's Documents and their documents, the generator (invoice and
+  receipt). No console errors.
+- **Tests:** `tests/paymentScheduleIncome.test.js`, `tests/familyMoney.test.js` (new);
+  `paymentSchedule`, `paymentScheduleData`, `invoicePdf` added to. Full suite 1,824 passing;
+  editions build.
+- **Docs:** guide §4 aggregators, §21, §21.3, §24, §29, §31; plan D25–D28 and Modified notes.
+- **Service worker:** `data/familyMoney.js` in `PRECACHE_URLS` and `proPages.js`. `CACHE_NAME` v127 (owner asked, at the end of the batch). Merged with View their page,
+  which also bumped to v127 from v126: one bump carries both batches.
+
+## 2026-11-13 — Payment schedules, step 5: contract prefills and Firma field labels
+
+- **Owner decisions D29–D31** (plan §10): `payment1` / `payment2` are the due dates before the
+  final one; the Firma relabel is built on a best guess at Firma's call, never fatal, one field
+  first; an extra agreement for an extra paid through the schedule reads the statement.
+- **Contracts (`contractForms.js`, `contractSend.js`):** 8 new sale prefills from the sale's
+  payment statement (`gatherContractFacts` loads it with `getSaleStatement`):
+  `totalCharges`, `paidToDate`, `payment1Amount/Due`, `payment2Amount/Due`,
+  `finalPaymentAmount/Due`. Amounts are what's still owed by each due date (0.00 once met).
+  `paidToDate` counts only money on the sale: the credited fee and the part of credits for
+  funds received spent on the sale, not credit spent on the fee itself or left over.
+- **Extra and transport agreements:** with a schedule, an extra paid through it prints its share
+  of each due date (`contractAddOns.extraPayments` + `chargePieces`), and `transportDueDate` is
+  the final payment's date. Unchanged without a schedule and for own-dated extras.
+- **Firma labels:** `contractForms.FIRMA_LABELS` (a group prefix per fact); `factFields` uses
+  them. Worker `syncFirmaFields` takes `relabel` and updates an existing field's label
+  (`PATCH …/custom-fields/{id}`, else `PUT`), never fatal, within 45 outbound calls; the app
+  asks only for `buyerEmail` (`cloudEsign.RELABEL_FIELDS`) until a send proves it. Firma's docs
+  weren't reachable from the build session, so the call is unproven (launch checklist).
+- **Found while testing:** what a due date covers sets how much it asks, not which charge pays
+  it: money pays the price before extras (D16), so a due date covering only an extra is filled
+  by the price on invoices, Financials and now the extra agreement. Left as built (steps 1–4).
+- **Checked:** the existing `balanceDue` equals the statement's `remaining` on every open-sale
+  combination, so `totalCharges − paidToDate = balanceDue`. Over the sample data in Chromium,
+  every sale's fields match its Payments card; the contract pages load with no errors.
+- **Tests:** `tests/contractSchedule.test.js` (new: the fields, credits, D18, ended sales,
+  extras, transport, a 5,000+ combination check against the statement and `balanceDue`);
+  `esign.test.js` (labels, the real `gatherContractFacts`); `priceTable.test.js` (88 facts);
+  `cloud/tests/esign.test.js` (relabel: asked only, PATCH, PUT fallback, failures, the
+  42-call worst case). `node --test` 1,841 pass; `cd cloud && npm test` 334 pass.
+- **Docs:** End-State guide §21.3, §32; plan §8.1, §8.2, §10, §11; Integrations plan routes;
+  launch checklist; README status.
+- **Service worker:** no new files. `CACHE_NAME` v128 (owner asked).
+
+## 2026-11-13 — An extra set "No, with the sale's schedule" now goes on the schedule
+
+- **Bug:** an extra set to *No, with the sale's schedule* that had a payment plan (its own or
+  its group's) was copied onto the sale with its plan's steps. `saleCharges` treated any
+  extra with steps that no due date named as on its own dates, so the No was ignored. The
+  schedule editor only offers the Extras tick (and a tick per extra) for extras already on
+  the schedule, so it couldn't be named, and a saved schedule's Extras cover was dropped
+  when loaded. The invoice showed the extra's step and the schedule's due date as two lines
+  on the same date.
+- **Fix:** on a sale with a schedule stored, only `own_due_dates: true` keeps an extra apart.
+  Every other extra is on the schedule (`extras`, `all` or its name), its steps not used for
+  dates. Money already paid on those steps still counts: a payment `toward` a step pays the
+  extra, and a step marked paid covers what's left of its share, never twice. With no
+  schedule, stepped extras keep their steps as before (D2). The schedule editor works out its
+  tick choices as they'll be once a schedule exists, so *Add a payment schedule* offers the
+  Extras tick. `addedFees` says "paid on its own dates" only when that's true.
+- **Tests:** `tests/paymentSchedule.test.js`: two new cases (a saved schedule's Extras
+  cover takes a stepped extra, flagged still apart, `addedFees`; old step payments counted
+  once). The combination check counts a step marked paid as money received. `node --test`
+  1,843 pass.
+- **Docs:** End-State guide §21.3; plan §3.3 (**Modified:**).
+- **Service worker:** no new files. `CACHE_NAME` v129 (owner asked).
+
+## 2026-11-13 — Invoices: one "Combined Price" line per due date that covers several charges
+
+- **Bug:** an invoice printed one line per charge and due date (`chargePieces`), so a due date
+  covering the price and an extra printed as "Remaining Purchase Price" lines plus the extra's
+  own line: the final payment came out as two lines on one date ($300 price + $1,400 stay),
+  and Payment 1 was called "Remaining Purchase Price" though it asks 50% of price and extras.
+- **Fix (`familyMoney.js`):** `combinedDueIds(statement)` names the schedule due dates whose
+  covers take in more than one schedule charge; `familyAccount` flags their pieces `combined`,
+  and `documentLines` prints each such due date as one line, **Combined Price (<due label>)**,
+  its pieces added (a partial among them marks it "(partial)"). A due date covering one charge
+  keeps that charge's name. Totals, credits and the account summary are unchanged. The
+  generator still lists the pieces under their due date.
+- **Tests:** `tests/familyMoney.test.js`: the owner's sale as a regression case; the partial
+  transport line on a combined final payment now prints combined. `node --test` 1,844 pass.
+- **Docs:** End-State guide §24 invoice; plan §6.1 Modified note.
+- **Service worker:** no new files. `CACHE_NAME` v130 (owner asked).
+
+## 2026-11-13 — Payment schedules step 6: family pages, Companion, messages, Stripe payments
+
+- **Family status page (Payment Schedule plan §7, D32–D35):** `paymentSchedule.familyPaymentsView`
+  (the statement as the family sees it, field by field) and `nextPaymentText`;
+  `incomeView.getSaleStatements` (many sales at once, exactly as `getSaleStatement`); the
+  projection's `payments` and the turn card's deposit credits from the statement; Worker
+  `familyPages.paymentsOf`; `status.js` **Your payments** ("Was due …", never Overdue, D35).
+  The portal feed stays amount-free (D33).
+- **K8-10:** the application fee card's headline is the fee; "Paying by card adds $X" beside
+  the button when the link charges more.
+- **Companion:** `remainingBalance` and `balanceDueDate` (the final due date) from the
+  statement; new per-pup `payments` (with her final-payment methods), drawn as a Payments
+  section in `companion-view.html`.
+- **K8-1, the deposit request:** `depositRequest.depositMessageMoney`: the deposit after
+  credits ("after $50 already credited"), the Stripe link for that amount, what's owed after
+  the deposit (no longer the deposit taken off twice), with a schedule the schedule in words,
+  her final-payment methods.
+- **Send payment link:** `paymentLinks.paymentOptions(statement)`: deposit owed / next payment /
+  everything owed, each once; the message gives the due date or "at pickup" and, on the final
+  payment, her final-payment methods.
+- **Stripe (D34):** links beyond the deposit have component `payment` (named by the option).
+  Paid, `integrationEvents.planSalePayment` records a `payments` row (once per reference; the
+  deposit owed marked received first on a deposit-pending sale), never paid in full; a
+  payment that covers everything leaves a Today review (`integrationApply.COVERS_ALL_REASON`).
+  Old `balance` links read the same way. The Worker accepts `payment` as a component.
+  The sale's Payments card shows **Mark paid in full** whenever everything is paid and it
+  isn't marked.
+- **Left for step 7:** pickup and go-home messages and Kels still read `balanceDueOn`.
+- **Tests:** `tests/familyPayments.test.js` (view, projection, Companion, K8-1), `cloud/tests/
+  familyPayments.test.js`, `tests/paymentLinks.test.js` (options from the statement, the final
+  payment's message), `tests/cloudIntegrations.test.js` (payment rows), `tests/stripePayments.test.js`
+  (a payment link end to end, D34's Today item). `node --test` 1,859 pass; `cd cloud && npm test`
+  337 pass; `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §20, §21.3, §29, §32; Waitlist Spec §8.1 (a Modified row); Waitlist
+  Fixes plan step 5 (Modified); plan step 6; README Status.
+- **Service worker:** no new files. `CACHE_NAME` v131 (owner asked).
+
+## 2026-11-13 — Payment schedules step 7: Today nudges, Kels, the pickup message
+
+- **Decided with the owner (plan D36):** Today's payment nudges cover every open sale (no
+  schedule = its one due date); Pups are going home's Balance item becomes Payments, done
+  when nothing is owed; Review my waitlist takes payments due; Pups are going home offers a
+  pickup message. Today had no balance nudge to replace, so the payment nudges are new.
+- **Today (all editions):** `nudges.paymentDueNudges` / `paymentDueItems` over
+  `incomeView.getSaleStatements`: `payment-due` from 7 days before a due date through the
+  day, `payment-missed` once it's gone by ("A scheduled payment was not marked received: …"
+  → Open the sale; no back-out suggestion, D4). Keyed by sale, due date and date. Not the
+  deposit, not own-dated extras. `extra-due` now skips extras on a sale's schedule (they were
+  nudged by their unused steps' dates).
+- **Pups are going home:** the readiness item `balance` is **Payments** (`prepPups.readiness({
+  statement })`, the Puppy Record cover page too): done when nothing is owed; the fix records
+  payments in the chat (an amount per pup, prefilled with the next due date's ask), then
+  offers Mark paid in full. Money still owed reads the statement (what's owed in all and the
+  next payment), no longer `contractSend.balanceDueOn`. New step: a pickup message per family
+  (`goHome.pickupMessage`, `paymentSchedule.owedBy`), written in the composer for her to send.
+  Kels's menu says payments.
+- **Review my waitlist step 7:** scheduled payments due or not marked received on waitlist
+  families' sales → Received (a payment toward the schedule, then the paid-in-full question)
+  / Not yet / Open the sale; counted in the opening line.
+- **Shared:** `paymentSchedule.paidInFullChanges` (the Payments card and Kels write the same
+  thing), `owedBy`.
+- **Tests:** `tests/paymentNudges.test.js` (new), `tests/prepPups.test.js` (Payments).
+  `node --test` 1,869 pass; `node build/assemble.mjs` builds. Checked in the browser on the
+  sample data: Today shows a missed and a due payment; Pups are going home and Review my
+  waitlist record a payment and write the pickup message, no console errors.
+- **Docs:** End-State guide §19, §21.3, §33; plan step 7 (Built, Modified), D36; README Status.
+- **Service worker:** no new files. `CACHE_NAME` v132 (owner asked).
+
+## 2026-11-13 — Website contract plan: the owner's answers
+
+- **Docs only.** `docs/KennelOS_Website_Contract_Plan.md` brought in line with KennelPort's
+  `docs/plans/kennelos-contract.md` and the owner's answers: featured offspring is
+  KennelPort's own (C8 `offspring`, `feature_offspring` and `featured_offspring_ids`
+  dropped); C4 sends `imported` / `import_country` on a dog and each C7 ancestor, with
+  import-descended worked out by KennelPort; no colour list in KennelOS (KennelPort builds
+  one per website from the free-text colours sent); `imported` and `import_country` are
+  cloud, like the Dog's other registration facts. Open questions marked answered.
+
+## 2026-11-13 — Website contract step 1: raw disposition, litter status, test type, account type
+
+- **`siteExport.js`:** four new optional sections, each sent only to a Worker whose answer
+  lists it: `pup_disposition` (a litter puppy's `disposition` as set, null when none or
+  unknown), `litter_status` (a litter's `status`), `health_detail` (a health result's event
+  `type`), `account_type` (a product's `account_type`, null when unknown). `status` and
+  `transport` still go. `PUPPY_WORDS` loses `reserved`; `bundleChanges` doesn't list a
+  puppy's disposition apart from its status line.
+- **`healthTestLog.completedTestsByDog`:** each result carries its `type`.
+- **Not built:** `verify_url` (C5). KennelOS holds no verification link on a test; noted in
+  the plan as Modified, for the owner.
+- **Tests:** `tests/siteExport.test.js` (two new), `tests/healthTestLog.test.js`.
+  `node --test` 1,871 pass; `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 1 (Built, Modified); README Status.
+- **Service worker:** no new files; no cache bump yet.
+
+## 2026-11-13 — Website contract step 2: titles with organization and date
+
+- **`siteExport.js`:** the `titles_detail` section. With it, a dog's `titles` is
+  `[{ abbr, organization, date }]` (`titleDetailsByDog`, `TITLE_KEYS`): her `title_earned`
+  events in the order earned; the same title from the same organization once, at its
+  first date. Without it, the abbreviations as before.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,872 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 2 (Built); README Status.
+
+## 2026-11-13 — Website contract step 3: Imported, origin and lineage
+
+- **Dog fields:** `imported` (boolean) and `import_country` (text), both cloud like
+  `registry` (owner decision). Dog form: Imported tick beside the registrations; Country of
+  origin only while ticked, cleared on unticking; the view reads "Yes, from …".
+  `syncRegistry.js`, `cloud/src/lib/cloudFields.js` regenerated.
+- **`data/pedigreeWalk.js` (new, precached):** `ancestorsOf`, four generations, nearest
+  first, sire's side first, a loop stops its line.
+- **`siteExport.js`:** `origin` (`imported`, `import_country` only while imported) and
+  `lineage` (`breed`, `sire_id`, `dam_id`, `ancestors` by name and titles only, with the
+  origin facts on each when both go). `bundleChanges` words for the new keys.
+- **Tests:** `tests/pedigreeWalk.test.js` (new), `tests/siteExport.test.js` (one new).
+  `node --test` 1,876 pass; `cd cloud && npm test` 337 pass; `node build/assemble.mjs`
+  builds. Dog form checked in the browser on the sample data: tick, save, untick clears
+  the country; no console errors.
+- **Docs:** End-State guide Dog entity and §35; plan step 3 (Built); README Status.
+- **Service worker:** `data/pedigreeWalk.js` added to `PRECACHE_URLS`. `CACHE_NAME` v133
+  (owner asked), covering steps 1 to 3.
+
+## 2026-11-13 — Website contract step 4: waitlist facts
+
+- **`siteExport.js`:** the `waitlist_facts` section (`waitlistFacts`, `WAITLIST_FACT_KEYS`):
+  `{ online_form, has_fee, fee_due_days, respond_days, max_passes }` once her waitlist is
+  set up; never the fee amount. `steps` and `payment` still go. `bundleChanges` names it
+  Waitlist details.
+- **Not sent:** `open_days` (deadlines count only her business days); noted in the plan.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,877 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 4 (Built); README Status.
+- **Service worker:** no new files; rides v133.
+
+## 2026-11-13 — Payment schedules step 8: the docs, checked against the code
+
+- **Checked:** every guide section the plan names (§4, §13, §21, §24, §29, §32, §33, §35) and
+  the ones steps 1–7 touched, against `paymentSchedule.js`, `paymentScheduleUI.js`,
+  `familyMoney.js`, `invoiceGenerator.js`, `incomeView.js`, `contractForms.js`, `nudges.js`,
+  `integrationApply.js`, `waitlist-entry.js`, `kennel.js`, `referenceRegistry.js` and the
+  family status page. §4, §21.2, §24 and §33 already matched.
+- **End-State guide:** §7 (unindexed paths: `list[].key`, a sale's `payments[].account_id`;
+  "the one today" was stale), §13 Components (`paymentScheduleUI.js`, `invoiceGenerator.js`),
+  §16 invariant 10 (a sale's money from its statement, one allocator), §19 `int-review`
+  (D34's covers-everything review), §21 (which helpers still read whole lines; the "until
+  steps 5–6" note was stale), §21.3 (`schedule` in the statement, `scheduleFromSaved`, not in
+  CSV, the JSON backup carries them), §29 Surfaces (the family page's Payments card and
+  `afterAction`'s new-fees question; Documents rewritten from the old fee/invoice/receipt
+  line), §32 (the price table and recorded payments; an ended sale's two fields named),
+  §35.1 (once the portal takes over the status page, Your payments goes with the rest).
+- **Editions plan:** a tiers row for a sale's payments (all editions; Pro adds saved
+  schedules, final-payment methods, Paid via, documents); Pups are going home's row says
+  Payments and the pickup message (final-payment methods Pro only: Lite has no Kennel page).
+- **Found, not fixed (owner to decide):** `incomeView.priceTable` (contract fields
+  `otherPaymentsReceived`, `purchaseBalanceDue`) reads `saleComponents`, which knows no
+  recorded payments: a $3,000 sale with its $500 deposit and a $1,000 payment prints
+  `otherPaymentsReceived` 0.00 and `purchaseBalanceDue` 2,500.00, while `balanceDue` and the
+  schedule fields say 1,500.00 owed. Right again once marked paid in full. The status page
+  hiding Your payments once the portal takes over (pickup day passed, Delivered, or home) is
+  as built; worth a look if money can still be owed then.
+- **Docs:** plan step 8 (Built, Found); README Status.
+- **Tests:** none changed (docs only).
+- **Service worker:** no app files changed, so no `CACHE_NAME` bump.
+
+## 2026-11-13 — A contract's price table counts payments recorded on the sale
+
+- **Bug (found in step 8):** `incomeView.priceTable` read whole lines (`saleComponents`),
+  which know no recorded payments, so `otherPaymentsReceived` and `purchaseBalanceDue`
+  ignored `Sale.payments` until the sale was marked paid in full ($3,000 sale, $500 deposit
+  paid, $1,000 recorded: 0.00 received and 2,500.00 due, against 1,500.00 owed everywhere
+  else).
+- **Fix:** the payments' share of the price comes from the payment statement (after the
+  credited fee; payments pay the price first, D16) and moves from `purchaseBalanceDue` to
+  `otherPaymentsReceived`, capped at what credits for funds received left of the price, so
+  nothing counts twice and price = deposit + received + balance due still holds. A
+  returned or cancelled sale keeps what was paid; a lost one counts nothing, as before.
+- **Owner:** the status page showing only the portal link once the portal takes over is
+  right: a pup isn't released until everything is paid, and it only applies to a kennel
+  with the portal on.
+- **Tests:** `tests/priceTable.test.js` (payments, several, beyond the price, with the
+  credited fee, with credits, with paid in full, toward an own-dated extra, on a schedule;
+  ended and lost sales). Checked over 20,000 random open sales (fee credit, credits, deposit,
+  payments, transport) that `purchaseBalanceDue` equals what the statement has owed on the
+  price and the table adds up to the price. `node --test` 1,871 pass.
+- **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
+- **Service worker:** no files added or renamed. `CACHE_NAME` v134 (owner asked for the bump if needed): main's website work had already shipped v133.
+
+## 2026-11-14 — Plan: a dog's titles as a field
+
+- **Plan only:** `docs/KennelOS_Dog_Titles_Field_Plan.md`. It adds a `Dog.titles` field for
+  titles typed in by hand (bought champions, pedigree ancestors), and the shown and sent
+  titles become the field and `title_earned` events together. The show engine reads the field
+  (an undated CH unlocks GCH, and the title nudge is skipped) but never writes it. It takes in
+  KennelPort's hand-over on ancestors' titles: the chart import keeps titles as data, existing
+  `Titles:` notes are read in once, and the lineage feed sends them. No contract change. Owner
+  decisions D1 to D6 are open. README doc map updated.
+- **Revised (owner):** existing `Titles:` notes lines are now moved only when she says
+  yes, as two new checks in Kels's existing Tidy up my records (no new task or nudge), never a silent back-fill. The
+  chart import now also sets Imported and the country of origin from a foreign registry,
+  pre-ticked on its review screen for her to confirm (D7).
+- **Revised (owner), D8:** country of origin is its own fact, apart from Imported, because
+  a Serbian ancestor still in Serbia isn't an import. A new `Dog.country_of_origin` field;
+  `imported` and `import_country` stay as shipped. The chart import fills the country from
+  a foreign registry and suggests Imported only on the line's boundary dog: pre-ticked when
+  it's dual-registered, unticked otherwise (frozen semen, in-utero). A note for KennelPort
+  asks for an optional `origin_country` section and two tag conditions: Import-descended
+  and Foreign bloodlines.
+- **Revised after a web check (D7, D8):** AKC gives a foreign frozen-semen sire an AKC
+  number through foreign registration, so having both a home and a foreign number doesn't
+  prove a dog was imported. The chart import now only ever offers Imported unticked, at
+  the boundary dog. It keeps a second registration, which gives the country of origin.
+  `REGISTRY_COUNTRIES` is to come from the FCI's list of studbook initials. JR, MET and LOE
+  are still to confirm, and fci.be and akc.org aren't reachable from the session.
+- **Revised after the FCI/AKC fact check** (`docs/KennelOS_Registry_Title_Facts.md`, added):
+  - JR (Serbia), MET (Hungary) and LOE (Spain) are confirmed. `REGISTRY_COUNTRIES` takes
+    studbook, appendix and older codes from the FCI list, and leaves CKC, KCSB and the
+    rows that couldn't be placed off the map.
+  - AKC doesn't register a foreign frozen-semen sire who never came over. So Imported is
+    suggested from the parents' registrations: pre-ticked when both parents are
+    foreign-only (or the dog is dual-registered), unticked when one parent is foreign.
+  - D3 is flipped to a prefix list. AKC puts most titles after the name, championship
+    titles before it.
+  - Chart titles on an AKC pedigree get organization AKC.
+- **Decided and split into phases (owner):** D1–D7 as recommended. §8 of the plan now has
+  six build phases with a "findings from reading the code" section to carry between
+  sessions. In short:
+  - AKC Certified Pedigrees bracket a foreign-born dog's country ("(SRB)"), so a bracketed
+    country on an AKC dog pre-ticks Imported.
+  - KSS also maps to Serbia.
+  - The registry map goes in a new pure module, `registryCountries.js`, because
+    `pedigreeParse.js` is import-free.
+
+  No code yet.
+
 ## 2026-11-08: duplicate applications ("Same family")
 
 - Plan: `docs/KennelOS_Duplicate_Applications_Plan.md` (owner's answers in its section 7:

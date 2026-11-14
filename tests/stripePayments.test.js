@@ -217,3 +217,42 @@ test('the application fee: a Stripe link per amount; paid before approval it wai
   const row = (await incomeView.getIncomeRows({ kennelId: k.id })).find((r) => r.source_id === entry.id);
   assert.equal(row.earned, 48.25, '$50 less the $1.75 Stripe kept');
 });
+
+test('a one-time payment link, paid: a row in the sale\'s payments, never paid in full by itself; covering everything leaves a Today item (D34)', async () => {
+  const { k, acct } = await setup();
+  const { paymentStatement } = await import('../shared/data/paymentSchedule.js');
+  const { COVERS_ALL_REASON } = await import('../shared/data/integrationApply.js');
+  const buyer = await contactRepo.create({ name: 'Bea Buyer' });
+  const pup = await dogRepo.create({ call_name: 'Juniper', breed: 'Lab', sex: 'female', ownership_type: 'owned', status: 'puppy', kennel_id: k.id });
+  let sale = await saleRepo.create({ dog_id: pup.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_paid', price: 3000, deposit_amount: 500,
+    deposit_date: '2026-10-01', kennel_id: k.id, balance_paid_via_account_id: acct.id,
+    payment_schedule: [{ id: 'a', due: 'on_date', due_date: '2026-11-01', covers: ['price'], percent: 50, basis: 'total' }, { id: 'b', due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }] });
+
+  // The next payment: $1,000 (50% of the price, less the deposit).
+  sale = await stripe.makeSaleLink({ sale, account: acct, component: 'next', amount: 1000, pupName: 'Juniper', label: 'Next payment' });
+  assert.equal(sale.payment_link_component, 'payment');
+  const linkBody = decodeURIComponent(stripeCalls.find((c) => c.path === '/v1/prices').body);
+  assert.match(linkBody.replace(/\+/g, ' '), /Next payment: Juniper/);
+  sessionsByLink[sale.payment_link_ref] = [paidSession({ kennelos_sale_id: sale.id, kennelos_component: 'payment' }, { amount_total: 100000, payment_intent: { id: 'pi_n1', latest_charge: { balance_transaction: { fee: 2930 } } } })];
+  assert.equal((await stripe.checkStripePayments({ force: true })).applied, 1);
+  let after = await saleRepo.getById(sale.id);
+  assert.equal(after.status, 'deposit_paid', 'not paid in full by itself');
+  assert.deepEqual(after.payments.map((p) => [p.amount, p.reference, p.account_id]), [[1000, 'pi_n1', acct.id]]);
+  assert.equal(paymentStatement(after, { today: '2026-10-15' }).dueDates[0].owed, 0, 'the statement counts it toward the due date');
+  assert.deepEqual(after.integration_reviews || [], [], 'not everything yet: no Today item');
+  // Again (a second device): nothing changes.
+  await saleRepo.update(sale.id, { payment_link_ref: sale.payment_link_ref });
+  await stripe.checkStripePayments({ force: true });
+  assert.equal((await saleRepo.getById(sale.id)).payments.length, 1, 'once per reference');
+
+  // Everything owed: $1,500 left. Paid, the sale still isn't marked; Today asks.
+  sale = await stripe.makeSaleLink({ sale: await saleRepo.getById(sale.id), account: acct, component: 'all', amount: 1500, pupName: 'Juniper', label: 'Everything owed' });
+  sessionsByLink[sale.payment_link_ref] = [paidSession({ kennelos_sale_id: sale.id, kennelos_component: 'payment' }, { id: 'cs_2', amount_total: 150000, payment_intent: { id: 'pi_n2', latest_charge: { balance_transaction: { fee: 4380 } } } })];
+  await stripe.checkStripePayments({ force: true });
+  after = await saleRepo.getById(sale.id);
+  assert.equal(after.status, 'deposit_paid');
+  assert.equal(after.balance_paid_date ?? null, null);
+  assert.equal(after.payments.length, 2);
+  assert.equal(paymentStatement(after, { today: '2026-10-15' }).remaining, 0);
+  assert.deepEqual(after.integration_reviews.map((r) => r.reason), [COVERS_ALL_REASON]);
+});

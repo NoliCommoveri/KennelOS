@@ -6,17 +6,22 @@
 // "Send for signature" (Integrations plan §2.1a): picks one of her contract forms
 // (saved on an Account), builds its link with the contract's facts prefilled
 // (contractForms.js, on the device), opens the composer, and marks it sent.
+// A Firma template of hers (plan §2.3a, D30) is sent through the Worker instead
+// (assets/esignUI.js): Firma emails the signer, or she sends the link herself, and
+// the contract comes back Signed by itself; its signed copy opens from here.
 import { contractRepo, DOG_LINK_TYPES, CONTACT_LINK_TYPES, ReferenceBlockedError } from '../data/contractRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { documentRepo } from '../data/documentRepo.js';
-import { rankForms, splitName, signatureMessage } from '../data/contractForms.js';
-import { SENDABLE_STATUSES, loadContractForms, gatherContractFacts, buildSignatureLink, markContractSent } from '../data/contractSend.js';
+import { rankForms, splitName, signatureMessage, isFirmaForm, prefillValues } from '../data/contractForms.js';
+import { esignOffered, esignSignedIn } from '../data/cloud/cloudEsign.js';
+import { SENDABLE_STATUSES, loadContractForms, gatherContractFacts, buildSignatureLink, markContractSent, contractForForm, logPickup } from '../data/contractSend.js';
+import { pickupToSet } from '../data/contractAddOns.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { CONTRACT_TYPE, CONTRACT_STATUS, CONTRACT_FORM_TYPE, SEX, descriptor } from '../data/vocab.js';
-import { esc, badge, fmtDate, param, confirmModal, alertModal, dogOptgroups } from '../assets/ui.js';
+import { esc, badge, fmtDate, param, confirmModal, alertModal, promptModal, dogOptgroups } from '../assets/ui.js';
 import { openComposer } from '../assets/messageComposer.js';
 import { openDocumentModal, openDocumentViewModal } from '../assets/documentModal.js';
 import { resolveKennelIdForWrite } from '../data/kennelScope.js';
@@ -130,8 +135,12 @@ function renderView() {
       ${c.contract_type !== 'lease' ? row('Related sale', sale ? `<a href="sale.html?id=${encodeURIComponent(sale.id)}">${esc(saleLabel(sale))}</a>` : '') : ''}
       ${c.contract_type !== 'lease' ? row('Related stud service', ss ? `<a href="stud-service.html?id=${encodeURIComponent(ss.id)}">${esc(studServiceLabel(ss))}</a>` : '') : ''}
       ${row('Document link', c.document_url ? `<a href="${esc(c.document_url)}" target="_blank" rel="noopener noreferrer">${esc(c.document_url)}</a>` : '')}
-      ${c.esign_url ? row('Sent for signature', `${esc(c.esign_form_label || 'Contract form')}${c.esign_sent_date ? ` · ${esc(fmtDate(c.esign_sent_date))}` : ''}
-        <button class="btn btn-sm" id="btn-copy-esign" style="margin-left:6px;">Copy link again</button>${canCheckJotform(c) ? '<button class="btn btn-sm" id="btn-check-esign" style="margin-left:6px;">Check for signature</button>' : ''}`) : ''}
+      ${c.esign_url || (c.esign_provider === 'firma' && c.esign_ref) ? row('Sent for signature', `${esc(c.esign_form_label || 'Contract form')}${c.esign_provider === 'firma' ? ' <span class="muted">· e-sign</span>' : ''}${c.esign_sent_date ? ` · ${esc(fmtDate(c.esign_sent_date))}` : ''}
+        ${c.esign_url && c.status !== 'signed' ? '<button class="btn btn-sm" id="btn-copy-esign" style="margin-left:6px;">Copy link again</button>' : ''}
+        ${c.esign_provider === 'firma' && c.esign_ref && c.esign_countersign && c.status === 'sent' && esignSignedIn() ? (c.esign_countersign_first
+          ? '<button class="btn btn-sm btn-primary" id="btn-countersign" style="margin-left:6px;" title="Sign it before the buyer. They sign after you.">Sign first</button>'
+          : '<button class="btn btn-sm btn-primary" id="btn-countersign" style="margin-left:6px;" title="Sign it too. Firma waits for the buyer first.">Countersign</button>') : ''}
+        ${c.esign_provider === 'firma' && c.esign_ref && esignSignedIn() ? `<button class="btn btn-sm" id="btn-signed-copy" style="margin-left:6px;">${c.status === 'signed' ? 'Signed copy' : 'Copy so far'}</button>` : ''}`) : ''}
       ${row('Terms summary', c.terms_summary ? esc(c.terms_summary).replace(/\n/g, '<br>') : '')}
       ${row('Notes', c.notes ? esc(c.notes).replace(/\n/g, '<br>') : '')}
     </dl>
@@ -144,42 +153,31 @@ function renderView() {
       setTimeout(() => { copyBtn.textContent = 'Copy link again'; }, 1500);
     } catch { showError(`Couldn't copy. The link is: ${c.esign_url}`); }
   };
-  const checkBtn = document.getElementById('btn-check-esign');
-  if (checkBtn) checkBtn.onclick = () => checkSignature(c, checkBtn);
+  const counterBtn = document.getElementById('btn-countersign');
+  if (counterBtn) counterBtn.onclick = async () => {
+    clearError();
+    counterBtn.disabled = true;
+    try {
+      const { openCountersign } = await import('../assets/esignUI.js');
+      if (!(await openCountersign(c.esign_ref))) showError('Your browser blocked the new tab. Allow pop-ups for KennelOS, then try again.');
+    } catch (e) {
+      const { esignProblem } = await import('../data/cloud/cloudEsign.js');
+      showError(esignProblem(e).message);
+    } finally { counterBtn.disabled = false; }
+  };
+  const signedBtn = document.getElementById('btn-signed-copy');
+  if (signedBtn) signedBtn.onclick = async () => {
+    clearError();
+    signedBtn.disabled = true;
+    try {
+      const { openSignedCopy } = await import('../assets/esignUI.js');
+      if (!(await openSignedCopy(c.esign_ref))) showError('Your browser blocked the new tab. Allow pop-ups for KennelOS, then try again.');
+    } catch (e) {
+      const { esignProblem } = await import('../data/cloud/cloudEsign.js');
+      showError(e?.code === 'esign_pending' ? 'Firma is still preparing the signed copy. Try again in a minute.' : esignProblem(e).message);
+    } finally { signedBtn.disabled = false; }
+  };
   renderContractDocs();
-}
-
-// Integrations step 7: a contract sent on a Jotform form, still Sent, can be
-// checked against the form's submissions now (app.js also checks on open).
-const canCheckJotform = (c) => editionFlags.accounts && !c.is_archived && c.status === 'sent' && c.esign_provider === 'jotform';
-
-async function checkSignature(c, btn) {
-  clearError();
-  btn.disabled = true;
-  btn.textContent = 'Checking…';
-  try {
-    const { checkJotformSignatures } = await import('../data/jotformSigned.js');
-    const r = await checkJotformSignatures({ force: true, contractIds: [c.id] });
-    const fresh = await contractRepo.getById(c.id);
-    if (r.signed) {
-      ctx.original = fresh;
-      renderAll();
-      await alertModal({ title: 'Signed', message: `Jotform has the signed form, so the contract is marked Signed${fresh?.signed_date ? ` on ${fmtDate(fresh.signed_date)}` : ''}.` });
-    } else if (r.review) {
-      await alertModal({ title: 'Check it on Today', message: 'Jotform has a signed form for this contract, but the contract changed since it was sent: Today shows what Jotform said.' });
-    } else if (r.notConnected) {
-      await alertModal({ title: 'Jotform isn\'t connected here', message: 'Connect Jotform on this device (Accounts, on the form\'s account) and KennelOS checks for the signed form by itself. Or mark it Signed yourself.' });
-    } else if (r.checked) {
-      await alertModal({ title: 'Not signed yet', message: 'Jotform has no submission of this form for this contract yet.' });
-    } else {
-      await alertModal({ title: 'Can\'t check this one', message: 'KennelOS can only find a signed form when the form has a contract reference field (a hidden field named contractRef, or one matched to it in Connect Jotform) and is still on your Accounts page. Mark it Signed yourself.' });
-    }
-  } catch (e) {
-    showError(e.message || String(e));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Check for signature';
-  }
 }
 
 // --- Signed-document attachment (§26.1) ------------------------------------
@@ -463,12 +461,13 @@ function pickForm(c, ranked, facts) {
     document.addEventListener('keydown', onKey);
     const option = (f) => `<label class="check-inline" style="display:flex; gap:8px; align-items:center; padding:4px 0;">
       <input type="radio" name="cf-pick" value="${esc(f.id)}"${f === picked ? ' checked' : ''}>
-      <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}${f.account_name ? ` <span class="muted" style="font-size:13px;">· ${esc(f.account_name)}</span>` : ''}</span></label>`;
+      <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}${isFirmaForm(f) ? ' <span class="badge badge-green">E-sign</span>' : f.account_name ? ` <span class="muted" style="font-size:13px;">· ${esc(f.account_name)}</span>` : ''}</span></label>`;
     const draw = () => {
-      const { values, url } = buildSignatureLink(picked, facts);
+      const firma = isFirmaForm(picked);
+      const { values, url } = firma ? { values: prefillValues(picked, facts), url: '' } : buildSignatureLink(picked, facts);
       overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:620px;">
         <h2 style="margin-top:0;">Send for signature</h2>
-        <p class="field-hint" style="margin-top:0;">Pick the form to send. The details below go into it, in the link itself.</p>
+        <p class="field-hint" style="margin-top:0;">Pick the form to send. ${firma ? 'The details below go to Firma with it, into the fields you placed on the template.' : 'The details below go into it, in the link itself.'}</p>
         ${ranked.matching.length ? ranked.matching.map(option).join('') : `<p class="muted">None of your forms is for a ${esc(descriptor(CONTRACT_TYPE, c.contract_type).label.toLowerCase())} contract, so here are all of them.</p>`}
         ${ranked.others.length && ranked.matching.length ? `<button type="button" class="btn btn-sm" id="cf-all" style="margin:4px 0;">${showAll ? 'Hide other forms' : `Show all forms (${ranked.others.length} more)`}</button>` : ''}
         ${showAll ? ranked.others.map(option).join('') : ''}
@@ -476,12 +475,12 @@ function pickForm(c, ranked, facts) {
         <dl class="dl-meta" style="font-size:14px; max-height:220px; overflow:auto;">
           ${values.map(([k, v]) => `<dt><code>${esc(k)}</code></dt><dd>${esc(v)}</dd>`).join('')}
         </dl>
-        <p class="field-hint">Only fields your form has (by Unique Name) get filled; the field names are listed on the Accounts page.</p>
+        <p class="field-hint">${firma ? 'Only the fields you placed on the template get filled (Contracts → Contract templates → Place fields).' : 'Only fields your form has (by Unique Name) get filled; the field names are listed on the Accounts page.'}</p>
         ${facts.breeder ? '' : '<div class="inline-warn">Your name, email and phone aren\'t filled in: no contact is linked to this contract\'s kennel. Open your own contact and set its <strong>Kennel</strong> to this kennel.</div>'}
-        ${url.length > 2000 ? '<div class="inline-warn">This link is very long, and some browsers or email apps may cut it off. Remove fields you don\'t need from the form, or shorten long values.</div>' : ''}
+        ${!firma && url.length > 2000 ? '<div class="inline-warn">This link is very long, and some browsers or email apps may cut it off. Remove fields you don\'t need from the form, or shorten long values.</div>' : ''}
         <div class="form-actions">
           <button class="btn btn-primary" id="cf-go">Continue</button>
-          <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Preview form</a>
+          ${firma ? '' : `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Preview form</a>`}
           <button class="btn" id="cf-cancel">Cancel</button>
         </div>
       </div>`;
@@ -506,15 +505,59 @@ async function sendForSignature(c) {
     if (!forms.length) {
       await alertModal({
         title: 'No contract forms yet',
-        message: 'On the Accounts page (Storage → Accounts), add your form service (for example Jotform) as an account of type Form service, add your contract forms to it (for example your pet home and breeding rights contracts), then come back here to send one.'
+        message: `${esignOffered() ? 'To send your own contracts for e-signature, upload them on Contracts → Contract templates. To send a form link instead: ' : ''}On the Accounts page (Storage → Accounts), add your form service as an account of type Form service, add your contract forms' links to it (for example your pet home and breeding rights contracts), then come back here to send one.`
       });
       return;
     }
-    const facts = await gatherContractFacts(c);
-    const sale = facts.sale;
-    const choice = await pickForm(c, rankForms(forms, c, sale), facts);
+    let facts = await gatherContractFacts(c);
+    const choice = await pickForm(c, rankForms(forms, c, facts.sale, facts.addOns), facts);
     if (!choice) return;
+    // Each of a sale's agreements goes out on a contract record of its own.
+    const contract = await contractForForm(c, choice.form, forms);
+    if (contract.id !== c.id) facts = await gatherContractFacts(contract);
+    // A boarding or training agreement is dated by the pup's pickup: set it now.
+    const pickup = pickupToSet(choice.form, facts.addOns);
+    if (pickup !== null) {
+      const date = await promptModal({ title: 'Pickup date', label: `${facts.puppy?.call_name || 'The pup'}'s pickup`, type: 'date', defaultValue: pickup, confirmLabel: 'Save', cancelLabel: 'Skip' });
+      if (date) { await logPickup(facts.sale, date); facts = await gatherContractFacts(contract); }
+    }
+    if (!isFirmaForm(choice.form)) choice.url = buildSignatureLink(choice.form, facts).url;
+    // Its own record opens once it's sent; this one is redrawn.
+    const show = (saved) => {
+      if (contract.id !== c.id) { window.location.href = `contract.html?id=${encodeURIComponent(contract.id)}`; return; }
+      ctx.original = saved;
+      renderAll();
+    };
     const signer = facts.buyer || facts.partner;
+    if (isFirmaForm(choice.form)) {
+      const { sendWithFirma } = await import('../assets/esignUI.js');
+      const sent = await sendWithFirma({ contract, form: choice.form, facts, signer });
+      if (!sent) return;
+      if (contract.id === c.id) show(sent.contract);
+      if (!sent.emailed && sent.signingLink) {
+        const m = signatureMessage({
+          who: signer ? splitName(signer.name)[0] : '', kennelName: facts.kennel?.kennel_name || '',
+          formLabel: choice.form.label, subject: facts.puppy?.call_name || facts.dog?.call_name || '', link: sent.signingLink
+        });
+        await openComposer({
+          title: `Send ${choice.form.label}`,
+          name: signer?.name || '', email: signer?.email || '', phone: signer?.phone || '',
+          subject: m.subject, body: m.body,
+          hint: sent.countersignFirst
+            ? 'The contract is already marked Sent. Tap Sign first on it to sign before them: they can sign once you have. When you both have, it\'s marked Signed by itself.'
+            : 'The contract is already marked Sent. When they sign, it\'s marked Signed by itself.'
+        });
+      } else {
+        await alertModal({ title: 'Sent for e-signature', message: (sent.countersignFirst
+          ? 'You sign this one first: tap Sign first here now. Firma has them sign after you. When you both have, this contract is marked Signed by itself, and its signed copy opens from here.'
+          : sent.countersign
+          ? 'Firma emailed them the signing link. Once they\'ve signed, tap Countersign here to sign it too. When you both have, this contract is marked Signed by itself, and its signed copy opens from here.'
+          : 'Firma emailed them the signing link. When they sign, this contract is marked Signed by itself, and its signed copy opens from here.')
+          + (sent.keepCopy ? ' KennelOS also emails them a link to the signed copy, within the hour after the last signature.' : '') });
+      }
+      if (contract.id !== c.id) show(sent.contract);
+      return;
+    }
     const subject = facts.puppy?.call_name || facts.dog?.call_name
       || (facts.studDog && facts.studDam ? `${facts.studDog.call_name} × ${facts.studDam.call_name}` : '');
     const msg = signatureMessage({
@@ -528,11 +571,10 @@ async function sendForSignature(c) {
       title: `Send ${choice.form.label}`,
       name: signer?.name || '', email: signer?.email || '', phone: signer?.phone || '',
       subject: msg.subject, body: msg.body,
-      hint: 'Once you\'ve sent it, the contract is marked Sent. When it comes back signed, KennelOS marks it Signed if this device has Jotform connected and the form has a contract reference field; otherwise mark it Signed yourself.'
+      hint: 'Once you\'ve sent it, the contract is marked Sent. When it comes back signed, mark it Signed yourself.'
     });
     if (!used) return;
-    ctx.original = await markContractSent(c, choice.form, choice.url);
-    renderAll();
+    show(await markContractSent(contract, choice.form, choice.url));
   } catch (e) {
     showError(e.message || String(e));
   }

@@ -250,7 +250,7 @@ test('offers & removals: rule removals apart from hers; rates over closed offers
   assert.deepEqual([s.accepted, s.passed, s.noResponse, s.countedPasses], [1, 2, 1, 2]);
   assert.deepEqual([s.familiesOffered, s.familiesPassed], [3, 2]);
   assert.equal(s.left, 2);
-  assert.deepEqual(s.byGroup.map((g) => [g.value, g.count]), [['rules', 1], ['by_breeder', 0], ['declined', 0], ['withdrew', 1]]);
+  assert.deepEqual(s.byGroup.map((g) => [g.value, g.count]), [['rules', 1], ['by_breeder', 0], ['declined', 0], ['withdrew', 1], ['backed_out', 0]]);
 });
 
 test('what families asked for: purposes (each picked), parents, named parents, breed and color', () => {

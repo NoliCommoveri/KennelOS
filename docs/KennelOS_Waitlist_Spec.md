@@ -560,6 +560,7 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
 | **Fee received** (that it was received, and the date) | **Readable**, in that family's projection | The status page shows "Fee received" and their place in line (Q11, decided 2026-10-08) |
 | Fee payment records (method, reference) | **Not on the server** | Stays private tier |
+| A family's sale money, with an open sale: total, paid, still owed, the deposit and each due date (her labels, dates, amounts, what's owed), what's been received (as the line it paid), the next payment, her payment instructions and final-payment methods | **Readable, in that family's status-page projection only** | Their status page's **Your payments** card. Never her accounts, methods of payment received, references or notes; never in an email or the public list. **Modified:** added 2026-11-13 (Payment Schedule plan §7, not in the original table). |
 | Outbound message bodies (fee request, offer, reminders, her questions) | **Readable** (messages log, §10.4) | The server sends them. They're written by her or from her templates, and carry no money details (§5.3). |
 | **Family messages** (the status page's message box, §8.3) | **Encrypted** to her device's key, like applications; the server and the assistant can't read them | Nothing automatic needs the text. Families pick actions with buttons, so no message ever has to be interpreted by the server. |
 
@@ -1089,6 +1090,13 @@ She wants to run placements from the waitlist, not hop between Litters and Sales
 position is honored. It's a tab on every family's status page, plus a public link she can
 post on Facebook or her website. **This reverses §1 and §8.3** ("nobody can browse the
 list"); both are marked there.
+
+**Modified (2026-11-11, Waitlist Fixes Plan §3.1–§3.2):** a family that has picked and paid
+for a pup keeps its number on the list, marked **Pup selected** (a tick, its listed name,
+never the pup), until the pup goes home, so nobody behind it is pushed back when a pup is
+lost; numbers count those families. Each litter's Available Puppies card shows the pups
+already placed under **Already Reserved**. A contact named as a household ("Smith Family") or
+"Last, First" lists by the applicant's own name ("John S.", or "S. Family" with nothing better).
 
 - ~~**No opt-in or opt-out (decided 2026-10-06).**~~ **Partly reversed 2026-10-10: an
   applicant can ask to list privately** (see "Listing privately" below); nobody can opt

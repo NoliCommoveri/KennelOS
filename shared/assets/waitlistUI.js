@@ -12,7 +12,8 @@ import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
 import { WAITLIST_OPEN_STATUSES } from '../data/vocab.js';
 import { esc, fmtDate, fmtMoney, todayYMD, confirmModal, alertModal, promptModal } from './ui.js';
 import { PLACEMENT_PURPOSE, cleanPurposes, descriptor } from '../data/vocab.js';
-import { readyCheck, isManuallyPaused, isReadyHeld, isListenOnly, readyFromDate, soonNoticeText, entryName, waitlistConfig, autoOffers, overallPositions, describeOfferChanges, restoresFamily } from '../data/waitlistRules.js';
+import { readyCheck, isManuallyPaused, isReadyHeld, isListenOnly, readyFromDate, soonNoticeText, entryName, waitlistConfig, autoOffers, overallPositions, describeOfferChanges, restoresFamily, pupClaims } from '../data/waitlistRules.js';
+import { waitlistOfferRepo } from '../data/waitlistOfferRepo.js';
 import { isWaitlistOnlineOffered, statusPageLink } from '../data/cloud/cloudConfig.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { markSoonNotified, recordPick, recordOutcome, confirmDeposit, changePick, undoPass, lostSaleFamilyFor, restoreAfterLostSale } from '../data/waitlistActions.js';
@@ -38,6 +39,40 @@ export function statusLinkFor(entry, kennel) {
   if (!editionFlags.waitlist || !isWaitlistOnlineOffered() || !entry?.status_token) return null;
   if (!kennel || !waitlistConfig(kennel).online) return null;
   return statusPageLink(entry.status_token);
+}
+
+// "View their page" (the family's Interact tab): their live status page in a new
+// tab, as they see it signed in (cloudWaitlist.statusPagePreview publishes first).
+// The tab is opened at the tap, while the browser still counts it as hers, and
+// pointed at the page once it's ready; it holds no link back to the app.
+export async function openStatusPage(entry, kennel) {
+  let win = null;
+  try { win = window.open('', '_blank'); } catch { /* blocked */ }
+  if (win) {
+    try { win.opener = null; win.document.title = 'Opening their page…'; win.document.body.textContent = 'Opening their page…'; } catch { /* not ours to write */ }
+  }
+  const [{ statusPagePreview }, { onlineProblemText }] = await Promise.all([
+    import('../data/cloud/cloudWaitlist.js'), import('./waitlistOnlineUI.js')
+  ]);
+  let res;
+  try { res = await statusPagePreview(kennel, entry.id); } catch (err) { win?.close(); throw err; }
+  const notes = [];
+  if (res.publish?.status === 'error' || (res.publish?.status === 'skipped' && !['nothing-online', 'background', 'unavailable'].includes(res.publish.reason))) {
+    notes.push(`Your latest changes may not be on it yet. ${onlineProblemText(res.publish.reason)}`);
+  }
+  if (!res.url) {
+    win?.close();
+    await alertModal({ title: 'Their page isn\'t online yet', message: [`This family doesn't have a status page online yet. It appears once your list is published.`, ...notes].join('\n\n') });
+    return;
+  }
+  if (res.plain) {
+    notes.push(res.why === 'offline'
+      ? 'You seem to be offline, so the page may not open.'
+      : 'This shows their page as anyone with the link sees it. When they\'re signed in, they also see buttons to choose a pup, pass and send requests.');
+  }
+  if (win && !win.closed) win.location.replace(res.url);
+  else if (await confirmModal({ title: 'Open their page?', message: 'Your browser held back the new tab.', confirmLabel: 'Open their page' })) window.open(res.url, '_blank', 'noopener,noreferrer');
+  if (notes.length) await alertModal({ title: res.plain ? 'Their page, without the preview' : 'Their page is open', message: notes.join('\n\n') });
 }
 
 // Copy a link for her to paste into Messenger or a text. Where the clipboard
@@ -111,10 +146,10 @@ export function prefsSummary(entry) {
 // Small flags for the list row: paused / not ready yet / listen-only. Escaped HTML.
 export function entryFlags(entry, today, config = null) {
   const out = [];
-  if (isManuallyPaused(entry, today)) out.push(`<span class="badge badge-amber" title="${esc(entry.pause_reason || '')}">Paused to ${esc(entry.paused_until)}</span>`);
+  if (isManuallyPaused(entry, today)) out.push(`<span class="badge badge-amber" title="${esc(entry.pause_reason || '')}">Paused to ${esc(fmtDate(entry.paused_until))}</span>`);
   if (isReadyHeld(entry, today, config)) {
     out.push(today < readyFromDate(entry)
-      ? `<span class="badge badge-amber" title="They said they won't be ready to buy yet, so they aren't offered pups until then.">Not ready until ${esc(readyFromDate(entry))}</span>`
+      ? `<span class="badge badge-amber" title="They said they won't be ready to buy yet, so they aren't offered pups until then.">Not ready until ${esc(fmtDate(readyFromDate(entry)))}</span>`
       : `<span class="badge badge-amber" title="${esc(readyHoldText(entry, today, config))}">Ready now? ${entry.ready_check?.answer === 'no' ? 'Not yet' : 'No answer'}</span>`);
   }
   if (isListenOnly(entry)) out.push(`<span class="badge badge-blue">${entry.listen_mode === 'except' ? 'Skips some litters' : 'Listen-only'}</span>`);
@@ -336,6 +371,30 @@ const pupOptions = (pups, pupLabel) => pups.map((p) => `<option value="${esc(p.i
 // `carried` (the entry's carried_payment, Spec §16.11): what they'd paid on a pup
 // they lost. It's already in hand, so there's no deposit box: recording the pick
 // marks the deposit paid and places them (recordPick).
+// Before a turn pick (or a switch, or a side sale) onto a pup that already has a
+// claim (Side Sale Spec §5): "Record a second sale anyway?". Resolves true to go ahead.
+// Family names by entry id, for a warning that names who else claims a pup.
+async function familyNamer() {
+  const [entries, contacts] = await Promise.all([waitlistEntryRepo.getAll({ includeArchived: true }), contactRepo.getAll({ includeArchived: true })]);
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const cById = new Map(contacts.map((c) => [c.id, c]));
+  return (id) => { const e = byId.get(id); return e ? entryName(e, cById.get(e.contact_id)) : 'Another family'; };
+}
+
+export async function confirmSecondClaim(dogId, { exceptSaleId = null, pupName = 'This pup', nameOf = () => 'Another family' } = {}) {
+  const [sales, offers] = await Promise.all([saleRepo.getByDog(dogId), waitlistOfferRepo.getAll()]);
+  const others = pupClaims(dogId, { sales, offers }).filter((c) => c.sale_id !== exceptSaleId);
+  if (!others.length) return true;
+  const lines = others.map((c) => (c.kind === 'side'
+    ? `${nameOf(c.entry_id)} has a side sale on ${pupName}${sales.find((s) => s.id === c.sale_id)?.side_deposit_due ? `, deposit due ${fmtDate(sales.find((s) => s.id === c.sale_id).side_deposit_due)}` : ''}.`
+    : c.kind === 'pick' ? `${nameOf(c.entry_id)} picked ${pupName} in their turn (deposit pending).` : `${pupName} already has a sale.`));
+  return confirmModal({
+    title: `Two sales on ${pupName}?`,
+    message: `${lines.join('\n')}\n\nRecord a second sale anyway? Whichever deposit you record first wins; the other is ended then.`,
+    confirmLabel: 'Record it anyway'
+  });
+}
+
 export async function pickDialog({ offer, name, pups, pupLabel, carried = null }) {
   let out = null;
   const carriedHint = carried ? `<p class="field-hint">${esc(fmtMoney(carried.amount))} they paid on a pup they lost (${esc(fmtDate(carried.date))}) is their deposit on this one. Recording the pick marks it paid, places ${esc(name)} and moves the turn on.</p>` : '';
@@ -358,6 +417,8 @@ export async function pickDialog({ offer, name, pups, pupLabel, carried = null }
     onConfirm: async (o) => {
       const chosenDogId = o.querySelector('#pk-dog').value;
       const date = o.querySelector('#pk-date').value || todayYMD();
+      const pupName = pups.find((p) => p.id === chosenDogId)?.call_name || 'This pup';
+      if (!(await confirmSecondClaim(chosenDogId, { pupName, nameOf: await familyNamer() }))) throw new Error('Not recorded. Pick another pup, or cancel.');
       if (o.querySelector('#pk-paid')?.checked) {
         out = { depositDone: true, res: await recordOutcome(offer.id, 'accepted', {
           chosenDogId, date,
@@ -399,10 +460,14 @@ export async function depositDialog({ offer, name, pupName, sale, carried = null
   // was born) means the deposit came in on the credit's date, not today.
   const creditDate = credited > 0 && sale?.deposit_amount != null
     && Number(sale.deposit_amount) - feePart - credited <= 0 ? (sc.credit.received.date || null) : null;
+  // A second claim on the pup (Side Sale Spec §5) ends when this deposit is recorded.
+  const otherClaims = offer.chosen_dog_id
+    ? pupClaims(offer.chosen_dog_id, { sales: await saleRepo.getByDog(offer.chosen_dog_id), offers: await waitlistOfferRepo.getAll() }).filter((c) => c.sale_id !== offer.sale_id && c.offer_id !== offer.id).length
+    : 0;
   const ok = await formModal({
     title: `${name}'s deposit received`,
     confirmLabel: 'Deposit received',
-    bodyHtml: `<p style="margin-top:0;">For <strong>${esc(pupName)}</strong>.</p>
+    bodyHtml: `<p style="margin-top:0;">For <strong>${esc(pupName)}</strong>.</p>${otherClaims ? `<div class="inline-warn">Another family also has a claim on ${esc(pupName)}. Recording this deposit ends it: a side sale is cancelled (they keep their place), another pick is let go.</div>` : ''}
       <div class="form-grid">
         <div class="field"><label>Date received</label><input id="dp-date" type="date" value="${esc((sale && sale.deposit_date) || carried?.date || creditDate || todayYMD())}"></div>
         <div class="field"><label>Amount</label><input id="dp-amount" type="number" min="0" step="0.01" value="${esc(sale?.deposit_amount ?? '')}"></div>
@@ -433,7 +498,12 @@ export async function changePickDialog({ offer, name, currentName, pups, pupLabe
     bodyHtml: `<p style="margin-top:0;">They picked <strong>${esc(currentName)}</strong>.</p>
       <div class="field"><label>Switch to</label><select id="cp-dog">${pupOptions(pups, pupLabel)}</select></div>
       <p class="field-hint">The same sale moves to the new pup, and ${esc(currentName)} is available again. The price and deposit follow the new pup's expected amounts unless you changed them on the sale.</p>`,
-    onConfirm: async (o) => { res = await changePick(offer.id, { chosenDogId: o.querySelector('#cp-dog').value }); }
+    onConfirm: async (o) => {
+      const chosenDogId = o.querySelector('#cp-dog').value;
+      const pupName = pups.find((p) => p.id === chosenDogId)?.call_name || 'This pup';
+      if (!(await confirmSecondClaim(chosenDogId, { exceptSaleId: offer.sale_id, pupName, nameOf: await familyNamer() }))) throw new Error('Not changed. Pick another pup, or cancel.');
+      res = await changePick(offer.id, { chosenDogId });
+    }
   });
   return ok ? res : null;
 }
@@ -464,13 +534,15 @@ export async function restoreLostPupDialog({ saleId, asStatus = null }) {
   const found = await lostSaleFamilyFor(saleId);
   if (!found) return null;
   const { kind, entry, sale } = found;
-  const [kennel, contact, pup, programsById, kennelEntries, feeCredit] = await Promise.all([
+  const [kennel, contact, pup, programsById, kennelEntries, feeCredit, allSales, allDogs] = await Promise.all([
     kennelRepo.getById(entry.kennel_id),
     entry.contact_id ? contactRepo.getById(entry.contact_id) : null,
     dogRepo.getById(sale.dog_id),
     waitlistProgramRepo.getMapForKennel(entry.kennel_id),
     waitlistEntryRepo.getByKennel(entry.kennel_id),
-    getSaleFeeCredit(sale.id)
+    getSaleFeeCredit(sale.id),
+    saleRepo.getAll({ includeArchived: true }),
+    dogRepo.getAll({ includeArchived: true })
   ]);
   const config = waitlistConfig(kennel);
   const name = entryName(entry, contact);
@@ -479,8 +551,9 @@ export async function restoreLostPupDialog({ saleId, asStatus = null }) {
   // what they paid beyond it is carried.
   const paid = paidBesidesCredits(sale, entry, { feeCredit, asStatus });
   const asActive = kennelEntries.map((e) => (e.id === entry.id ? { ...e, status: 'active' } : e));
-  const pos = overallPositions(asActive, entry.kennel_id, programsById).get(entry.id);
-  const total = overallPositions(asActive, entry.kennel_id, programsById).size;
+  const places = overallPositions(asActive, entry.kennel_id, programsById, { sales: allSales, dogs: allDogs });
+  const pos = places.get(entry.id);
+  const total = places.size;
   const intro = kind === 'placed'
     ? `${esc(name)} goes back on the list in their original place, <strong>#${esc(pos)} of ${esc(total)}</strong> by the date their fee came in, with their passes as they were. They can be offered ${esc(pupName)}'s litter again.`
     : `${esc(name)} picked ${esc(pupName)} and still holds the turn. Their pick is cleared and the turn gets a new respond-by date so they can pick another pup.`;
@@ -650,3 +723,27 @@ export async function creditDialog({ entry, name, credit = null }) {
   return ok ? saved : null;
 }
 
+
+// A turn ended because no pup was left in it (waitlistActions.watchEmptiedTurns,
+// started by app.js after any change to her data): whose turn, and who holds the
+// turn now or is next, so she knows who to contact. Never silent.
+export async function reportEmptiedTurns(result) {
+  const [{ litterLabel }, entries, contacts, litters, dogs] = await Promise.all([
+    import('../data/litterCheckin.js'),
+    waitlistEntryRepo.getAll({ includeArchived: true }),
+    contactRepo.getAll({ includeArchived: true }),
+    litterRepo.getAll({ includeArchived: true }),
+    dogRepo.getAll({ includeArchived: true })
+  ]);
+  const entriesById = new Map(entries.map((e) => [e.id, e]));
+  const contactsById = new Map(contacts.map((c) => [c.id, c]));
+  const littersById = new Map(litters.map((l) => [l.id, l]));
+  const dogsById = new Map(dogs.map((d) => [d.id, d]));
+  const lines = describeOfferChanges(result, {
+    nameOf: (id) => { const e = entriesById.get(id); return e ? entryName(e, contactsById.get(e.contact_id)) : 'A family'; },
+    litterOf: (id) => (littersById.get(id) ? litterLabel(littersById.get(id), dogsById) : 'A litter'),
+    fmtDate
+  });
+  if (!lines.length) return;
+  await alertModal({ title: result.ended.length === 1 ? 'A turn ended: no pup left in it' : 'Turns ended: no pup left in them', message: lines.join('\n\n') });
+}

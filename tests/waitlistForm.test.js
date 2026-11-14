@@ -186,7 +186,7 @@ test('public list: a family she let list privately shows masked, same place', ()
     e('Andrea Kim', '2026-02-01', { private_listing: true }),
     e('Bob Burns', '2026-03-01', { private_request: { requested_date: '2026-02-01' } })
   ];
-  const rows = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name });
+  const rows = publicList(entries, K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf: (x) => x.application.name });
   assert.deepEqual(rows.map((r) => `${r.position} ${r.name}`), ['1 Ann A.', '2 A***** K', '3 Bob B.'], 'a request alone changes nothing');
   assert.ok(!/Andrea|Kim/.test(publicListText(rows, {})));
 });
@@ -200,14 +200,14 @@ test('public list: real positions, paused families hidden with their number skip
     e('Eve Ely', '2026-05-01', { status: 'applied' }),
     e('Fay Fox', '2026-06-01', { kennel_id: 'other' })
   ];
-  const rows = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name });
+  const rows = publicList(entries, K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf: (x) => x.application.name });
   assert.deepEqual(rows.map((r) => r.position), [1, 2, 4]);
   assert.deepEqual(rows.map((r) => r.name), ['Ann A.', 'Bob B.', 'Dee D.']);
   assert.deepEqual(Object.keys(rows[0]).sort(), ['added', 'name', 'position', 'pref_sex']);
   assert.equal(rows[1].pref_sex, 'male');
 
   // When the pause ends, she reappears at #3 and nobody else's number moves.
-  const later = publicList(entries, K, new Map(), { today: '2026-12-02', nameOf: (x) => x.application.name });
+  const later = publicList(entries, K, new Map(), { sales: [], dogs: [], today: '2026-12-02', nameOf: (x) => x.application.name });
   assert.deepEqual(later.map((r) => `${r.position} ${r.name}`), ['1 Ann A.', '2 Bob B.', '3 Cat C.', '4 Dee D.']);
 
   const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
@@ -219,7 +219,7 @@ test('public list: real positions, paused families hidden with their number skip
 
   // The family holding a turn (decided 2026-10-10): their row stays at their number,
   // highlighted online, with their sex and date but "Currently deciding" for the name.
-  const turn = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name, deciding: (x) => x.application.name === 'Bob Burns' });
+  const turn = publicList(entries, K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf: (x) => x.application.name, deciding: (x) => x.application.name === 'Bob Burns' });
   assert.deepEqual(turn[1], { position: 2, name: 'Currently deciding', pref_sex: 'male', added: '2026-02-01', deciding: true });
   const turnText = publicListText(turn, {});
   assert.match(turnText, /^#2 Currently deciding · Male$/m);
@@ -237,7 +237,7 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   ];
   const nameOf = (x) => x.application.name;
   const config = { public_show_paused: true };
-  const rows = publicList(entries, K, new Map(), { today: TODAY, nameOf, config });
+  const rows = publicList(entries, K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf, config });
   assert.deepEqual(rows.map((r) => r.position), [1, 2, 3, 4], 'nobody hidden, no gaps');
   assert.deepEqual(rows[1], { position: 2, name: 'Cat C.', skipped: true, skipped_until: '2026-12-01', added: '2026-03-01' }, 'no sex preference, no reason');
   assert.equal(rows[2].skipped_until, '2026-12-15');
@@ -254,12 +254,12 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   const online = { online: true, online_since: '2026-01-01', ready_no_answer: 'keep_paused', public_show_paused: true };
   const held = e('Hal Hart', '2026-06-01', { ready_timing: '1_month' });
   assert.equal(pausedUntil(held, TODAY, online), null);
-  const [row] = publicList([held], K, new Map(), { today: TODAY, nameOf, config: online });
+  const [row] = publicList([held], K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf, config: online });
   assert.equal(row.skipped, true);
   assert.match(publicListText([row], {}), /· Skipped for now$/m);
 
   // Off (the default): left out as before.
-  assert.deepEqual(publicList(entries, K, new Map(), { today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
+  assert.deepEqual(publicList(entries, K, new Map(), { sales: [], dogs: [], today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
   assert.equal(pausedUntil(entries[0], TODAY, null), null, 'not paused');
 });
 
@@ -280,7 +280,7 @@ test('public list: with public_show_programs, a program with an icon and a descr
     e('Fay Fox', '2026-06-02', { waitlist_program_id: 'early' })
   ];
   const nameOf = (x) => x.application.name;
-  const rows = publicList(entries, K, programs, { today: TODAY, nameOf, config: { public_show_programs: true } });
+  const rows = publicList(entries, K, programs, { sales: [], dogs: [], today: TODAY, nameOf, config: { public_show_programs: true } });
   const by = Object.fromEntries(rows.map((r) => [r.name, r]));
   assert.deepEqual(by['Cat C.'].program, { icon: 'star', about: 'Paid a deposit before the litter was born.' });
   assert.deepEqual(by['Bob B.'].program, { icon: 'medal', about: 'Thank you for serving.' }, 'any program she gave an icon');
@@ -294,7 +294,7 @@ test('public list: with public_show_programs, a program with an icon and a descr
   assert.match(text, /^🎖️ Thank you for serving\.$/m);
 
   // Off (the default): nothing shows.
-  const off = publicList(entries, K, programs, { today: TODAY, nameOf, config: {} });
+  const off = publicList(entries, K, programs, { sales: [], dogs: [], today: TODAY, nameOf, config: {} });
   assert.ok(off.every((r) => !('program' in r)));
   assert.equal(publicProgram(entries[2], programs, null), null);
 });
@@ -354,7 +354,7 @@ test('Wants on the public list: the sex, then only what a family narrowed (asked
   assert.deepEqual(more({ listen_mode: 'except', listen_dam_ids: ['jun'] }), ['Not from Juniper']);
   assert.deepEqual(more({ listen_mode: 'except' }), [], 'except nobody is All litters');
   // In the row and the copied text.
-  const [row] = publicList([e('Ann Avery', '2026-01-01', { pref_sex: 'female', pref_purposes: ['show'] })], K, new Map(), {
+  const [row] = publicList([e('Ann Avery', '2026-01-01', { pref_sex: 'female', pref_purposes: ['show'] })], K, new Map(), { sales: [], dogs: [],
     today: TODAY, nameOf: (x) => x.application.name, wantsMore: (x) => publicWantsMore(x, { breeds: two, dogsById })
   });
   assert.deepEqual(row.wants_more, ['Full registration']);

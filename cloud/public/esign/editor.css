@@ -1,0 +1,5 @@
+html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f6f7f9; color: #1d2633; }
+.bar { display: flex; gap: 12px; align-items: baseline; padding: 10px 16px; background: #122138; color: #fff; font-size: 15px; }
+.bar span { opacity: .85; font-size: 14px; }
+.note { margin: 16px; padding: 12px 14px; background: #fff; border: 1px solid #d8dde5; border-radius: 8px; font-size: 15px; line-height: 1.45; }
+#editor { height: calc(100vh - 42px); }

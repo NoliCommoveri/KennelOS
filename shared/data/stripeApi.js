@@ -6,7 +6,7 @@
 // *Unverified from the build environment, which can't reach stripe.com:* that
 // api.stripe.com answers a browser call made with a restricted key (CORS), the
 // restricted-key permission names, and the expand path for the fee. The calls
-// are Stripe's documented ones; check them in a real flow, as Jotform's were.
+// are Stripe's documented ones; check them in a real flow.
 //   Products: Write, Prices: Write   (a price for exactly this amount)
 //   Payment Links: Write             (the one-use link)
 //   Checkout Sessions: Read, PaymentIntents: Read, Charges: Read,
@@ -136,7 +136,7 @@ export function feeSessionPayment(session, { timeZoneDate = (sec) => new Date(se
 // transaction fee (what Stripe kept), in her account's currency.
 export function sessionPayment(session, { timeZoneDate = (sec) => new Date(sec * 1000).toISOString().slice(0, 10) } = {}) {
   const meta = session?.metadata || {};
-  if (!meta.kennelos_sale_id || !['deposit', 'balance'].includes(meta.kennelos_component)) return null;
+  if (!meta.kennelos_sale_id || !['deposit', 'balance', 'payment'].includes(meta.kennelos_component)) return null;
   const pi = session.payment_intent && typeof session.payment_intent === 'object' ? session.payment_intent : null;
   const bt = pi?.latest_charge?.balance_transaction;
   const fee = bt && typeof bt === 'object' && Number.isFinite(bt.fee) ? bt.fee / 100 : undefined;

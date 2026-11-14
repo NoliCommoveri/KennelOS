@@ -54,8 +54,8 @@ test('the multi-dog forms list the dogs at home, active breeding first', () => {
 
 test('otherEventTypes: dog types minus what the check-in asks and what other tasks log; show only with its flag', () => {
   const types = otherEventTypes({}).map((t) => t.value);
-  for (const t of ['medication', 'vaccination', 'weight_check', 'illness', 'surgery', 'note']) assert.ok(types.includes(t), t);
-  for (const t of ['vet_visit', 'heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'acquisition', 'placement', 'whelping_summary', 'breeding_tie', 'show']) assert.equal(types.includes(t), false, t);
+  for (const t of ['weight_check', 'illness', 'surgery', 'injury', 'note']) assert.ok(types.includes(t), t);
+  for (const t of ['vet_visit', 'vaccination', 'screening_test', 'medication', 'heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'acquisition', 'placement', 'whelping_summary', 'breeding_tie', 'show']) assert.equal(types.includes(t), false, t);
   assert.ok(otherEventTypes({ shows: true }).some((t) => t.value === 'show'));
 });
 
@@ -105,4 +105,19 @@ test('ownDogs / breedingDogs / homeDogs: only the dogs she looks after; heats an
   assert.deepEqual(breedingDogs(dogs, 'female').map((d) => d.id), ['Mine', 'Lease'], 'heats (also Today): her active breeding females, leased in included, never External');
   assert.deepEqual(preventativeGaps(dogs, [], '2026-11-01').map((d) => d.id), ['Co', 'Lease', 'Mine'], 'preventatives (also Today)');
   assert.equal(homeDogs(dogs).some((d) => d.id === 'Stud'), false, 'Log for several dogs never lists an External dog');
+});
+
+test('dogEvents: a picked vet is the related contact and replaces the typed name; notes and a reminder ride along', () => {
+  const [e] = dogEvents({
+    eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: { reason: 'Limp', vet: 'Dr Old' },
+    relatedContactId: 'c-vet', notes: ' Recheck in 2 weeks ', reminderDate: '2026-11-15'
+  });
+  assert.equal(e.related_contact_id, 'c-vet');
+  assert.equal(e.details.vet, undefined);
+  assert.equal(e.title, 'Limp');
+  assert.equal(e.notes, 'Recheck in 2 weeks');
+  assert.equal(e.reminder_date, '2026-11-15');
+  const [plain] = dogEvents({ eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: { vet: 'Dr Old' } });
+  assert.equal(plain.details.vet, 'Dr Old', 'kept when no contact is picked');
+  assert.ok(!('related_contact_id' in plain) && !('reminder_date' in plain) && !('notes' in plain));
 });

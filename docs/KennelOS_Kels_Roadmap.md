@@ -141,7 +141,7 @@ pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 - **Sensitive records** (Pro): on, recovery code saved, a passkey on this device.
 - **Sync** (Pro, after Cloud Phase 2 step 6): in step, changes waiting, devices not seen
   in a while.
-- **Connections** (Pro): Stripe, Jotform, Dropbox keys present and still accepted; the
+- **Connections** (Pro): Stripe and Dropbox keys present and still accepted; the
   waitlist online and receiving (`cloudWaitlist`).
 - Ends with "All good" or a short list of what's left.
 - **Keywords:** backup, safe, license, subscription, storage, sync, devices, health, status.
@@ -243,13 +243,13 @@ keeps elsewhere, one or several in a row ("Add another?" after each), like Add d
   customer / member ID → a referral link or code and its instructions, if she has one → notes.
   Saved through `accountRepo`, each when she approves it. A name she already has is checked
   first, so nothing is entered twice.
-- A **Payment service** or **Form service** offers to connect Stripe / Jotform right there,
+- A **Payment service** offers to connect Stripe right there,
   the same in-chat steps as account health's "Help me replace it" (§3.2, built), so nothing
   sends her to another page.
 - **Not** her KennelOS account (that's §3.2). The private fields stay private, as on the
   Accounts page (`syncRegistry`).
 - **Keywords:** accounts, logins, passwords, AKC, registry, marketplace, supplier, referral,
-  referral code, Stripe, Jotform, insurance.
+  referral code, Stripe, insurance.
 
 ### 3.10 Add new events: **S** — **Built, as part of Check in on my dogs**
 **Modified (owner decision, 2026-11-01):** not a task of its own. Logging any other event is

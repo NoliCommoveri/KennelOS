@@ -7,6 +7,12 @@
 // have a puppy on the way, placed or not) ask for their Companion link. Anyone with
 // only the link can look but not act: the server needs the family session.
 //
+// Her preview ("View their page" in KennelOS): the address ends #preview=<signed
+// value>, which goes to GET /f/status in a header (waitlist.js previewStatusPage).
+// While the server says it's live, the page draws as it does signed in, every
+// button and form works up to the point of sending, and nothing is sent; her own
+// browser's family sign-in, if any, is left alone.
+//
 // Every action is recorded on the server for the breeder's device, which decides
 // (W2 Plan §6): the page says what's waiting for her until her next update.
 // Messages are sealed here, in this browser, to her key (seal.js); the server
@@ -22,6 +28,8 @@ import { seal } from './seal.js';
 const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] || '';
 const MESSAGE_MAX = 5000;
+const previewValue = (/(?:^#|&)preview=([0-9]{13}\.[0-9a-f]{64})(?:&|$)/.exec(location.hash) || [])[1] || '';
+const PREVIEW_SENT = 'Preview: nothing was sent. This is where their request would go to you.';
 
 const STATUS = {
   applied: { badge: 'info', label: 'Application received' },
@@ -36,7 +44,7 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
+const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set() };
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
@@ -55,7 +63,12 @@ function openCard(title, body, cls = '') {
   return `<div class="card ${cls}">${title ? `<h2>${title}</h2>` : ''}${body}</div>`;
 }
 
-function closedText(status, kennel) {
+function closedText(status, kennel, pageOnly = false) {
+  // A family page only (never on the waitlist, E3): no waitlist words.
+  if (pageOnly) {
+    if (status === 'placed') return `Congratulations on your puppy from ${esc(kennel)}! This page has your pickup times, extras and messages.`;
+    if (status === 'withdrawn') return `Your puppy's sale has ended. Contact ${esc(kennel)} with any questions.`;
+  }
   switch (status) {
     case 'placed': return `Congratulations on your puppy from ${esc(kennel)}! Your time on the waitlist is complete.`;
     case 'declined': return `${esc(kennel)} wasn't able to accept this application. Please contact them with any questions.`;
@@ -70,7 +83,7 @@ function closedText(status, kennel) {
 
 const pendingOf = (kind, test = () => true) => (state.v.pending || []).filter((p) => p.kind === kind && test(p.payload || {}));
 const waiting = (kennel) => `Waiting for ${esc(kennel)} to update the list.`;
-const signedIn = () => Boolean(state.session);
+const signedIn = () => Boolean(state.session || state.preview);
 const canAct = () => signedIn() && ['applied', 'approved', 'active'].includes(state.v.family.status);
 
 function decidedLine(req, what, kennel) {
@@ -183,6 +196,23 @@ function priceLine(p, sex = null, full = null) {
   return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
 }
 
+// A deposit of `amount` less what their credits pay of it: their application fee
+// (when she credits it toward the deposit), then their credit for funds already
+// received. `rec` is the recorded pick's offer (its sale's figures); without one,
+// their credits as a whole stand in (family.credits).
+// → { feePart, creditPart, credit, toSend, less }
+function depositAfterCredits(amount, rec = null) {
+  const c = state.v.family.credits;
+  const feeCredit = rec ? rec.deposit_fee_credit : (c?.fee_toward === 'deposit' ? c.fee : 0);
+  const depositCredit = rec ? rec.deposit_credit : c?.deposit;
+  const feePart = amount != null && feeCredit > 0 ? Math.min(feeCredit, amount) : 0;
+  const creditPart = amount != null && depositCredit > 0 ? Math.min(depositCredit, amount - feePart) : 0;
+  const credit = feePart + creditPart;
+  const toSend = amount == null ? null : Math.max(0, Math.round((amount - credit) * 100) / 100);
+  const less = [feePart > 0 ? `${price(feePart)} application fee` : '', creditPart > 0 ? `${price(creditPart)} already received (your credit)` : ''].filter(Boolean).join(' and ');
+  return { feePart, creditPart, credit, toSend, less };
+}
+
 // A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
 // choose ONE pup from any of them, or pass on all of them (only that counts as a
 // pass, and once). `rows` are the turn's offers, each one litter.
@@ -240,7 +270,17 @@ function turnHtml(rows) {
     // The deposit is the same whatever the registration: once per litter, above the
     // registration sections, even when all are Limited. (Their pick's deposit is in
     // the Sending your deposit block below instead.)
-    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
+    // With credits toward it, what they'd send (per sex when the deposits differ).
+    const after = (n) => depositAfterCredits(n);
+    const sendFor = [d.male, d.female].filter((n) => n != null && after(n).credit > 0);
+    let sendLine = '';
+    if (!only && sendFor.length) {
+      const sends = d.male != null && d.female != null && d.male !== d.female
+        ? [`Males ${price(after(d.male).toSend)}`, `Females ${price(after(d.female).toSend)}`].join(' · ')
+        : price(after(sendFor[0]).toSend);
+      sendLine = ` <br>You'd send ${esc(sends)}, after your ${esc(after(Math.max(...sendFor)).less.replace(' (your credit)', ''))}.`;
+    }
+    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}${sendLine}</p>` : '';
     if (only) return `${priceLine(prices[order[0]], only, o.pups[0].registration ? null : prices.full)}${depositLine}${pupButtons(o, groups.get(order[0]), true)}`;
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
@@ -253,13 +293,9 @@ function turnHtml(rows) {
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
     const deadline = deadlineText(respondBy, v.kennel.time_zone);
-    // Their application fee (when she credits it toward the deposit) and their
-    // credit for funds already received pay part (or all) of it.
-    const feePart = amount != null && o.deposit_fee_credit > 0 ? Math.min(o.deposit_fee_credit, amount) : 0;
-    const creditPart = amount != null && o.deposit_credit > 0 ? Math.min(o.deposit_credit, amount - feePart) : 0;
-    const credit = feePart + creditPart;
-    const toSend = Math.round((amount - credit) * 100) / 100;
-    const less = [feePart > 0 ? `${price(feePart)} application fee` : '', creditPart > 0 ? `${price(creditPart)} already received (your credit)` : ''].filter(Boolean).join(' and ');
+    // Their application fee and their credit pay part (or all) of it: the sale's
+    // figures once her device records the pick, their credits as a whole before.
+    const { credit, toSend, less } = depositAfterCredits(amount, o.picked_dog_id ? o : null);
     if (credit > 0 && toSend <= 0) {
       return `<div class="deposit-block">
         <h3>Your deposit</h3>
@@ -712,6 +748,51 @@ function milesLine(miles, far, kennel) {
   return far ? `${about} ${esc(kennel)} will be in touch about whether they'll bring your puppy themselves or you'll need a flight nanny.`
     : `${about} ${esc(kennel)} will confirm the time and any transport fee.`;
 }
+// --- Their payments (Payment Schedule plan §7) ------------------------------------
+// What their sale asks for and when, what's been paid (a credit as the line it
+// covered, "(credited)"), and what's left, from her device's statement. A date that
+// has gone by without the payment marked received reads "Was due …", never Overdue:
+// she may not have recorded it yet. Earlier payments follow her payment
+// instructions; the final payment her final-payment methods (D9).
+function payWhen(x) {
+  return x.date ? fmtDate(x.date) : x.at_pickup ? 'At pickup' : 'Date to be set';
+}
+function payRowHtml(label, x) {
+  const amount = x.state !== 'met' && x.owed > 0 && x.owed < x.amount
+    ? `${money(x.amount)}, ${money(x.owed)} left` : money(x.amount);
+  const status = x.state === 'met' ? '<span class="badge">Paid</span>'
+    : x.state === 'next' ? `<span class="badge info">Next</span> <span class="small">${esc(x.date ? `Due ${fmtDate(x.date)}` : payWhen(x))}</span>`
+      : x.state === 'past' ? `<span class="small muted">Was due ${esc(fmtDate(x.date))}</span>`
+        : `<span class="small muted">${esc(payWhen(x))}</span>`;
+  return `<li class="pay-row"><div><strong>${esc(label)}</strong><br><span class="small">${esc(amount)}</span></div><div class="pay-status">${status}</div></li>`;
+}
+function paymentsHtml(f) {
+  const p = f.payments;
+  if (!p || !(p.total > 0)) return '';
+  const n = p.next;
+  const rows = [
+    ...(p.deposit ? [payRowHtml('Deposit', p.deposit)] : []),
+    ...(p.due || []).map((d) => payRowHtml(d.label, d)),
+    ...(p.own || []).map((o) => payRowHtml(o.label, o)),
+  ];
+  const nextHtml = n && n.owed > 0
+    ? `<p class="big mt0">${esc(money(n.owed))}</p>
+      <p class="mt0">${esc(n.deposit ? 'Your deposit' : n.final ? 'Your final payment' : 'Your next payment')}${n.date ? `, due ${esc(fmtDate(n.date))}` : n.at_pickup ? ', due at pickup' : ''}.</p>`
+    : '<p class="mt0"><span class="badge">Paid in full</span> Thank you!</p>';
+  const how = n && n.owed > 0 ? [
+    p.how_to_pay ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(p.how_to_pay)}</p>` : '',
+    n.final && p.final_methods ? `<p class="small mt8"><strong>Final payment:</strong> ${esc(p.final_methods)}</p>` : '',
+  ].join('') : '';
+  const received = (p.received || []).length
+    ? `<p class="small muted mt8">Received</p><ul class="plain small pay-received">${p.received.map((r) => `<li>${esc(r.date ? fmtDate(r.date) : '')} · ${esc(r.label)} · ${esc(money(r.amount))}</li>`).join('')}</ul>`
+    : '';
+  const body = `${nextHtml}
+    <dl class="facts mt8"><dt>Total</dt><dd>${esc(money(p.total))}</dd><dt>Paid</dt><dd>${esc(money(p.paid))}</dd><dt>Still owed</dt><dd>${esc(money(p.remaining))}</dd></dl>
+    ${rows.length ? `<ul class="plain pay-list mt8">${rows.join('')}</ul>` : ''}
+    ${how}${received}`;
+  return n && n.owed > 0 ? openCard('Your payments', body) : card('Your payments', body);
+}
+
 function pickupHtml(f) {
   const pk = f.pickup;
   if (!pk) return '';
@@ -738,10 +819,12 @@ function pickupHtml(f) {
   }
   // What they asked for and haven't heard back on.
   if (sentBook) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(sentBook.payload.date))}${sentBook.payload.start_time ? `, ${esc(timeText(sentBook.payload.start_time, sentBook.payload.end_time))}` : ''}${sentBook.payload.place ? ` at ${esc(sentBook.payload.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
-  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
+  // Their own place, with the day and time they'd like when they gave them.
+  const meetWhen = (date, time) => `${date ? `, ${esc(fmtDate(date))}` : ''}${time ? `${date ? ' at' : ', at'} ${esc(hm12(time))}` : ''}`;
+  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}${meetWhen(sentAddress.payload.date, sentAddress.payload.time)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
   for (const r of waiting.filter((x) => x.kind !== 'cancel')) {
     parts.push(r.kind === 'address'
-      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}. ${milesLine(r.miles, r.far, kennel)}</p>`
+      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}${meetWhen(r.date, r.start_time)}. ${milesLine(r.miles, r.far, kennel)}</p>`
       : `<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(r.date))}${r.start_time ? `, ${esc(hm12(r.start_time))}` : ''}${r.place ? ` at ${esc(r.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
   }
   for (const r of (pk.requests || []).filter((x) => x.decided === 'declined')) {
@@ -754,7 +837,7 @@ function pickupHtml(f) {
     if (slots.length) {
       const byDate = new Map();
       for (const sl of slots) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(sl); }
-      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from ? ` <span class="muted small">From ${esc(fmtDate(pk.ready_from))}, when your puppy is ready.</span>` : ''}</p>
+      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from && pk.ready_from > today ? ` <span class="muted small">Times from ${esc(fmtDate(pk.ready_from))}.</span>` : ''}</p>
         ${[...byDate.entries()].map(([date, items]) => {
           // Her rule for the date: a package they need first, or her standard boarding.
           const rule = (pk.dates || []).find((d) => d.date === date);
@@ -777,6 +860,7 @@ function pickupHtml(f) {
         ? `<form data-form="pickup_address" class="mt8">
             <label class="q">Where would you like to meet? <span class="muted small">(an address, or a place with its city)</span><input name="address" maxlength="300" required></label>
             <label class="q">Which day works? <span class="muted small">(optional)</span><input name="date" type="date" min="${esc(today)}"></label>
+            <label class="q">What time works? <span class="muted small">(optional)</span><input name="time" type="time"></label>
             <label class="q">Anything ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
             <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
           </form>`
@@ -806,6 +890,7 @@ const hasPolicies = () => Boolean(state.v?.kennel?.policies?.length);
 const seenKey = () => `kos-policies-seen:${state.v?.kennel?.public_id || ''}`;
 function policiesSeen() { try { return localStorage.getItem(seenKey()) || ''; } catch { return ''; } }
 function markPoliciesSeen() {
+  if (state.preview) return; // so her look leaves the banner as the family first sees it
   const at = state.v?.kennel?.policies_updated;
   if (!at || policiesSeen() >= at) return;
   try { localStorage.setItem(seenKey(), at); } catch { /* private window */ }
@@ -817,12 +902,12 @@ function policiesBanner(f) {
   const at = state.v.kennel.policies_updated;
   if (!hasPolicies() || !at || !f.applied_date || at <= f.applied_date || policiesSeen() >= at) return '';
   return `<div class="card policies-updated" role="status"><p>${esc(state.v.kennel.name)} updated their waitlist policies on ${esc(fmtDate(at))}.</p>
-    <div class="actions mt0"><button type="button" class="secondary small" data-policy-link="">Read what changed</button><button type="button" class="linkish small" data-act="policies-seen">Got it</button></div></div>`;
+    <div class="actions mt0"><button type="button" class="secondary small" data-policy-link="">Read our policies</button><button type="button" class="linkish small" data-act="policies-seen">Got it</button></div></div>`;
 }
 function policiesCard() {
   if (!hasPolicies()) return '';
   const k = state.v.kennel;
-  const key = 'Our Waitlist Policies';
+  const key = state.v.family?.page_only ? 'Our Policies' : 'Our Waitlist Policies';
   return `<details class="card collapsible" id="policies" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${esc(key)}</h2></summary>
     ${k.policies_updated ? `<p class="small muted mt0">Updated ${esc(fmtDate(k.policies_updated))}</p>` : ''}${policiesHtml(k)}</details>`;
 }
@@ -835,16 +920,22 @@ function policyLink(text, words) {
 
 function backOutHtml(f) {
   const bo = f.back_out;
-  if (!bo?.available) return '';
+  const req = bo?.request;
+  // Without an open sale, only a back-out she approved shows (what happened to
+  // their deposit), for the days a decided request stays.
+  if (!bo || (!bo.available && req?.decided !== 'approved')) return '';
   const k = state.v.kennel;
   const kennel = k.name;
-  const req = bo.request;
   const sent = pendingOf('back_out')[0];
   if (sent || (req && !req.decided)) {
     return openCard('Backing out', `<p class="mt0"><span class="badge warn">Requested</span> ${req?.requested_date && !sent ? `on ${esc(fmtDate(req.requested_date))}. ` : ''}${esc(kennel)} will be in touch. Nothing changes until they confirm.</p>`);
   }
   if (req?.decided === 'approved') {
-    const what = { keep: 'Your puppy\'s sale is cancelled.', move: 'Your puppy\'s sale is cancelled and your deposit moves to another puppy; you\'re back on the waitlist.', refund: 'Your puppy\'s sale is cancelled and your deposit refunded.' }[req.outcome] || 'Confirmed.';
+    const what = {
+      keep: 'Your puppy\'s sale is cancelled. Your deposit is kept and isn\'t refunded.',
+      move: 'Your puppy\'s sale is cancelled and your deposit moves to your next puppy. You\'re back on the waitlist.',
+      refund: 'Your puppy\'s sale is cancelled and your deposit is being refunded.'
+    }[req.outcome] || 'Confirmed.';
     return openCard('Backing out', `<p class="mt0">${esc(kennel)} confirmed on ${esc(fmtDate(req.decided_date))}. ${esc(what)}</p>`);
   }
   if (!signedIn()) return '';
@@ -897,6 +988,18 @@ function signInButton() {
   return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
 }
 
+// Her preview's note at the top, in place of Sign In; or, once it has ended, why
+// the page now shows as anyone with the link sees it.
+function previewBanner() {
+  if (state.preview) {
+    const first = (state.v.family.name || '').split(/\s+/)[0];
+    const until = new Date(state.preview.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `<p class="card notice small preview-note" role="note"><strong>Preview.</strong> This is ${first ? `${esc(possessive(first))} page` : 'their page'} as they see it signed in. The buttons work, but nothing is sent. The preview lasts until ${esc(until)}.</p>`;
+  }
+  if (previewValue) return '<p class="card notice small preview-note" role="note">This preview has ended, so the page shows as anyone with the link sees it. Open it again from KennelOS to see it signed in.</p>';
+  return '';
+}
+
 // A family on the list more than once (a second pup): their records, newest first,
 // in their own words (never the app's statuses), the one this page is about marked,
 // the others a Switch away. One sign-in covers them all (same email).
@@ -938,11 +1041,36 @@ function recordsHtml(v) {
     ${signedIn() ? '<p class="small muted">You\'re signed in for all of them.</p>' : ''}`, 'records-card');
 }
 
+// What's credited toward their pup, on their Current Position card (before and
+// while picks are open): their application fee when she credits it to the
+// purchase price, and their credit for funds she already received.
+function creditsFactHtml(c) {
+  if (!c) return '';
+  const fee = c.fee > 0 ? c.fee : 0;
+  const received = c.received > 0 ? c.received : 0;
+  const total = Math.round((fee + received) * 100) / 100;
+  if (!(total > 0)) return '';
+  const parts = [fee ? `${price(fee)} application fee` : '', received ? `${price(received)} already received` : ''].filter(Boolean);
+  // Where it comes off: the deposit first, unless her fee goes toward the balance
+  // or their credit can't pay a deposit.
+  const toDeposit = (!fee || c.fee_toward === 'deposit') && (!received || c.deposit > 0);
+  const where = toDeposit ? 'Comes off your deposit first.'
+    : fee && c.fee_toward === 'balance' ? 'The application fee comes off your purchase price.' : '';
+  return `<dt>Credited</dt><dd>${esc(price(total))} toward your puppy${parts.length ? `<br><span class="small muted">${esc(parts.join(' + '))}</span>` : ''}${where ? `<br><span class="small muted">${esc(where)}</span>` : ''}</dd>`;
+}
+
+// Paying the fee by card can cost more than the fee (her card fee passed on): one
+// line saying so beside the Pay button, so the two numbers are explained (K8-10).
+function cardAddsHtml(fee, charge) {
+  const more = Math.round((Number(charge) - Number(fee)) * 100) / 100;
+  return fee > 0 && more > 0 ? `<p class="small muted mt0">Paying by card adds ${esc(money(more))}.</p>` : '';
+}
+
 function mineHtml() {
   const v = state.v;
   const f = v.family;
   const kennel = v.kennel.name;
-  const st = STATUS[f.status] || { badge: 'plain', label: f.status };
+  const st = (f.page_only && f.status === 'withdrawn' ? { badge: 'plain', label: 'Sale ended' } : STATUS[f.status]) || { badge: 'plain', label: f.status };
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
@@ -956,8 +1084,9 @@ function mineHtml() {
   parts.push(portalHtml(f));
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
-    parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
+    parts.push(card('', `<p class="mt0">${closedText(f.status, kennel, f.page_only)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(paymentsHtml(f));
     parts.push(pickupHtml(f));
     parts.push(extrasHtml(f));
     parts.push(transportHtml());
@@ -975,8 +1104,10 @@ function mineHtml() {
       parts.push(openCard('Your application fee', `<p class="mt0">Thank you: your payment on ${esc(fmtDate(f.fee_paid_online))} was received. If ${esc(kennel)} approves your application, you join the list from that day.</p>`));
     } else if (f.fee_pay) {
       const pay = f.fee_pay;
+      const headline = pay.fee || pay.amount;
       parts.push(openCard('Your application fee', `
-        ${pay.amount ? `<p class="big mt0">${esc(money(pay.amount))}</p>` : ''}
+        ${headline ? `<p class="big mt0">${esc(money(headline))}</p>` : ''}
+        ${cardAddsHtml(pay.fee, pay.amount)}
         <p class="mt0">Paying now means that if ${esc(kennel)} approves your application, your place on the list counts from the day you paid.</p>
         <div class="actions"><a class="button primary" href="${esc(pay.url)}" target="_blank" rel="noopener noreferrer">Pay the application fee</a></div>
         ${pay.instructions ? `<p class="small muted">Or pay another way:</p><p class="pre mt0 small">${esc(pay.instructions)}</p>` : ''}`));
@@ -994,13 +1125,14 @@ function mineHtml() {
       ${fee.credit > 0 ? `<p class="small mt0 muted">After ${esc(money(fee.credit))} already received (your credit).</p>` : ''}
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(fee.credit_toward === 'deposit' && fee.credit_policy === 'credited_to_purchase' ? 'Credited toward your deposit' : (CREDIT_LABEL[fee.credit_policy] || ''))}</p>` : ''}
-      ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>` : ''}
+      ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>${cardAddsHtml(fee.amount, fee.pay_amount)}` : ''}
       ${fee.instructions ? `<p class="small muted mt0">${fee.pay_url ? 'Or pay another way' : 'How to pay'}:</p><p class="pre mt0">${esc(fee.instructions)}</p>` : ''}
       <p class="small muted">Your place on the list is set from the day ${esc(kennel)} receives your fee.</p>`));
   }
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(paymentsHtml(f));
   parts.push(pickupHtml(f));
   parts.push(extrasHtml(f));
   parts.push(transportHtml());
@@ -1019,6 +1151,7 @@ function mineHtml() {
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
         ${f.passes ? `<dt>Passes</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)} used</dd>` : ''}
+        ${creditsFactHtml(f.credits)}
       </dl>
       ${placeActions(f)}`));
     parts.push(whelpNotesHtml(f));
@@ -1083,6 +1216,7 @@ const ERRORS = {
   'pickup_address:bad_address': 'Please type the address or place, with its city.',
   'pickup_address:already_requested': "You've already asked. The breeder will confirm.",
   'pickup_address:bad_date': 'Please pick a day after today.',
+  'pickup_address:bad_time': 'Please choose a time, or leave it blank.',
   'home_location:bad_address': 'Please type your city and state.',
   'extra_request:not_listed': "That extra isn't offered any more. The page now shows what's available.",
   'extra_request:not_open': "That extra can't be requested today. The page now shows when it can.",
@@ -1095,6 +1229,7 @@ const ERRORS = {
 };
 
 async function send(path, body) {
+  if (state.preview) { state.flash = PREVIEW_SENT; return false; }
   const r = await fetchJson(path, { method: 'POST', json: { session: state.session.session, status_token: token, ...body } });
   if (r.ok) return true;
   const code = r.body?.error;
@@ -1136,6 +1271,7 @@ async function onClick(ev) {
     case 'close': state.open = null; render(); return;
     case 'portal': {
       // A link that works once, for a few minutes: made now, followed at once.
+      if (state.preview) { state.flash = 'Preview: their portal opens signed in as them, so it doesn\'t open from here.'; render(); return; }
       b.disabled = true;
       const r = await fetchJson('/f/portal', { method: 'POST', json: { session: state.session.session, status_token: token } });
       if (r.ok && typeof r.body?.url === 'string' && /^https:\/\//.test(r.body.url)) {
@@ -1159,7 +1295,11 @@ async function onClick(ev) {
       const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
       const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
       const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
-      const message = `Your selection isn't final until ${kennel} receives your deposit${dep != null ? ` of ${price(dep)}` : ''}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
+      const cr = depositAfterCredits(dep);
+      const depText = dep == null ? '' : cr.credit > 0
+        ? ` of ${price(dep)}: you send ${price(cr.toSend)}, after your ${cr.less.replace(' (your credit)', '')}`
+        : ` of ${price(dep)}`;
+      const message = `Your selection isn't final until ${kennel} receives your deposit${depText}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
       if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message, confirmLabel: `Choose ${b.dataset.name}` })) return;
       b.disabled = true;
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
@@ -1248,7 +1388,7 @@ async function onSubmit(ev) {
       return;
     }
     case 'pickup_address':
-      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
+      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', time: data.get('time') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
       return;
     case 'home_location':
       await act('home_location', { place: data.get('place') }, `Thanks! ${kennel} will see where you live at their next update.`);
@@ -1327,13 +1467,13 @@ function render() {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
-  $('signin-slot').innerHTML = signInButton();
+  $('signin-slot').innerHTML = previewBanner() || signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
 
 let wired = false;
 async function load() {
-  const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`);
+  const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`, previewValue ? { headers: { 'x-status-preview': previewValue } } : {});
   if (!res.ok) {
     $('error').textContent = loadError(res, { notFound: "This link doesn't work any more. The breeder may have sent you a newer one, or you can ask them for it." });
     $('error').hidden = false;
@@ -1345,10 +1485,12 @@ async function load() {
   // This browser's family session for this kennel, if it signed in. Whether it's
   // THIS family's is the server's call (other_family): a New link changes the
   // token but keeps the session, so the saved token isn't compared here.
-  state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
+  state.preview = v.preview?.until ? v.preview : null;
+  state.session = !state.preview && v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
-  $('updated').textContent = `${v.kennel.name} Waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
+  // A family page only (never on the waitlist): no "Waitlist" in the heading.
+  $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
   if (!wired) {
@@ -1361,9 +1503,9 @@ async function load() {
     });
     $('mine').addEventListener('toggle', (ev) => { if (ev.target.id === 'policies' && ev.target.open) markPoliciesSeen(); }, true);
     $('mine').addEventListener('submit', (ev) => { onSubmit(ev).catch(() => {}); });
-    if (v.public_list.length) {
+    if (v.public_list.length || v.public_selected?.length) {
       $('tabs').hidden = false;
-      const renderList = () => { $('list').innerHTML = publicListHtml(state.v.public_list, $('search').value, state.v.family.position || null); };
+      const renderList = () => { $('list').innerHTML = publicListHtml(state.v.public_list, $('search').value, state.v.family.position || null, state.v.public_selected || []); };
       $('search').addEventListener('input', renderList);
       renderList();
       $('tab-mine').addEventListener('click', () => selectTab('mine'));

@@ -62,7 +62,7 @@ const keysOf = (o) => Object.keys(o).sort();
 test('the projection has exactly its allow-listed parts', () => {
   const p = buildProjection(fixture());
   assert.equal(p.format, PROJECTION_FORMAT);
-  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue', 'upcoming']);
+  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'public_selected', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
     respond_days: 3, open_days: null, closed_dates: [], max_passes: 2, auto_offer_on: ['no_response'],
@@ -89,7 +89,7 @@ test('nothing private ever reaches the projection', () => {
 test("a family on the list sees its place, prefs, passes and offers; nothing else", () => {
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
-  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
+  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'credits', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
     'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'record', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
@@ -101,6 +101,22 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null, deposit_instructions: 'Venmo @thornfield' }]);
   assert.deepEqual(p.entries.e2.passes, { used: 1, max: 2 });
   assert.equal(p.entries.e3.paused_until, '2026-12-01');
+});
+
+test("a family's credits toward their pup: the credited fee and funds already received, before any sale", () => {
+  const f = fixture();
+  f.kennel = { ...kennel, waitlist_config: { ...kennel.waitlist_config, fee_amount: 50, fee_credit_toward: 'deposit' } };
+  // A $250 credit paid their $50 fee; the fee is credited toward the deposit.
+  f.entries[0] = entry('e1', { fee_amount: 50, fee_credit_policy: 'credited_to_purchase', fee_credit_amount: 50,
+    received_credits: [{ id: 'cr1', amount: 250, date: '2026-02-01', applies_to: ['fee', 'deposit', 'price', 'extras'] }] });
+  let p = buildProjection(f);
+  assert.deepEqual(p.entries.e1.credits, { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200 });
+  assert.equal(p.entries.e2.credits, null, 'a fee not credited and no credits: nothing');
+  // Toward the balance, and a credit not ticked for the deposit.
+  f.kennel = { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, fee_credit_toward: 'balance' } };
+  f.entries[0].received_credits[0].applies_to = ['fee', 'price'];
+  p = buildProjection(f);
+  assert.deepEqual(p.entries.e1.credits, { fee: 50, fee_toward: 'balance', received: 200, deposit: 0 });
 });
 
 test('the fee and her payment instructions show only while approved and unpaid', () => {
@@ -128,7 +144,7 @@ test('positions, litter queues and the public list come straight from the rules 
   const f = fixture();
   const p = buildProjection(f);
   const live = f.entries.filter((e) => !e.is_archived && e.kennel_id === K);
-  const positions = overallPositions(live, K, f.programsById);
+  const positions = overallPositions(live, K, f.programsById, { sales: f.sales || [], dogs: f.dogs || [] });
   // Every number is published, the turn holder's too (their page shows "It's your
   // turn!" instead; the server masks their public row by it). A pass hides nothing
   // since 2026-10-10: e2 passed on a litter still being offered and keeps theirs.
@@ -147,7 +163,7 @@ test('positions, litter queues and the public list come straight from the rules 
   assert.deepEqual(p.turn_queue.map((q) => q.entry_id), queue.map((q) => q.entry.id).filter((id) => !['e1', 'e2'].includes(id)));
   assert.deepEqual(p.entries.e3.matching_litter_ids, [], 'paused: not in any queue');
 
-  const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)) });
+  const rows = publicList(live, K, f.programsById, { sales: f.sales || [], dogs: f.dogs || [], today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)) });
   assert.deepEqual(p.public_list, rows);
   assert.ok(p.public_list.some((r) => r.position === 1), 'a family who passed stays on the public list');
   assert.ok(p.public_list.some((r) => r.position === positions.get('e1') && !r.deciding),
@@ -162,7 +178,7 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'prices', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'prices', 'pups', 'ready_date', 'reserved', 'sire', 'status', 'whelp_date']);
   assert.equal(l.prices, null, 'no expected prices on the litter: none shown');
   assert.equal(l.label, 'Juniper × Ash');
   assert.deepEqual(l.sire, { name: 'Ash', titles: [] });

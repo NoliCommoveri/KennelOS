@@ -212,9 +212,9 @@ async function boot() {
   // open one-use link was paid, at most every 15 minutes. Pro (Accounts) only.
   if (editionFlags.accounts) {
     import('./data/stripeLinks.js').then((m) => m.bootStripeCheck()).catch(() => {});
-    // Contracts sent through her Jotform forms that came back signed (step 7):
-    // her device reads the forms' submissions with the key it holds.
-    import('./data/jotformSigned.js').then((m) => m.bootJotformCheck()).catch(() => {});
+    // Connect Jotform is retired (Integrations plan D27): any Jotform API key this
+    // device still holds is deleted.
+    import('./data/jotformKeyStore.js').then((m) => m.forgetJotformKeys()).catch(() => {});
   }
   // Her puppy portal on KennelPort (End-State guide §35.1): the family feed goes by
   // itself from a device linked to a website whose portal is on. Nothing loads
@@ -222,9 +222,18 @@ async function boot() {
   if (editionFlags.websiteLink && !isDemo()) {
     import('./data/portalFeedSync.js').then((m) => m.startPortalFeed()).catch(() => {});
   }
-  // Her waitlist closed dates more than 7 days past drop off by themselves.
+  // Her waitlist closed dates more than 7 days past drop off by themselves. And a
+  // family's turn left with no pup in it (she kept the pup, it went on Health hold,
+  // died or was sold) ends shortly after the change, never as a pass; the page
+  // tells her whose and who's next (waitlistActions.watchEmptiedTurns).
   if (editionFlags.waitlist && !isDemo()) {
-    import('./data/waitlistActions.js').then((m) => m.tidyClosedDates()).catch(() => {});
+    import('./data/waitlistActions.js').then((m) => {
+      m.tidyClosedDates().catch(() => {});
+      m.watchEmptiedTurns({
+        busy: () => Boolean(document.querySelector('.modal-overlay')),
+        onEnded: (r) => import('./assets/waitlistUI.js').then((ui) => ui.reportEmptiedTurns(r))
+      });
+    }).catch(() => {});
   }
   firstRunFlow().finally(() => {
     if (!isCloudAvailable()) return;

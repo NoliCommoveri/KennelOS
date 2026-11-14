@@ -13,7 +13,10 @@
 //      the device can share files), her email app, or copy + download.
 // Using any of those marks the contract sent, stamps the offer's
 // deposit_request_sent_date and logs the message on the family's entry. Nothing
-// goes to a server: the PDF and the link are made on her device.
+// goes to a server: the PDF and the link are made on her device. The one
+// exception is a Firma template of hers (e-sign, plan §2.3a, D30): Continue on
+// step 2 sends it through Firma then (assets/esignUI.js, which marks the contract
+// Sent), and its signing link goes in the message, Firma's own email off.
 // Pro-only (proPages.PRO_ONLY_STANDALONE): only the waitlist family page opens it.
 import { saleRepo } from '../data/saleRepo.js';
 import { accountRepo } from '../data/accountRepo.js';
@@ -24,16 +27,17 @@ import { contractRepo } from '../data/contractRepo.js';
 import { waitlistOfferRepo } from '../data/waitlistOfferRepo.js';
 import { priceForRegistrationChange } from '../data/saleDefaults.js';
 import { askRegistrationPrice } from './salePrompts.js';
-import { rankForms, splitName } from '../data/contractForms.js';
-import { loadContractForms, openContractForSale, gatherContractFacts, buildSignatureLink, markContractSent, balanceDueOn } from '../data/contractSend.js';
-import { depositRequestMessage } from '../data/depositRequest.js';
+import { rankForms, splitName, isFirmaForm } from '../data/contractForms.js';
+import { loadContractForms, openContractForSale, gatherContractFacts, buildSignatureLink, markContractSent, contractForForm, saleAddOns, logPickup } from '../data/contractSend.js';
+import { pickupToSet } from '../data/contractAddOns.js';
+import { depositRequestMessage, depositMessageMoney } from '../data/depositRequest.js';
 import { salePayAccount, salePaidVia } from '../data/paymentLinks.js';
 import { stripeConnection, makeSaleLink } from '../data/stripeLinks.js';
 import { logOwnMessage } from '../data/waitlistOutbox.js';
-import { depositPaid } from '../data/incomeView.js';
+import { depositPaid, getSaleStatement } from '../data/incomeView.js';
 import { photoLink } from '../data/waitlistProjection.js';
 import { todayYMD } from '../data/dateUtils.js';
-import { esc, badge, fmtDate, fmtMoney } from './ui.js';
+import { esc, badge, fmtDate, fmtMoney, promptModal } from './ui.js';
 import { REGISTRATION_TYPE, CONTRACT_FORM_TYPE, descriptor } from '../data/vocab.js';
 
 const numOrNull = (v) => (String(v ?? '').trim() === '' ? null : Number(v));
@@ -44,7 +48,8 @@ function canShareFile(file) {
 }
 
 // → Promise<boolean>: true when something was saved or sent (the page reloads).
-//   offer: the turn row with the pick (sale_id, respond_by_date)
+//   offer: the turn row with the pick (sale_id, respond_by_date), or for a side sale
+//          { side: true, id, sale_id, respond_by_date, deposit_request_sent_date } (sideSaleOffer)
 //   entry, contact: the family; litterLabel: the litter's label
 //   paymentText: her payment instructions (the waitlist's, plan D21); kennelName signs it
 export async function openPickToSend({ offer, entry, contact, litterLabel = '', paymentText = '', kennelName = '' }) {
@@ -62,7 +67,9 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
     let changed = false;
     let step = 1;
     let contract = null;     // the contract being sent (made at step 2)
+    let addOns = null;       // the sale's separate agreements' facts, for the form list
     let chosen = null;       // { form, url, values } or null for no contract
+    const firmaSent = new Map(); // template id → its signing link, sent from this modal
     let pickedFormId = null; // step 2's radio
     let showAll = false;
     let recorded = false;    // the send was recorded (once per modal)
@@ -109,7 +116,7 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
           ${field('Price', `<input id="ps-price" type="number" min="0" step="0.01" value="${esc(s.price ?? '')}">`)}
           ${field('Deposit', `<input id="ps-deposit" type="number" min="0" step="0.01" value="${esc(s.deposit_amount ?? '')}">`, depositPaid(s)
             ? `Already received${s.deposit_date ? ` ${fmtDate(s.deposit_date)}` : ''}. The message thanks them for it instead of asking.`
-            : offer.respond_by_date ? `Due by ${fmtDate(offer.respond_by_date)}, the end of their turn.` : '')}
+            : offer.respond_by_date ? `Due by ${fmtDate(offer.respond_by_date)}${offer.side ? '' : ', the end of their turn'}.` : '')}
           ${field('Transport fee', `<input id="ps-transport" type="number" min="0" step="0.01" value="${esc(s.transport_fee ?? '')}">`)}
           ${field('Sold through', `<select id="ps-channel">${channelOptions}</select>`, 'A marketplace that handles the whole sale and keeps a fee (Good Dog…). Set its fee on the Accounts page.')}
           ${field('Deposit paid via', `<select id="ps-deposit-via"><option value="">— not set —</option>${accounts
@@ -203,6 +210,7 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
           });
           changed = true;
           contract = await openContractForSale(sale.id);
+          addOns = await saleAddOns(sale);
           step = 2;
           drawContract();
         } catch (err) { fail(err); e.currentTarget.disabled = false; }
@@ -211,19 +219,19 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
 
     // --- 2. Contract -------------------------------------------------------------
     function drawContract() {
-      const ranked = rankForms(forms, { contract_type: 'sale' }, sale);
+      const ranked = rankForms(forms, { contract_type: 'sale' }, sale, addOns);
       const all = [...ranked.matching, ...ranked.others];
       if (pickedFormId === null) pickedFormId = all.length ? (ranked.matching[0] || all[0]).id : '';
       const option = (f) => `<label class="check-inline" style="display:flex; gap:8px; align-items:center; padding:4px 0;">
           <input type="radio" name="ps-form" value="${esc(f.id)}"${f.id === pickedFormId ? ' checked' : ''}>
-          <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}</span></label>`;
+          <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}${isFirmaForm(f) ? ' <span class="badge badge-green">E-sign</span>' : ''}</span></label>`;
       const sent = contract?.esign_url
         ? `<p class="field-hint">This sale's ${esc(contract.esign_form_label || 'contract')} went out ${contract.esign_sent_date ? esc(fmtDate(contract.esign_sent_date)) : 'before'}. Sending again makes a fresh link with today's details.</p>` : '';
       shell(`${forms.length
           ? `${ranked.matching.map(option).join('')}
              ${ranked.others.length && ranked.matching.length ? `<button type="button" class="btn btn-sm" id="ps-all" style="margin:4px 0;">${showAll ? 'Hide other forms' : `Show all forms (${ranked.others.length} more)`}</button>` : ''}
              ${showAll || !ranked.matching.length ? ranked.others.map(option).join('') : ''}`
-          : '<p class="muted">You have no contract forms yet. Add your form service (for example Jotform) on the Accounts page as a <strong>Form service</strong> account with your contract forms, and they\'ll show here.</p>'}
+          : '<p class="muted">You have no contract forms yet. Add your form service on the Accounts page as a <strong>Form service</strong> account with your contract forms, and they\'ll show here.</p>'}
         <label class="check-inline" style="display:flex; gap:8px; align-items:center; padding:4px 0;">
           <input type="radio" name="ps-form" value=""${pickedFormId === '' ? ' checked' : ''}> <span>No contract in this message</span></label>
         ${sent}`,
@@ -232,22 +240,41 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
       $('#ps-all')?.addEventListener('click', () => { showAll = !showAll; drawContract(); });
       $('#ps-back').addEventListener('click', () => { step = 1; drawSale(); });
       $('#ps-next').addEventListener('click', async (e) => {
-        e.currentTarget.disabled = true;
+        const next = e.currentTarget;
+        next.disabled = true;
         try {
           const form = all.find((f) => f.id === pickedFormId) || null;
           chosen = null;
           if (form) {
-            contract = contract || await contractRepo.create({
+            // Each of the sale's agreements goes out on a contract record of its own.
+            contract = contract ? await contractForForm(contract, form, forms) : await contractRepo.create({
               contract_type: 'sale', related_sale_id: sale.id, kennel_id: sale.kennel_id, status: 'draft',
               title: `${form.label}: ${pupName}`
             });
             changed = true;
-            chosen = { form, ...buildSignatureLink(form, await gatherContractFacts(contract)) };
+            let facts = await gatherContractFacts(contract);
+            // A boarding or training agreement is dated by the pup's pickup: set it now.
+            const pickup = pickupToSet(form, facts.addOns);
+            if (pickup !== null) {
+              const date = await promptModal({ title: 'Pickup date', label: `${dog?.call_name || 'The pup'}'s pickup`, type: 'date', defaultValue: pickup, confirmLabel: 'Save', cancelLabel: 'Skip' });
+              if (date) { await logPickup(sale, date); facts = await gatherContractFacts(contract); }
+            }
+            if (isFirmaForm(form)) {
+              // Sent now, through Firma (it counts), once per template in this modal.
+              if (!firmaSent.has(form.template_id)) {
+                const { sendWithFirma } = await import('./esignUI.js');
+                const sent = await sendWithFirma({ contract, form, facts, signer: contact || facts.buyer, emailChoice: false });
+                if (!sent) { next.disabled = false; return; }
+                contract = sent.contract;
+                firmaSent.set(form.template_id, sent.signingLink || '');
+              }
+              chosen = { form, url: firmaSent.get(form.template_id), values: [], firma: true };
+            } else chosen = { form, ...buildSignatureLink(form, facts) };
           }
           message = null;
           step = 3;
           await drawSend();
-        } catch (err) { fail(err); e.currentTarget.disabled = false; }
+        } catch (err) { fail(err); next.disabled = false; }
       });
     }
 
@@ -263,18 +290,19 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
 
     // The payment part of the message: the step-1 channel's link and instructions,
     // or, with her Stripe key for that account on this device, a one-time link for
-    // exactly the deposit (plan §4, step 6), kept on the sale and reused while open.
+    // exactly the deposit still owed after credits (plan §4, step 6; Waitlist Fixes
+    // K8-1), kept on the sale and reused while open.
     let payAccount = null;
     let stripeNote = '';
-    async function paymentAccount() {
-      if (depositPaid(sale)) return null; // nothing to pay now: no link, no Stripe link
+    async function paymentAccount(statement) {
+      const deposit = statement?.deposit ? statement.deposit.owed : (Number(sale.deposit_amount) || 0);
+      if (depositPaid(sale) || !(deposit > 0)) return null; // nothing to pay now: no link, no Stripe link
       const via = salePaidVia(sale, accounts, 'deposit');
-      const deposit = Number(sale.deposit_amount) || 0;
       if (via && deposit > 0 && await stripeConnection(via.id)) {
         try {
           const open = sale.payment_link_ref && sale.payment_link_component === 'deposit' && Number(sale.payment_link_amount) === deposit;
           if (!open) { sale = await makeSaleLink({ sale, account: via, component: 'deposit', amount: deposit, pupName: dog?.call_name || '' }); changed = true; }
-          stripeNote = 'The deposit link is a one-time Stripe link for exactly the deposit. When they pay, Today tells you; then tap Deposit received on this page.';
+          stripeNote = 'The deposit link is a one-time Stripe link for exactly the deposit owed. When they pay, Today tells you; then tap Deposit received on this page.';
           return { ...via, payment_link: sale.payment_link_url };
         } catch (err) {
           stripeNote = `No Stripe link: ${err.message}`;
@@ -285,20 +313,23 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
 
     async function drawSend() {
       if (!message) {
-        payAccount = await paymentAccount();
-        const balance = await balanceDueOn(sale);
-        const rest = Math.max(0, balance - (Number(sale.deposit_amount) || 0));
-        const paid = depositPaid(sale);
+        // The money from the sale's payment statement, as the invoice and the
+        // family's page read it (Payment Schedule plan §7, K8-1).
+        const got = await getSaleStatement(sale);
+        const statement = got?.statement || null;
+        payAccount = await paymentAccount(statement);
+        const money = depositMessageMoney(statement, { money: fmtMoney, date: fmtDate, depositDate: sale.deposit_date || null });
         message = depositRequestMessage({
           who, pupName: dog?.call_name || '', litterLabel,
-          deposit: sale.deposit_amount != null ? fmtMoney(sale.deposit_amount) : '',
+          deposit: money.deposit, depositCredit: money.depositCredit,
           depositDue: offer.respond_by_date ? fmtDate(offer.respond_by_date) : '',
-          depositPaid: paid ? (sale.deposit_date ? fmtDate(sale.deposit_date) : true) : false,
+          depositPaid: depositPaid(sale) ? (sale.deposit_date ? fmtDate(sale.deposit_date) : true) : money.depositPaid,
           payAccount, paymentText,
           contractLabel: chosen ? descriptor(CONTRACT_FORM_TYPE, chosen.form.form_type).label.toLowerCase() : '', contractLink: chosen?.url || '',
           invoice: true,
           pupPhotos: photoLink(dog?.url) || '',
-          balance: rest > 0 ? fmtMoney(rest) : '', balanceDue: sale.balance_due_date ? fmtDate(sale.balance_due_date) : '',
+          balance: money.balance, balanceDue: money.balanceDue, schedule: money.schedule,
+          finalMethods: String(got?.kennel?.final_payment_methods || '').trim(),
           kennelName
         });
       }
@@ -365,8 +396,13 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
       changed = true;
       try {
         const msg = message || { subject: '', body: '' };
-        if (chosen && contract) contract = await markContractSent(contract, chosen.form, chosen.url);
-        offer = await waitlistOfferRepo.update(offer.id, { deposit_request_sent_date: todayYMD() });
+        // A Firma send was marked when it went (step 2).
+        if (chosen && contract && !chosen.firma) contract = await markContractSent(contract, chosen.form, chosen.url);
+        // A side sale (Side Sale Spec) has no offer row: the date is kept on its sale.
+        if (offer.side) {
+          await saleRepo.update(offer.sale_id, { side_request_sent_date: todayYMD() });
+          offer = { ...offer, deposit_request_sent_date: todayYMD() };
+        } else offer = await waitlistOfferRepo.update(offer.id, { deposit_request_sent_date: todayYMD() });
         await logOwnMessage(entry.id, { kind: 'deposit_request', subject: msg.subject, body: msg.body });
         const close = $('#ps-cancel');
         if (close) close.textContent = 'Done';

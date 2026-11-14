@@ -79,6 +79,11 @@ export const PRO_ONLY_STANDALONE = [
   // The Litter page's waitlist picks panel — litter.js imports it dynamically only
   // when editionFlags.waitlist is on, so Lite never requests it.
   'assets/waitlistPicksPanel.js',
+  // The picks preview (Picks Preview Spec), opened by the picks panel and the
+  // Waitlist page before Open picks. Its rules, data/picksPreview.js, stay shared.
+  'assets/picksPreviewModal.js',
+  // Side sales (Side Sale Spec): the family page and the picks panel.
+  'assets/sideSaleUI.js',
   // The Litter page's pickup times (Family Requests plan §4), imported the same way.
   'assets/pickupTimesPanel.js',
   // The Kennel page's "Online list" card (Waitlist W2 Plan §9), imported only when
@@ -112,6 +117,10 @@ export const PRO_ONLY_STANDALONE = [
   'assets/guidedFormUI.js', 'assets/waitlistFeeStep.js',
   // "Review sale & send" on the waitlist family page (Integrations plan §2.6).
   'assets/pickToSend.js',
+  // E-sign through Firma (Integrations plan §2.3a): Contract templates and the send
+  // dialog, opened from the Pro-only Contracts, Contract and waitlist family pages.
+  // Its data layer (data/cloud/cloudEsign.js, data/esignTemplates.js) stays shared.
+  'assets/esignUI.js',
   // The Companion link builder (shared by the Companion console and the guided
   // litter flow's share step) and that share step itself: guidedLitterUI.js
   // imports guidedShareUI.js dynamically only when editionFlags.waitlist or
@@ -124,6 +133,8 @@ export const PRO_ONLY_STANDALONE = [
   // used only by the Pro invoice page and the waitlist family page, and the
   // vendored jsPDF they load on demand.
   'assets/invoiceDoc.js', 'assets/invoicePdf.js', 'vendor/jspdf.umd.min.js',
+  // A family's money for its invoices and receipts (Payment Schedule plan §6).
+  'data/familyMoney.js',
   // The Invoice / Receipt generator modal, opened from Financials and a Sale's
   // page — both import it dynamically only when editionFlags.invoicing is on.
   'assets/invoiceGenerator.js',
@@ -148,6 +159,15 @@ export const PRO_ONLY_STANDALONE = [
 
 // True when a link target (an href like "contact-import.html" or with a query string)
 // points at a Pro-only page. Used by runtime gating in Lite-kept pages.
+// Pages the Demo build drops (build/assemble.mjs): no saving, exporting or
+// settings in a read-only demo. Kels's Find never offers them there.
+export const DEMO_EXCLUDED_PAGES = ['import-export.html', 'settings.html', 'assistant.html'];
+
+export function isDemoExcludedPage(href) {
+  const file = String(href || '').split('/').pop().split('?')[0];
+  return DEMO_EXCLUDED_PAGES.includes(file);
+}
+
 export function isProOnlyPage(href) {
   const file = String(href || '').split('/').pop().split('?')[0];
   return PRO_ONLY_PAGES.includes(file);

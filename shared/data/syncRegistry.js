@@ -65,6 +65,9 @@ export const SYNC_REGISTRY = Object.freeze({
       'lives_with_contact_id',
       'pedigree_only', // without it a cloud restore would turn every ancestor into a kennel dog
       'additional_registrations', // the dog's other registries and numbers; the same kind of data as registry/registration_number
+      // Imported, and its Country of origin while ticked (Website Contract Plan C4): facts
+      // about the dog like registry (owner decision 2026-11-13).
+      'imported', 'import_country',
       // Its Dog Card id (Shared Dogs Plan §3.1): a random kosd1_ id, minted when it first
       // goes on a card or received with one. Cloud so every device of hers matches the
       // same dog on the next card.
@@ -105,6 +108,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'kennelport_portal',
       'logo_data_url', 'preferred_tests', 'preferred_breeds', 'preferred_test_breeds',
       'promote_nudge_enabled', 'promote_age_male_months', 'promote_age_female_months',
+      // The name she countersigns e-sign contracts with for this kennel (Integrations
+      // D32; owner decision 2026-11-12: cloud, so every device of hers has it). It
+      // goes to Firma on each send anyway.
+      'esign_signer_name',
       // Her own waitlist setup: rules, application form questions, FAQ, fee and
       // payment instructions. Her business settings, not anyone else's personal
       // data, so cloud, or a restore couldn't run her waitlist (decided 2026-10-07,
@@ -127,7 +134,10 @@ export const SYNC_REGISTRY = Object.freeze({
       // and its groups' rules and payment plans.
       'extra_charge_list', 'extra_charge_groups',
       // Her pickup places (Family Requests plan §4): addresses, private.
-      'pickup_locations'],
+      'pickup_locations',
+      // Her saved payment schedules and what she takes for the final payment
+      // (Payment Schedule plan §3.4, D5): private like her price list.
+      'payment_schedules', 'final_payment_methods'],
     pending: []
   },
 
@@ -159,7 +169,8 @@ export const SYNC_REGISTRY = Object.freeze({
       'foster_partner_contact_id',
       'picks_opened_date', // a waitlist date: the auto-offer flow needs it after a restore
       'photos_url', // the litter's photos link: like a dog's url, and the publishing device shows it on waitlist pages
-      'show_on_website' // this litter and its puppies show on her KennelPort website (KennelPort plan 5.3); a display choice
+      'show_on_website', // this litter and its puppies show on her KennelPort website (KennelPort plan 5.3); a display choice
+      'waitlist_off' // kept off the waitlist (Waitlist Fixes Plan E3, D7: cloud): which litters the waitlist shows; a flag, nothing personal
     ],
     // Plan §5: "every price/deposit/foster-money field" — the foster comp model
     // and split basis are the terms of that money, so they stay with it.
@@ -191,7 +202,13 @@ export const SYNC_REGISTRY = Object.freeze({
       // Her open one-use Stripe link (Integrations plan §4, D9: payment-link refs are
       // cloud, so any device can match a payment): the link, Stripe's id for it,
       // which payment it's for and when it was made. Its amount is private.
-      'payment_link_url', 'payment_link_ref', 'payment_link_component', 'payment_link_date'
+      'payment_link_url', 'payment_link_ref', 'payment_link_component', 'payment_link_date',
+      // A side sale (Side Sale Spec; owner approved 2026-11-08: synced with the rest of
+      // the sale): the waitlist family, the deposit's due date, whether it holds the
+      // pup, and the disposition to put back on a cancel.
+      'side_entry_id', 'side_deposit_due', 'side_holds_pup', 'side_prior_disposition',
+      // When she sent its deposit request (Review sale & send), as an offer row keeps it.
+      'side_request_sent_date'
     ],
     private: [
       'price', 'deposit_amount', 'transport_fee', 'deferred_boarding_amount',
@@ -212,7 +229,10 @@ export const SYNC_REGISTRY = Object.freeze({
       // (plan §4 → §5): money, private like price and processing_fee_amount.
       'payment_link_amount', 'processing_fee_reports',
       // Extra charges (guide §21.2): names and amounts, money like price.
-      'extra_charges'
+      'extra_charges',
+      // Its payment schedule and the payments received (Payment Schedule plan §3.1,
+      // §3.2, D5): money, private like price.
+      'payment_schedule', 'payments'
     ],
     pending: []
   },
@@ -239,7 +259,13 @@ export const SYNC_REGISTRY = Object.freeze({
       'signed_date', 'lease_start_date', 'lease_end_date',
       // Sent for signature through one of her contract forms (Integrations plan
       // §2.1a, D9 / D15): which service, which form (its label then), and when.
-      'esign_provider', 'esign_form_label', 'esign_sent_date'
+      'esign_provider', 'esign_form_label', 'esign_sent_date',
+      // Firma's id for the signing request (plan §2.3a, D30): an id only, no
+      // buyer details, so any of her devices can show the signed copy.
+      'esign_ref',
+      // She countersigns it, after the buyer (D32), or before (…_first): yes/nos,
+      // so any of her devices shows Countersign / Sign first while it's out.
+      'esign_countersign', 'esign_countersign_first'
     ],
     // The link sent carries the prefilled facts in it (buyer's name, email, phone,
     // address, price), so it's private like those fields.
@@ -305,10 +331,13 @@ export const SYNC_REGISTRY = Object.freeze({
       // (KennelPort plan 5.3): a display choice like the four record marks.
       'show_on_website',
       // Her contract forms (Integrations plan §2.1a, D15): type, her label and the
-      // form's public share link, and for a form picked through Connect Jotform
-      // (§2.1b) its form id and her field names (field_map). Nothing about anyone
-      // else; the API key itself is device-only (device_secrets).
+      // form's public share link, and for a form once picked through Connect Jotform
+      // (retired, D27/D29) its form id and her field names (field_map). Nothing
+      // about anyone else.
       'contract_forms',
+      // Whether she signs her next new Firma template (none/first/last, D32): the
+      // choice she made last, a setting, nothing about anyone.
+      'esign_signs_default',
       // Her own payment link and payment instructions (Integrations plan §4,
       // Level 0; D9: payment-link refs are cloud): written to be sent to buyers.
       'payment_link', 'payment_instructions'
@@ -330,6 +359,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // the same-day tie-breaker of the list order (waitlistRules), so cloud for
       // the reason fee_received_date is: a restore must not re-order the list
       'fee_received_at',
+      // a family page only, never on the list (Waitlist Fixes Plan E3, D7: cloud):
+      // without it a restore would put the family on the list
+      'off_list',
       // The Payment service account the application fee was paid via (plan §4): an id.
       'fee_paid_via_account_id',
       'pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors',
@@ -389,6 +421,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // the part of their fee a credit paid (receivedCredits.js): money, private
       // like fee_amount.
       'received_credits', 'fee_credit_amount',
+      // A typed invoice / receipt number and notes, kept on the entry while the family
+      // has no sale (Payment Schedule plan D14): private like a sale's.
+      'invoice_number', 'invoice_notes',
       // Their ask, on the application, to list privately (Spec §15.3): private
       // like pause_request. What she decided rides private_listing.
       'private_request',

@@ -4,7 +4,7 @@
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
-import { saleExtraCharges, extraChargesTotal, readExtraCharges, kennelChargeList, newExtraCharge, depositFeeChargeBack,
+import { saleExtraCharges, extraChargesTotal, readExtraCharges, kennelChargeList, newExtraCharge, chargeFromPriceList, depositFeeChargeBack,
   kennelChargeGroups, groupedChargeList, chargeRules, requestWindow, readPriceList, readChargeGroups, planProblem, planText, cleanPlan,
   cleanSteps, planSteps, stepDueDate } from '../shared/data/extraCharges.js';
 import { familySale, familyExtrasView, withExtraRequest } from '../shared/data/familyExtras.js';
@@ -42,13 +42,23 @@ test('a form row with only a name or only an amount is an error; blank rows drop
   assert.ok(list[0].id, 'saving mints an id');
 });
 
-test('a price-list entry is copied onto the sale, not linked', () => {
-  const kennel = { extra_charge_list: [{ id: 'p1', label: 'Gold photo package', amount: 150 }] };
-  const [preset] = kennelChargeList(kennel);
-  const charge = newExtraCharge(preset);
-  assert.equal(charge.label, 'Gold photo package');
-  assert.equal(charge.amount, 150);
-  assert.notEqual(charge.id, preset.id);
+test('a price-list entry is copied onto the sale the same way wherever it\'s added', () => {
+  const kennel = {
+    extra_charge_list: [
+      { id: 'p1', label: 'Gold photo package', amount: 150 },
+      { id: 't1', label: '2-week training', amount: 600, group: 'Training', boarding_days: 14 }
+    ],
+    extra_charge_groups: [{ name: 'Training', payment_plan: [{ percent: 50, due: 'at_weeks', n: 6 }, { percent: 50, due: 'with_balance' }] }]
+  };
+  const [photos, training] = kennelChargeList(kennel);
+  const from = { groups: kennelChargeGroups(kennel), approvalDate: '2026-11-12', birthDate: '2026-10-15' };
+  const charge = chargeFromPriceList(photos, from);
+  assert.deepEqual({ label: charge.label, amount: charge.amount, list_id: charge.list_id }, { label: 'Gold photo package', amount: 150, list_id: 'p1' });
+  assert.notEqual(charge.id, photos.id, 'its own id: the price is copied, not linked');
+  assert.equal('payments' in charge, false, 'no plan: paid with the balance');
+  const stay = chargeFromPriceList(training, from);
+  assert.deepEqual([stay.list_id, stay.group, stay.boarding_days], ['t1', 'Training', 14]);
+  assert.deepEqual(stay.payments.map((st) => [st.percent, st.amount, st.due_date || st.due]), [[50, 300, '2026-11-26'], [50, 300, 'with_balance']]);
   assert.deepEqual({ label: newExtraCharge().label, amount: newExtraCharge().amount }, { label: '', amount: '' });
 });
 
@@ -167,11 +177,27 @@ test('groups list in first-seen order with ungrouped last; group defaults drop b
 });
 
 test('an extra follows its group\'s rules unless it has its own; no plan at all = all with the balance', () => {
-  assert.deepEqual(chargeRules(training, groups), { request_from_weeks: 7, request_until_weeks: null, cancel_until_weeks: 8, payment_plan: groups[0].payment_plan });
+  assert.deepEqual(chargeRules(training, groups), { request_from_weeks: 7, request_until_weeks: null, cancel_until_weeks: 8, payment_plan: groups[0].payment_plan, own_due_dates: false });
   const own = chargeRules({ ...training, request_from_weeks: 9, payment_plan: [{ percent: 100, due: 'on_approval' }] }, groups);
   assert.equal(own.request_from_weeks, 9);
   assert.deepEqual(own.payment_plan, [{ percent: 100, due: 'on_approval' }]);
   assert.deepEqual(chargeRules({ label: 'Photos' }, groups).payment_plan, [{ percent: 100, due: 'with_balance' }]);
+});
+
+test("paid on its own dates: the extra's own yes/no, else its group's, else no; copied onto the sale only when yes", () => {
+  const g = [{ name: 'Photo packages', own_due_dates: true }];
+  assert.equal(chargeRules({ group: 'Photo packages' }, g).own_due_dates, true);
+  assert.equal(chargeRules({ group: 'Photo packages', own_due_dates: false }, g).own_due_dates, false);
+  assert.equal(chargeRules({ own_due_dates: true }, []).own_due_dates, true);
+  assert.equal(chargeRules({}, []).own_due_dates, false);
+  // Stored: a row keeps its own true/false; a group keeps only true.
+  const list = kennelChargeList({ extra_charge_list: [{ id: 'a', label: 'Gold', amount: 150, own_due_dates: true }, { id: 'b', label: 'Silver', amount: 90, own_due_dates: false }, { id: 'c', label: 'Bronze', amount: 50, own_due_dates: 'yes' }] });
+  assert.deepEqual(list.map((x) => x.own_due_dates), [true, false, undefined]);
+  assert.deepEqual(kennelChargeGroups({ extra_charge_groups: [{ name: 'A', own_due_dates: true }, { name: 'B', own_due_dates: false }] }), [{ name: 'A', own_due_dates: true }, { name: 'B' }]);
+  // Copied onto a sale's charge only as true; a sale's charge never stores false.
+  assert.equal(chargeFromPriceList({ id: 'a', label: 'Gold', amount: 150, group: 'Photo packages' }, { groups: g }).own_due_dates, true);
+  assert.equal('own_due_dates' in chargeFromPriceList({ id: 'b', label: 'Silver', amount: 90, group: 'Photo packages', own_due_dates: false }, { groups: g }), false);
+  assert.equal(saleExtraCharges({ extra_charges: [{ id: 'x', label: 'Gold', amount: 150, own_due_dates: false }] })[0].own_due_dates, undefined);
 });
 
 test('ages become dates from the birth date: "until N weeks" ends the day before', () => {

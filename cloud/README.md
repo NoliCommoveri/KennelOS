@@ -14,7 +14,8 @@ src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
 src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops.
-                       Every Resend send is counted in mail_counts (month, kind; counts only) for /ops.
+                       Every Resend send is counted in mail_counts (month, kind; counts only) and
+                       mail_daily (UTC day, 0021) for /ops.
                        Emails to waitlist families go out in the kennel's name from
                        MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
 src/files.js           content-addressed files; R2 verifies the sha256
@@ -53,7 +54,9 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        read / take offline a kennel's projection (status-page tokens move to
                        wl_tokens), the encrypted inbox and its ack, the events stream, and
                        POST /waitlist/messages: an email her device wrote, sent to the address
-                       in her published projection with the status-link footer (W2 step 6).
+                       in her published projection with the status-link footer (W2 step 6), and
+                       POST /waitlist/preview: her hour-long, signed preview of one family's status
+                       page (View their page; no table, any of her devices)
                        Writes: the backing device, or on a syncing program the holder of the
                        two-minute lease (POST / DELETE /waitlist/lease, migration 0016)
                        Pro only (requirePro); writes from the backing device only
@@ -63,7 +66,22 @@ src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations
                        /integrations/connections/:id (revokes at the vendor), GET /integrations/events,
                        and POST /hooks/<provider>/<secret> (the adapter checks the vendor's signature
                        over the raw bytes; the event is cut to EVENT_KINDS' allow-list; a retry is
-                       kept once). Providers are adapters registered by later steps; none yet. Pro
+                       kept once). Providers are adapters; Firma (src/firma.js) is the one registered. Pro
+src/firma.js           e-sign through Firma (Integrations plan §2.3a, migrations 0022–0024): her own Firma
+                       workspace on KennelOS's account (made with FIRMA_API_KEY; then her workspace's
+                       key, sealed in her connection, does everything she asks), her templates and
+                       Firma's editor token, POST /integrations/esign/send within the monthly limit
+                       (esign_sends; default 10, /ops sets it and an account's own, esign_limits),
+                       the signed-PDF link, her own signing link when she countersigns (GET
+                       /integrations/esign/countersign, D32), and the adapter for POST /hooks/firma/<secret>
+                       (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro.
+                       Also serves Firma's template editor page, public/esign/, at /esign/editor:
+                       sandboxed (an opaque origin, so Firma's script never reaches /ops cookies),
+                       opened in its own tab by her device with the token in the fragment (D31).
+                       Signed copies she asks to keep (D33): runEsignCopies (hourly cron) copies
+                       each completed one to R2 (esign/<program>/<send id>.pdf) and emails the
+                       buyer a link; GET /signed/<send id>/<mac> serves it (mac = HMAC of the id
+                       with INT_TOKEN_KEY)
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -123,6 +141,7 @@ src/assist.js          assisted setup and help: the editions' /assist/* routes (
                        them the owner-only routes (OWNER_ONLY). Optional var PRO_APP_URL (where the
                        links open; default https://pro.kennelos.app). Migration 0020
 src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
+                       yesterday and the average per day over the previous 30 days,
                        outbox, notices, retention, export/import, and Delete an account (look up by
                        email, then delete, optionally erasing its devices: program.js removeAccount;
                        a deleted account's token hashes stay 90 days in account_deletions, 0020, so
@@ -135,6 +154,7 @@ src/lib/sql.js         statement splitter (ported verbatim from MCCE)
 src/migrations/        NNNN_name.sql files + index.js, the ordered list the runner reads
 public/family/         the family pages' static files (no build step; strict CSP, so no inline
                        script or style); tests/familyPages.test.js in the repo root pins their labels
+public/esign/          Firma's template editor page (src/firma.js serveEsignEditor; sandboxed)
 tests/                 node --test against a node:sqlite stand-in for D1;
                        tests/helpers/serve.mjs runs the Worker locally to look at the pages
 ```
@@ -179,6 +199,17 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   amount, fee, date: no names, emails or documents). Vendor tokens are sealed with
   `INT_TOKEN_KEY` (set it before any provider can connect: `integrations_not_configured`
   until then); changing that secret makes every stored token unreadable, so don't.
+- **A kept signed copy outlives the year.** Retention keeps an `esign_sends` row with a
+  `copy_key` (the buyer's link reads it); account deletion removes `esign/<program>/` and the
+  rows. The buyer's email is read from Firma when the copy is emailed, never stored. The R2
+  sweep leaves `esign/` keys alone (it knows only `files/` and `snapshots/`). Changing
+  `INT_TOKEN_KEY` also breaks every emailed copy link.
+- **Every Firma send costs KennelOS a credit, so it is counted first.** `esign_sends` gets its
+  row before Firma is called, and only while the month (UTC) is under the program's limit. A
+  send Firma refused frees its row; one with no answer keeps it as `unknown` (its credit may be
+  spent) and /ops shows how many. Firma has no idempotency key: never retry a send blindly.
+  Firma can't delete a workspace through its API, so disconnect and account deletion only
+  remove the webhook; a deleted account's workspace is removed by hand in Firma's dashboard.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
@@ -209,6 +240,8 @@ connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`
 `EMAIL_HMAC_KEY`, `RESEND_API_KEY`, (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`, and
 (for vendor integrations, Integrations plan §0) `INT_TOKEN_KEY`, a long random string,
 (for driving miles, Family Requests plan §5) `MAPBOX_TOKEN`, a Mapbox access token,
+(for e-sign, Integrations plan §2.3a) `FIRMA_API_KEY`, the master key of KennelOS's Firma
+company (staging sets `FIRMA_TEST_MODE = "true"`, so its workspaces use their free test keys),
 with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Waitlist emails go out
 from `MAIL_FAMILY_DOMAIN` (`mail.kennelos.app`, its own sending domain verified in Resend;
 the same `RESEND_API_KEY` must be allowed to send from it), with links to

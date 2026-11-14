@@ -19,6 +19,7 @@ import { limitBucket } from './ratelimit.js';
 import { backingInfo } from './snapshots.js';
 import { assertMailAvailable, familyFooter, familySender, sendFamilyMessage } from './mail.js';
 import { fail } from './lib/http.js';
+import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 
 // A kennel's portable public identity, as shared/data/kennelRepo.js mints it.
 export const PUBLIC_ID = /^kos1_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -275,6 +276,41 @@ export async function readEvents(env, auth, url) {
   };
 }
 
+// --- Her preview of a family's page ------------------------------------------------
+//
+// "View their page" (the app's waitlist-entry Interact tab): one family's status page
+// as they see it signed in, its buttons working but nothing sent. The preview is a
+// signature over the page's token and an end time, so it needs no table; it rides in
+// the address's #fragment (never sent to a server or in a referrer) and the page
+// passes it to GET /f/status in a header. It never stands in for a family session:
+// /f/act, /f/message and /f/portal don't read it.
+export const PREVIEW_MS = 60 * 60 * 1000;
+const PREVIEW = /^(\d{13})\.([0-9a-f]{64})$/;
+const previewSig = (env, token, until) => hmacHex(env.EMAIL_HMAC_KEY, `status-preview:${token}:${until}`);
+
+// → the ISO end time while `value` is a live preview of this token's page, else null.
+export async function previewUntil(env, token, value, now = Date.now()) {
+  const m = typeof value === 'string' ? PREVIEW.exec(value) : null;
+  if (!m || Number(m[1]) <= now || Number(m[1]) > now + PREVIEW_MS) return null;
+  return timingSafeEqual(m[2], await previewSig(env, token, m[1])) ? new Date(Number(m[1])).toISOString() : null;
+}
+
+// POST /waitlist/preview {public_id, entry_id} → { token, preview, until }: any of her
+// devices may ask (it only reads). The token is the one published for that family,
+// so the app opens the page the family has now.
+export async function previewStatusPage(env, auth, payload, now = new Date()) {
+  await herSide(env, auth);
+  const { public_id: publicId, entry_id: entryId } = payload || {};
+  checkPublicId(publicId);
+  if (typeof entryId !== 'string' || !ENTRY_ID.test(entryId)) fail(400, 'bad_entry');
+  if (!(await ownedProjection(env, auth, publicId))) fail(409, 'not_published');
+  const row = await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND program_id = ? AND entry_id = ?')
+    .bind(publicId, auth.programId, entryId).first();
+  if (!row) fail(409, 'no_link');
+  const until = String(now.getTime() + PREVIEW_MS);
+  return { token: row.token, preview: `${until}.${await previewSig(env, row.token, until)}`, until: new Date(Number(until)).toISOString() };
+}
+
 // --- Emails to families (W2 Plan §8, step 6) ---------------------------------------
 //
 // POST /waitlist/messages {id, public_id, entry_id, kind, subject, body}: her
@@ -288,6 +324,8 @@ export const EMAIL_KINDS = ['approved', 'on_list', 'declined', 'offer', 'pass_re
   'review_prefs', 'litter_born', 'request_approved', 'request_declined', 'status_link', 'note',
   // Getting their pup home (Family Requests plan §5.1): only ever sent by her.
   'transport_options',
+  // A back-out she approved, one wording per outcome (what happened to the deposit).
+  'backed_out_keep', 'backed_out_move', 'backed_out_refund',
   // Sent by the server itself (serverMoves.js, step 7), from the templates she publishes.
   'offer_reminder', 'fee_reminder', 'ready_check'];
 export const MESSAGE_LIMITS = { perHour: 300, subjectMax: 200, bodyMax: 8000 };
