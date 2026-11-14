@@ -4262,3 +4262,8 @@ tick box per template; buyers get an emailed link.
     `pedigreeParse.js` is import-free.
 
   No code yet.
+
+## 2026-11-14: session-start check for unmerged work
+
+- `CLAUDE.md` gains "Session start": before replying to the first request, check open PRs and
+  branches with commits main lacks, give a one-sentence summary and offer to bring them in.
