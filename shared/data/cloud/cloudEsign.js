@@ -296,14 +296,19 @@ function whereToFill(name) {
 export function previewNotes(form, facts, fields) {
   if (!Array.isArray(fields)) return null;
   const labels = factLabels();
-  const ofKind = new Set([...(PREFILL_FIELDS.every || []), ...fieldGroupsFor(form?.form_type).flatMap((g) => PREFILL_FIELDS[g] || [])].map(([n]) => n));
-  const have = new Set(prefillValues(form, facts).map(([n]) => n));
+  // Firma may hold a field's name in another case (the Worker fills it case aside), so
+  // names are compared lower-cased.
+  const lc = (n) => String(n).toLowerCase();
+  const ofKind = new Set([...(PREFILL_FIELDS.every || []), ...fieldGroupsFor(form?.form_type).flatMap((g) => PREFILL_FIELDS[g] || [])].map(([n]) => lc(n)));
+  const have = new Set(prefillValues(form, facts).map(([n]) => lc(n)));
+  const canonical = new Map([...labels.keys()].map((n) => [lc(n), n]));
   const empty = fields.filter((f) => f && !f.filled).map((f) => {
-    const label = String(f.label || (f.fact && labels.get(f.fact)) || 'A field');
-    if (!f.fact) return { label, why: 'Not one of KennelOS\'s details, so KennelOS can\'t fill it. Remove it in Place fields, or set its prefilled data to a KennelOS detail.' };
-    if (f.sent || have.has(f.fact)) return { label, why: 'KennelOS sent a value, but Firma left it empty. Check the field in Place fields.' };
-    if (!ofKind.has(f.fact)) return { label, why: `KennelOS doesn't fill this detail on a template marked "${descriptor(CONTRACT_FORM_TYPE, form?.form_type).label}", so it stays blank. Remove it in Place fields, or mark the template as a kind that fills it.` };
-    return { label, why: `Blank on this contract: add it on ${whereToFill(f.fact)}, then preview again.` };
+    const fact = f.fact ? canonical.get(lc(f.fact)) || f.fact : null;
+    const label = String(f.label || (fact && labels.get(fact)) || 'A field');
+    if (!fact) return { label, why: 'Not one of KennelOS\'s details, so KennelOS can\'t fill it. Remove it in Place fields, or set its prefilled data to a KennelOS detail.' };
+    if (f.sent || have.has(lc(fact))) return { label, why: 'KennelOS sent a value, but Firma left it empty. Check the field in Place fields.' };
+    if (!ofKind.has(lc(fact))) return { label, why: `KennelOS doesn't fill this detail on a template marked "${descriptor(CONTRACT_FORM_TYPE, form?.form_type).label}", so it stays blank. Remove it in Place fields, or mark the template as a kind that fills it.` };
+    return { label, why: `Blank on this contract: add it on ${whereToFill(fact)}, then preview again.` };
   });
   return { total: fields.length, filled: fields.filter((f) => f && f.filled).length, empty };
 }

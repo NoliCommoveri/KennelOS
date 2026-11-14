@@ -3148,6 +3148,11 @@ Share with families hint and the card's badge say so for this type.
     `placement` event `goHome.pickupEvent` builds) and the facts are read again; Skip sends
     without.
   `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
+  Which groups of `PREFILL_FIELDS` a template kind fills (`contractForms.fieldGroupsFor`),
+  after `every` (contract, kennel and `breeder*`): pet home, breeding rights and deposit the
+  sale; transport, boarding and extra the sale and their own; stud service its own; lease and
+  foster the dog; co-own and Other the sale and the dog (the dog's other party only when
+  there's no sale: on a sale it's the buyer).
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
@@ -3298,6 +3303,7 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
       how many are filled and each empty one with why (`cloudEsign.previewNotes`): blank on
       this contract (and where to add it), a detail KennelOS doesn't fill on a template of
       this kind, not a KennelOS detail, or sent but left empty by Firma.
+      Fact names are compared case aside, as the Worker fills them.
     - **What goes in** (in the Send dialog, before any preview): every detail this send fills,
       by its label in Firma's editor, with its value from the device (`cloudEsign.sendDetails`;
       styles `.esign-detail*` in `app.css`).

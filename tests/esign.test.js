@@ -596,3 +596,18 @@ test('previewNotes: each empty prefilled field with why', () => {
   assert.match(n.empty[3].why, /Firma left it empty/);
   assert.equal(esign.previewNotes(form, facts, null), null, 'an older Worker sends no list');
 });
+
+test('previewNotes: a field name Firma holds in another case is still KennelOS\'s', () => {
+  const facts = { sale: { id: 's1' }, buyer: { name: 'Ann Lee' } };
+  const n = esign.previewNotes({ form_type: 'breeding_rights' }, facts, [
+    { fact: 'breederaddress', label: null, filled: false, sent: false, signer: 1 },
+    { fact: 'BUYERADDRESS', label: 'Buyer · Address', filled: false, sent: false, signer: 1 },
+    { fact: 'buyername', label: 'Buyer · Full name', filled: false, sent: false, signer: 1 },
+    { fact: 'studfee', label: 'Stud · Fee', filled: false, sent: false, signer: 1 }
+  ]);
+  assert.equal(n.empty[0].label, 'Breeder · Address', 'its label found case aside');
+  assert.match(n.empty[0].why, /^Blank on this contract: add it on your own contact/);
+  assert.match(n.empty[1].why, /^Blank on this contract: add it on the buyer's contact/);
+  assert.match(n.empty[2].why, /Firma left it empty/, 'a value went out for it');
+  assert.match(n.empty[3].why, /doesn't fill this detail on a template marked "Breeding rights contract"/);
+});
