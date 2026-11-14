@@ -161,6 +161,22 @@ test('dog: matches by an additional registration — its number alone, or its re
   assert.equal(byName.match?.id, 'dog-9');
 });
 
+test('dog: titles and country_of_origin columns; titles are add-only on an update', () => {
+  const index = dogIndex({ dogs: [] });
+  const created = dogMapping.classify(validDogRow({ titles: 'GCH CH, CGC', country_of_origin: ' Serbia ' }), index, 0);
+  assert.deepEqual(created.record.titles.map((t) => t.abbr), ['GCH', 'CH', 'CGC']);
+  assert.equal(created.record.country_of_origin, 'Serbia');
+  assert.ok(!('titles' in dogMapping.classify(validDogRow(), index, 0).record), 'a blank cell sets nothing');
+
+  const existing = { id: 'dog-1', call_name: 'Rex', date_of_birth: '2022-05-04', titles: [{ abbr: 'CH', organization: 'AKC', earned_on: '2021-01-01' }, { abbr: 'RN', organization: '', earned_on: '' }] };
+  const upd = dogMapping.classify(validDogRow({ titles: 'GCH ch' }), dogIndex({ dogs: [existing] }), 0);
+  assert.equal(upd.status, 'update');
+  assert.deepEqual(upd.changes.titles, [
+    { abbr: 'CH', organization: 'AKC', earned_on: '2021-01-01' }, { abbr: 'RN', organization: '', earned_on: '' },
+    { abbr: 'GCH', organization: '', earned_on: '' }
+  ]);
+});
+
 test('dog: falls back to call_name + DOB when no registered_name is given', () => {
   const existing = { id: 'dog-2', registered_name: 'Zeus', call_name: 'Buddy', date_of_birth: '2021-01-01' };
   const index = dogIndex({ dogs: [existing] });

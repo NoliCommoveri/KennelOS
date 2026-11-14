@@ -4300,3 +4300,24 @@ tick box per template; buyers get an emailed link.
 
 - `CLAUDE.md` gains "Session start": before replying to the first request, check open PRs and
   branches with commits main lacks, give a one-sentence summary and offer to bring them in.
+
+## 2026-11-14: dog titles as a field, phase 1 (core and data layer)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 1. No UI yet.
+- New pure modules: `data/registryCountries.js` (`REGISTRY_COUNTRIES`, `countryOfRegistry`,
+  ISO-3 `countryName`, `homeCountry`; KSS → Serbia; the ambiguous codes left off) and
+  `data/dogTitles.js` (`titlesOf` merging the field, `title_earned` events and name titles;
+  `normalizeTitles`, `displayName`, `feedOrder`, `holdsTitle`, `abbrKey`, `sameTitle`).
+- `pedigreeParse.js`: `TITLE_PREFIXES` exported (the old `TITLES` plus AKC's prefix lists);
+  `splitTitles` takes a repeat number (GCHP2, MACH3).
+- New plain fields `Dog.titles` and `Dog.country_of_origin`, both cloud (D2, D8):
+  `dogRepo` normalizes / trims them on every write that carries them; `syncRegistry` and
+  the regenerated `cloud/src/lib/cloudFields.js` list them.
+- Dog Card: `titles` (a new `titles` kind, field only) and `countryOfOrigin`; old cards read
+  both as empty. CSV dog import: `titles` (add-only on an update) and `country_of_origin`
+  columns, with help lines.
+- `PRECACHE_URLS` gains both modules. No cache bump.
+- KennelPort's reply on titles and `origin_country` recorded in the plan's §6.1.
+- Tests: `registryCountries.test.js`, `dogTitles.test.js`, plus prefix/repeat-number cases in
+  `pedigreeParse.test.js`, a card round trip in `dogCard.test.js`, the CSV columns in
+  `csvImport.test.js`.

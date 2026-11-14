@@ -11,6 +11,7 @@ export const CLOUD_FIELDS = {
         "call_name",
         "co_owner_contact_ids",
         "color_markings",
+        "country_of_origin",
         "created_at",
         "dam_id",
         "date_of_birth",
@@ -41,6 +42,7 @@ export const CLOUD_FIELDS = {
         "show_on_website",
         "sire_id",
         "status",
+        "titles",
         "updated_at",
         "url",
         "waitlist_tests"
