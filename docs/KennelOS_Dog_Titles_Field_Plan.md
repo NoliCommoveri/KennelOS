@@ -166,7 +166,7 @@ Today card: tidy-up checks run only inside Kels.
 | 2. Titles stored as data, not just in notes | `Dog.titles` (§2), written by chart import (§4) |
 | 3. Existing chart imports, once | §5: two new checks in Kels's Tidy up my records, which she confirms. KennelPort plays no part. |
 | 4. Registered names that still carry titles | D5, and the same tidy-up |
-| 5. Offer Imported for a foreign registry | §4 chart import: country of origin from a foreign registry, and Imported suggested only at the boundary dog (D7, D8), which she confirms |
+| 5. Offer Imported for a foreign registry | §4 chart import: country of origin from a foreign registry, and Imported suggested from the parents' registrations (D7, D8), which she confirms on the review screen |
 
 The titles work needs **no contract change**: same sections, same keys, and KennelPort
 needs no release first. **Country of origin does need one** (D8, §6.1).
