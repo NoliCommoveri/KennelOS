@@ -4594,8 +4594,8 @@ tick box per template; buyers get an emailed link.
   credit order) reach `depositDue` / `purchaseBalanceDue` alongside recorded payments, matching
   what the Payments card's statement has left on the deposit and the price.
 - **Tests:** `tests/priceTable.test.js` (the before/after case now expects 0 after, by date,
-  by status, and both; paid-deposit cases expect 0; +1: credits, a credited fee and a payment
-  together match the payment statement), `tests/esign.test.js` (a `deposit_paid` sale's
+  by status, and both; paid-deposit cases expect 0; +1: credits, with and without a credited fee or
+  a recorded payment, match the payment statement), `tests/esign.test.js` (a `deposit_paid` sale's
   facts). `node --test` 1957 pass.
 - **Docs:** End-State guide (the sale's payment table).
 - No new files, no schema change.

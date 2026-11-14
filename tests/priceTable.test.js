@@ -134,19 +134,20 @@ test('every field label fits Firma\'s 100 characters, and no dropped field is ba
   assert.equal(names.size, 88); // + the payment schedule's 8 (Payment Schedule plan §8.1)
 });
 
-test('credits and payments together: the table says what the payment statement has left', async () => {
+test('credits with or without payments: the table says what the payment statement has left', async () => {
   const { paymentStatement } = await import('../shared/data/paymentSchedule.js');
   const { creditsOf, feeCharge } = await import('../shared/data/receivedCredits.js');
   const left = (st, key) => st.charges.filter((c) => c.key === key).reduce((t, c) => t + c.amount, 0)
     - st.received.reduce((t, r) => t + r.pays.filter((p) => p.key === key).reduce((u, p) => u + p.amount, 0), 0);
   const credits = [[{ id: 'c1', amount: 300, date: '2026-08-01' }], [{ id: 'c1', amount: 1000, date: '2026-08-01', applies_to: ['price'] }],
     [{ id: 'c1', amount: 2000, date: '2026-08-01' }]];
-  for (const cr of credits) for (const fc of [null, toDeposit, toBalance]) for (const dated of [false, true]) {
+  const paymentSets = [[], [{ id: 'p1', amount: 600, date: '2026-11-01' }]];
+  for (const cr of credits) for (const fc of [null, toDeposit, toBalance]) for (const dated of [false, true]) for (const payments of paymentSets) {
     const e = entry({ received_credits: cr });
-    const s = { ...sale, ...(dated ? { deposit_date: '2026-10-01' } : {}), payments: [{ id: 'p1', amount: 600, date: '2026-11-01' }] };
+    const s = { ...sale, ...(dated ? { deposit_date: '2026-10-01' } : {}), payments };
     const st = paymentStatement(s, { feeCredit: fc, credits: creditsOf(e), feeCharges: feeCharge(e) });
     const t = priceTable(s, { feeCredit: fc || undefined, received: familyCredit(e, s, fc || 0).received });
-    const why = JSON.stringify({ cr, fc, dated, t });
+    const why = JSON.stringify({ cr, fc, dated, payments, t });
     assert.equal(t.depositDue, Math.round(left(st, 'deposit') * 100) / 100, why);
     assert.equal(t.balanceDue, Math.round(left(st, 'balance') * 100) / 100, why);
     adds(t, s);
