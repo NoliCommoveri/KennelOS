@@ -4508,3 +4508,20 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
 - No new files. `CACHE_NAME` bumped to `kennelos-shell-v138` (owner asked), also covering the
   preview-notes batch above. Needs the Worker deploy too.
+
+## 2026-11-14: Firma labels for every field; step 2 by preview (Payment schedules step 5)
+
+- **Seen (owner):** `buyerEmail` read **Buyer · Email** in Firma's editor after Place fields and
+  still filled on a preview, so a relabelled field keeps working. The owner also decided (last
+  session, recorded now as D37) that plan §8.2 step 2 is checked with a preview, not with her
+  Firma test API key.
+- **Change (app):** `cloudEsign.RELABEL_FIELDS` is every fact name (`factFields()`), so the next
+  Place fields (or Set up) brings every existing workspace field to its grouped label; names
+  never change. No Worker change: it already relabels up to 40 a call within its outbound cap.
+- **Tests:** `tests/esign.test.js`: the label test checks every fact is relabelled; +1 (an old
+  workspace's fields all relabelled on the next sync, names unchanged, no calls once right; the
+  fake answers PATCH). `node --test` and `cd cloud && npm test` pass.
+- **Docs:** Payment Schedule plan §8.2 (Modified note, step 2), D15 Modified, D37, build order
+  step 5; End-State guide §32; launch checklist (first field ticked, every-field check added);
+  README Status.
+- No new files. `CACHE_NAME` not bumped.

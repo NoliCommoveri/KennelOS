@@ -143,8 +143,16 @@ function makeFake() {
     if (method === 'POST' && path === '/webhooks') { f.webhookUrl = body.url; return reply(201, { id: 'wh_1' }); }
     if (/^\/workspace\/[^/]+\/custom-fields$/.test(path)) {
       if (method === 'GET') { f.fieldCalls++; return reply(200, f.fields); }
-      f.fields.push(body);
-      return reply(201, body);
+      f.fields.push({ id: `cf_${f.fields.length}`, ...body });
+      return reply(201, f.fields[f.fields.length - 1]);
+    }
+    // One field's label changed (PATCH); its name never.
+    if (method === 'PATCH' && (m = /^\/workspace\/[^/]+\/custom-fields\/([^/]+)$/.exec(path))) {
+      const row = f.fields.find((x) => x.id === m[1]);
+      if (!row) return reply(404, {});
+      f.relabels = (f.relabels || 0) + 1;
+      row.field_label = body.field_label;
+      return reply(200, row);
     }
     if (method === 'GET' && path === '/templates') return reply(200, { results: [...f.templates.values()] });
     if (method === 'POST' && path === '/templates') {
@@ -236,15 +244,29 @@ test('the facts go to Firma as custom fields, each once, in calls of at most 40'
   assert.ok(names.length > 40, 'more than one call');
 });
 
-test('each fact has its own grouped label in Firma\'s editor; only the first field is relabelled for now', async () => {
+test('each fact has its own grouped label in Firma\'s editor; every existing field is relabelled to it', async () => {
   const fields = esign.factFields();
   for (const f of fields) assert.match(f.label, /^[A-Z][\w ]* · \S/, `${f.name}: "${f.label}"`);
   assert.equal(new Set(fields.map((f) => f.label)).size, fields.length, 'no two facts look the same');
   assert.ok(fields.every((f) => f.label.length <= 100));
   const { FIRMA_LABELS } = await import('../shared/data/contractForms.js');
   assert.deepEqual(Object.keys(FIRMA_LABELS).sort(), fields.map((f) => f.name).sort(), 'no label for a fact that isn\'t one');
-  assert.deepEqual(esign.RELABEL_FIELDS, ['buyerEmail']);
+  assert.deepEqual([...esign.RELABEL_FIELDS].sort(), fields.map((f) => f.name).sort(), 'every fact is relabelled');
   assert.equal(fields.find((f) => f.name === 'buyerEmail').label, 'Buyer · Email');
+});
+
+test('a workspace set up before the group labels gets every field relabelled on the next sync, names unchanged', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  for (const f of fake.fields) f.field_label = 'old label';
+  const names = fake.fields.map((f) => f.field_name);
+  assert.equal(await esign.syncFactFields(), 0, 'nothing new is added');
+  assert.equal(fake.relabels, names.length);
+  assert.deepEqual(fake.fields.map((f) => f.field_name), names);
+  const want = new Map(esign.factFields().map((f) => [f.name, f.label]));
+  assert.ok(fake.fields.every((f) => f.field_label === want.get(f.field_name)));
+  await esign.syncFactFields();
+  assert.equal(fake.relabels, names.length, 'already right: no more calls');
 });
 
 test('signed out: nothing is offered and nothing is asked of the server', async () => {
