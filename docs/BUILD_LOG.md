@@ -4545,3 +4545,19 @@ tick box per template; buyers get an emailed link.
   like Firma (20 without `page_size`). `cd cloud && npm test` 342 pass, `node --test` 1954 pass.
 - **Docs:** End-State guide §32.
 - No new files; no app change, so no cache bump. Needs the Worker deploy.
+
+## 2026-11-14: Firma's doubled fields removed by the sync
+
+- **Seen (owner):** still every field twice in the editor's prefilled-field list, one copy right
+  below the other. The paged list stopped new copies; the old ones were still there, and the
+  owner had no way to find them in Firma. No contract template is in use, so nothing needs them.
+- **Change (Worker, no migration):** `firma.removeCopies`: a field name in her workspace more
+  than once loses its later copies (`DELETE /workspace/{ws}/custom-fields/{id}`, the relabel's
+  path; not proven against Firma's docs), the first copy kept. Within the 45-call budget, so one
+  Place fields (three sync calls) clears 88 doubles; a refusal is logged (fact name, status) and
+  stops the deletes for that request, never fatal. The sync answers `removed` too.
+- **Tests:** `cloud/tests/esign.test.js` +1 (88 doubles removed, first copies kept; a refusal
+  answers 200), the paging test's doubled name now loses its copy; results carry `removed`.
+  `cd cloud && npm test` 343 pass, `node --test` 1955 pass.
+- **Docs:** End-State guide §32.
+- No app change, so no cache bump. Needs the Worker deploy; then one Place fields.

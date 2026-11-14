@@ -271,7 +271,9 @@ export async function connectFirma(env, auth, url, body, now = new Date()) {
 // it is safe to repeat; at most 40 per call (a Worker's outbound calls are capped).
 // `relabel`: fields already there whose label is brought up to the one given (the
 // group prefixes, Payment Schedule plan §8.2): only one that differs, never fatal.
-// → { added, relabelled, relabelFailed }
+// A name in her workspace more than once (made twice by an older Worker that read only
+// the list's first page) loses its later copies, any name, not just this call's.
+// → { added, removed, relabelled, relabelFailed }
 const FIELD_CALL_BUDGET = 45; // outbound calls per request, under the Worker's 50
 export async function syncFirmaFields(env, auth, body) {
   await herSide(env, auth);
@@ -285,9 +287,12 @@ export async function syncFirmaFields(env, auth, body) {
   const { rows, complete, calls: listCalls } = await workspaceFields(env, secrets.apiKey, ws);
   // The first copy of a name is the one kept (relabelled); a later copy is never made.
   const byName = new Map();
+  const extra = [];
   for (const r of rows) {
     const key = String(r?.field_name ?? '').toLowerCase();
-    if (key && !byName.has(key)) byName.set(key, r);
+    if (!key) continue;
+    if (!byName.has(key)) byName.set(key, r);
+    else if (r.id != null && ALIAS.test(String(r.id))) extra.push(r);
   }
   let calls = listCalls;
   let added = 0;
@@ -302,8 +307,10 @@ export async function syncFirmaFields(env, auth, body) {
     byName.set(f.name.toLowerCase(), { field_name: f.name, field_label: f.label });
     added++;
   }
+  const { removed, calls: removeCalls } = await removeCopies(env, secrets.apiKey, ws, extra, FIELD_CALL_BUDGET - calls);
+  calls += removeCalls;
   const relabelled = await relabelFields(env, secrets.apiKey, ws, wanted.filter((f) => relabel.has(f.name.toLowerCase())), byName, FIELD_CALL_BUDGET - calls);
-  return { added, ...relabelled };
+  return { added, removed, ...relabelled };
 }
 
 // Every custom field in her workspace, page by page (Firma pages its lists; reading
@@ -327,6 +334,25 @@ async function workspaceFields(env, key, ws) {
     if (!fresh.length) break;
   }
   return { rows, complete: false, calls };
+}
+
+// Delete the later copies of a doubled field: DELETE /workspace/{ws}/custom-fields/{id}
+// (the same path the relabel uses; not proven against Firma's docs). Never fatal: a
+// refusal is logged and stops the deletes for this request; the next sync carries on,
+// as it does past the call budget. Logged: the fact name and Firma's status, never a value.
+async function removeCopies(env, key, ws, extra, budget) {
+  let removed = 0;
+  let calls = 0;
+  for (const row of extra) {
+    if (calls >= budget) break;
+    const r = await firma(env, key, 'DELETE', `/workspace/${ws}/custom-fields/${encodeURIComponent(String(row.id))}`);
+    calls++;
+    if (ok(r) || r.status === 404) { removed++; continue; }
+    console.warn(`firma: removing a second ${text(row.field_name)} failed: ${r.status}${firmaCode(r) ? ` ${firmaCode(r)}` : ''}`);
+    break;
+  }
+  if (removed) console.log(`firma: removed ${removed} doubled field(s)`);
+  return { removed, calls };
 }
 
 // Bring existing fields' labels up to date. Firma's docs say a workspace custom

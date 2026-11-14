@@ -3222,12 +3222,14 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     (`firma.syncFirmaFields`) reads her fields page by page (`workspaceFields`: 100 a page, at most
     4 pages; a name seen twice keeps its first copy), adds the missing ones only when the list
     is known whole (a short last page; else it logs and adds none, so no field is ever made
-    twice; a 409 counts as already there) and, for the names in the call's `relabel`
+    twice; a 409 counts as already there), deletes the later copies of any name there twice
+    (`removeCopies`: `DELETE /workspace/{ws}/custom-fields/{id}`, within the call budget, a
+    refusal logged and never fatal) and, for the names in the call's `relabel`
     (`cloudEsign.RELABEL_FIELDS`: every fact name; a relabelled field keeps its name and
     still fills), brings an existing field's label up to date: `PATCH
     /workspace/{ws}/custom-fields/{id}` with the label, else (404/405) `PUT` with its unchanged
     name too, never fatal, at most 45 outbound calls a request; the log names the fact, method
-    and Firma's status. → `{ added, relabelled, relabelFailed }`. The sync runs on Set up
+    and Firma's status. → `{ added, removed, relabelled, relabelFailed }`. The sync runs on Set up
     and each **Place fields**.
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
   - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
