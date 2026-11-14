@@ -4589,8 +4589,13 @@ tick box per template; buyers get an emailed link.
   price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` still holds. This replaces
   "the same before and after the deposit is marked paid" (2026-11-12). The `depositDue` fact's
   description (Accounts page) says "0 once received"; its Firma label is unchanged.
+- **Credits traced (owner):** a family's credits for funds received (`received_credits` on their
+  waitlist entry, `getSaleCredits` → `familyCredit`, the fee first, then the sale's lines in
+  credit order) reach `depositDue` / `purchaseBalanceDue` alongside recorded payments, matching
+  what the Payments card's statement has left on the deposit and the price.
 - **Tests:** `tests/priceTable.test.js` (the before/after case now expects 0 after, by date,
-  by status, and both; paid-deposit cases expect 0), `tests/esign.test.js` (a `deposit_paid`
-  sale's facts). `node --test` 1956 pass.
+  by status, and both; paid-deposit cases expect 0; +1: credits, a credited fee and a payment
+  together match the payment statement), `tests/esign.test.js` (a `deposit_paid` sale's
+  facts). `node --test` 1957 pass.
 - **Docs:** End-State guide (the sale's payment table).
 - No new files, no schema change.
