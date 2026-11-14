@@ -366,7 +366,7 @@ Plan:
 1. **Relabel her existing workspace fields with a group prefix** ("Buyer · Email", "Pup ·
    Microchip", "Sale · Deposit", "Payment · 1st due date"). Names don't change, so nothing
    placed breaks. First relabel one, and check it still fills on a test send.
-2. **Test with her test API key** (free, watermarked), on a throwaway template with three
+2. **Test with a preview** (D37: not a test API key), on a throwaway template with three
    template fields:
    - Does the editor show workspace fields beside template fields?
    - What name does a placed template field carry on send?
@@ -380,14 +380,13 @@ Plan:
 5. **Editor display:** pass `autoFit` / `initialZoom` so it opens fitted to the page on a
    phone.
 
-**Modified (as built, D30):** step 1 is built, unproven: every fact has a grouped label
+**Modified (as built, D30, D37):** step 1 is built: every fact has a grouped label
 (`contractForms.FIRMA_LABELS`); new fields are made with it, and the Worker relabels the
-existing fields the device names (`cloudEsign.RELABEL_FIELDS`, `buyerEmail` only for now) by
-a best guess at Firma's call (`PATCH …/custom-fields/{id}`, else `PUT`), never fatal. Firma's
-docs weren't reachable when it was built. Next: one Place fields, then a test send that
-`Buyer · Email` still fills (`docs/LAUNCH_CHECKLIST.md`), then every name in
-`RELABEL_FIELDS`. Steps 2–5 (the test-key check, per-template fields, moving templates,
-`autoFit`) are not built: step 3 waits on what step 2 finds.
+existing fields the device names (`cloudEsign.RELABEL_FIELDS`: every fact) through
+`PATCH …/custom-fields/{id}`, else `PUT`, never fatal. The owner proved it on `buyerEmail`
+first: it read **Buyer · Email** in the editor and still filled on a preview. Step 2 uses a
+preview, not the test API key (D37). Steps 2–5 (the preview check, per-template fields,
+moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
 
 ---
 
@@ -431,7 +430,7 @@ docs weren't reachable when it was built. Next: one Place fields, then a test se
 | D17 | The fee-added prompt shows every time a transport fee, boarding or an extra is added, schedule or not. |
 | D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
 | D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |
-| D15 | Firma: group prefixes on workspace fields now. Per-template fields with type prefixes after the test-key check. |
+| D15 | Firma: group prefixes on workspace fields now. Per-template fields with type prefixes after the test-key check. **Modified (D37):** the check is a preview. |
 | D25 | A family in the generator is a waitlist entry and its one sale, or a sale no entry claims. Two pups bought separately are two families. |
 | D26 | The part of a charge a credit covers is not in Receivables (nothing is owed on it); it stays Anticipated in Financials until its due date. One whose due date can't be known yet is earned once the deposit is received (the deposit) or the sale is paid in full (the rest). |
 | D27 | The generator doesn't edit a line's Due by; due dates come from the schedule. |
@@ -444,6 +443,7 @@ docs weren't reachable when it was built. Next: one Place fields, then a test se
 | D34 | A paid non-deposit Stripe link becomes a row in `Sale.payments`, never paid in full by itself (D22). The prompt: the sale's Payments card shows **Mark paid in full** whenever everything is paid and the sale isn't marked (any path), and a Stripe payment that covers everything also leaves a Today item. |
 | D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
 | D36 | Step 7: Today's payment nudges cover every open sale (no schedule = its one due date). Pups are going home's Balance item becomes **Payments**, done when nothing is owed. Review my waitlist takes payments due: Received / Not yet / Open the sale. Pups are going home offers a pickup message (the day, what's owed by then, final-payment methods). |
+| D37 | §8.2 step 2 is checked with a preview of a real send (the Send dialog's Preview and its notes on filled and empty fields), not with her Firma test API key. |
 
 ---
 
@@ -462,9 +462,9 @@ is dated by `deposit_date`, which those three places can still set from a credit
 4. **Invoices and receipts:** the per-family generator, the applicant page's Documents, the
    two regression tests.
 5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
-   **Built:** the prefills (§8.1) and the relabel (§8.2 step 1, one field, unproven). Open:
-   proving the relabel on a send, then relabelling every field; the test-key check;
-   per-template fields.
+   **Built:** the prefills (§8.1) and the relabel (§8.2 step 1: proven on one field, then
+   every field). Open: the preview check (§8.2 step 2, D37); per-template fields; moving
+   templates; `autoFit`.
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
    **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,

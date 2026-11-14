@@ -3220,12 +3220,12 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     `contractForms.FIRMA_LABELS[name]` (a group prefix: "Buyer · Email", "Payment · 1st due
     date"; Payment Schedule plan §8.2), so the editor's list sorts into groups. The Worker
     (`firma.syncFirmaFields`) adds the missing ones and, for the names in the call's `relabel`
-    (`cloudEsign.RELABEL_FIELDS`: `buyerEmail` only, until a send proves a relabelled field
+    (`cloudEsign.RELABEL_FIELDS`: every fact name; a relabelled field keeps its name and
     still fills), brings an existing field's label up to date: `PATCH
     /workspace/{ws}/custom-fields/{id}` with the label, else (404/405) `PUT` with its unchanged
     name too, never fatal, at most 45 outbound calls a request; the log names the fact, method
-    and Firma's status. → `{ added, relabelled, relabelFailed }`. Not proven against Firma
-    yet. The sync runs on Set up and each **Place fields**.
+    and Firma's status. → `{ added, relabelled, relabelFailed }`. The sync runs on Set up
+    and each **Place fields**.
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
   - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
     `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).
