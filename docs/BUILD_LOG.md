@@ -4577,5 +4577,4 @@ tick box per template; buyers get an emailed link.
   connection; a deleted one drops it, status not connected, Set up makes `ws_2`). `cd cloud &&
   npm test` 344 pass, `node --test` 1956 pass.
 - **Docs:** End-State guide §32.
-- No new files. `CACHE_NAME` not bumped: the Worker change alone lets her set up again (a reload
-  of Contract templates shows Set up); the app's message rides the next bump.
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v140` (owner asked) for the app's message.
