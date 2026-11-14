@@ -4236,3 +4236,9 @@ tick box per template; buyers get an emailed link.
   it's dual-registered, unticked otherwise (frozen semen, in-utero). A note for KennelPort
   asks for an optional `origin_country` section and two tag conditions: Import-descended
   and Foreign bloodlines.
+- **Revised after a web check (D7, D8):** AKC gives a foreign frozen-semen sire an AKC
+  number through foreign registration, so having both a home and a foreign number doesn't
+  prove a dog was imported. The chart import now only ever offers Imported unticked, at
+  the boundary dog. It keeps a second registration, which gives the country of origin.
+  `REGISTRY_COUNTRIES` is to come from the FCI's list of studbook initials. JR, MET and LOE
+  are still to confirm, and fci.be and akc.org aren't reachable from the session.
