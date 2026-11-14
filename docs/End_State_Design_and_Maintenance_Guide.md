@@ -683,6 +683,11 @@ tidy-up's duplicate dogs and contacts (§33), so anything either would call the 
   this app's settings follow (`settings.remapStoredIds`). Refused: her kennel with someone
   else's; dogs of a known different sex or in each other's pedigree; contacts who both hold a
   live place on one kennel's waitlist.
+- **Waitlist families** are also paired by who they say they are (§29, *Duplicate
+  applications*: an open application has no contact to compare), and **Merge…** on such a
+  pair opens the waitlist's own dialog (`assets/applicationMergeUI.js`, imported only then):
+  the kept one keeps its place, a fee the other paid becomes a credit, and their two contact
+  cards can merge in the same step.
 
 **The Import/Export "Backup & restore" card** is *what* (Back up / Restore) × *where* (This
 device / Dropbox, §26). A Dropbox push is a backup and a pull is a restore through the same
@@ -2056,6 +2061,49 @@ restored into Lite keeps its waitlist rows, dormant.
   page (Details and Interact), a line in the Approve dialog and a badge on the Waitlist page's
   rows ("Do not sell" / "Maybe do not sell"); nothing is declined. Each listing on the page
   links the open applications and families that match it. Taking someone off archives the row.
+- **Duplicate applications** (`docs/KennelOS_Duplicate_Applications_Plan.md`; rules
+  `data/applicationDuplicates.js`, pure; writes `waitlistActions.mergeApplications`; dialog
+  `assets/applicationMergeUI.js`, Pro-only; `tests/applicationDuplicates.test.js`). One family
+  on one list twice, maybe spelled differently. **Nothing merges by itself.**
+  - **Found** (`applicationMatches`, `duplicateApplicationPairs`): two live entries (applied,
+    approved, active) on the same kennel's list whose identities agree by the one contact rule,
+    each entry's identity being its contact's name/email/phone and its `application`'s (an open
+    application has no contact): the same contact, email or phone = *Likely*, the same or a near
+    name = *Maybe*. Shown as a card on the family's page (Details and Interact: *"This may be
+    the same family as …"*, **Same family…** / **Not the same**), an amber badge on the Waitlist
+    page's new-application and fee-due rows, a Today nudge (`waitlist-duplicate:<a>:<b>`,
+    **Compare** opens the newer one's page), a line and choice in Kels's Review my waitlist
+    (applications step), Kels's Tidy up (§33) and Import/Export's Scan for duplicates (§10).
+    **Not the same** is remembered under all of `duplicateDismissKeys` (`dup:waitlist_entries:`,
+    `tidy:dupapplication:`, `waitlist-duplicate:` + the pair), and any one of them hides the
+    pair everywhere (dismissing the Today nudge counts).
+  - **Marked by hand:** the family page's ⋯ **Same family as another application…** (live
+    entries) opens a searchable picker of this list's other live entries, likely matches first,
+    for a pair with nothing in common.
+  - **The dialog:** which one to keep (`suggestKeepEntry`: on the list, then approved, then a
+    turn open, then the earlier place, then more answers, then older); where both answered
+    differently, which answer wins (`applicationConflicts`: each `application` key, and the
+    sex, breed, purposes, colors and readiness preferences; a sex of "any" is blank); when each
+    has its own contact card, **Also merge their two contact cards** (on by default, with that
+    merge's choices; disabled with the reason when `mergeBlocker` refuses); and *What happens*:
+    the kept one's place, the other deleted, its offers moving, its status link stopping, its
+    fee becoming a credit. **Merge and delete the other** is the only write.
+  - **The merge** (`applicationMergeChanges`): the kept entry keeps its **own** place, status
+    and dates, fee, program, status link, requests, listen-only and pauses. It takes the
+    other's answers where she chose them (blanks fill in; the other's `application_questions`
+    join so its answers keep their labels), the other's contact if it had none, home place if
+    it had none, and both histories (`messages`, `pref_change_log`, received credits,
+    declined program suggestions, notes). A fee the other paid (`paidFeeCredit`: one marked
+    received, less any part a credit paid, or one paid online before approval; Waived pays
+    nothing) becomes a **received credit** on the kept entry, every use ticked, noted as from
+    the duplicate (both paid: the dialog says so and that she may refund and remove it
+    instead). `merged_applications` (private) gets `{ date, name, applied_date, status,
+    fee_credit? }`, shown in the Timeline. Then `recordMerge.replaceAndDelete`: every id of
+    the other moves to the kept one (its offers), the other is **deleted** (tombstoned by live
+    sync; the next publish drops it and its link), settings follow; then, if asked, the
+    contacts merge (`mergeDuplicate('contacts', …)`). Refused (`applicationMergeBlocker`):
+    two lists, a closed entry, both with a turn open, or deleting one that's been offered
+    litters while keeping one not on the list.
 
 ### Rules engine (`data/waitlistRules.js`)
 Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. **Nothing
@@ -4313,6 +4361,11 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   pedigree-only ones are included.
 - **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
   ignored) plus one shared email, phone (last 10 digits), address, Facebook, or kennel.
+- **Duplicate applications** (`waitlist`; `duplicateApplicationFindings`): two live entries on
+  one kennel's waitlist (in scope) that may be one family (§29, *Duplicate applications*).
+  **Yes, merge them** opens the waitlist's merge dialog over the chat; **Not the same family**
+  is remembered under `tidy:dupapplication:<pair>`, which hides the pair on the waitlist,
+  Today and the scan too (and their keys hide it here).
 
 **Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`, the
 `mergeDuplicate` of §10): she picks the

@@ -4263,6 +4263,39 @@ tick box per template; buyers get an emailed link.
 
   No code yet.
 
+## 2026-11-08: duplicate applications ("Same family")
+
+- Plan: `docs/KennelOS_Duplicate_Applications_Plan.md` (owner's answers in its section 7:
+  the kept entry keeps its own place; a fee paid on the deleted one becomes a credit; their
+  contact cards merge in the same confirm; Kels's Tidy up raises them too).
+- One family on one waitlist twice, maybe spelled differently: suggested by email, phone or
+  name (`data/applicationDuplicates.js`, pure) on the family's page (a card), the Waitlist
+  page (a badge), Today (a nudge), Kels's Review my waitlist and Tidy up, and Import/Export's
+  Scan for duplicates (which before never compared open applications: they have no contact).
+  Or marked by hand: ⋯ **Same family as another application…** with a searchable picker.
+- One dialog (`assets/applicationMergeUI.js`, Pro-only): which to keep, which answers win,
+  whether to merge their contact cards, and what will happen; **Merge and delete the other**.
+  `waitlistActions.mergeApplications` writes it; `recordMerge.replaceAndDelete` (split out of
+  `mergeDuplicate`) moves the other's offers and deletes it. New private field
+  `merged_applications` (the Timeline's line).
+- Tests: `applicationDuplicates.test.js` (matching, suggested keep, refusals, answers, fee
+  credit, the merge with offers and with two contacts, a refused merge changes nothing).
+
+- **SW cache bumped to `kennelos-shell-v112` (2026-11-08)** for duplicate applications, the owner's go-ahead.
+
+## 2026-11-14: duplicate applications brought up to main; SW cache v135
+
+- PR 168 merged with main (161 commits behind). Conflicts were mechanical: imports in
+  `waitlistActions.js`, the handler map in `waitlist-entry.js` (main's new handlers plus
+  `wireDuplicates`), the cache name, this log. Main's side sales (`sales.side_entry_id`) are
+  in the reference registry, so a merge moves them to the kept entry.
+- The v112 bump above never shipped. **SW cache bumped to `kennelos-shell-v135`** for the
+  duplicate-applications files on top of main's v134. Other sessions' unmerged branches were
+  checked first: their app changes (Kels's review defects, the "DAM" pedigree fix, waitlist
+  policies, the public list's See Your Details tint) are already on main.
+- Review K11's findings (`docs/review/findings/K11-kels.md`, the `INDEX.md` row) brought in
+  from `claude/kennelos-k11-kels-review-6ys8tj`.
+
 ## 2026-11-14: session-start check for unmerged work
 
 - `CLAUDE.md` gains "Session start": before replying to the first request, check open PRs and
