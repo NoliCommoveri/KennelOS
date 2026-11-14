@@ -359,10 +359,12 @@ and Email Routing.
   `empty: <label> [<fact>, sent|not sent]`) and fix it on the contract or in Place fields. Check in `/ops` that the credits didn't drop (a
   draft should be free), and that closing the Send dialog removed the draft (no stray draft
   in Firma's dashboard for the workspace). Check the Worker's log for "a request status
-  KennelOS does not know": Firma's word for a draft must be `draft`, and for a sent request
-  one of `firma.js` `SENT_STATES`, or a preview keeps its place until the hourly sweep can't
-  free it either. Preview once more, close the tab without closing the dialog, and within
-  two hours the `esign previews` cron line should say `freed: 1`.
+  KennelOS does not know; taken as not sent": that word is freed as a draft, so if it is
+  one of Firma's sent words, add it to `firma.js` `SENT_STATES` (until then KennelOS tries
+  to delete such a request, and only Firma refusing keeps it). Preview once more, close the tab without
+  closing the dialog, and within two hours the `esign previews` cron line should say
+  `freed: 1`. Preview, then reload the page: the draft should be gone at once, and the
+  usage line back to no preview held.
   Set the ESIGN consumer-consent wording in the signer terms.
   Decide the monthly limit in `/ops`.
 - [ ] **Firma field labels (Payment Schedule plan §8.2, D30), after the Worker deploy:**

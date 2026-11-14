@@ -164,6 +164,16 @@ test('a co-own sale names its buyer, not a second party', () => {
   assert.ok(!keys.includes('partnerName'));
 });
 
+test('an Other template fills a sale\'s buyer, or a dog\'s other party', () => {
+  assert.deepEqual(fieldGroupsFor('other'), ['sale', 'dog']);
+  const onSale = prefillValues('other', saleFacts).map(([k]) => k);
+  assert.ok(onSale.includes('buyerName'));
+  assert.ok(!onSale.includes('partnerName'));
+  const onDog = Object.fromEntries(prefillValues('other', { dog: { call_name: 'Juno' }, partner: { name: 'Ann Lee' } }));
+  assert.equal(onDog.dogName, 'Juno');
+  assert.equal(onDog.partnerName, 'Ann Lee');
+});
+
 test('prefillUrl adds the values and keeps what the link already had', () => {
   const url = prefillUrl('https://form.jotform.com/123?theme=dark&buyerName=old', [['buyerName', 'Jane & Co'], ['price', '3000.00']]);
   const u = new URL(url);

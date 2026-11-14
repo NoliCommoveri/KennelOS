@@ -453,6 +453,27 @@ test('at the limit a send is refused with the reset date, and Firma is never cal
   assert.equal((await contractRepo.getById(contract.id)).status, 'draft');
 });
 
+test('an open preview\'s held place: said apart in a limit refusal; discarded with keepalive', async () => {
+  const p = esign.esignProblem({ code: 'esign_limit_reached', usage: { used: 4, held: 1, limit: 5, resetsOn: '2026-12-01' } });
+  assert.equal(p.kind, 'limit');
+  assert.match(p.message, /4 sent, and 1 held by an open preview/);
+  assert.match(esign.esignProblem({ code: 'esign_limit_reached', usage: { used: 5, held: 0, limit: 5 } }).message, /^You've sent this month's 5 e-sign/);
+  assert.equal(esign.heldText(2), '2 held by open previews');
+
+  await breeder();
+  const real = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, init) => { seen.push({ url: String(url), init }); return new Response(JSON.stringify({ discarded: true }), { status: 200, headers: { 'content-type': 'application/json' } }); };
+  try {
+    assert.equal(await esign.discardPreview('pv_1', { keepalive: true }), true);
+    assert.equal(await esign.discardPreview('pv_2'), true);
+  } finally { globalThis.fetch = real; }
+  assert.equal(seen[0].init.method, 'DELETE');
+  assert.match(seen[0].url, /\/integrations\/esign\/preview\?id=pv_1$/);
+  assert.equal(seen[0].init.keepalive, true);
+  assert.equal(seen[1].init.keepalive, undefined, 'only as she leaves the page');
+});
+
 test('a template deleted in Firma stops being offered, and a send of it is refused before it counts', async () => {
   // Pure: only the Firma rows missing from the live set go.
   const forms = [
@@ -595,4 +616,19 @@ test('previewNotes: each empty prefilled field with why', () => {
   assert.match(n.empty[2].why, /^Not one of KennelOS's details/);
   assert.match(n.empty[3].why, /Firma left it empty/);
   assert.equal(esign.previewNotes(form, facts, null), null, 'an older Worker sends no list');
+});
+
+test('previewNotes: a field name Firma holds in another case is still KennelOS\'s', () => {
+  const facts = { sale: { id: 's1' }, buyer: { name: 'Ann Lee' } };
+  const n = esign.previewNotes({ form_type: 'breeding_rights' }, facts, [
+    { fact: 'breederaddress', label: null, filled: false, sent: false, signer: 1 },
+    { fact: 'BUYERADDRESS', label: 'Buyer · Address', filled: false, sent: false, signer: 1 },
+    { fact: 'buyername', label: 'Buyer · Full name', filled: false, sent: false, signer: 1 },
+    { fact: 'studfee', label: 'Stud · Fee', filled: false, sent: false, signer: 1 }
+  ]);
+  assert.equal(n.empty[0].label, 'Breeder · Address', 'its label found case aside');
+  assert.match(n.empty[0].why, /^Blank on this contract: add it on your own contact/);
+  assert.match(n.empty[1].why, /^Blank on this contract: add it on the buyer's contact/);
+  assert.match(n.empty[2].why, /Firma left it empty/, 'a value went out for it');
+  assert.match(n.empty[3].why, /doesn't fill this detail on a template marked "Breeding rights contract"/);
 });

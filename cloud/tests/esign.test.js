@@ -127,7 +127,7 @@ function makeFake() {
       const d = f.drafts.get(m[1]) || (f.sends.some((x) => x.id === m[1]) ? { id: m[1], ws: f.sends.find((x) => x.id === m[1]).ws, status: 'sent' } : null);
       if (!d || d.ws !== wsOfKey.id) return reply(404, {});
       if (f.srDown) return reply(500, {});
-      if (method === 'GET') return reply(200, { id: d.id, status: d.status });
+      if (method === 'GET') return reply(200, { id: d.id, status: d.status, ...(d.sent_at ? { sent_at: d.sent_at } : {}) });
       f.drafts.delete(m[1]); f.deletedDrafts.push(m[1]);
       return reply(200, { deleted: true });
     }
@@ -692,7 +692,7 @@ test('a preview whose draft can\'t be discarded keeps its place, so a draft sent
   assert.deepEqual(fake.deletedDrafts, [], 'a sent request is never deleted');
 });
 
-test('the hourly sweep discards previews left open; a status KennelOS doesn\'t know is never counted', async () => {
+test('the hourly sweep discards previews left open; a status word KennelOS doesn\'t know frees the place unless it was sent', async () => {
   const env = await envWith();
   const s = await connected(env);
   assert.equal((await preview(env, s)).status, 200);
@@ -703,18 +703,32 @@ test('the hourly sweep discards previews left open; a status KennelOS doesn\'t k
   assert.deepEqual(fake.deletedDrafts, ['draft_1']);
   assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0);
 
-  // An unknown status: held, never counted, and let go once its token is dead.
+  // A status word KennelOS doesn't know, with no sent date: not sent, so deleted and freed.
   assert.equal((await preview(env, s)).status, 200);
-  fake.drafts.get('draft_2').status = 'something_new';
+  assert.equal((await firma.usage(env, s.programId)).held, 1, 'an open preview holds a place');
+  fake.drafts.get('draft_2').status = 'Not Sent';
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 1, counted: 0, held: 0 });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1', 'draft_2']);
+  assert.deepEqual({ used: (await firma.usage(env, s.programId)).used, held: (await firma.usage(env, s.programId)).held }, { used: 0, held: 0 });
+
+  // The same word with a sent date: sent, never deleted, counted.
+  assert.equal((await preview(env, s)).status, 200);
+  Object.assign(fake.drafts.get('draft_3'), { status: 'something_new', sent_at: '2026-11-14T10:00:00Z' });
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 0, counted: 1, held: 0 });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1', 'draft_2'], 'a sent request is never deleted');
+  env.DB.raw.prepare('DELETE FROM esign_sends').run();
+
+  // No status at all: held, never counted, and let go once its token is dead.
+  assert.equal((await preview(env, s)).status, 200);
+  fake.drafts.get('draft_4').status = '';
   assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 0, counted: 0, held: 1 });
-  assert.equal((await firma.usage(env, s.programId)).used, 0);
   const dead = new Date(Date.now() + firma.PREVIEW_TOKEN_MS + 60 * 1000);
   assert.deepEqual(await firma.runEsignPreviews(env, { now: dead }), { freed: 1, counted: 0, held: 0 });
-  assert.deepEqual(fake.deletedDrafts, ['draft_1'], 'only a draft is ever deleted');
+  assert.deepEqual(fake.deletedDrafts, ['draft_1', 'draft_2'], 'only a draft is ever deleted');
 
   // A draft that was sent: the sweep counts it.
   assert.equal((await preview(env, s)).status, 200);
-  fake.drafts.get('draft_3').status = 'completed';
+  fake.drafts.get('draft_5').status = 'completed';
   assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 0, counted: 1, held: 0 });
   assert.equal((await firma.usage(env, s.programId, later)).used, 1);
 });
