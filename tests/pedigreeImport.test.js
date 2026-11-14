@@ -267,3 +267,128 @@ test('commit: the chart dog\'s microchip is saved, and only fills a blank one', 
   assert.equal((await dogRepo.getById('own')).microchip_id, '900263007514602');
   assert.equal((await dogRepo.getById(res.subjects.B)).microchip_id, '111222333444555');
 });
+
+// --- Titles, country and Imported (Dog Titles Field Plan §8 phase 4) ----------
+
+const jr = (path, name, n, extra = {}) => dog(path, name, `JR ${n}`, { registry: 'JR', ...extra });
+
+test('new dogs: titles, country, a second registration and a pre-ticked Imported are saved', async () => {
+  const plan = planImport({ files: [file('A', [
+    dog('', 'Pup', 'NP000001/01', { additional_registrations: [{ registry: 'JR', registration_number: 'JR 777', registered_name: '' }] }),
+    jr('s', 'Srb Sire', 1), jr('d', 'Srb Dam', 2),
+    jr('ss', 'X', 3, { titles: [{ abbr: 'GCH', organization: '', earned_on: '' }, { abbr: 'CH', organization: '', earned_on: '' }] })
+  ])] });
+  const pup = plan.rows.find((r) => r.name === 'Pup');
+  assert.equal(pup.importOffer, 'ticked');
+  assert.equal(pup.imported, true);
+  assert.equal(pup.country_of_origin, 'Serbia', 'dual-registered: its own JR number');
+  const sire = plan.rows.find((r) => r.name === 'Srb Sire');
+  assert.equal(sire.country_of_origin, 'Serbia');
+  assert.equal(sire.importOffer, null, 'a foreign-only dog is never offered Imported');
+  const res = await commitImport(plan);
+  const saved = await dogRepo.getById(res.subjects.A);
+  assert.equal(saved.imported, true);
+  assert.equal(saved.import_country, 'Serbia');
+  assert.equal(saved.country_of_origin, 'Serbia');
+  assert.deepEqual(saved.additional_registrations.map((r) => r.registration_number), ['JR 777']);
+  const s = await dogRepo.getById(saved.sire_id);
+  assert.equal(s.country_of_origin, 'Serbia');
+  assert.equal(s.imported, false);
+  // KennelPort's ask 1: the chart grandsire "GCH CH X" holds both titles.
+  assert.deepEqual((await dogRepo.getById(s.sire_id)).titles.map((t) => t.abbr), ['GCH', 'CH']);
+  assert.ok(!(await dogRepo.getById(s.sire_id)).notes.includes('Titles:'));
+});
+
+test('an unticked offer stays unticked; her edits to titles, country and Imported win', async () => {
+  const files = [file('A', [dog('', 'Pup', 'NP000001/01'), jr('s', 'Srb Sire', 1), dog('d', 'Dam', 'NP000003/01'),
+    dog('ss', 'Gs', 'NP000009/01', { titles: [{ abbr: 'CH' }] })])];
+  let plan = planImport({ files });
+  const pup = plan.rows.find((r) => r.name === 'Pup');
+  assert.equal(pup.importOffer, 'offer');
+  assert.equal(pup.imported, false);
+  assert.equal(pup.country_of_origin, '', 'born at home: no country until she ticks Imported');
+  assert.equal(pup.importCountry, 'Serbia');
+  const gs = plan.rows.find((r) => r.name === 'Gs');
+  const edits = {
+    'A:': { imported: true },
+    'A:ss': { titles: [{ abbr: 'GCH' }, { abbr: 'CH' }], country_of_origin: 'Canada' }
+  };
+  plan = planImport({ files, edits });
+  const res = await commitImport(plan);
+  const saved = await dogRepo.getById(res.subjects.A);
+  assert.equal(saved.imported, true);
+  assert.equal(saved.import_country, 'Serbia', 'ticked with a blank box: the country it came from');
+  assert.equal(saved.country_of_origin, 'Serbia');
+  const g = await dogRepo.getById((await dogRepo.getById(saved.sire_id)).sire_id);
+  assert.equal(g.registered_name, 'Gs');
+  assert.deepEqual(g.titles.map((t) => t.abbr), ['GCH', 'CH']);
+  assert.equal(g.country_of_origin, 'Canada');
+  assert.equal(gs.importOffer, null);
+});
+
+test('an all-home line gets no country and no Imported', () => {
+  const plan = planImport({ files: [file('A', [dog('', 'Pup', 'NP000001/01'), dog('s', 'S', 'NP000002/01'), dog('d', 'D', 'NP000003/01')])] });
+  for (const r of plan.rows) {
+    assert.equal(r.country_of_origin, '');
+    assert.equal(r.importOffer, null);
+    assert.equal(r.imported, false);
+  }
+});
+
+test('home follows her own dogs’ registry: a Serbian kennel’s JR dogs are home', () => {
+  const existing = [1, 2].map((i) => ({ id: `o${i}`, call_name: `O${i}`, registry: 'JR', registration_number: `JR ${i}0`, ownership_type: 'owned' }));
+  const plan = planImport({ existing, files: [file('A', [jr('', 'Pup', 1), jr('s', 'S', 2), jr('d', 'D', 3)])] });
+  for (const r of plan.rows) { assert.equal(r.country_of_origin, ''); assert.equal(r.importOffer, null); }
+});
+
+test('a dog she has is only offered what it lacks, each unticked until ticked', async () => {
+  await tables.dogs.rows.set('own', {
+    id: 'own', call_name: 'Bella', registered_name: 'CH Bella', sex: 'female', breed: 'Boston Terrier',
+    ownership_type: 'external', owner_contact_id: 'c1', status: 'external_reference',
+    registration_number: 'NP000001/01', titles: [{ abbr: 'CGC', organization: '', earned_on: '' }], is_archived: false
+  });
+  const existing = await dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true });
+  const files = [file('A', [
+    dog('', 'Bella', 'NP000001/01', { titles: [{ abbr: 'GCH' }, { abbr: 'CH' }, { abbr: 'CGC' }] }),
+    jr('s', 'Srb Sire', 1), jr('d', 'Srb Dam', 2)
+  ])];
+  let plan = planImport({ existing, files });
+  const row = plan.rows.find((r) => r.existingId === 'own');
+  assert.deepEqual(row.fill.titles.map((t) => t.abbr), ['GCH'], 'CH is in its name, CGC on its titles');
+  assert.equal(row.fill.imported, true);
+  assert.equal(row.fill.importCountry, 'Serbia');
+  assert.equal(row.fill.country, 'Serbia');
+  assert.deepEqual([row.fill.titlesOn, row.fill.countryOn, row.fill.importedOn], [false, false, false]);
+
+  // Nothing ticked: nothing of the three is written.
+  await commitImport(plan);
+  let bella = await dogRepo.getById('own');
+  assert.deepEqual(bella.titles.map((t) => t.abbr), ['CGC']);
+  assert.ok(!bella.imported);
+  assert.ok(!bella.country_of_origin);
+
+  plan = planImport({ existing: await dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true }), files,
+    decisions: { 'fill:titles:r:NP00000101': true, 'fill:imported:r:NP00000101': true } });
+  const r2 = plan.rows.find((r) => r.existingId === 'own');
+  assert.ok(r2.fill.titlesOn && r2.fill.importedOn && !r2.fill.countryOn, `key ${r2.key}`);
+  await commitImport(plan);
+  bella = await dogRepo.getById('own');
+  assert.deepEqual(bella.titles.map((t) => t.abbr), ['CGC', 'GCH']);
+  assert.equal(bella.imported, true);
+  assert.equal(bella.import_country, 'Serbia');
+  assert.equal(bella.country_of_origin, 'Serbia', 'Imported brings its country with it');
+});
+
+test('a country she already set is never offered or overwritten', () => {
+  const existing = [{ id: 'x', call_name: 'X', registry: 'JR', registration_number: 'JR 1', country_of_origin: 'Montenegro' }];
+  const plan = planImport({ existing, files: [file('A', [jr('', 'X', 1)])] });
+  assert.equal(plan.rows[0].fill, null);
+});
+
+test('a dual-registered dog matches a dog she has by its second number', () => {
+  const existing = [{ id: 'x', call_name: 'X', registry: 'JR', registration_number: 'JR 777' }];
+  const plan = planImport({ existing, files: [file('A', [
+    dog('', 'Pup', 'NP000001/01', { additional_registrations: [{ registry: 'JR', registration_number: 'JR 777', registered_name: '' }] })
+  ])] });
+  assert.equal(plan.rows[0].existingId, 'x');
+});

@@ -1059,6 +1059,36 @@ contact. A dog's breeder is a kennel, so when the contact has a `kennel_id` and 
 has no `breeder_kennel_id`, that kennel becomes it; otherwise the dog's "Breeder: …" note is
 the only link.
 
+*Titles, registrations and origin* (`docs/KennelOS_Dog_Titles_Field_Plan.md` §4, D7, D8). A
+box's prefix titles (`splitTitles`) go into its `titles`, with organization AKC on an AKC
+Certified Pedigree (`header.certified`) and blank otherwise; no `Titles:` notes line is
+written. A registration line is any code on `registryCountries.REGISTRY_COUNTRIES` (as
+printed or in capitals, dots optional after any letter, accented letters, a trailing hyphen:
+`ÖHZB`, `K.C.T.`, `KIF-`, `JoKC`, `N Reg`; longest code first, so `KSS JR 71592 BST` is KSS's),
+else 2–5 capitals; its number is kept as printed, code and all. A line that starts with
+another mapped registry is that registry's even when its number looks like an unslashed AKC
+one (`KC AV01234501`); `DNA`/`CHIC`/`OFA` lines are never registrations. The first
+registration read is the dog's; a second goes into `additional_registrations`. The bracketed
+country on an AKC chart (`(SRB)`, `(Canada)`) stays as the `Registered in …` note and is read
+through `countryName` (`origin_printed`). `pedigreeParse.originSuggestions(dogs, home)` works
+over each chart's tree (home = `homeCountry(existing)`): **country** is the bracketed
+country, else the first mapped registry that isn't home, else blank; **Imported** is
+pre-ticked (`'ticked'`) for a home registration with a foreign bracketed country, a
+dual-registered dog, or both parents foreign-only; offered unticked (`'offer'`) with one
+foreign-only parent; never for a foreign-only dog or an all-home line; `importCountry` is its
+own country, else its foreign parent's. `planImport` carries `titles`,
+`additional_registrations` (a second number also matches a dog she has), `country_of_origin`,
+`imported`, `importOffer` and `importCountry` per row, her review edits (`titles`,
+`country_of_origin`, `imported`) winning. The review table's **Titles** column shows chips
+she can remove or add to; **Origin** shows the country box and, when offered, the Imported
+tick ("from …" when the box is blank). A row matched to a dog she has gets `row.fill`: only
+chart titles it doesn't hold (`titlesOf` without events, `sameTitle`), a country when it has
+none, Imported when it isn't marked, each an unticked box (`decisions['fill:titles|country|imported:<key>']`).
+`commitImport` saves a new dog's titles, second registrations and `originFields` (ticked
+Imported writes the country, or `importCountry` when the box is blank, into both
+`country_of_origin` and `import_country`); an existing dog gets ticked fill-ins only, plus
+second registrations when it has none.
+
 ---
 
 ## 14. Data conventions (quick reference)

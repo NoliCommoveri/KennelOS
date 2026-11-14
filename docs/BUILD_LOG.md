@@ -4366,3 +4366,29 @@ tick box per template; buyers get an emailed link.
 - Tests: suggestions, the Add box split and the chip split in `dogTitles.test.js`. Checked
   in the browser at phone width: add, edit details, remove, save, view, re-edit, and a
   logged GCH opening its event.
+
+## 2026-11-14: dog titles as a field, phase 4 (pedigree chart import)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 4.
+- `pedigreeParse.js` now imports `registryCountries.js`. A chart box's prefix titles go
+  into `titles` (organization AKC on an AKC Certified Pedigree, `header.certified`) and the
+  `Titles:` notes line is no longer written. The `Registered in …` note stays.
+- `isOtherReg` and `parseDetails` read every code on the registry map: as printed or in
+  capitals, dots optional, accented letters, trailing hyphen, longest first (`KSS JR`).
+  Numbers are kept as printed. A line led by another mapped registry isn't read as an
+  unslashed AKC number (`KC AV01234501`), and `DNA`/`CHIC`/`OFA` lines are never
+  registrations. A second registration goes into `additional_registrations`.
+- New `originSuggestions(dogs, home)`: each dog's country (bracketed country, else a
+  non-home registry) and the Imported suggestion over the chart's tree (pre-ticked,
+  offered unticked, or none, D8).
+- `pedigreeImport.planImport` carries titles, second registrations, country and Imported
+  per row (home = `homeCountry(existing)`), and matches a dog she has by a second number
+  too. A matched dog's row offers only what it lacks, each unticked (`row.fill`).
+  `commitImport` saves them; new `originFields`.
+- Review screen: Titles chips (remove, add with suggestions), an Origin column (country
+  box, Imported tick), "also <number>" under a second registration, and the unticked
+  fill-ins for matched dogs.
+- Tests: §8.1 step 4's list plus "(SRB) on an AKC dog → Serbia, pre-ticked", "KSS JR →
+  Serbia", every map code read as a registration, the KC/AKC look-alike, and the
+  fill-in, edit and save cases in `pedigreeImport.test.js`. Checked in the browser with a
+  generated chart PDF: review, tick Imported, add a title, import.

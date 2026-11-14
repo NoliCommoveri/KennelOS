@@ -305,7 +305,7 @@ Each phase:
 
 No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
 
-**Status:** phases 1 (core and data layer), 2 (readers and display) and 3 (Dog form) built. Next is phase 4, the pedigree chart import.
+**Status:** phases 1 (core and data layer), 2 (readers and display), 3 (Dog form) and 4 (pedigree chart import) built. Next is phase 5, Tidy up my records.
 
 ### 8.0 Findings from reading the code (carry into every phase)
 
