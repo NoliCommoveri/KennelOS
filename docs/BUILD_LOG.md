@@ -4469,4 +4469,4 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `cloud/tests/esign.test.js` (prefillFields, the preview's log and `fields`),
   `tests/esign.test.js` +2. Checked in Chromium at phone width: the dialog's list, values
   escaped.
-- No new files. Needs a Worker deploy and an app release (`CACHE_NAME` not bumped yet).
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v137`. Needs the Worker deploy too.
