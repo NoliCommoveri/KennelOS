@@ -4392,3 +4392,21 @@ tick box per template; buyers get an emailed link.
   Serbia", every map code read as a registration, the KC/AKC look-alike, and the
   fill-in, edit and save cases in `pedigreeImport.test.js`. Checked in the browser with a
   generated chart PDF: review, tick Imported, add a title, import.
+
+## 2026-11-14: dog titles as a field, phase 5 (Tidy up my records)
+
+- Plan: `docs/KennelOS_Dog_Titles_Field_Plan.md` §8 phase 5.
+- `tidyRules.js`: `dog-titles-in-notes` and `dog-titles-in-name` after `dog-no-parents`, in
+  every edition. `titlesInNotesFindings` (a `Titles: …` notes line naming titles `titlesOf`
+  lacks; words like "none" skipped) and `titlesInNameFindings` (titles on the front of the
+  registered name) each give one grouped finding, keyed by a hash of the dogs and titles.
+  `titlesFix` is the write. `tidyFindings` takes `titleEvents`.
+- `tidyUpUI.js`: one list with a tick per dog and per title, Add to titles or Skip (then
+  Not now / Don't ask me again / Stop for now). Writes through `dogRepo.update`. The name
+  finding also takes the titles off the name; the notes line stays (D4). Each kind is
+  raised once a visit, so an unticked title waits for the next one.
+- Kels's Tidy up task: its description and search words now cover titles (`pages/kels.js`;
+  the plan named `kelsKnowledge.js`, noted as **Modified** there).
+- `CACHE_NAME` bumped to `kennelos-shell-v136` for phases 3–5. No new files.
+- Tests in `tidyRules.test.js`. Checked in the browser: Kels's tidy-up with two notes dogs
+  and one name dog, a title unticked, both lists saved.

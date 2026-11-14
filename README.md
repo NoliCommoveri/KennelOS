@@ -95,6 +95,8 @@ backup, carries a program from Lite to Pro.
     statement. Open in step 5: proving the Firma relabel on a send (one field so far,
     `docs/LAUNCH_CHECKLIST.md`), the test-key check, per-template fields. §3.2a (lost-pup
     money as a credit, D20) is in no step yet.
+  - Dog titles as a field (`docs/KennelOS_Dog_Titles_Field_Plan.md`): phases 1–5 built
+    (data, readers, Dog form, pedigree import, tidy-up). Next is phase 6, docs and close.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up checks only dogs, contacts and waitlist applications for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

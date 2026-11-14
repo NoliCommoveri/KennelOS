@@ -231,3 +231,56 @@ test('a whelped litter with no delivery type is asked about, newest first; expec
   assert.equal(T.TIDY_KINDS.indexOf('litter-delivery'), 1);
 });
 
+
+// --- Titles (Dog Titles Field Plan §5, §8 phase 5) ------------------------------
+
+const tdog = (id, extra = {}) => ({ id, call_name: '', registered_name: `Dog ${id}`, pedigree_only: true, ...extra });
+
+test('titles in notes: one finding for every dog, only the titles each lacks; pedigree-only included', () => {
+  const dogs = [
+    tdog('a', { notes: 'Titles: GCH CH\nBreeder: Jo' }),
+    tdog('b', { notes: 'Titles: CH, CGC', titles: [{ abbr: 'C.H.' }] }),       // CH already held (dots ignored)
+    tdog('c', { notes: 'Titles: CH', registered_name: 'CH Dog c' }),          // in the name: the name finding's
+    tdog('d', { notes: 'Titles: MACH' }),                                      // logged as an event
+    tdog('e', { notes: 'Titles: none yet' }),                                  // words, not titles
+    tdog('f', { notes: 'Titles: CH', is_archived: true }),
+    tdog('g', { notes: 'no titles line' })
+  ];
+  const events = [{ id: 'ev', event_type: 'title_earned', subject_type: 'dog', subject_id: 'd', event_date: '2020-01-01', details: { title_abbreviation: 'MACH' } }];
+  const [f, more] = T.titlesInNotesFindings(dogs, events);
+  assert.equal(more, undefined, 'one grouped finding');
+  assert.equal(f.kind, 'dog-titles-in-notes');
+  assert.deepEqual(f.items.map((it) => [it.dog.id, it.titles]), [['a', ['GCH', 'CH']], ['b', ['CGC']]]);
+  assert.deepEqual(T.titlesInNotesFindings([tdog('x', { notes: 'Titles: CH' , titles: [{ abbr: 'CH' }] })]), []);
+});
+
+test('titles in notes: the key follows the dogs and titles, so a new import asks again', () => {
+  const one = T.titlesInNotesFindings([tdog('a', { notes: 'Titles: CH' })])[0].key;
+  assert.equal(T.titlesInNotesFindings([tdog('a', { notes: 'Titles: CH' })])[0].key, one, 'stable');
+  assert.notEqual(T.titlesInNotesFindings([tdog('a', { notes: 'Titles: CH' }), tdog('b', { notes: 'Titles: CH' })])[0].key, one);
+  assert.notEqual(T.titlesInNotesFindings([tdog('a', { notes: 'Titles: GCH CH' })])[0].key, one);
+  assert.match(one, /^titlesnotes:1:[0-9a-z]+$/);
+});
+
+test('titles in names: dogs whose registered name starts with titles, with the name they\'d keep', () => {
+  const dogs = [tdog('a', { registered_name: 'GCH CH A-K Bella' }), tdog('b'), tdog('c', { registered_name: 'CH', call_name: 'C' }), tdog('d', { registered_name: 'CH Zed', is_archived: true })];
+  const [f] = T.titlesInNameFindings(dogs);
+  assert.equal(f.kind, 'dog-titles-in-name');
+  assert.deepEqual(f.items.map((it) => [it.dog.id, it.titles, it.name]), [['a', ['GCH', 'CH'], 'A-K Bella']]);
+  assert.deepEqual(T.titlesInNameFindings([tdog('b')]), []);
+});
+
+test('titles fix: adds to what the dog has; the name finding also takes them off the name', () => {
+  assert.deepEqual(T.titlesFix({ titles: [{ abbr: 'CGC', organization: '', earned_on: '' }] }, ['CH']),
+    { titles: [{ abbr: 'CGC', organization: '', earned_on: '' }, { abbr: 'CH', organization: '', earned_on: '' }] });
+  assert.deepEqual(T.titlesFix({}, ['GCH', 'CH'], { name: 'A-K Bella' }),
+    { titles: [{ abbr: 'GCH', organization: '', earned_on: '' }, { abbr: 'CH', organization: '', earned_on: '' }], registered_name: 'A-K Bella' });
+});
+
+test('tidyFindings: the titles findings come after dog-no-parents, in every edition', () => {
+  const allDogs = [tdog('a', { notes: 'Titles: CGC', registered_name: 'CH A' })];
+  const found = T.tidyFindings({ litters: [], pairings: [], sales: [], dogs: [], allDogs, today, flags: {} });
+  assert.deepEqual(kinds(found), ['dog-titles-in-notes', 'dog-titles-in-name']);
+  const i = T.TIDY_KINDS.indexOf('dog-no-parents');
+  assert.deepEqual(T.TIDY_KINDS.slice(i + 1, i + 3), ['dog-titles-in-notes', 'dog-titles-in-name']);
+});

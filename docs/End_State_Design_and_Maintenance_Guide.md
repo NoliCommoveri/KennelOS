@@ -4414,6 +4414,23 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its
   number, the dog's breed, the sex): the same number is that dog (she says so and uses
   it); the others are offered with why, before a new one is made.
+- **Titles in notes** (every edition; `docs/KennelOS_Dog_Titles_Field_Plan.md` §5): dogs,
+  pedigree-only included and program-wide, whose notes have a `Titles: …` line
+  (`notesTitleAbbrs`: spaces or commas, only short words with a capital, so "none" isn't a
+  title) naming titles `titlesOf` lacks (the field, logged `title_earned` events, the name;
+  `tidyFindings`' `titleEvents`) → **one** finding for all of them (`titlesInNotesFindings`).
+- **Titles in names** (every edition): dogs whose registered name starts with titles
+  (`nameTitles`, "GCH A-K Bella", D5b) → one finding for all of them
+  (`titlesInNameFindings`), each with the name it would keep.
+
+  Both show one list with a tick per dog and per title, all ticked, then **Add to titles**
+  or **Skip** (then Not now, Don't ask me again, or Stop for now). Saving is
+  `dogRepo.update(titlesFix(...))`, so `normalizeTitles` dedupes (answering again on a second
+  device adds nothing) and it syncs; the name finding also takes the titles off the front of
+  the name when all of them stay ticked. The notes line stays (D4). The key is the kind, the
+  number of dogs and a hash of each dog's id and title keys (`titlesnotes:` / `titlesname:`),
+  so a new import or title raises it again. Each is raised once a visit (`titleKinds`), so
+  what she unticked waits for the next one.
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the

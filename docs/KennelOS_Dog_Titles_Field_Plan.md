@@ -305,7 +305,7 @@ Each phase:
 
 No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
 
-**Status:** phases 1 (core and data layer), 2 (readers and display), 3 (Dog form) and 4 (pedigree chart import) built. Next is phase 5, Tidy up my records.
+**Status:** phases 1 to 5 built (core and data layer, readers and display, Dog form, pedigree chart import, Tidy up my records). Next is phase 6, docs and close.
 
 ### 8.0 Findings from reading the code (carry into every phase)
 
@@ -473,6 +473,9 @@ No phase bumps `CACHE_NAME`. Ask the owner once the batch is ready to ship.
   or Don't ask again. The name finding also takes the titles off the front of the name.
   Writes go through `dogRepo.update`.
 - Kels's knowledge text (`kelsKnowledge.js`) for what the tidy-up now checks.
+  **Modified:** the tidy-up's description and search words live on its task in
+  `pages/kels.js` (`sub`, `keywords`), not in `kelsKnowledge.js` (which lists places to go),
+  so they were updated there.
 - Tests in the tidy-up suite.
 
 ### Phase 6: Docs and close
