@@ -142,9 +142,16 @@ export async function sendsThisMonth(env, programId, now = new Date()) {
     .bind(programId, monthBounds(now).start).first('n')) ?? 0;
 }
 
+// Her open previews, each holding a place (HELD) until it's let go.
+export async function previewsHeld(env, programId) {
+  return (await env.DB.prepare("SELECT COUNT(*) AS n FROM esign_sends WHERE program_id = ? AND status = 'preview'")
+    .bind(programId).first('n')) ?? 0;
+}
+
+// `used`: sends this month; `held`: places her open previews hold (never sends).
 export async function usage(env, programId, now = new Date()) {
   const { limit, own } = await monthlyLimitFor(env, programId);
-  return { used: await sendsThisMonth(env, programId, now), limit, own, resetsOn: monthBounds(now).resetsOn };
+  return { used: await sendsThisMonth(env, programId, now), held: await previewsHeld(env, programId), limit, own, resetsOn: monthBounds(now).resetsOn };
 }
 
 // /ops: the default, or one program's own limit (null = back to the default).
@@ -698,19 +705,23 @@ export const PREVIEW_TOKEN_MS = 8 * 24 * 60 * 60 * 1000; // its token is dead (7
 const PREVIEW_UNMADE_MS = 2 * 60 * 1000; // a row whose draft was never made (the Worker stopped part-way)
 const PREVIEWS_PER_CALL = 5; // each is two outbound calls; a Worker's are capped
 
-// What Firma says a request is: 'draft' | 'gone' | 'sent' | 'unknown' (no answer,
-// or a status we don't know: never guessed at, so a preview is never counted on a
-// word we misread).
+// What Firma says a request is: 'draft' | 'gone' | 'sent' | 'unknown' (no answer, or
+// no status in it). A status word that isn't a sent one, on a request with no sent
+// date, is taken as not sent (logged): its draft is deleted and its place freed, so a
+// word KennelOS doesn't know never holds her month for days. Deleting only goes ahead
+// when Firma agrees (discardDraft); a refusal keeps the place.
 const SENT_STATES = new Set(['sent', 'in_progress', 'viewed', 'signed', 'partially_signed', 'completed', 'finished', 'declined', 'expired', 'cancelled']);
+const SENT_DATES = ['sent_at', 'date_sent', 'sent_date', 'first_sent_at'];
 async function requestState(env, key, id) {
   const sr = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(id)}`);
   if (sr.status === 404) return 'gone';
   if (!ok(sr)) return 'unknown';
-  const status = String(sr.data?.status ?? '').toLowerCase();
+  const status = String(sr.data?.status ?? '').trim().toLowerCase();
   if (status === 'draft') return 'draft';
-  if (SENT_STATES.has(status)) return 'sent';
-  if (/^[a-z_]{1,30}$/.test(status)) console.warn('firma: a request status KennelOS does not know', status);
-  return 'unknown';
+  if (SENT_STATES.has(status) || SENT_DATES.some((p) => sr.data?.[p])) return 'sent';
+  if (!/^[a-z][a-z_ -]{0,29}$/.test(status)) return 'unknown';
+  console.warn('firma: a request status KennelOS does not know; taken as not sent', status);
+  return 'draft';
 }
 
 // Only a draft in her own workspace is ever deleted: a sent request (charged, a

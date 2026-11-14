@@ -210,10 +210,11 @@ export async function previewLink({ contract, form, facts, signer }) {
   };
 }
 
-// Throw a preview's draft away (best effort: a draft left behind costs nothing).
-export async function discardPreview(previewId) {
+// Throw a preview's draft away, freeing the place it holds (best effort: the Worker's
+// hourly sweep gets one left behind). `keepalive` when she's leaving the page.
+export async function discardPreview(previewId, { keepalive = false } = {}) {
   if (!previewId) return false;
-  try { return (await api.discardEsignPreview(requireSession(), previewId)).discarded === true; } catch { return false; }
+  try { return (await api.discardEsignPreview(requireSession(), previewId, { keepalive })).discarded === true; } catch { return false; }
 }
 
 // → { url, partial, status }
@@ -237,6 +238,7 @@ export function esignProblem(err) {
   if (code === 'already_sent') return { kind: 'already_sent', message: 'This contract is already out for signature through Firma.' };
   if (code === 'esign_limit_reached') {
     const n = Number.isInteger(err.usage?.limit) ? `${err.usage.limit} ` : '';
+    if (err.usage?.held > 0) return { kind: 'limit', message: `This month's ${n}e-sign places are taken: ${err.usage.used} sent, and ${heldText(err.usage.held)}. Firma hasn't confirmed that preview is gone yet; KennelOS checks again within the hour and frees it then.` };
     return { kind: 'limit', message: `You've sent this month's ${n}e-sign contracts.${resetText(err.usage)} Until then you can send one of your own contract forms' links.` };
   }
   if (code === 'esign_unknown') return { kind: 'unknown', message: 'Firma didn\'t answer, so this contract may have gone out. Don\'t send it again yet: if the buyer got it, it comes back Signed by itself. Check again in a few minutes.' };
@@ -261,6 +263,9 @@ export function esignProblem(err) {
   if (err instanceof api.CloudOfflineError || code === 'esign_unavailable' || code === 'esign_setup_failed') return { kind: 'offline', message: 'Couldn\'t reach Firma right now. Check your connection and try again.' };
   return { kind: 'other', message: err?.message || String(err) };
 }
+
+// "1 held by an open preview" / "2 held by open previews".
+export const heldText = (n) => (n === 1 ? '1 held by an open preview' : `${n} held by open previews`);
 
 // The label a fact has in Firma's editor (FIRMA_LABELS), else what it holds.
 const factLabels = () => new Map(factFields().map((f) => [f.name, f.label]));

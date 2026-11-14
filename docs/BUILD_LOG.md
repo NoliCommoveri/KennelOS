@@ -4487,3 +4487,24 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/esign.test.js` +1, `tests/contractForms.test.js` +1. `node --test` 1950 pass.
 - **Docs:** End-State guide §32 (which groups each kind fills; case aside).
 - No new files; no Worker change.
+
+## 2026-11-14: A preview's held place lets go; cache v138
+
+- **Seen (owner):** a preview took one of the month's e-sign places and didn't give it back
+  after closing the preview without sending.
+- **Change (Worker, no migration):** `requestState` takes any status word that isn't a sent
+  one (`SENT_STATES`), on a request with no sent date (`SENT_DATES`), as not sent: its draft
+  is deleted and the place freed (the word is logged). Firma refusing the delete still keeps
+  the place; no answer, or no status, still holds until the token is dead. `usage` adds
+  `held` (her open previews, `previewsHeld`), never in `used`.
+- **Change (app):** the Send dialog discards its previews on `pagehide` too (reload, another
+  page, closing the app), with `keepalive` (`cloudApi.send` option, `cloudEsign.discardPreview`).
+  Not on hidden: the preview's own tab hides the app. The usage line says "…, 1 held by an
+  open preview"; a limit refusal with one held says so (`cloudEsign.heldText`); after Preview
+  the dialog says the preview holds a place until it closes.
+- **Tests:** `cloud/tests/esign.test.js` (the sweep: an unknown word freed, with a sent date
+  counted, no status held), `tests/esign.test.js` +1. `cd cloud && npm test` 340 pass,
+  `node --test` 1951 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+- No new files. `CACHE_NAME` bumped to `kennelos-shell-v138` (owner asked), also covering the
+  preview-notes batch above. Needs the Worker deploy too.

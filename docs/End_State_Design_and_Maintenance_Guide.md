@@ -3308,19 +3308,25 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
       by its label in Firma's editor, with its value from the device (`cloudEsign.sendDetails`;
       styles `.esign-detail*` in `app.css`).
     - **A preview holds a place in her month** while it's open: an `esign_sends` row with
-      status `preview` (no column of its own; `usage` and `/ops` leave it out). Read-only is
+      status `preview` (no column of its own; `/ops` leaves it out, and `usage` gives it apart
+      as `held`, never in `used`: the dialogs' usage line reads "N of M sent this month, 1 held
+      by an open preview", and a limit refusal with one held says so). Read-only is
       the editor's setting, not the token's, so for its 7 days the token could send the draft
       from Firma's own editor. A preview is made, and a send reserved, only while her sends
       plus open previews are under her limit (`HELD`), so however a draft is sent she can't
       pass it. At the limit a preview is refused (`esign_limit_reached`).
-    - `firma.settlePreview` ends one: the draft is deleted (only while Firma says `draft`)
-      and the row removed; a draft found sent becomes a counted send from then (a webhook for
-      it does the same); with no clear answer, or a status word KennelOS doesn't know, the
-      row keeps its place until the token is dead (8 days).
+    - `firma.settlePreview` ends one: the draft is deleted and the row removed while Firma
+      says `draft`, or any status word that isn't a sent one (`SENT_STATES`) on a request
+      with no sent date (`SENT_DATES`; the word is logged); Firma refusing the delete keeps
+      the place. A draft found sent becomes a counted send from then (a webhook for it does
+      the same); with no answer, or no status in it, the row keeps its place until the
+      token is dead (8 days).
     - It runs for all her open previews before a new preview and before a send (one preview
       at a time; her own preview never blocks her send), when her device closes the Send
-      dialog (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`; one that
-      comes back after the dialog closed is discarded at once), and in the hourly cron for
+      dialog or leaves the page (`DELETE /integrations/esign/preview?id=`,
+      `cloudEsign.discardPreview`; on `pagehide` with `keepalive`, never on hidden, since the
+      preview's own tab hides the app; one that comes back after the dialog closed is
+      discarded at once), and in the hourly cron for
       previews over an hour old (`runEsignPreviews`).
   - The Worker reads the template with her key before it reserves the send: a 404 is
     `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
