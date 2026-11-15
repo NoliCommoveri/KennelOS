@@ -4855,3 +4855,31 @@ tick box per template; buyers get an emailed link.
   email says any monies not credited are non-refundable and forfeit. Only the default
   templates change: a breeder's own reworded email stays hers.
 - **Then (owner):** the Keep email no longer ends "If you'd like to talk it over, send us a message from your status page."
+
+## 2026-11-15: Every back-out she records goes through the back-out confirm
+
+- **Asked (owner):** a walkthrough of a back-out found End the sale… → "They backed out
+  (Cancelled)" and Cancelled on the Sale page only cancelled the sale: the family stayed
+  Placed on a cancelled sale, nothing recorded the back-out, and they never left the list.
+  Only Kels's path was right. The owner: most back-outs forfeit everything and leave the list.
+- **Change:** new `waitlistUI.backOutDialog({ entryId, outcome?, note? })`, the one confirm
+  (moved out of the family's page): what they paid, then, without an outcome, "What happens
+  to *family*?" with **The sale is cancelled and they leave the list (keep what they paid)**
+  first and **Put them back in line** (not for a family page only), the credit question for
+  back in line, what comes off, the pup back to Available, the summary, Approve →
+  `approveBackOut` (their request, else `told` with End the sale's note), then the outcome's
+  email. New `waitlistActions.backOutEntryFor(saleId)`. End the sale… → They backed out opens
+  it (no bare status change); the Sale page saves her other changes with the old status, then
+  opens it, and if she cancels it says the sale wasn't cancelled. The family's page buttons
+  open it with their outcome.
+- **Also:** the Today nudge says "cancel the sale and keep what they paid, or put them back
+  in line"; her status card says "Backed out of *pup* *date*; what they paid was kept", not
+  "Withdrew".
+- **Tests:** `waitlistLostPup.test.js` +1 (`backOutEntryFor`: the family, nobody for a
+  walk-in buyer, nobody once cancelled; told recorded as hers). `node --test` passes. In
+  Chromium, against the real pages: their request → Keep; End the sale… → They backed out →
+  Keep; Sale page → Cancelled → Keep: each leaves the family Withdrawn, the sale Cancelled,
+  the pup Available. Sale page → Cancelled → Cancel leaves the sale Deposit paid and the
+  family Placed, with the "Not cancelled" note. No console errors.
+- **Docs:** End-State guide (backing out), Waitlist Spec §16.11 and Family Requests plan §7
+  (Modified).

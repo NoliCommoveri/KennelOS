@@ -1660,6 +1660,9 @@ get their place back and be offered the next pup.
    changing the sale's status on the Sale page (Voided for a pup that died or failed a health
    check, Cancelled if a placed family backed out, Returned if it was delivered), followed by
    the same steps 3–5.
+   **Modified (2026-11-15, Waitlist Fixes plan D9):** "They backed out", and Cancelled on the
+   Sale page for a waitlist family, open the back-out confirm instead (Family Requests plan
+   §7): the family leaves the list keeping what they paid (the default), or goes back in line.
 5. **Money already paid: she's asked each time** — carry it to their next pup (it becomes the
    deposit on their next pick, `WaitlistEntry.carried_payment`) or refund it. A credited
    application fee stays credited toward their next pup either way.

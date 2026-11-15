@@ -306,6 +306,9 @@ or "18 miles: under your 25, no charge".
   to credit what they paid toward their next pup: Yes, with the amount prefilled as all
   they paid (any part, deposit, balance and extras alike, hers to change), or No. The confirm says what
   they paid, line by line (K8-2).
+  **Modified (2026-11-15):** a back-out she hears about some other way (End the sale… → They
+  backed out, Cancelled on the Sale page, Kels) goes through the same confirm, with **they
+  leave the list, keeping what they paid** chosen first: the common case.
 - The family sees the result on their page and gets an email (her template).
   **Modified (2026-11-11, Waitlist Fixes Plan K8-7):** the decided back-out stays on their
   page for 30 days after the sale has ended (what happened to the deposit), and each outcome

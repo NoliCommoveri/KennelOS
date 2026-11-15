@@ -2426,6 +2426,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   line from `incomeView.paidOnSaleByPart`, `paid`, and `suggested`, all of `paid`, the
   dialogs' prefill and what a missing `credit` means); it's stored on the decided request. A family page only
   gets Keep only (move refused).
+  **Every way it's recorded goes through one confirm**, `waitlistUI.backOutDialog({ entryId,
+  outcome?, note? })`: their request's **Keep what they paid** / **Put them back in line**
+  (the button's outcome), the family page's **End the sale…** → "They backed out
+  (Cancelled)", and **Cancelled** on the Sale page for a waitlist family's open sale
+  (`backOutEntryFor(saleId)`: the family the sale belongs to by `familySale`, not one that's
+  left the list). Without an outcome she chooses in the confirm, **The sale is cancelled and
+  they leave the list (keep what they paid)** first. Without a request it's `told` (reason
+  "They told you", End the sale's note as its text). The Sale page saves her other changes
+  with the old status, then opens the confirm; cancelling it leaves the sale open and says
+  so. So a family is never left Placed on a cancelled sale. The confirm offers the
+  outcome's email where the list is online. Her status card then reads "Backed out of
+  *pup* *date*; what they paid was kept" (not "Withdrew").
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or

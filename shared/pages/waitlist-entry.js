@@ -29,7 +29,7 @@ import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
 import { pendingExtraRequests, familySale, pupBirthDate } from '../data/familyExtras.js';
-import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, backOutItems, backOutSummary, backOutPaidText, BACK_OUT_OUTCOMES } from '../data/backOut.js';
+import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, BACK_OUT_OUTCOMES } from '../data/backOut.js';
 import { pendingPickupRequests, requestText as pickupRequestText, ownPlaceAllowed } from '../data/familyPickup.js';
 import { standardLocation, timeRange } from '../data/pickupSlots.js';
 import { transportQuote, mapsLink } from '../data/transportFee.js';
@@ -75,7 +75,7 @@ import { editionFlags } from '../data/editionConfig.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal, wireActionMenu } from '../assets/ui.js';
 import {
   resolveWaitlistKennel, prefsSummary, entryFlags, readyHoldText, formModal,
-  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, endSaleDialog, statusLinkFor, copyLink, creditDialog,
+  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, endSaleDialog, backOutDialog, statusLinkFor, copyLink, creditDialog,
   openStatusPage
 } from '../assets/waitlistUI.js';
 
@@ -283,7 +283,9 @@ function statusLines(e) {
       lines.push(`<span class="badge badge-green">Pup selected</span> <strong>#${esc(places.get(e.id))}</strong> of ${esc(places.size)} on the list. <span class="faint">They keep this number until ${placedPup ? esc(dogName(placedPup)) : 'their pup'} goes home (the sale marked Delivered), so nobody behind them moves back if a pup is lost.</span>`);
     }
   } else if (e.status === 'withdrawn') {
-    lines.push(`${isFamilyPageOnly(e) ? 'Backed out' : 'Withdrew'}${e.withdrawn_date ? ` ${esc(fmtDate(e.withdrawn_date))}` : ''}.${isFamilyPageOnly(e) ? ' <span class="badge badge-blue">Family page only</span>' : ''}`);
+    const backedOut = isFamilyPageOnly(e) || e.back_out_request?.decided === 'approved';
+    const pupName = backedOut && e.placed_sale_id ? ctx.dogsById.get(ctx.sales.find((x) => x.id === e.placed_sale_id)?.dog_id)?.call_name : '';
+    lines.push(`${backedOut ? `Backed out${pupName ? ` of ${esc(pupName)}` : ''}` : 'Withdrew'}${e.withdrawn_date ? ` ${esc(fmtDate(e.withdrawn_date))}` : ''}${backedOut && !isFamilyPageOnly(e) ? '; what they paid was kept' : ''}.${isFamilyPageOnly(e) ? ' <span class="badge badge-blue">Family page only</span>' : ''}`);
     if (canUndoWithdrawal(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.withdrawn_date, REMOVAL_UNDO_DAYS)))}</span>`);
   } else if (e.status === 'declined') {
     lines.push(`Declined${e.declined_date ? ` ${esc(fmtDate(e.declined_date))}` : ''}.`);
@@ -567,12 +569,8 @@ function wireRequests(root) {
   }));
 }
 
-// Backing out (Family Requests plan §7.2): the confirm says what they paid, line by
-// line (K8-2); nothing is refunded (D9). Putting them back in line asks whether to
-// credit what they paid toward their next pup and how much (all of it prefilled, hers to
-// change). It lists what comes off with
-// the sale, each ticked or not by default (paid or finished extras start kept: she's
-// owed them), and ends with the one-line summary.
+// Backing out (Family Requests plan §7.2): Decline here; Keep or Put them back in line
+// open the one back-out confirm (waitlistUI.backOutDialog).
 async function onBackOut(decision) {
   const e = ctx.entry;
   const request = e.back_out_request;
@@ -582,54 +580,9 @@ async function onBackOut(decision) {
     await afterAction();
     return emailThem('request_declined', { request: { field: 'back_out_request', request } });
   }
-  const outcome = decision;
-  if (!['keep', 'move'].includes(outcome)) return;
-  const sale = familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
-  if (!sale) throw new Error('They have no open sale to back out of any more.');
-  const events = sale.dog_id ? await eventRepo.getForSubject('dog', sale.dog_id) : [];
-  const items = backOutItems({ sale, events, today: todayYMD() });
-  const { parts, paid, suggested } = await actions.backOutMoney(e, sale);
-  const asksCredit = outcome === 'move' && paid > 0;
-  const titles = { keep: 'Cancel the sale, keep what they paid', move: 'Cancel the sale, put them back in line' };
-  const readCredit = (o) => (asksCredit && o.querySelector('input[name="bo-credit-yn"]:checked')?.value === 'yes' ? Number(o.querySelector('#bo-credit').value || 0) : 0);
-  const ok = await formModal({
-    title: titles[outcome], confirmLabel: 'Approve',
-    bodyHtml: `<p style="margin-top:0;">${esc(backOutPaidText(parts, fmtMoney))} Nothing is refunded when a family backs out.</p>
-      ${outcome === 'move' ? `<p>They go back on your list at the end of the line, with their application, fee and history.</p>
-        ${asksCredit ? `<p style="margin-bottom:4px;"><strong>Credit what they paid toward their next pup?</strong></p>
-          <label class="check-inline" style="display:block;"><input type="radio" name="bo-credit-yn" value="yes" checked> Yes</label>
-          <div class="field" id="bo-credit-field" style="margin:4px 0 8px 24px;"><label for="bo-credit">Amount to credit</label><input id="bo-credit" type="number" min="0" max="${esc(paid.toFixed(2))}" step="0.01" value="${esc(suggested.toFixed(2))}">
-            <p class="field-hint">Up to ${esc(fmtMoney(paid))}. It comes off what they owe for the pup they pick next, starting with that pup's deposit. Whatever you don't credit is kept.</p></div>
-          <label class="check-inline" style="display:block;"><input type="radio" name="bo-credit-yn" value="no"> No, keep what they paid</label>` : ''}` : ''}
-      ${items.length ? `<p class="field-hint" style="margin:0 0 4px;">Tick what comes off with the sale. Extras you leave unticked stay on it, still owed.</p>
-        ${items.map((it, i) => `<label class="check-inline" style="display:block; margin:4px 0;"><input type="checkbox" class="bo-item" data-i="${i}"${it.remove ? ' checked' : ''}> <strong>${esc(it.label)}</strong> <span class="faint">${esc(it.kind === 'charge' ? `extra, ${it.detail}` : it.detail)}</span></label>`).join('')}` : ''}
-      <label class="check-inline" style="display:block; margin:8px 0 4px;"><input type="checkbox" id="bo-pup" checked> Put ${esc(ctx.dogsById.get(sale.dog_id)?.call_name || 'the pup')} back to
-        <select id="bo-pup-to" style="width:auto;"><option value="available"${request.reason?.id === 'pup' ? '' : ' selected'}>Available</option><option value="health_hold"${request.reason?.id === 'pup' ? ' selected' : ''}>Health hold</option></select></label>
-      <p class="field-hint" id="bo-summary" style="margin-top:8px;"></p>`,
-    onConfirm: async (o) => {
-      const credit = readCredit(o);
-      if (!Number.isFinite(credit) || credit < 0 || credit > paid) throw new Error(`Enter a credit from 0 to ${fmtMoney(paid)}.`);
-      const remove = [...o.querySelectorAll('.bo-item:checked')].map((c) => items[Number(c.dataset.i)].id);
-      const pup = o.querySelector('#bo-pup').checked ? o.querySelector('#bo-pup-to').value : null;
-      await actions.approveBackOut(e.id, { outcome, credit, remove, pup });
-      await afterAction();
-    }
-  }, (o) => {
-    const summary = () => {
-      const picked = items.map((it, i) => ({ ...it, remove: o.querySelector(`.bo-item[data-i="${i}"]`).checked }));
-      const credit = readCredit(o);
-      o.querySelector('#bo-summary').textContent = `${backOutSummary(outcome, { paid, credit: Number.isFinite(credit) ? credit : 0, items: picked, money: fmtMoney })}.`;
-    };
-    o.querySelectorAll('.bo-item').forEach((c) => c.addEventListener('change', summary));
-    o.querySelector('#bo-credit')?.addEventListener('input', summary);
-    o.querySelectorAll('input[name="bo-credit-yn"]').forEach((r) => r.addEventListener('change', () => {
-      o.querySelector('#bo-credit-field').hidden = o.querySelector('input[name="bo-credit-yn"]:checked')?.value !== 'yes';
-      summary();
-    }));
-    summary();
-  });
-  // Its own wording per outcome: what happened to their deposit.
-  if (ok) await emailThem(`backed_out_${outcome}`, { request: { field: 'back_out_request', request } });
+  if (!['keep', 'move'].includes(decision)) return;
+  // The one back-out confirm (waitlistUI.backOutDialog), which offers its email too.
+  if (await backOutDialog({ entryId: e.id, outcome: decision })) await afterAction();
 }
 
 // After approving a time or a cancel: nothing she typed on the sale changes without

@@ -402,3 +402,17 @@ test('an older entry\'s carried_payment from a cancelled sale is taken off that 
   assert.equal(await earnedOn(sale.id), 0);
   assert.equal(income.carriedOutBySale([{ received_credits: [{ id: 'c', amount: 200, date: DAY, from_sale_id: 's1' }], carried_payment: { amount: 50, from_sale_id: 's1' } }]).get('s1'), 250);
 });
+
+// A back-out she records herself (End the sale… → They backed out, Cancelled on the
+// Sale page) finds the family the sale belongs to, so the back-out confirm records it
+// and they're never left Placed on a cancelled sale.
+test('backOutEntryFor: the waitlist family an open sale belongs to, or nobody', async () => {
+  const sale = await placeLee();
+  assert.equal((await actions.backOutEntryFor(sale.id))?.id, ids.lee);
+  const other = await saleRepo.create({ kennel_id: K.id, dog_id: ids.max, buyer_contact_id: (await contactRepo.create({ name: 'Walk-in' })).id, registration_type: 'limited', status: 'deposit_paid', price: 2000, deposit_amount: 500 });
+  assert.equal(await actions.backOutEntryFor(other.id), null, 'not a waitlist family');
+  await actions.approveBackOut(ids.lee, { outcome: 'keep', told: {}, date: LATER });
+  assert.equal(await actions.backOutEntryFor(sale.id), null, 'cancelled: nothing open to back out of');
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual([lee.status, lee.back_out_request.by, lee.back_out_request.outcome], ['withdrawn', 'breeder', 'keep']);
+});

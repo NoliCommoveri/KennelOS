@@ -1899,6 +1899,20 @@ export async function approveBackOut(entryId, { outcome, credit = null, remove =
   return openTurn ? finishTurn(result, entry.kennel_id, date, 'left') : result;
 }
 
+// The waitlist family an open sale belongs to (familySale: placed with it, or their
+// pick's), for a back-out she records herself (End the sale…, the Sale page's
+// Cancelled), or null: not a waitlist family's, or they've left the list.
+export async function backOutEntryFor(saleId) {
+  const sale = await saleRepo.getById(saleId);
+  if (!sale || !sale.buyer_contact_id || !saleRepo.isOpenSale(sale)) return null;
+  const sales = await saleRepo.getByBuyer(sale.buyer_contact_id);
+  const gone = ['withdrawn', 'removed', 'declined', 'expired'];
+  for (const e of (await waitlistEntryRepo.getAll()).filter((x) => x.contact_id === sale.buyer_contact_id && !gone.includes(x.status))) {
+    if ((await ownSale(e, sales))?.id === saleId) return e;
+  }
+  return null;
+}
+
 // The money on a sale a family is backing out of (K8-2, D9): `parts` what they paid,
 // line by line (incomeView.paidOnSaleByPart); `paid` what they paid beyond their credit
 // for funds already received (that part stays on their entry as credit), the most she
