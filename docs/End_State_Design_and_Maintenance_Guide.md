@@ -3312,7 +3312,8 @@ Share with families hint and the card's badge say so for this type.
     among her forms), the form goes out on that agreement's own sendable record for the
     sale, else a new draft titled "<form label>: <pup>". So one being signed never marks
     another Signed. The Contract page then opens that record; Pick to send does the same.
-  - Each fills the sale fields plus its own group (`contractForms.fieldGroupsFor`), from
+  - Each fills the sale fields, the sale's transport and boarding, and an Extra agreement its
+    extra (`contractForms.fieldGroupsFor`), from
     `contractAddOns.addOnFacts` (pure; `contractSend.saleAddOns` reads the records, and
     `gatherContractFacts` passes it as `addOns`):
     - transport: the fee, the date and place of the sale's next pickup event (else its
@@ -3335,10 +3336,14 @@ Share with families hint and the card's badge say so for this type.
     without.
   `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
   Which groups of `PREFILL_FIELDS` a template kind fills (`contractForms.fieldGroupsFor`),
-  after `every` (contract, kennel and `breeder*`): pet home, breeding rights and deposit the
-  sale; transport, boarding and extra the sale and their own; stud service its own; lease and
-  foster the dog; co-own and Other the sale and the dog (the dog's other party only when
-  there's no sale: on a sale it's the buyer).
+  after `every` (contract, kennel and `breeder*`): every kind on a sale (pet home, breeding
+  rights, deposit, transport, boarding, extra, co-own, Other) the sale, transport and
+  boarding, so one sales contract can list them; extra only an Extra agreement (its row names
+  the extra); stud service its own; lease and foster the dog; co-own and Other also the dog
+  (the dog's other party only when there's no sale: on a sale it's the buyer). Transport fills
+  on a kind other than a Transport agreement only when the sale has a transport fee; boarding
+  only when the sale has deferred boarding. The editor offers every field on every template
+  (Payment Schedule plan D38), and the Send preview names a placed field the kind doesn't fill.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it

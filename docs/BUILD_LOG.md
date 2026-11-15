@@ -5182,3 +5182,18 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Docs:** End-State guide (the extra agreement's fields).
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
 - `CACHE_NAME` bumped to `kennelos-shell-v148` (owner asked), covering the `priceWithExtra` contract field.
+
+## 2026-11-15: Transport and boarding fields fill on every contract on a sale
+- **Why:** the editor offers every field on every template (D38), but a send filled only the
+  form type's groups, so Transport · Fee placed on a sales contract came out blank. Owner:
+  her sister sends four contracts, but someone else may want one sales contract that lists
+  transport and boarding.
+- **Built:** `contractForms.fieldGroupsFor`: every kind on a sale fills `sale`, `transport`
+  and `boarding`; `extra` stays on the Extra agreement (its row names the extra); stud
+  service, lease and foster unchanged. Transport fills on a kind other than a Transport
+  agreement only when the sale has a transport fee (boarding already needs deferred
+  boarding). The Send preview's "doesn't fill on this kind" note follows (`previewNotes`).
+- **Tests:** `contractAddOns` (+1; the Extra agreement now carries the sale's transport and
+  boarding); `contractForms` (co-own and Other groups). `node --test` 2069 pass.
+- **Docs:** End-State guide (the field groups); Integrations plan (Modified note).
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.

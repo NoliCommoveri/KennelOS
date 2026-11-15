@@ -158,14 +158,14 @@ test('a lease form fills the dog, the other party and the lease dates', () => {
 });
 
 test('a co-own sale names its buyer, not a second party', () => {
-  assert.deepEqual(fieldGroupsFor('co_own'), ['sale', 'dog']);
+  assert.deepEqual(fieldGroupsFor('co_own'), ['sale', 'transport', 'boarding', 'dog']);
   const keys = prefillValues('co_own', saleFacts).map(([k]) => k);
   assert.ok(keys.includes('buyerName'));
   assert.ok(!keys.includes('partnerName'));
 });
 
 test('an Other template fills a sale\'s buyer, or a dog\'s other party', () => {
-  assert.deepEqual(fieldGroupsFor('other'), ['sale', 'dog']);
+  assert.deepEqual(fieldGroupsFor('other'), ['sale', 'transport', 'boarding', 'dog']);
   const onSale = prefillValues('other', saleFacts).map(([k]) => k);
   assert.ok(onSale.includes('buyerName'));
   assert.ok(!onSale.includes('partnerName'));

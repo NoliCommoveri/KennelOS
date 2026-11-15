@@ -302,6 +302,9 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
   `extraDescription`, `extraPrice`, `extraPayments`, `extraPayment1–4Amount/Due`,
   `extraStayDays`, `extraStayStart`, `extraStayEnd`. A boarding or training agreement is
   dated by the sale's `pickupDate`; sending one with no pickup on the calendar asks for it.
+  **Modified (owner, 2026-11-15):** the transport and boarding fields fill on every contract
+  on a sale (when the sale has them), so one sales contract can list them; the extra fields
+  stay on an Extra agreement.
 - **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
   `serviceType`.
 - **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,

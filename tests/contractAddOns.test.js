@@ -44,7 +44,8 @@ test('a training package: its own fields, the stay projected until logged, then 
   assert.equal(v.extraPayments, '50% (300.00) due 2026-11-26; 50% (300.00) due 2026-12-03');
   assert.deepEqual([v.extraPayment1Amount, v.extraPayment1Due, v.extraPayment2Due], ['300.00', '2026-11-26', '2026-12-03']);
   assert.deepEqual([v.extraStayDays, v.extraStayStart, v.extraStayEnd], ['14', '2026-12-10', '2026-12-23']);
-  assert.equal(v.transportFee, undefined, 'only its own group');
+  assert.equal(v.transportFee, '450.00', 'the sale\'s transport fills on any agreement on the sale');
+  assert.equal(v.boardingRate, '25.00', 'and its boarding');
 
   const stay = { subject_type: 'dog', subject_id: 'p1', event_type: 'boarding', event_date: '2026-12-14', event_end_date: '2026-12-27',
     details: { sale_id: 's1', extra_charge_id: 'c1' } };
@@ -67,6 +68,18 @@ test('transport and boarding: from the sale and its drop-off; boarding starts af
   assert.deepEqual([b.boardingRate, b.boardingPer, b.boardingLength, b.boardingTotal, b.boardingStart, b.boardingEnd],
     ['25.00', 'Day', '5 days', '125.00', '2026-12-24', '2026-12-29']);
   assert.ok(b.price, 'the sale\'s own fields come too');
+});
+
+test('one sales contract can list the sale\'s transport and boarding; no transport fee, no transport fields', () => {
+  const dropoff = { subject_type: 'dog', subject_id: 'p1', event_type: 'placement', event_date: '2026-12-30', related_contact_id: 'b1',
+    details: { location: 'ATL airport' } };
+  const a = addOnFacts({ sale, events: [dropoff], litter, priceList, today: TODAY });
+  const p = Object.fromEntries(prefillValues({ form_type: 'pet_home' }, { sale, addOns: a }));
+  assert.deepEqual([p.transportFee, p.deliveryDate, p.deliveryPlace, p.boardingRate, p.boardingTotal], ['450.00', '2026-12-30', 'ATL airport', '25.00', '125.00']);
+  assert.equal(p.extraName, undefined, 'an extra only on its own agreement');
+  const plain = { ...sale, transport_fee: '', deferred_boarding_amount: '' };
+  const q = Object.fromEntries(prefillValues({ form_type: 'breeding_rights' }, { sale: plain, addOns: addOnFacts({ sale: plain, events: [dropoff], litter, priceList, today: TODAY }) }));
+  assert.deepEqual([q.transportFee, q.deliveryDate, q.deliveryPlace, q.transportDueDate, q.boardingRate], [undefined, undefined, undefined, undefined, undefined]);
 });
 
 test('separate agreements are offered first only when the sale has them; an Extra form keeps its extra', () => {

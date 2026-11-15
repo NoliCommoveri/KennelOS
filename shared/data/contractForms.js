@@ -327,14 +327,17 @@ export const FIRMA_LABELS = {
   dogMicrochip: 'Dog · Microchip', leaseStart: 'Lease · Start date', leaseEnd: 'Lease · End date'
 };
 
-// Which groups a form type fills, after `every`. Other can sit on a sale or on a dog,
-// so it fills both, as co-own does.
+// Which groups a form type fills, after `every`. Every form on a sale fills the sale's
+// transport and boarding too, when the sale has them, so one sales contract can list
+// them; the extra group only on an Extra agreement (its row names which extra). Other
+// can sit on a sale or on a dog, so it fills both, as co-own does.
+const SALE_GROUPS = ['sale', 'transport', 'boarding'];
 export function fieldGroupsFor(formType) {
   if (formType === 'stud_service') return ['stud_service'];
   if (['lease', 'foster'].includes(formType)) return ['dog'];
-  if (formType === 'co_own' || formType === 'other') return ['sale', 'dog'];
-  if (['transport', 'boarding', 'extra'].includes(formType)) return ['sale', formType];
-  return ['sale'];
+  if (formType === 'co_own' || formType === 'other') return [...SALE_GROUPS, 'dog'];
+  if (formType === 'extra') return [...SALE_GROUPS, 'extra'];
+  return SALE_GROUPS;
 }
 
 // "Jane Q. Smith" → ['Jane Q.', 'Smith']; one word → [word, ''].
@@ -423,7 +426,9 @@ export function prefillValues(formOrType, facts = {}) {
     );
   }
   const a = f.addOns;
-  if (groups.includes('transport') && a) {
+  // Transport fills on a form that isn't a Transport agreement only when the sale has a
+  // transport fee: its pickup date and place aren't a delivery otherwise.
+  if (groups.includes('transport') && a && (formType === 'transport' || a.transport.fee)) {
     const t = a.transport;
     // Transport is always paid last (D16), so with a schedule it's due with the final
     // payment: that due date as it stands now, not the balance due date mirrored when
