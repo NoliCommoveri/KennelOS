@@ -25,6 +25,8 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K15 | UI layer: escaping, accessibility, phone, offline | — | — | — | — | — | — | — |
 | K16 | Consolidation | — | — | — | — | — | — | `SUMMARY.md` |
 
+Which findings are still open, by kind, and the order to fix them: [`FIX_PRIORITIES.md`](FIX_PRIORITIES.md).
+
 Baseline when the plan was last brought up to date (2026-11-08, `0328a3f`):
 `node --test` 1639 pass, `cd cloud && npm test` 303 pass, `node build/assemble.mjs`
 succeeds. (First written 2026-11-03 at 1490 / 279.)

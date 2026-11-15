@@ -4675,3 +4675,13 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide (sale income); plan §3.2a (Modified); Family Requests plan §7; README.
 - `CACHE_NAME` bumped to `kennelos-shell-v142` (owner asked), covering this session's batch: the
   preview's field list, Place fields computer only, the lost-pup credit and this.
+
+## 2026-11-15: Review fixes ranked (plan only)
+
+- **New:** `docs/review/FIX_PRIORITIES.md`, nothing built. Each K1–K14 finding checked against
+  `main` (`0abf39b`): files touched since its review, the build log's finding ids, the code
+  where those disagreed. Already fixed: Waitlist Fixes steps 1–4, the Kels batch (K6-5,
+  K8-5, K9-3/4/12, K12-10, K13-7/8/14), K10-1/2/12 via Payment schedules (to confirm with
+  tests). Gone with Jotform: K12-2 and the Jotform halves of K12-3/6.
+- **Order:** K03 (sync conflicts, untouched, released) first; K13's privacy policy and
+  deploy gate alongside; then Waitlist Fixes step 5, K02+K01, K05, K09, K10's remainder.
