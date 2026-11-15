@@ -23,7 +23,7 @@ import { escapeHtml as esc } from './lib/html.js';
 import { importFromLemonSqueezy } from './license.js';
 import { generateVapidKeys } from './notify.js';
 import { emailHash, normalizeEmail } from './auth.js';
-import { removeAccount } from './program.js';
+import { accountSummary, maskEmail, removeAccount, summaryFingerprint } from './program.js';
 import { esignOpsSummary, setDefaultMonthlyLimit, setProgramMonthlyLimit, usage as esignUsage, ESIGN_LIMIT_MAX } from './firma.js';
 
 const COOKIE = 'ops_session';
@@ -315,28 +315,9 @@ ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active noti
 
 const n = async (env, sql, ...args) => (await env.DB.prepare(sql).bind(...args).first('n')) ?? 0;
 
-// What deleting it would take: the account, its devices and what the cloud holds.
-// Counts and device names only; the email is never shown back or logged.
-async function accountSummary(env, user) {
-  const program = await env.DB.prepare('SELECT id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
-  const p = program?.id ?? '';
-  const { results: sessions } = await env.DB.prepare(
-    `SELECT device_id, MAX(device_label) AS label, MAX(last_seen_at) AS last_seen,
-            SUM(CASE WHEN revoked_at IS NULL AND expires_at > ? THEN 1 ELSE 0 END) AS live
-       FROM sessions WHERE user_id = ? GROUP BY device_id ORDER BY last_seen DESC`,
-  ).bind(new Date().toISOString(), user.id).all();
-  return {
-    programId: p,
-    createdAt: user.created_at,
-    devices: sessions,
-    snapshots: await n(env, "SELECT COUNT(*) AS n FROM snapshots WHERE program_id = ? AND status = 'committed'", p),
-    records: await n(env, 'SELECT COUNT(*) AS n FROM sync_records WHERE program_id = ?', p),
-    vault: !!(await env.DB.prepare('SELECT 1 AS x FROM vaults WHERE program_id = ?').bind(p).first()),
-    passkeys: await n(env, "SELECT COUNT(*) AS n FROM vault_wraps WHERE program_id = ? AND kind = 'passkey'", p),
-    waitlist: await n(env, 'SELECT COUNT(*) AS n FROM wl_projection WHERE program_id = ?', p),
-    esign: p ? await esignUsage(env, p) : null,
-  };
-}
+const MINUTE = (iso) => (iso ? String(iso).slice(0, 16).replace('T', ' ') : '—');
+const sizeText = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round((bytes || 0) / 1024))} KB`);
+const countsText = (c) => (c ? Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(', ') : '');
 
 async function findAccountPage(env, email) {
   const address = normalizeEmail(email);
@@ -345,36 +326,43 @@ async function findAccountPage(env, email) {
     : null;
   if (!user) return dashboard(env, '<p class="bad">No account uses that address. Check the spelling, or try the other address she may have used.</p>');
   const s = await accountSummary(env, user);
-  const deviceRows = s.devices.map((d) => `<tr><td>${esc(d.label ?? 'Unnamed device')}</td><td class="muted">${esc(d.last_seen ?? '—')}</td><td>${d.live ? 'signed in' : '<span class="muted">signed out</span>'}</td></tr>`).join('');
+  const esign = s.programId ? await esignUsage(env, s.programId) : null;
+  const deviceRows = s.devices.map((d) => `<tr><td>${esc(d.label ?? 'Unnamed device')}${d.helper ? ' <span class="muted">(support)</span>' : ''}</td><td class="muted">${esc(MINUTE(d.lastSeen))}</td><td>${d.live ? 'signed in' : '<span class="muted">signed out</span>'}</td></tr>`).join('');
+  const latest = s.latestSnapshot;
   return page('Delete an account', `<h1>Delete an account</h1>
 <p><a href="/ops">Back to ops</a></p>
+<p>You typed <strong>${esc(maskEmail(address))}</strong>. Check that this is the account she means: the newest backup and the devices
+below are the parts only her account has.</p>
 <table>
-  <tr><td>Created</td><td>${esc(s.createdAt)}</td></tr>
+  <tr><td>Created</td><td>${esc(MINUTE(s.createdAt))}</td></tr>
+  <tr><td>Newest cloud backup</td><td>${latest ? `${esc(MINUTE(latest.createdAt))}, ${esc(sizeText(latest.size))}${countsText(latest.counts) ? ` (${esc(countsText(latest.counts))})` : ''}` : 'none'}</td></tr>
   <tr><td>Cloud backups</td><td>${esc(s.snapshots)}</td></tr>
   <tr><td>Synced records</td><td>${esc(s.records)}</td></tr>
   <tr><td>Private vault</td><td>${s.vault ? `on, ${esc(s.passkeys)} passkey(s)` : 'off'}</td></tr>
   <tr><td>Waitlist online</td><td>${s.waitlist ? 'published' : 'not published'}</td></tr>
-  ${s.esign ? `<tr><td>Contracts sent for e-signature this month</td><td>${esc(s.esign.used)} of ${esc(s.esign.limit)} ${s.esign.own ? '(its own limit)' : '(the default)'}</td></tr>` : ''}
+  <tr><td>Support</td><td>${s.assist ? `set up or helped as “${esc(s.assist.label)}” (${esc(s.assist.state)})` : 'never involved'}</td></tr>
+  ${esign ? `<tr><td>Contracts sent for e-signature this month</td><td>${esc(esign.used)} of ${esc(esign.limit)} ${esign.own ? '(its own limit)' : '(the default)'}</td></tr>` : ''}
 </table>
-${s.esign ? `<h2>E-sign limit</h2>
+${esign ? `<h2>E-sign limit</h2>
 <form method="post" action="/ops/account/esign-limit">
   <input type="hidden" name="program_id" value="${esc(s.programId)}">
-  <p><label>Contracts this account may send a month<br><input type="number" name="limit" min="0" max="${ESIGN_LIMIT_MAX}" value="${s.esign.own ? esc(s.esign.limit) : ''}" placeholder="the default"></label></p>
+  <p><label>Contracts this account may send a month<br><input type="number" name="limit" min="0" max="${ESIGN_LIMIT_MAX}" value="${esign.own ? esc(esign.limit) : ''}" placeholder="the default"></label></p>
   <p class="muted">Leave empty to use the default.</p>
   <button type="submit">Save</button>
 </form>` : ''}
 <h2>Devices</h2>
-${deviceRows ? `<table><tr><th>device</th><th>last seen</th><th>now</th></tr>${deviceRows}</table>` : '<p class="muted">None.</p>'}
+${deviceRows ? `<table><tr><th>device</th><th>last seen (UTC)</th><th>now</th></tr>${deviceRows}</table>` : '<p class="muted">None.</p>'}
 <h2>Delete it</h2>
 <p>Everything this account holds in the cloud goes, at once and for good: backups, synced records, files, the vault and its
 passkeys' wraps, the waitlist online, connections, alerts, sessions and the account. A Pro purchase stays on record, so the same
 email can sign up again and still have Pro.</p>
 <form method="post" action="/ops/account/delete">
   <input type="hidden" name="user_id" value="${esc(user.id)}">
-  <p><label><input type="checkbox" name="erase" value="1" checked> Also erase its devices when they next open</label><br>
-  <span class="muted">Each device wipes its KennelOS records, frees its Pro activation and opens fresh, as an erased device
-  does. Its browser is also told to drop this account's passkeys (Chrome and Google Password Manager do; others may not). Leave
-  this off to keep what's on the devices.</span></p>
+  <input type="hidden" name="fingerprint" value="${esc(await summaryFingerprint(s))}">
+  <p><label><input type="checkbox" name="erase" value="1"> Also erase its devices when they next open</label><br>
+  <span class="muted">Only for a fresh start where nothing on her devices is worth keeping. Each device wipes its KennelOS records,
+  frees its Pro activation and opens fresh, as an erased device does. A device that doesn't open KennelOS within 90 days is never
+  told, and keeps its copy. Left off, the devices keep their records and only drop this account's passkeys.</span></p>
   <p><label>Type DELETE to confirm<br><input name="confirm" autocomplete="off" required></label></p>
   <button type="submit">Delete this account</button>
 </form>`);
@@ -382,15 +370,18 @@ email can sign up again and still have Pro.</p>
 
 async function deleteAccountByOps(env, form) {
   if (String(form.get('confirm') ?? '').trim() !== 'DELETE') return dashboard(env, '<p class="bad">Nothing was deleted: type DELETE to confirm.</p>');
-  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(String(form.get('user_id') ?? '')).first();
+  const user = await env.DB.prepare('SELECT id, created_at FROM users WHERE id = ?').bind(String(form.get('user_id') ?? '')).first();
   if (!user) return dashboard(env, '<p class="bad">That account no longer exists.</p>');
-  const program = await env.DB.prepare('SELECT id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
-  const devices = await n(env, 'SELECT COUNT(DISTINCT device_id) AS n FROM sessions WHERE user_id = ?', user.id);
+  const s = await accountSummary(env, user);
+  if (String(form.get('fingerprint') ?? '') !== await summaryFingerprint(s)) {
+    return dashboard(env, '<p class="bad">Nothing was deleted: the account changed since you looked it up (a device synced, backed up or signed in). Look it up again.</p>');
+  }
+  const devices = s.devices.length;
   const erase = form.get('erase') === '1';
-  await removeAccount(env, { userId: user.id, programId: program?.id ?? '' }, { erase });
+  await removeAccount(env, { userId: user.id, programId: s.programId }, { erase });
   return dashboard(env, `<p class="ok">Account deleted.${devices
     ? erase
-      ? ` Its ${esc(devices)} device(s) will erase themselves and drop its passkeys when they next open.`
+      ? ` Its ${esc(devices)} device(s) will erase themselves and drop its passkeys if they open KennelOS within 90 days; one that stays away longer keeps its copy.`
       : ` Its ${esc(devices)} device(s) keep their records and will drop its passkeys when they next open.`
     : ''}</p>`);
 }

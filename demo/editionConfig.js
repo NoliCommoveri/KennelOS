@@ -37,7 +37,7 @@ export const devKennelportUrl = null;
 // License gate config (data/license.js). Demo is a public read-only showcase and
 // must NEVER be walled, so the gate stays off (no licenseGate:true in editionFlags
 // below). Exported only so license.js's named import resolves in the Demo build.
-export const licenseConfig = { checkoutUrl: null, portalUrl: null, yearlyVariantPattern: 'year|annual' };
+export const licenseConfig = { checkoutUrl: null, portalUrl: null }; // variant patterns: data/license.js's defaults
 
 export async function enforceDogCap(/* { candidate, existing, id } */) {
   // no-op: writes are blocked by demo mode, not the cap.

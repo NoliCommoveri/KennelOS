@@ -196,3 +196,15 @@ test('every combination: the fields are the statement\'s, they add up, and balan
   }
   assert.ok(n > 5000);
 });
+
+// Review K10-12: sent at the pick (deposit pending), "Price 3000, Deposit 500, Balance still
+// due 3150" didn't add up. The contract now carries the parts that do, named for what they are.
+test('K10-12 regression: a contract sent before the deposit adds up', () => {
+  const { v, st } = contract(sale({ price: 3000, status: 'deposit_pending', deposit_date: null, extra_charges: [{ id: 'x', label: 'Photos', amount: 150 }] }));
+  assert.equal(v.totalCharges, '3150.00');
+  assert.equal(v.paidToDate, '0.00');
+  assert.equal(st.deposit.owed, 500);
+  assert.equal(v.finalPaymentAmount, '2650.00');
+  assert.equal(r2(st.deposit.owed + Number(v.finalPaymentAmount)), 3150, 'the deposit and the final payment are everything owed');
+  assert.match(PREFILL_FIELDS.sale.find(([k]) => k === 'balanceDue')[1], /everything on the sale/, 'the old field says what it holds');
+});

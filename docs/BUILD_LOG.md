@@ -4937,3 +4937,121 @@ tick box per template; buyers get an emailed link.
 - **Then (owner):** `FIX_PRIORITIES.md` §1 and §2 brought up to date: what steps 1–4 and the
   Waitlist Fixes step 5 built, and what's still open in K13 (K13-4 to -6, -9 to -11, -13),
   K02 (K2-7 to K2-14), K01 (K1-2, -4, -5, -7 to -10) and the Waitlist Fixes plan.
+
+## 2026-11-15: Fix step 5, K05 (assisted setup, the licence wall, the vault)
+
+From `docs/review/findings/K05-vault-licence.md`, with K04-6 (the `/ops` delete).
+- **K5-1 (S1):** `cloudAssist.redeemAssistLink` refuses a link for another program on a device
+  holding any record (`AssistDeviceInUseError`, `deviceHoldsRecords`); the session the link
+  made is signed out before anything is stored, so Dana's records can't sync into Mia's account.
+- **K5-2 (S1) + K4-6:** Delete an account is two steps on both doors. `program.accountSummary`
+  (moved out of `ops.js`), `summaryFingerprint`, `maskEmail`. `/ops` shows the masked address,
+  the newest backup (date, size, counts), devices to the minute and support's involvement, and
+  refuses a delete whose fingerprint changed. The manager app has `api/delete-lookup` → a
+  ten-minute HMAC token for that account; `api/delete` needs it (`look_up_first`,
+  `lookup_expired`, `account_changed`). Erase is off by default on both.
+- **K5-3:** every licence wall offers "Download a backup of this device" once the device
+  holds a record; the renewal wall gains "Free a lost device's slot".
+- **K5-4:** Settings → Account offers *End support's access* in setup once her device holds
+  the vault key; her End help in setup sets the program `idle` (the Worker's `endHelp`).
+  The setup line and the "Later" confirm say support stays signed in until she finishes or ends it.
+- **K5-5:** `unlockAutomatically` waits on an open automatic request (`auto` kept on the
+  pending pairing row) instead of asking on every page load; pairing errors have their own
+  wording, and `too_many_pairings` is in `errorText`.
+- **K5-6:** the two account-recovery messages swapped to their real cases, each with a next step.
+- **K5-7:** `setUpForHer` checks `entitlement()` before turning anything on; `pro_required`
+  has wording in `errorText`.
+- **K5-8:** Hand back wipes the device even offline; End help is kept as
+  `kennelOS.assistEnd` and sent by `cloudDevices.finishAssistEnd` (boot, online, after an
+  erase). Her End help wording says the wipe happens when support's device next opens.
+- **K5-9:** wider default variant patterns (`DEFAULT_LIFETIME_PATTERN`,
+  `DEFAULT_YEARLY_PATTERN`); Pro's config uses the same; the shared, Lite and Demo configs
+  no longer carry an old yearly pattern of their own.
+- **K5-10:** `/ops` and the manager say a device away more than 90 days keeps its copy.
+- **K5-12:** `POST /vault/wraps` is owner-only.
+- **K5-14:** Pro's config comment on the lifetime check-in, and the guide's "Pro on the
+  server" (it gates sync, alerts and integrations too).
+- **Left open:** K5-11 (the helper exemption is a `localStorage` flag) and K5-13 (the manager
+  cookie can't be revoked: needs a table, so a migration).
+- **Tests:** cloud `assist.test.js` (+2, two changed), `accountDeletion.test.js` (+1, the
+  fingerprint); `cloudClient.test.js` (+5: the link guard, a same-program link, the reused
+  pairing, an offline hand back); `license.test.js` (+2). `cd cloud && npm test` 349 pass,
+  `node --test` 2016 pass, the build succeeds. In Chromium on the built Pro edition: an empty
+  device's activation wall offers no backup; a lapsed monthly with one dog gets the renewal
+  wall with "This device holds 1 record" and a working download, at 320 px.
+- **Docs:** End-State guide §0.3 and the cloud section (deleted accounts, assisted setup,
+  Pro on the server); `KennelOS_Assisted_Setup_Plan.md` §1–§3; `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+
+## 2026-11-15: Fix step 6, K09 (breeding reminders)
+
+From `docs/review/findings/K09-dogs-litters-nudges.md`. K9-4 (an open heat counts as over
+after `HEAT_OPEN_DAYS`) was already on `main`.
+- **K9-1 (S1):** an Expected litter no longer silences the due-date nudges. `pairingduesoon`
+  and `pairingoverdue` count only litters past Expected; with an Expected one on file they say
+  "get ready for the pups" / "has she whelped?" and offer **Record the birth** (Kels's
+  `record-litter` on it). New `litteroverdue`: an Expected litter past its date (its pairing's
+  due date, else its whelp date) that no pairing nudge covers.
+- **K9-2:** the Pairing page's due date follows a corrected first date while it's still the
+  63-day prefill.
+- **K9-3 (root):** a litter made from its pairing is dated the pairing's due date (else first
+  date + 63, else blank), with the ready date 56 days on, not today.
+- **K9-5:** `dogCare.damIsBusy`; `heatForecast(…, { pairings, litters })` leaves out a dam
+  bred, expecting or nursing (litter under 56 days). Today and Kels's check-in count pass them.
+- **K9-6:** `dogCare.livesHere`: the heat watch and this month's preventatives leave out a
+  leased-out dog and a co-owned dog living with its co-owner.
+- **K9-10:** `promote` ages a kept pup from her litter's whelp date when her DOB is blank.
+- **K9-13 (folded in):** `linkedStatusNudges.test.js` builds local dates, not UTC.
+- **Tests:** `linkedStatusNudges.test.js` (+3, one changed), `dogCare.test.js` (+2).
+  `node --test` 2021 pass; the two files also under `TZ=Pacific/Pago_Pago` and
+  `Pacific/Kiritimati`. In Chromium: the pairing's due date moves 05-03 → 05-24 with the first
+  date and keeps a typed 05-30; a litter from a pairing due 12-01 opens Expected, 12-01, ready
+  2027-01-26. No console errors.
+- **Docs:** End-State guide (Pairing and Litter fields, the dogs she looks after, §19's table).
+- **Service worker:** no app file added or renamed.
+- `CACHE_NAME` bumped to `kennelos-shell-v145` (owner asked), covering fix steps 5 (K05) and 6 (K09).
+
+## 2026-11-15: Fix step 7, K10 remainder and K12's Stripe items (money in her own books)
+
+From `docs/review/findings/K10-money.md` and `K12-integrations-notifications.md`.
+- **Decided (owner):** K10-4: each payment's processing fee is on the payment that paid it, and
+  stays a cost when a sale ends, a refund included. Breeders charge back the fee of a payment
+  made through an account like PayPal business, collected with the final payment, which is always
+  cash or Zelle (no fee of its own). The fee built into the price (`fee_passed_to_buyer`) is for
+  marketplaces like GoodDog that forbid a separate fee; both are needed. K10-13: currency is out
+  of scope unless KennelOS goes international.
+- **Fees charged back on the final payment:** `extraCharges` `paymentFeeChargeBack`,
+  `feeChargeBackOffers`, `chargesWithPaymentFee`; `paymentSchedule.saleCharges` puts every
+  `fee_for` charge on the last due date only (`finalOnly`, `coveredTotal({ final })`). Record a
+  payment asks to charge a payment's fee back; an edit moves it, removing the payment removes it;
+  Kels's Pups are going home offers every fee not charged back yet. Never on a sale whose fee is
+  in the price. `addedFees` and the schedule editor's cover choices leave them out.
+- **K10-4:** `incomeView.feeComponents` puts the deposit's part (`depositFeePart`: Stripe's
+  report, else the paid-via estimate) on the deposit and the rest on the other parts; a released
+  sale keeps the fee of money taken, a voided one included. `getIncomeRows` loads accounts.
+- **K10-1, K10-2, K10-12:** fixed by Payment Schedules; regression tests with the reviewer's
+  scenarios.
+- **K10-3:** the Litter page's total leaves out ended sales (listed, struck through);
+  `litterFinances` counts only sales still going as puppies sold.
+- **K10-5:** undated sale and stud income is filed under the day the record was entered.
+- **K10-6:** P&L's `rowsIn(range)` counts only money dated inside a custom range.
+- **K10-7:** `familyCredit`'s date is the latest credit it used.
+- **K10-8:** a credited fee is on the litter of the sale `feeCreditsBySale` credits.
+- **K10-14 (and the D17 gap):** Financials' Adjust no longer changes a sale's status (a link to
+  the Sale page); a fee still at its estimate follows a price change; a new transport fee or
+  boarding asks about the schedule.
+- **K12-1:** `makeSaleLink` asks Stripe about the open link first; paid, it records the payment
+  and throws `LinkAlreadyPaidError` (Send payment link says so; nothing is sent).
+- **K12-3 (Stripe half):** `checkStripePayments` catches per sale, keeps `stripeErrors` per
+  account, and still checks the others; the Accounts card and account health show it; connecting
+  a new key clears it.
+- **Tests:** `paymentSchedule.test.js` (+1), `processingFees.test.js` (+1, one changed: a voided
+  sale keeps its deposit's fee as a cost), new `litterFinances.test.js` (4), `familyMoney` (+1),
+  `familyPayments` (+2), `contractSchedule` (+1), `stripePayments.test.js` (+2, one changed).
+  `node --test` 2033 pass. In Chromium: a $1,000 PayPal payment on a 50%/final schedule asks to
+  charge back $35.39, which goes on the final payment ($1,535.39; Payment 1 stays $1,000);
+  Adjust shows the status with a link. No console errors.
+- **Docs:** End-State guide §21 (Financials, per litter, §21.1, §21.2), the reports, §32 Stripe;
+  `KennelOS_Payment_Schedule_Plan.md` (Modified note); `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v146` (owner asked), covering fix step 7.

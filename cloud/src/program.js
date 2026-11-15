@@ -1,6 +1,7 @@
 // The program (one per user in Phase 1): its state, the takeover, and deleting
 // the account (plan §2.4, §3.4, §6.1).
 import { fail } from './lib/http.js';
+import { sha256Hex } from './lib/crypto.js';
 import { backingInfo } from './snapshots.js';
 import { requireFreshSignIn } from './auth.js';
 import { deleteWaitlistStatements } from './waitlist.js';
@@ -22,6 +23,68 @@ export async function getProgram(env, auth) {
 export async function takeOver(env, auth) {
   await env.DB.prepare('UPDATE programs SET backing_device_id = ? WHERE id = ?').bind(auth.deviceId, auth.programId).run();
   return getProgram(env, auth);
+}
+
+// --- Deleting an account for a user who asked (/ops and the manager app) ----------
+// Both doors look the account up first and show what only that account has, then
+// delete against a fingerprint of what was shown: a delete whose account changed
+// since the look (another device synced, a backup landed, a device signed in) is
+// refused and looked up again (review K04-6, K05-2).
+
+const count = async (env, sql, ...args) => (await env.DB.prepare(sql).bind(...args).first('n')) ?? 0;
+
+// What deleting an account would take: its devices, what the cloud holds, and
+// whether support set it up. Counts, dates and device names only; the email is
+// never stored, so never shown back (maskEmail echoes what the operator typed).
+export async function accountSummary(env, user) {
+  const program = await env.DB.prepare('SELECT id, latest_snapshot_id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
+  const p = program?.id ?? '';
+  const { results: devices } = await env.DB.prepare(
+    `SELECT device_id, MAX(device_label) AS label, MAX(last_seen_at) AS last_seen,
+            SUM(CASE WHEN revoked_at IS NULL AND expires_at > ? THEN 1 ELSE 0 END) AS live,
+            MAX(CASE WHEN role = 'helper' THEN 1 ELSE 0 END) AS helper
+       FROM sessions WHERE user_id = ? GROUP BY device_id ORDER BY last_seen DESC`,
+  ).bind(new Date().toISOString(), user.id).all();
+  const latest = program?.latest_snapshot_id
+    ? await env.DB.prepare('SELECT id, created_at, size, counts_json FROM snapshots WHERE id = ?').bind(program.latest_snapshot_id).first()
+    : null;
+  let latestCounts = null;
+  try { latestCounts = latest ? JSON.parse(latest.counts_json) : null; } catch { /* shown as unknown */ }
+  const assist = p ? await env.DB.prepare('SELECT label, state FROM assist_programs WHERE program_id = ?').bind(p).first() : null;
+  return {
+    userId: user.id,
+    programId: p,
+    createdAt: user.created_at,
+    devices: devices.map((d) => ({ deviceId: d.device_id, label: d.label, lastSeen: d.last_seen, live: d.live > 0, helper: d.helper === 1 })),
+    snapshots: await count(env, "SELECT COUNT(*) AS n FROM snapshots WHERE program_id = ? AND status = 'committed'", p),
+    latestSnapshot: latest ? { id: latest.id, createdAt: latest.created_at, size: latest.size, counts: latestCounts } : null,
+    records: await count(env, 'SELECT COUNT(*) AS n FROM sync_records WHERE program_id = ?', p),
+    vault: !!(await env.DB.prepare('SELECT 1 AS x FROM vaults WHERE program_id = ?').bind(p).first()),
+    passkeys: await count(env, "SELECT COUNT(*) AS n FROM vault_wraps WHERE program_id = ? AND kind = 'passkey'", p),
+    waitlist: await count(env, 'SELECT COUNT(*) AS n FROM wl_projection WHERE program_id = ?', p),
+    assist: assist ? { label: assist.label, state: assist.state } : null,
+  };
+}
+
+// A hash of everything accountSummary shows, so the delete can check it is still
+// the account that was looked at.
+export async function summaryFingerprint(s) {
+  return sha256Hex(JSON.stringify([
+    s.userId, s.programId, s.createdAt, s.devices.map((d) => [d.deviceId, d.lastSeen, d.live]),
+    s.snapshots, s.latestSnapshot?.id ?? null, s.records, s.vault, s.passkeys, s.waitlist,
+  ]));
+}
+
+// "dana@example.com" → "d•••a@e•••.com": what the operator typed, shown back so a
+// slip is visible, without the page holding the address.
+export function maskEmail(raw) {
+  const email = String(raw ?? '').trim().toLowerCase();
+  const at = email.lastIndexOf('@');
+  if (at < 1) return '';
+  const part = (x) => (x.length <= 2 ? `${x[0] ?? ''}•••` : `${x[0]}•••${x[x.length - 1]}`);
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return `${part(email.slice(0, at))}@${dot > 0 ? `${part(domain.slice(0, dot))}${domain.slice(dot)}` : part(domain)}`;
 }
 
 async function deletePrefix(bucket, prefix) {

@@ -84,6 +84,13 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   full access from the last successful `/validate`, then 30 days of a reconnect banner,
   then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  The interval comes from the variant name (`detectInterval`), against
+  `DEFAULT_LIFETIME_PATTERN` (`lifetime|perpetual|forever|one-time`) and
+  `DEFAULT_YEARLY_PATTERN` (`year|annual|12 months|yr`) unless the edition's
+  `licenseConfig` sets its own (Pro sets the same); anything else reads as monthly.
+  Every wall (activation, renewal, reconnect) offers **Download a backup of this device**
+  (`importExport.downloadBackup`) once the device holds any record, and the activation and
+  renewal walls offer *Free a lost device's slot*: the license gates the app, never her records.
   Only a network failure, a 5xx or a 429 counts as offline. The store's own "not found"
   (a 4xx whose JSON says `valid:false`, `isGoneAnswer`: a released activation answers this
   way) clears the cached record, so the device asks for its key again. A validate's answer is
@@ -221,8 +228,8 @@ to the cloud unsealed).
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form writes its one **Country of origin** box into it then and clears it on unticking; shown as Imported, "Yes", with the country on its own row; sent to her website, §35), `country_of_origin` (text; cloud; where the dog comes from, a fact on its own apart from `imported`: a Serbian ancestor still in Serbia has it with `imported` false; trimmed by `dogRepo` on every write that carries it; a dog's country reads as `country_of_origin`, else `import_country` when `imported`; the Dog form's **Country of origin** row is always shown next to Imported, opens with that reading, and is shown on the view as Country of origin), `titles[]` (cloud; the titles it holds, `{ abbr, organization, earned_on }` in her order, `''` for a blank part, `earned_on` only `YYYY-MM-DD`; stored through `dogTitles.normalizeTitles` by `dogRepo` on every write that carries it: abbreviation trimmed to 30 characters, organization to 60, blanks dropped, the same title merged; no index; in every edition. The titles shown and sent are `dogTitles.titlesOf(dog, events)`: this field, the dog's non-archived `title_earned` events and any titles still on the front of `registered_name`, merged at read time, see **Titles** below), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
-| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date`; follows a first-date change while still the prefill), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date` (a new litter: today; a litter made from its pairing, the pairing's `expected_due_date`, else 63 days after its first date, else blank; on an Expected litter it is the expected date), `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -497,7 +504,12 @@ below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The D
 (`CARE_OWNERSHIP`; never External), never External reference, Deceased or Pet home
 (`NOT_CARE_STATUSES`), archived or pedigree-only. Every routine-care list reads only these:
 `breedingDogs` (Today's `heatwatch` and `preventatives`, Check in on my dogs), `homeDogs`,
-`ownDogs`, and the Heat Cycles report's females.
+`ownDogs`, and the Heat Cycles report's females. The care she gives by hand (`heatForecast`,
+`preventativeGaps`) also needs the dog **living with her** (`dogCare.livesHere`): not leased
+out, and not co-owned with `lives_with_contact_id` set. With `{ pairings, litters }`,
+`heatForecast` also leaves out a dam who is busy (`damIsBusy`): a Bred or Confirmed pairing up
+to 14 days past its due date, her Expected litter not yet 14 days past its date, or a litter
+born in the last 56 days (`NURSING_DAYS`). Today and Kels's check-in count pass them.
 **Log for several dogs** is the same form over the dogs at home (`dogCare.homeDogs`: active
 breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
 `cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
@@ -1228,14 +1240,15 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 |---|---|---|
 | `studboard` | a stud service's boarding (`studRules.studBoardingFor`: a `boarding` event on the dog that travels, reason "Stud service", dates overlapping the service's) ended before today, and the service's dates differ or it's still arranged / in progress (`boardingEndedUpdate`) | **Update it**: its dates from the stay, Completed. Stands in for `studstatus` on that service |
 | `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
-| `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
+| `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel), aged from her date of birth, else her litter's whelp date | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
-| `heatwatch` | an active breeding female's (`isCareDog`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
-| `preventatives` | from the 1st, while any active breeding dog she looks after (`isCareDog`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
-| `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
+| `heatwatch` | an active breeding female's (`isCareDog`, `livesHere`, not `damIsBusy`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
+| `preventatives` | from the 1st, while any active breeding dog she looks after and that lives with her (`isCareDog`, `livesHere`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
+| `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter past Expected | no litter: create the litter; an Expected one: "get ready for the pups", **Record the birth** (Kels's `record-litter` on it) |
 | `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
-| `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
+| `pairingoverdue` | a pre-whelp pairing is past due, no litter past Expected | no litter: mark whelped / create litter; an Expected one: "has she whelped?", **Record the birth** |
+| `litteroverdue` | an Expected litter (not archived) past its date, which no pairing nudge covers (no pairing, or one without a due date, or one marked whelped; not an ended pairing or our stud's outside breeding): the date is the pairing's due date, else its `whelp_date`. Key carries the date | **Record the birth** |
 | `litterpairing` | a whelped-or-later litter's pairing isn't `whelped` | mark it whelped |
 | `pairingended` | an ended pairing still has an `expected` litter | archive the litter |
 | `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
@@ -1354,7 +1367,9 @@ fees from Accounts are Pro only.
 The Financials hub (`pages/financials.*`) has three views
 (`?view=overview|income|expenses`): **Expenses** (the ledger, with one tab per
 `EXPENSE_CATEGORIES` value via `&bucket=`), **Income** (derived, Earned and Anticipated
-boxes; a row opens an **Adjust** modal that writes back to the sale or stud service), and
+boxes; a row opens an **Adjust** modal that writes back to the sale or stud service: a sale's
+money and dates, never its status, which shows with a link to the Sale page; a fee still at its
+estimate follows a price change, and a new transport fee or boarding asks about the schedule, D17), and
 **Overview** (earned / anticipated / spent / **Net = earned − spent** tiles and breakdowns).
 
 ### Expenses — the one home for money spent
@@ -1438,8 +1453,13 @@ subject (`financials.js` `expenseInScope`).
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
-status). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
-the litter's expenses plus its puppies' expenses.
+status; the total is the sales still going: one cancelled, voided or returned is listed, struck
+through, and left out). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
+the litter's expenses plus its puppies' expenses. *Puppies sold* counts only sales still going;
+what an ended sale kept is still in its income. A credited application fee is on the litter of
+the sale it's credited to (`feeCreditsBySale`'s), a pick or side sale waiting on its deposit too.
+Money with no date at all (a sale or stud service typed in with none) is filed under the day the
+record was entered, so it's in every report as well as the Overview.
 
 ### 21.1 Processing fees — `docs/KennelOS_Integrations_Plan.md` §5
 A sale through a marketplace or payment service loses a fee (percent + fixed). The **price
@@ -1451,8 +1471,13 @@ stays gross and income is price − fee.**
   replaces the estimate (§32).
 - "Price that nets you $X" (`data/processingFees.js`, pure): `price = (net + fixed) ÷
   (1 − percent)`, rounded up. In Lite (no Accounts) she types the rate.
-- Income takes the fee off as negative `processing_fee` components, split pro rata across
-  the cash components, so earned is what she actually received.
+- Income takes the fee off as negative `processing_fee` components, so earned is what she
+  actually received. Each payment's fee is on the payment that paid it
+  (`incomeView.feeComponents`): the deposit's part (`depositFeePart`: Stripe's reported fee for
+  the deposit, else the estimate from the account it was paid via, else its share by size) with
+  the deposit, the rest with the other parts by size. When a sale ends (cancelled, returned,
+  voided, a refund included) the fee of the money actually taken stays as a cost: the processor
+  keeps it.
 - **Never buyer-facing:** invoices and Companion use `saleComponents`, which leaves the fee out.
 
 ### 21.2 Extra charges — `data/extraCharges.js`
@@ -1512,15 +1537,24 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   approving its cancel offers **Remove the stay**; Today covers every other path (the
   `training-stay` nudges). The event form carries the two link keys through an edit
   (`LINK_DETAIL_KEYS`). A stay counts as boarding for the go-home nudges like any other.
-- **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
-  sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through
-  such an account with a usable rate, and the sale didn't qualify before the save, the Sale
-  page asks to add `<account> fee` (`processingFee(deposit, rate)`, `fee_for: 'deposit'`) as an
-  extra charge, so it's on the balance invoice. Asked once; Skip leaves it off. What the
-  processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
-  earned income. A fee on the balance itself has no later payment to ride on: she adds it as
-  an extra charge before invoicing the balance. Payments recorded by an integration (§32)
-  don't ask on their own; Kels's Pups are going home asks before asking each family for what they owe (§33).
+- **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal sent as
+  business…), for an ordinary sale at the base price whose family chooses to pay that way. Each
+  payment through such an account adds its fee as an extra charge with `fee_for`, and **every
+  fee charged back is collected with the final payment** (`paymentSchedule.saleCharges`:
+  `finalOnly`, never on an earlier due date, never on its own dates; final payments are cash or
+  Zelle, so the last payment has no fee of its own).
+  - The deposit (`fee_for: 'deposit'`, `depositFeeChargeBack`): when a save leaves the deposit
+    paid through such an account, and the sale didn't qualify before the save, the Sale page asks.
+  - Each recorded payment (`fee_for: 'payment:<id>'`, `paymentFeeChargeBack`): Record a payment
+    asks once it's saved, unless that payment paid the last of what's owed. Editing the payment
+    moves its fee with it, and removing it removes the fee (`chargesWithPaymentFee`).
+  - Kels's Pups are going home offers every one the sale doesn't carry yet
+    (`feeChargeBackOffers`) before asking each family for what they owe (§33).
+  Asked once each; Skip leaves it off. Not on a sale whose fee is already in the price
+  (`fee_passed_to_buyer`, a marketplace like GoodDog that forbids showing a separate fee): that
+  would charge it twice. What the processor kept is still `processing_fee_amount` (§21.1), so
+  the charge and the fee cancel in earned income. A fee charged back never triggers the
+  new-fees question (`addedFees` leaves it out) and isn't a cover choice in the schedule editor.
 - **Kels:** Getting Started sets up the price list (`extra-charges`) and her payment services
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
@@ -2959,29 +2993,45 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
-- **A deleted account** (`DELETE /account`, or `/ops` → Delete an account for a user who
-  asked): the server keeps the hash of each of its session tokens for 90 days, so a device
+- **A deleted account** (`DELETE /account`, or Delete an account on `/ops` or in the manager
+  app, for a user who asked): `/ops` and the manager look the account up first and show what
+  only it has (`program.accountSummary`: the newest backup's date, size and counts, its devices
+  to the minute, whether support set it up, a masked echo of the typed address), then delete
+  against a fingerprint of that summary (`summaryFingerprint`; the manager's is a ten-minute
+  HMAC token), so an account that changed since the look is refused. *Erase its devices* is
+  off unless ticked. The server keeps the hash of each of its session tokens for 90 days, so a device
   that turns up later hears `401 account_deleted {erase}` (`CloudAccountDeletedError`).
   `cloudDevices.accountDeleted` first tells the password manager to drop every passkey of
   that program (`vaultPasskey.forgetAllPasskeys`: WebAuthn `signalAllAcceptedCredentials`
   with no accepted ids; the user handle is the program id; best effort), then with
   `erase` (support asked for a fresh start) erases the device like a remote erase, and
   without it keeps its records and drops the session. Deleting your own cloud data does the
-  passkey step on the deleting device; only her other devices are told.
+  passkey step on the deleting device; only her other devices are told. A device that
+  stays away past those 90 days hears a plain `unauthorized` and keeps its records.
 - **Assisted setup and help** (`data/cloud/cloudAssist.js`, `assets/cloudAssistUI.js`;
   `docs/KennelOS_Assisted_Setup_Plan.md`): KennelOS support's device signs in to a user's
   account as a **helper** through a one-time link (`?assist=<token>`, read in `app.js`
   before the license gate, which a helper device skips). Its session (`role: 'helper'`,
   `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
-  vault and sync once per program (in setup) or joins her (when she asked for help). Her
+  vault and sync once per program (in setup, after checking `entitlement()` finds her Pro
+  purchase: sync needs it) or joins her (when she asked for help). `redeemAssistLink`
+  refuses a link for another program on a device that holds any record
+  (`AssistDeviceInUseError`; the new session is signed out before anything is stored), so
+  one user's records can't sync into the next one's account. Hand back wipes the device
+  even offline (`eraseThisDevice(token, { endHelpToken })`): End help is kept as
+  `kennelOS.assistEnd` and sent by `finishAssistEnd` once it is back online. Her
   first sign-in on a program support set up answers `assisted`; "I already use KennelOS"
   then runs `claimAssistedAccount` (the vault key from support's device, the join, her own
   recovery code, `POST /assist/claimed`) in place of a restore, and `bootCloud` finishes an
-  interrupted one. Settings → Account has Get help / End help. The vault key moves by an
-  **automatic pairing** (`requestDeviceUnlock({ auto: true })` posts its code;
+  interrupted one. Settings → Account has Get help / End help, and in setup *End support's
+  access* once her device holds the vault key (her End help in setup ends the setup too:
+  state `idle`). The vault key moves by an
+  **automatic pairing** (`requestDeviceUnlock({ auto: true })` posts its code, and
+  `unlockAutomatically` waits on an open automatic request rather than asking again;
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
-  as `device_erased`.
+  as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
+  everything that changes her account itself, adding a passkey wrap included.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it
@@ -2993,8 +3043,9 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   A restore merges it with `'vault-merge'` (§10) when unlocked. `cloudConfig.VAULT_RELEASED`
   (true) offers it everywhere cloud backup is.
 - **Pro on the server** (`cloudEntitlement.js`): the server learns of purchases from Lemon
-  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates only
-  server features (the online waitlist); `license.js` still gates the app.
+  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates the
+  server features: the online waitlist, live sync, alerts and integrations (`requirePro`,
+  `403 pro_required`); `license.js` still gates the app.
 
 ### Where it lives
 - **Server:** `cloud/` — one Cloudflare Worker + D1 + R2, deployed by Workers Builds (not
@@ -3104,7 +3155,9 @@ Overview, so they always agree. Cash basis: each income component has `when` (a 
 leaves out credit-covered money (nothing is owed on it). Anticipated income never enters
 Net; pick value is never money in.
 
-**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
+**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month (a date
+range keeps the months it touches, each with only the money dated inside it:
+`reportSources.loadProfitLoss` `rowsIn`, so a custom range agrees with Expenses by Category), Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
 Live-Birth Summary, Health-Test Events, Dam & Sire Production (by whelp-date range,
 `breedingReports.productionRowsIn`; flags litters under `BACK_TO_BACK_DAYS` apart and at
@@ -3465,7 +3518,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   the next payment, everything owed) and the account; with Stripe connected, a **one-time
   Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the account's own
   link and instructions. The message gives the due date (or at pickup) and, on the final
-  payment, her final-payment methods.
+  payment, her final-payment methods. A sale's open link is asked about before it's replaced:
+  paid, its payment is recorded and no new link is made (`LinkAlreadyPaidError`, "That link
+  was already paid"); unpaid, it's switched off.
 - **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
   device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
   browser; nothing goes through the Worker and the money goes to her account.
@@ -3474,7 +3529,11 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   received, or a row in the sale's payments (§21.3, never paid in full by itself), with the
   date and reference, and the fee Stripe kept into `processing_fee_reports` /
   `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
-  that moved on becomes a review.
+  that moved on becomes a review. Each sale is asked on its own: an account whose key is
+  refused or lacks a permission is kept in the integrations state (`stripeErrors`, per account)
+  while every other account is still checked, and cleared when it answers again or a new key
+  is connected. The Accounts card says so (`stripeConnection().lastError`), and Kels's account
+  health reports it rather than the narrower key check.
 - Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
   same `integrationApply` / `integrationEvents.planIntegrationEvent`.
 - The waitlist application fee: §29.

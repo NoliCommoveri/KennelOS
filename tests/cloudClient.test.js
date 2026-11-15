@@ -822,6 +822,75 @@ test('Get help: support’s new device gets the key from hers by itself, and End
   assert.deepEqual(appKeys(), []);
 });
 
+// Review K05-1: support opens Mia's link on the browser that still holds Dana's records.
+test('an assist link on a device holding another program’s records is refused before anything is stored', async () => {
+  const danaProgram = await supportSetsUp(); // device S holds Dana's records, signed in as her helper
+  const before = auth.currentAccount();
+  const mia = await managerApi('start', { email: 'mia@example.com', label: 'Mia' });
+  await assert.rejects(assist.redeemAssistLink(linkToken(mia.link)),
+    (e) => e instanceof assist.AssistDeviceInUseError && e.code === 'device_holds_records' && e.heldFor === 'Dana');
+  assert.equal(auth.currentAccount().programId, danaProgram, 'still Dana’s helper session');
+  assert.equal(auth.currentAccount().token, before.token);
+  assert.ok(tables.dogs.rows.has('d-support'), 'nothing wiped either');
+  const live = env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM sessions s JOIN programs p ON p.owner_user_id = s.user_id
+    WHERE p.id = ? AND s.revoked_at IS NULL`).get(mia.programId).n;
+  assert.equal(live, 0, 'the session the link made is signed out again');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM sync_records WHERE program_id = ?').get(mia.programId).n, 0);
+
+  // A browser with records and no session at all is refused the same way; an empty one is fine.
+  switchDevice('U'); putDog('someone-else');
+  await assert.rejects(assist.redeemAssistLink(linkToken((await managerApi('link', { programId: mia.programId })).link)),
+    (e) => e instanceof assist.AssistDeviceInUseError && e.heldFor === null);
+  switchDevice('V');
+  assert.equal((await assist.redeemAssistLink(linkToken((await managerApi('link', { programId: mia.programId })).link))).programId, mia.programId);
+});
+
+test('a link for the program this device already helps is fine, records and all', async () => {
+  const programId = await supportSetsUp();
+  const { link } = await managerApi('link', { programId });
+  assert.equal((await assist.redeemAssistLink(linkToken(link))).programId, programId);
+});
+
+// Review K05-5: every page load used to ask again, into the server's pairing caps.
+test('the automatic unlock waits on its open request instead of asking again on every page load', async () => {
+  await supportSetsUp();
+  switchDevice('A');
+  await signIn('dana@example.com', "Dana's Pixel");
+  const openPairings = () => env.DB.raw.prepare('SELECT COUNT(*) AS n FROM vault_pairings').get().n;
+  // How many requests are open while it waits, from a page that already had one open.
+  const waitOnce = async () => {
+    const controller = new AbortController();
+    let seen = null;
+    await assist.unlockAutomatically({ signal: controller.signal, intervalMs: 1, onWaiting: () => { seen = openPairings(); controller.abort(); } });
+    return seen;
+  };
+  await vaultMod.requestDeviceUnlock({ auto: true }); // the earlier page's request, left mid-wait
+  assert.equal((await vaultMod.pendingDeviceUnlock()).auto, true);
+  assert.equal(await waitOnce(), 1, 'reused, not asked again');
+
+  // A request made by hand (a typed code) carries no code for support's device: asked afresh.
+  await vaultMod.requestDeviceUnlock({ auto: false });
+  assert.equal(await waitOnce(), 3);
+});
+
+// Review K05-8: Hand back offline wiped nothing and ended nothing.
+test('hand back without the server: the device wipes now, and End help goes once it is back online', async () => {
+  const programId = await supportSetsUp();
+  const token = auth.sessionToken();
+  globalThis.fetch = async (url, init) => (String(url).includes('/assist/') || String(url).includes('/devices/') ? Promise.reject(new Error('offline')) : workerFetch(url, init));
+  await assert.rejects(assist.endHelp(), (e) => e instanceof api.CloudOfflineError);
+  await dv.eraseThisDevice(token, { endHelpToken: token });
+  for (const t of Object.values(tables)) assert.equal(t.rows.size, 0, t.name);
+  assert.ok(appKeys().includes('kennelOS.assistEnd'), 'the one token kept for End help');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM sessions WHERE role = ? AND revoked_at IS NULL').get('helper').n, 1, 'not ended yet');
+
+  globalThis.fetch = workerFetch; // back online
+  assert.equal(await dv.finishAssistEnd(), true);
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM sessions WHERE role = ? AND revoked_at IS NULL').get('helper').n, 0, 'support’s access ended');
+  assert.equal(env.DB.raw.prepare('SELECT state FROM assist_programs WHERE program_id = ?').get(programId).state, 'setup', 'still waiting for her takeover');
+  assert.equal(await dv.finishAssistEnd(), false, 'sent once');
+});
+
 test('an expired or spent assist link signs nothing in', async () => {
   const start = await managerApi('start', { email: 'dana@example.com', label: 'Dana' });
   switchDevice('S');

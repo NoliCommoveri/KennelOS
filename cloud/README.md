@@ -143,7 +143,9 @@ src/assist.js          assisted setup and help: the editions' /assist/* routes (
 src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
                        yesterday and the average per day over the previous 30 days,
                        outbox, notices, retention, export/import, and Delete an account (look up by
-                       email, then delete, optionally erasing its devices: program.js removeAccount;
+                       email, then delete against a fingerprint of what was shown, optionally erasing
+                       its devices: program.js accountSummary / summaryFingerprint / removeAccount;
+                       the manager app does the same in two calls, delete-lookup then delete;
                        a deleted account's token hashes stay 90 days in account_deletions, 0020, so
                        its devices hear 401 account_deleted {erase})
 src/migrate.js         the runner (ported from MCCE): status, drift, atomic apply

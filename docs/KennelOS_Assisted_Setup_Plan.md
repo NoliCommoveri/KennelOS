@@ -43,7 +43,17 @@
    support, support makes a link, opens it on a fresh helper profile, and her app hands
    that device the key by itself while it's open. Either side ends it: her **End help**,
    support's **Hand back** (in-app bar) or **End help** (manager app). Ending signs the
-   helper out and its copy is wiped.
+   helper out; its copy is wiped the next time it opens KennelOS. Hand back wipes the
+   device at once, even offline, and sends End help when it's back online.
+
+Two guards on support's device: an assist link is refused on a device that holds another
+program's records (nothing is signed in or copied: hand back there first, or use the
+profile kept for that user), and setup checks her Pro purchase is on record before
+turning anything on, since keeping devices in step needs it.
+
+While the program is in setup she can also end support's access herself (Settings →
+Account → End support's access, offered once her device holds the vault key). That ends
+the setup too: support makes no new link until she presses Get help.
 
 ## 2. The manager app (`/manager/`, `cloud/src/assist.js`, `assistApp.js`)
 
@@ -56,7 +66,12 @@ push through the same VAPID key as app alerts.
 - **Each user:** state (Setting up, Hers, Asked for help, You're helping), when her devices
   were last seen, whether a helper device is signed in, the last events, **Make link**,
   **End help**.
-- **Delete an account:** by email, with **erase its devices**, typed DELETE.
+- **Delete an account:** look it up by email first: the manager shows a masked echo of what
+  was typed, the newest backup, the devices, and whether support set it up; then typed
+  DELETE, with **erase its devices** off unless ticked. The delete carries a ten-minute
+  token for that account as it was shown, and is refused if the account changed since.
+  A device that doesn't open KennelOS within 90 days is never told, and keeps its copy.
+  **Modified:** this was one form (email, erase on, DELETE); review K05-2 made it two steps.
 - **Notifications** for: she signed in on her device (keep the setup device open), she
   took over, she asked for help, she ended help.
 
@@ -65,7 +80,7 @@ push through the same VAPID key as app alerts.
 A helper session is a session on her account with `role = 'helper'` and the label
 "KennelOS support (…)". It reads and changes every record through sync. Refused with
 `403 helper_not_allowed`: signing others out, deleting the account, changing its email,
-license links, turning the vault off, replacing the recovery wrap, removing a passkey,
+license links, turning the vault off, replacing the recovery wrap, adding or removing a passkey,
 making handoff codes, turning sync off everywhere, erasing devices. On support's device the
 license gate is skipped: the server's own Pro checks use her account's entitlement. Its website checks
 skip it too: support can Connect website (with a code from KennelPort, which an editor of

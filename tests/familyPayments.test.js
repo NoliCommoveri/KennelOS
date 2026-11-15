@@ -228,3 +228,26 @@ test('the deposit message (K8-1): the deposit after credits, the balance after t
   assert.match(depositRequestMessage(m).body, /After the deposit: \$1000 by 2026-11-01/);
   assert.doesNotMatch(depositRequestMessage(m).body, /The balance of/);
 });
+
+// Review K10-2 (S1): a paid-in-full family's Companion page said they still owed the balance.
+test('K10-2 regression: a paid-in-full sale shows nothing owed to the family', () => {
+  const st = paymentStatement({ id: 's', status: 'paid_in_full', price: 3000, deposit_amount: 500, deposit_date: '2026-03-01', balance_paid_date: '2026-04-20',
+    transport_fee: 300, extra_charges: [{ id: 'x', label: 'Photo package', amount: 150 }] }, { today: '2026-04-25' });
+  const v = familyPaymentsView(st);
+  assert.equal(v.remaining, 0);
+  assert.equal(v.paid, 3450);
+});
+
+// Review K10-7: every credited line was dated the family's OLDEST credit.
+test('K10-7: a family\'s credit is dated when the last credit it used came in', async () => {
+  const { familyCredit } = await import('../shared/data/incomeView.js');
+  const { CREDIT_USE_VALUES } = await import('../shared/data/receivedCredits.js');
+  const cr = (id, amount, date) => ({ id, amount, date, applies_to: CREDIT_USE_VALUES });
+  const entry = { id: 'e', received_credits: [cr('a', 200, '2026-01-15'), cr('b', 300, '2026-03-01'), cr('c', 400, '2026-06-01')] };
+  const s = { id: 's', status: 'deposit_pending', price: 3000, deposit_amount: 500 };
+  const c = familyCredit(entry, s);
+  assert.deepEqual(c.received.byKey, { deposit: 500, balance: 400 });
+  assert.equal(c.date, '2026-06-01');
+  const small = familyCredit({ id: 'e', received_credits: entry.received_credits.slice(0, 2) }, s);
+  assert.equal(small.date, '2026-03-01', 'the deposit was covered once March\'s credit came in');
+});

@@ -98,7 +98,9 @@ test('the helper can set things up but not touch her account itself', async () =
   assert.equal((await call(env, 'POST', '/vault', { token: s.token, body: { keyId: KEY_ID, recoveryWrap: wrap() } })).status, 200, 'turns the vault on');
   assert.equal((await call(env, 'GET', '/program', { token: s.token })).status, 200);
   for (const [m, path, body] of [['DELETE', '/account', { confirm: 'DELETE' }], ['DELETE', '/vault', {}], ['POST', '/auth/signout-others', {}],
-    ['POST', '/account/email', { email: 'x@example.com', code: '123456' }], ['POST', `/devices/${HER_PHONE}/erase`, {}], ['PUT', '/vault/wraps/recovery', { keyId: KEY_ID, wrapped: wrap() }]]) {
+    ['POST', '/account/email', { email: 'x@example.com', code: '123456' }], ['POST', `/devices/${HER_PHONE}/erase`, {}], ['PUT', '/vault/wraps/recovery', { keyId: KEY_ID, wrapped: wrap() }],
+    // A passkey of support's own in her vault (review K05-12).
+    ['POST', '/vault/wraps', { kind: 'passkey', keyId: KEY_ID, wrapped: wrap(), credentialId: 'cred-1', prfSalt: wrap(), label: 'x' }]]) {
     assert.deepEqual(await err(await call(env, m, path, { token: s.token, body })), { status: 403, error: 'helper_not_allowed' }, `${m} ${path}`);
   }
 });
@@ -173,6 +175,34 @@ test('a user support never set up can still ask for help; the helper can’t ask
   assert.deepEqual(await err(await call(env, 'GET', '/program', { token: back.token })), { status: 401, error: 'helper_removed' });
 });
 
+test('her End help during setup ends support’s access and the setup; support’s hand back keeps it waiting', async () => {
+  const env = await makeEnv();
+  const { programId, helper } = await setUp(env);
+  assert.deepEqual(await (await call(env, 'POST', '/assist/end', { token: helper.token, body: {} })).json(), { ok: true, state: 'setup' }, 'support handing back');
+  const back = await (await redeem(env, (await manager(env, 'link', { programId })).body.link)).json();
+  const her = await signIn(env, EMAIL, { deviceId: HER_PHONE });
+  assert.deepEqual(await (await call(env, 'POST', '/assist/end', { token: her.token, body: {} })).json(), { ok: true, state: 'idle' });
+  assert.deepEqual(await err(await call(env, 'GET', '/program', { token: back.token })), { status: 401, error: 'helper_removed' });
+  assert.deepEqual((await manager(env, 'link', { programId })).body, { error: 'help_not_requested' }, 'no new link until she asks');
+});
+
+test('manager delete: a token is for the account as looked up, and only for ten minutes', async () => {
+  const env = await makeEnv();
+  await signIn(env, EMAIL, { deviceId: HER_PHONE });
+  const other = await signIn(env, 'mia@example.com', { deviceId: SUPPORT });
+  const dana = (await manager(env, 'delete-lookup', { email: EMAIL })).body;
+  const mia = (await manager(env, 'delete-lookup', { email: 'mia@example.com' })).body;
+  assert.deepEqual((await manager(env, 'delete', { userId: mia.userId, confirmToken: dana.confirmToken, confirm: 'DELETE' })).body, { error: 'account_changed' }, 'Dana’s token can’t delete Mia');
+  const [, sig] = dana.confirmToken.split('.');
+  assert.deepEqual((await manager(env, 'delete', { userId: dana.userId, confirmToken: `${Date.now() - 1}.${sig}`, confirm: 'DELETE' })).body, { error: 'lookup_expired' });
+  await signIn(env, EMAIL, { deviceId: SUPPORT }); // a new device after the look
+  assert.deepEqual((await manager(env, 'delete', { userId: dana.userId, confirmToken: dana.confirmToken, confirm: 'DELETE' })).body, { error: 'account_changed' });
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 2);
+  const again = (await manager(env, 'delete-lookup', { email: EMAIL })).body;
+  assert.equal((await manager(env, 'delete', { userId: again.userId, confirmToken: again.confirmToken, confirm: 'DELETE', erase: true })).body.erase, true);
+  assert.equal((await call(env, 'GET', '/program', { token: other.token })).status, 200, 'Mia untouched');
+});
+
 test('pending: a manager push says who and what; delete from the manager removes the assist rows', async () => {
   const env = await makeEnv();
   const { programId } = await setUp(env);
@@ -184,8 +214,17 @@ test('pending: a manager push says who and what; delete from the manager removes
   assert.match(n.body, /signed in on her device/);
   assert.equal((await manager(env, 'pending', { endpoint })).body.body, 'Nothing new.', 'shown once');
 
-  assert.deepEqual((await manager(env, 'delete', { email: EMAIL, confirm: 'nope' })).body, { error: 'confirm_required' });
-  assert.equal((await manager(env, 'delete', { email: EMAIL, confirm: 'DELETE' })).body.devices, 2);
+  const look = (await manager(env, 'delete-lookup', { email: EMAIL })).body;
+  assert.equal(look.typed, 'd•••a@e•••e.com');
+  assert.equal(look.assist.label, 'Dana at Blue Ridge');
+  assert.equal(look.devices.length, 2);
+  assert.ok(look.devices.some((d) => d.helper), 'support’s device is marked');
+  const go = { userId: look.userId, confirmToken: look.confirmToken };
+  assert.deepEqual((await manager(env, 'delete', { ...go, confirm: 'nope' })).body, { error: 'confirm_required' });
+  assert.deepEqual((await manager(env, 'delete', { email: EMAIL, confirm: 'DELETE' })).body, { error: 'look_up_first' }, 'an email alone deletes nothing');
+  const gone = (await manager(env, 'delete', { ...go, confirm: 'DELETE' })).body;
+  assert.equal(gone.devices, 2);
+  assert.equal(gone.erase, false, 'erase only when asked');
   for (const t of ['assist_programs', 'assist_events', 'users']) assert.equal(env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n, 0, t);
   assert.equal(programId.length, 36);
 });

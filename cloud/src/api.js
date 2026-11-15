@@ -41,7 +41,7 @@ const INT_CONNECTION = /^\/integrations\/connections\/([0-9a-f-]{36})$/;
 const OWNER_ONLY = new Set([
   'POST /auth/signout-others', 'DELETE /account', 'POST /account/email', 'DELETE /account/email',
   'POST /account/license-links/start', 'POST /account/license-links/verify', 'DELETE /account/license-links',
-  'DELETE /vault', 'PUT /vault/wraps/recovery', 'POST /vault/handoffs', 'DELETE /sync',
+  'DELETE /vault', 'POST /vault/wraps', 'PUT /vault/wraps/recovery', 'POST /vault/handoffs', 'DELETE /sync',
 ]);
 function ownerOnly(p, m) {
   if (OWNER_ONLY.has(`${m} ${p}`)) return true;

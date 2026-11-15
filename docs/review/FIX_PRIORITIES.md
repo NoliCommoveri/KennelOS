@@ -19,7 +19,7 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ## 1. Where each document stands
 
-*Updated 2026-11-15 after steps 1–4 and step 3 (Waitlist Fixes step 5) were built. Rows not
+*Updated 2026-11-15 after steps 1–7 and step 3 (Waitlist Fixes step 5) were built. Rows not
 touched by those steps are as first written.*
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
@@ -28,12 +28,12 @@ touched by those steps are as first written.*
 | **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12). **Step 2 (11-15):** K13-1, -2, -3 (the policy's words, owner's choice), K13-12, K13-15 | 0 · 3 | Open: K13-4, -5, -6 (S2) and K13-9, -10, -11, -13 (S3), all in step 8 (edition gates) or group J. |
 | **K02** | Backup, restore, CSV import | 1/5/6/2 | **Step 4 (11-15):** K2-1 to K2-6 | 0 · 0 | Open: K2-7 (S3, the 10k-row preview: step 13), K2-8 to K2-12 (S3) and K2-13, K2-14 (S4). Not yet in a step. |
 | **K01** | Schema, repos, identity matching | 1/3/3/3 | **Step 4 (11-15):** K1-1, K1-3, K1-6 | 0 · 2 | Open: K1-2 (Furever's `blocked` handler, step 10's Furever half), K1-4 (the duplicate scan's speed, step 13), K1-5, K1-7 (S3) and K1-8 to K1-10 (S4). |
-| **K05** | Vault, licence, assisted setup | 2/5/3/4 | none | **2 · 5** | Only Jotform's retirement touched `cloudAssistUI.js`. **Next (step 5).** K5-3 decided: export only (§4). |
+| **K05** | Vault, licence, assisted setup | 2/5/3/4 | **Step 5 (11-15):** K5-1 to K5-10, K5-12, K5-14 | 0 · 0 | Open: K5-11 and K5-13 (S4; K5-13 needs a migration). Not yet in a step. |
 | **Waitlist Fixes plan** (K6, K6b, K7, K8) | Waitlist engine, online, family requests | 3/12/30/7 | Steps 1–4, K8-1, K8-10, K6-5, K8-5 (Kels part). **Its step 5 (11-15):** K8-2 (D9: nothing refunded on a back-out, her credit), K8-3, K8-4, K8-13, K6b-5, K6b-8; and every back-out she records goes through one confirm | 0 · 2 | Open S2: K6-3 (the clock, its step 7), K6-6 (its step 6). Its steps 6–10 remain. |
-| **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part) | **1 · 2** | `pairingIdsWithLitter` still counts an Expected litter, so both due-date nudges stay off (`nudges.js:288`). `pairing.js` and `litter.js` are untouched. |
-| **K10** | Money: sales, invoices, reports | 2/3/9/0 | K10-1, K10-2, K10-12: Payment Schedules rebuilt receipts, Companion and contract prefills (*recheck* with a test) | **0 · 3** | `incomeView` changed 12 times, but the fee is still spread across components (`feeComponents`). `litter.js` is untouched. |
-| **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved) | **0 · 6** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
-| **K12** | Integrations, notifications | 0/4/9/1 | K12-10. Jotform is retired, so K12-2 and the Jotform halves of K12-3 and K12-6 are gone | **0 · 3** | `makeSaleLink` still deactivates the open link without asking whether it was paid (`stripeLinks.js:69`). |
+| **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part). **Step 6 (11-15):** K9-1, K9-2, K9-3, K9-5, K9-6, K9-10, K9-13 | 0 · 0 | Open: K9-7, K9-8, K9-9 (S3) and K9-11 (S4). Not yet in a step. |
+| **K10** | Money: sales, invoices, reports | 2/3/9/0 | K10-1, K10-2, K10-12 by Payment Schedules (confirmed by tests in step 7). **Step 7 (11-15):** K10-3 to K10-8, K10-14 | 0 · 0 | Open: K10-9, K10-10, K10-11 (S3). K10-13 (currency): out of scope unless KennelOS goes international (owner, 11-15). |
+| **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved). **Step 5 (11-15):** K4-6 | **0 · 5** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
+| **K12** | Integrations, notifications | 0/4/9/1 | K12-10. Jotform is retired, so K12-2 and the Jotform halves of K12-3 and K12-6 are gone. **Step 7 (11-15):** K12-1, K12-3 | **0 · 1** | Open S2: K12-4 (an alert opens a page that can't show it). Not yet in a step. |
 | **K14** | Multi-kennel, shows, Companion, Furever | 1/7/8/2 | none | **1 · 7** | Furever isn't live yet ("in active development"). The scope items (K14-6, -9, -10, -11) hit multi-kennel Pro users today. |
 | **K11** | Kels and the guided tasks | 0/7/8/3 | Litter-cap half of K11-1 (via K13-14) | **0 · 7** | K11's baseline is from *before* the Kels batch, but only K11-1 overlapped it. The dog-cap half is still open: `guidedLitter.js` checks only `enforceLitterCap` up front. |
 
@@ -56,7 +56,7 @@ theme as well as by document. Bold marks an S1.
 | **H. Half-applied writes and stale drafts** | K2-8, K11-2, K11-3, K11-6, K6-13, K14-6, K14-7 *(built: K2-5, K1-3)* | A retry duplicates records, or a draft resumes over newer work. |
 | **I. Slow at scale** | K1-4, K2-7, K4-3, K4-11 | 49 s of frozen page for the duplicate scan at 4,000 dogs, and a 10k-row import preview that never renders. |
 | **J. Phone, wording, layout** | K1-7, K10-9, K12-11, K6b-9, K14-16, and most S3s *(built: K3-10)* | Overlaps K15. Fold these in when K15 is redone, unless one is a one-liner beside a fix you're already making. |
-| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18, K9-13, K5-14 *(built: K13-15, the deploy runs the tests)* | Small, and best folded into the batch that touches the same files. |
+| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18 *(built: K13-15, the deploy runs the tests; K5-14 and K9-13, steps 5 and 6)* | Small, and best folded into the batch that touches the same files. |
 
 Rechecked and built (11-15): K8-4 was already covered by the lost-pup credit (now held by a
 test); K8-13's wording and K8-2 (D9) are built with Waitlist Fixes step 5.
@@ -106,16 +106,16 @@ same time in two sessions.
    K2-4 (CSV duplicates, ambiguous dates, a preview that never says what changes), K1-3,
    and K1-6. Both docs share `restoreMatch` and `dogSearch`, so one batch avoids fixing the
    matching twice. Leave K1-4 and K2-7 (performance) for their own batch.
-5. **K05: assisted setup, the licence wall, the vault.** *Next. K5-3 decided: export only (§4).* K5-1 and K5-2 (S1), then K5-3 (the
+5. **K05: assisted setup, the licence wall, the vault.** *Built 2026-11-15 (K5-3: export only). Next is step 6.* K5-1 and K5-2 (S1), then K5-3 (the
    licence wall has no export, though the editions plan promises one), K5-4 to K5-7, and
    K5-9 (a lifetime key treated as monthly). **Move this to Tier 1 if support is already
    running assisted setups for real breeders:** K5-1 carries a whole kennel into the next
    user's account. K4-6 (/ops "Delete an account") belongs in this batch.
-6. **K09: breeding reminders.** K9-1 (S1: an Expected litter silences both due-date
+6. **K09: breeding reminders.** *Built 2026-11-15.* K9-1 (S1: an Expected litter silences both due-date
    nudges), K9-2, K9-3's root (`litter.js` dates a litter made from its pairing today), K9-5,
    K9-6, K9-10. Small, contained fixes in `nudges.js`, `dogCare.js`, `pairing.js` and
    `litter.js`. A missed whelping is the cost of waiting.
-7. **K10 remainder + K12's Stripe items: money in her own books.**
+7. **K10 remainder + K12's Stripe items: money in her own books.** *Built 2026-11-15 (K10-4: each fee on its payment, kept as a cost; with it, fees charged back ride on the final payment). Next is step 8.*
    - First turn K10-1, K10-2 and K10-12 into tests to confirm Payment Schedules fixed them.
    - Then K10-3 (voided and returned sales in the litter total), K10-4 (the processing fee
      belongs on the payment that paid it), K10-5 (undated income missing from reports),
@@ -125,7 +125,7 @@ same time in two sessions.
 
 ### Tier 3: after that
 
-8. **Edition gates.** K13-4 (leased dogs and the Lite cap), K13-5 (restore and the litter
+8. **Edition gates.** *Next.* K13-4 (leased dogs and the Lite cap), K13-5 (restore and the litter
    cap), K13-6 (Demo isn't read-only), K13-9, K13-11, K11-1's dog-cap half, K11-5, K11-17.
    One pass over every write path that the Lite cap and the Demo flag must see.
 9. **K04: Worker resilience.** K4-3 first: isolate each hourly job, now that e-sign copies
@@ -156,7 +156,7 @@ same time in two sessions.
 | 2 | K13-1/2/3: change the policy's words, or change what is sent? (K13-2 is a `syncRegistry` privacy call.) |
 | 3 | Waitlist Fixes D9: what a back-out after paying more than the deposit carries over or refunds. |
 | 5 | K5-3: what the licence wall offers. **Decided 2026-11-15: export only** (a "Download a backup of this device" control on every licence wall; no read-only access behind it). |
-| 7 | K10-4: which payment carries the processing fee. K10-13: is currency in scope at all? |
+| 7 | **Decided 2026-11-15:** K10-4: each payment's fee is on the payment that paid it, and stays a cost when a sale ends (a refund too). Fees charged back go on the final payment, which is always cash or Zelle. K10-13: currency is out of scope unless KennelOS goes international. |
 | 8 | K13-6: Demo's Companion and Furever saves: block them, or say they won't keep. |
 | 12 | Waitlist Fixes D10, D11, D12. |
 

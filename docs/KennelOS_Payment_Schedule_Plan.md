@@ -115,6 +115,10 @@ optional, read as "not set" from older backups.
   boarding → extras → **transport, always last**. Transport is the last step of the handoff,
   and it's collected then even when other fees were due earlier. Credits for funds received
   use the same allocator, so every surface agrees.
+- **Modified:** fees charged back (`fee_for`: the deposit's and each payment's through an account
+  set to charge its fee back) are always owed on the **final** payment, never on an earlier due
+  date, whatever it covers. Final payments are cash or Zelle, so the last payment has no fee of
+  its own (owner, 2026-11-15).
 - `balance_paid_date` still means "paid in full". Set by hand, it still covers whatever is
   left, as today. Nothing sets it on its own (D22): when recorded payments cover everything,
   one prompt offers to set the paid-in-full date (the last payment's) and the status Paid in
