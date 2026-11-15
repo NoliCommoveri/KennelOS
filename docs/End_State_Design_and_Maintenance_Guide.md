@@ -3321,7 +3321,8 @@ Share with families hint and the card's badge say so for this type.
       its ready date, or the day after its last training stay) to the day before its pickup
       (else `goHome.boardingEnd`);
     - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with
-      the row's name): name, price-list description, price, the payment plan in words and up
+      the row's name): name, price-list description, price, the sale's price plus it
+      (`priceWithExtra`, nothing paid subtracted), the payment plan in words and up
       to four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
       training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`),
       else the one Today's nudge would log, from the ready date. A deposit fee charge-back

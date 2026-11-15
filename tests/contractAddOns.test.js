@@ -40,6 +40,7 @@ test('a training package: its own fields, the stay projected until logged, then 
   assert.equal(v.extraName, '2-week training');
   assert.equal(v.extraDescription, 'Crate and potty basics');
   assert.equal(v.extraPrice, '600.00');
+  assert.equal(v.priceWithExtra, '3600.00', 'the price plus the extra, nothing paid subtracted');
   assert.equal(v.extraPayments, '50% (300.00) due 2026-11-26; 50% (300.00) due 2026-12-03');
   assert.deepEqual([v.extraPayment1Amount, v.extraPayment1Due, v.extraPayment2Due], ['300.00', '2026-11-26', '2026-12-03']);
   assert.deepEqual([v.extraStayDays, v.extraStayStart, v.extraStayEnd], ['14', '2026-12-10', '2026-12-23']);

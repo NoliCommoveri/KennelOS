@@ -243,6 +243,7 @@ export const PREFILL_FIELDS = {
     ['extraName', 'The extra this agreement is for, as on the sale (e.g. 2-week training)'],
     ['extraDescription', 'Its description from your price list'],
     ['extraPrice', 'Its price'],
+    ['priceWithExtra', 'The sale\'s price plus this extra (nothing paid subtracted)'],
     ['extraPayments', 'Its payment plan, in words (e.g. 50% (300.00) due 2026-12-01; 50% (300.00) with the balance)'],
     ['extraPayment1Amount', 'First payment'], ['extraPayment1Due', 'First payment due'],
     ['extraPayment2Amount', 'Second payment'], ['extraPayment2Due', 'Second payment due'],
@@ -312,7 +313,7 @@ export const FIRMA_LABELS = {
   transportDueDate: 'Transport · Fee due date',
   boardingRate: 'Boarding · Rate', boardingPer: 'Boarding · Rate per', boardingLength: 'Boarding · Length',
   boardingTotal: 'Boarding · Total', boardingStart: 'Boarding · Start date', boardingEnd: 'Boarding · End date',
-  extraName: 'Extra · Name', extraDescription: 'Extra · Description', extraPrice: 'Extra · Price', extraPayments: 'Extra · Payment plan',
+  extraName: 'Extra · Name', extraDescription: 'Extra · Description', extraPrice: 'Extra · Price', priceWithExtra: 'Extra · Price + sale price', extraPayments: 'Extra · Payment plan',
   extraPayment1Amount: 'Extra · 1st payment', extraPayment1Due: 'Extra · 1st payment due',
   extraPayment2Amount: 'Extra · 2nd payment', extraPayment2Due: 'Extra · 2nd payment due',
   extraPayment3Amount: 'Extra · 3rd payment', extraPayment3Due: 'Extra · 3rd payment due',
@@ -348,6 +349,7 @@ const money = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n.toFixed(2) : '';
 };
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const label = (vocab, v) => (v ? descriptor(vocab, v).label : '');
 
 function person(prefix, c) {
@@ -441,6 +443,9 @@ export function prefillValues(formOrType, facts = {}) {
     const steps = extraPayments(x.charge, f.sale, a.pickupDate || f.pickupDate, f.statement);
     const stepText = (st) => `${st.percent}% (${money(st.amount)}) ${st.due === 'with the balance' ? 'with the balance' : st.due ? `due ${st.due}` : ''}`.trim();
     out.push(['extraName', text(x.charge.label)], ['extraDescription', text(x.row?.description)], ['extraPrice', money(x.charge.amount)],
+      // The pup's price (with any Full surcharge, as `price`) plus this extra, both whole:
+      // nothing paid toward either comes off.
+      ['priceWithExtra', money(num(f.sale?.price) + num(x.charge.amount))],
       ['extraPayments', steps.map(stepText).join('; ')]);
     steps.slice(0, 4).forEach((st, i) => out.push([`extraPayment${i + 1}Amount`, money(st.amount)], [`extraPayment${i + 1}Due`, text(st.due)]));
     if (x.stay) out.push(['extraStayDays', text(x.charge.boarding_days)], ['extraStayStart', text(x.stay.start)], ['extraStayEnd', text(x.stay.end)]);
