@@ -1367,7 +1367,9 @@ fees from Accounts are Pro only.
 The Financials hub (`pages/financials.*`) has three views
 (`?view=overview|income|expenses`): **Expenses** (the ledger, with one tab per
 `EXPENSE_CATEGORIES` value via `&bucket=`), **Income** (derived, Earned and Anticipated
-boxes; a row opens an **Adjust** modal that writes back to the sale or stud service), and
+boxes; a row opens an **Adjust** modal that writes back to the sale or stud service: a sale's
+money and dates, never its status, which shows with a link to the Sale page; a fee still at its
+estimate follows a price change, and a new transport fee or boarding asks about the schedule, D17), and
 **Overview** (earned / anticipated / spent / **Net = earned − spent** tiles and breakdowns).
 
 ### Expenses — the one home for money spent
@@ -1451,8 +1453,13 @@ subject (`financials.js` `expenseInScope`).
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
-status). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
-the litter's expenses plus its puppies' expenses.
+status; the total is the sales still going: one cancelled, voided or returned is listed, struck
+through, and left out). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
+the litter's expenses plus its puppies' expenses. *Puppies sold* counts only sales still going;
+what an ended sale kept is still in its income. A credited application fee is on the litter of
+the sale it's credited to (`feeCreditsBySale`'s), a pick or side sale waiting on its deposit too.
+Money with no date at all (a sale or stud service typed in with none) is filed under the day the
+record was entered, so it's in every report as well as the Overview.
 
 ### 21.1 Processing fees — `docs/KennelOS_Integrations_Plan.md` §5
 A sale through a marketplace or payment service loses a fee (percent + fixed). The **price
@@ -1464,8 +1471,13 @@ stays gross and income is price − fee.**
   replaces the estimate (§32).
 - "Price that nets you $X" (`data/processingFees.js`, pure): `price = (net + fixed) ÷
   (1 − percent)`, rounded up. In Lite (no Accounts) she types the rate.
-- Income takes the fee off as negative `processing_fee` components, split pro rata across
-  the cash components, so earned is what she actually received.
+- Income takes the fee off as negative `processing_fee` components, so earned is what she
+  actually received. Each payment's fee is on the payment that paid it
+  (`incomeView.feeComponents`): the deposit's part (`depositFeePart`: Stripe's reported fee for
+  the deposit, else the estimate from the account it was paid via, else its share by size) with
+  the deposit, the rest with the other parts by size. When a sale ends (cancelled, returned,
+  voided, a refund included) the fee of the money actually taken stays as a cost: the processor
+  keeps it.
 - **Never buyer-facing:** invoices and Companion use `saleComponents`, which leaves the fee out.
 
 ### 21.2 Extra charges — `data/extraCharges.js`
@@ -1525,15 +1537,24 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   approving its cancel offers **Remove the stay**; Today covers every other path (the
   `training-stay` nudges). The event form carries the two link keys through an edit
   (`LINK_DETAIL_KEYS`). A stay counts as boarding for the go-home nudges like any other.
-- **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
-  sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through
-  such an account with a usable rate, and the sale didn't qualify before the save, the Sale
-  page asks to add `<account> fee` (`processingFee(deposit, rate)`, `fee_for: 'deposit'`) as an
-  extra charge, so it's on the balance invoice. Asked once; Skip leaves it off. What the
-  processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
-  earned income. A fee on the balance itself has no later payment to ride on: she adds it as
-  an extra charge before invoicing the balance. Payments recorded by an integration (§32)
-  don't ask on their own; Kels's Pups are going home asks before asking each family for what they owe (§33).
+- **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal sent as
+  business…), for an ordinary sale at the base price whose family chooses to pay that way. Each
+  payment through such an account adds its fee as an extra charge with `fee_for`, and **every
+  fee charged back is collected with the final payment** (`paymentSchedule.saleCharges`:
+  `finalOnly`, never on an earlier due date, never on its own dates; final payments are cash or
+  Zelle, so the last payment has no fee of its own).
+  - The deposit (`fee_for: 'deposit'`, `depositFeeChargeBack`): when a save leaves the deposit
+    paid through such an account, and the sale didn't qualify before the save, the Sale page asks.
+  - Each recorded payment (`fee_for: 'payment:<id>'`, `paymentFeeChargeBack`): Record a payment
+    asks once it's saved, unless that payment paid the last of what's owed. Editing the payment
+    moves its fee with it, and removing it removes the fee (`chargesWithPaymentFee`).
+  - Kels's Pups are going home offers every one the sale doesn't carry yet
+    (`feeChargeBackOffers`) before asking each family for what they owe (§33).
+  Asked once each; Skip leaves it off. Not on a sale whose fee is already in the price
+  (`fee_passed_to_buyer`, a marketplace like GoodDog that forbids showing a separate fee): that
+  would charge it twice. What the processor kept is still `processing_fee_amount` (§21.1), so
+  the charge and the fee cancel in earned income. A fee charged back never triggers the
+  new-fees question (`addedFees` leaves it out) and isn't a cover choice in the schedule editor.
 - **Kels:** Getting Started sets up the price list (`extra-charges`) and her payment services
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
@@ -3134,7 +3155,9 @@ Overview, so they always agree. Cash basis: each income component has `when` (a 
 leaves out credit-covered money (nothing is owed on it). Anticipated income never enters
 Net; pick value is never money in.
 
-**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
+**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month (a date
+range keeps the months it touches, each with only the money dated inside it:
+`reportSources.loadProfitLoss` `rowsIn`, so a custom range agrees with Expenses by Category), Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
 Live-Birth Summary, Health-Test Events, Dam & Sire Production (by whelp-date range,
 `breedingReports.productionRowsIn`; flags litters under `BACK_TO_BACK_DAYS` apart and at
@@ -3495,7 +3518,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   the next payment, everything owed) and the account; with Stripe connected, a **one-time
   Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the account's own
   link and instructions. The message gives the due date (or at pickup) and, on the final
-  payment, her final-payment methods.
+  payment, her final-payment methods. A sale's open link is asked about before it's replaced:
+  paid, its payment is recorded and no new link is made (`LinkAlreadyPaidError`, "That link
+  was already paid"); unpaid, it's switched off.
 - **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
   device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
   browser; nothing goes through the Worker and the money goes to her account.
@@ -3504,7 +3529,11 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   received, or a row in the sale's payments (§21.3, never paid in full by itself), with the
   date and reference, and the fee Stripe kept into `processing_fee_reports` /
   `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
-  that moved on becomes a review.
+  that moved on becomes a review. Each sale is asked on its own: an account whose key is
+  refused or lacks a permission is kept in the integrations state (`stripeErrors`, per account)
+  while every other account is still checked, and cleared when it answers again or a new key
+  is connected. The Accounts card says so (`stripeConnection().lastError`), and Kels's account
+  health reports it rather than the narrower key check.
 - Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
   same `integrationApply` / `integrationEvents.planIntegrationEvent`.
 - The waitlist application fee: §29.

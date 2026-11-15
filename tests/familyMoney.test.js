@@ -188,3 +188,12 @@ test('an older sale link reads as the sale\'s whole invoice; a waitlist link as 
   const fee = await buildInvoiceDoc({ source: 'waitlist', id: e.id, doc: 'receipt' });
   assert.ok(fee.rows.length >= 1 && fee.rows.every((x) => /application fee/i.test(x.label)));
 });
+
+// Review K10-1 (S1): a $500 deposit's receipt said "Total paid $2,500"; paid in full, "$0".
+test('K10-1 regression: the reviewer\'s receipts print what was paid', () => {
+  const { account } = family({ s: sale({ price: 3000 }) });
+  assert.deepEqual(receipt(account, 'deposit').totals.map((t) => [t.label, t.amount]), [['Total paid', 500]]);
+  const paid = family({ s: sale({ price: 3000, status: 'paid_in_full', balance_paid_date: '2026-11-10' }) }).account;
+  const all = receipt(paid, 'all');
+  assert.equal(all.totals.find((t) => t.label === 'Total paid').amount, 3000);
+});

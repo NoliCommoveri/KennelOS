@@ -210,8 +210,8 @@ export function feeComponents(s, cash, { open = cash, depositPart = null, paid =
     spread(cash.filter((c) => !isDep(c)), restFee, restGross);
   } else if (paid) {
     // A lost sale counts no income, but what the processor kept on money taken is a cost.
-    if (paid.deposit > 0 && depGross > 0) out.push({ component: 'processing_fee', amount: -round2(depFee * Math.min(paid.deposit / depGross, 1)), state: 'earned', when: s.deposit_date || s.sale_date || '', due: '' });
-    if (paid.rest > 0 && restGross > 0) out.push({ component: 'processing_fee', amount: -round2(restFee * Math.min(paid.rest / restGross, 1)), state: 'earned', when: paid.restWhen || s.balance_paid_date || s.sale_date || '', due: '' });
+    if (paid.deposit > 0 && depGross > 0) out.push({ component: 'processing_fee', amount: -round2(depFee * Math.min(paid.deposit / depGross, 1)), state: 'earned', when: s.deposit_date || s.sale_date || String(s.created_at || '').slice(0, 10), due: '' });
+    if (paid.rest > 0 && restGross > 0) out.push({ component: 'processing_fee', amount: -round2(restFee * Math.min(paid.rest / restGross, 1)), state: 'earned', when: paid.restWhen || s.balance_paid_date || s.sale_date || String(s.created_at || '').slice(0, 10), due: '' });
   }
   return out.filter((c) => c.amount);
 }
@@ -257,7 +257,9 @@ export function depositFeePart(s, accountsById = new Map()) {
 // that much of what was paid isn't earned here: the deposit first, then the rest in order.
 // It's earned on the sale the credit pays. (A lost sale already counts nothing.)
 export function ledgerComponents(s, st, { today = todayYMD(), carriedOut = 0 } = {}) {
-  const fallback = s.sale_date || s.deposit_date || s.balance_paid_date || '';
+  // With no date at all, the day the sale was entered, so its money is in a month
+  // (every report files by month) and not only in the Overview (review K10-5).
+  const fallback = s.sale_date || s.deposit_date || s.balance_paid_date || String(s.created_at || '').slice(0, 10);
   const keptIds = new Set(saleExtraCharges(s).filter((x) => x.kept_after_cancel).map((x) => x.id));
   const isKept = (key) => key.startsWith('extra:') && keptIds.has(key.split(':')[1]);
   const lost = isLostSale(s);
@@ -493,7 +495,10 @@ export function familyCredit(entry, sale, feeCredit = 0) {
   const credits = creditsOf(entry);
   if (!credits.length) return null;
   const alloc = allocateCredits(credits, [...feeCharge(entry), ...saleCreditCharges(sale, feeCredit)]);
-  const date = credits[0].date || null;
+  // When the credits it used had all come in: the latest of the credits that paid
+  // something (review K10-7: it was the oldest, filing June's money in January).
+  const used = credits.filter((cr) => alloc.perCredit[cr.id] > 0 && cr.date).map((cr) => cr.date).sort();
+  const date = used[used.length - 1] || credits[0].date || null;
   const byKey = Object.fromEntries(Object.entries(alloc.byKey).filter(([k]) => k !== 'fee'));
   return { ...alloc, date, received: { byKey, date } };
 }
@@ -784,7 +789,8 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null, 
 
   for (const s of scopeTo(studs)) {
     if (ourRole(s, dogById) !== 'stud') continue; // our dam's service = we pay = an expense
-    const components = studComponents(s).map((c) => ({ ...c, when: s.returned_date || s.sent_date || '' }));
+    // No dates: the day it was entered (review K10-5).
+    const components = studComponents(s).map((c) => ({ ...c, when: s.returned_date || s.sent_date || String(s.created_at || '').slice(0, 10) }));
     if (!components.length) continue;
     rows.push({
       source_type: 'stud',
@@ -815,11 +821,14 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null, 
     if (num(e.fee_processing_amount) > 0) {
       components.push({ component: 'processing_fee', amount: -num(e.fee_processing_amount), state: 'earned', when: e.fee_received_date, due: '' });
     }
-    // A credited fee on a placed family is part of THAT pup's price, so it rolls up
-    // to the pup's litter (the Sale's balance was netted by it above — without
-    // this the litter P&L would lose the credit). Any other fee isn't litter money.
-    const creditedSale = e.placed_sale_id && e.fee_credit_policy === 'credited_to_purchase'
-      ? sales.find((x) => x.id === e.placed_sale_id) : null;
+    // A credited fee is part of THAT pup's price, so it rolls up to the pup's litter
+    // (the Sale was netted by it above — without this the litter P&L would lose the
+    // credit). The same sale feeCreditsBySale credits: the placed family's, or a pick's
+    // or side sale's still waiting on its deposit (review K10-8). Any other fee
+    // isn't litter money.
+    const creditedId = e.fee_credit_policy === 'credited_to_purchase'
+      ? e.placed_sale_id || creditSale(e, sales, offers, entries)?.id : null;
+    const creditedSale = creditedId ? sales.find((x) => x.id === creditedId) : null;
     const pup = creditedSale ? dogById.get(creditedSale.dog_id) : null;
     rows.push({
       source_type: 'waitlist',

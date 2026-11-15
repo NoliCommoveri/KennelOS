@@ -175,7 +175,7 @@ test('a one-time deposit link, paid: the sale moves on, with Stripe\'s fee in pl
   assert.equal(sale.payment_link_url, 'https://buy.stripe.com/test_2');
   assert.match(stripeCalls.find((c) => c.path === '/v1/payment_links' && c.method === 'POST').body, /kennelos_sale_id%5D=/);
 
-  assert.deepEqual(await stripe.checkStripePayments({ force: true }), { applied: 0, review: 0, skipped: 0, checked: 1, feesReceived: 0, feesPrepaid: 0 }, 'not paid yet');
+  assert.deepEqual(await stripe.checkStripePayments({ force: true }), { applied: 0, review: 0, skipped: 0, checked: 1, failed: 0, feesReceived: 0, feesPrepaid: 0 }, 'not paid yet');
   sessionsByLink.plink_2 = [paidSession({ kennelos_sale_id: sale.id, kennelos_component: 'deposit' }, { payment_intent: { id: 'pi_1', latest_charge: { balance_transaction: { fee: 1510 } } } })];
   const res = await stripe.checkStripePayments({ force: true });
   assert.equal(res.applied, 1);
@@ -255,4 +255,60 @@ test('a one-time payment link, paid: a row in the sale\'s payments, never paid i
   assert.equal(after.payments.length, 2);
   assert.equal(paymentStatement(after, { today: '2026-10-15' }).remaining, 0);
   assert.deepEqual(after.integration_reviews.map((r) => r.reason), [COVERS_ALL_REASON]);
+});
+
+// Review K12-1: a new link used to replace an open one without asking whether it was paid.
+test('replacing an open link that was already paid records the payment and makes no new link', async () => {
+  const { k, acct } = await setup();
+  const buyer = await contactRepo.create({ name: 'Paid Before' });
+  const pup = await dogRepo.create({ call_name: 'Juniper', breed: 'Lab', sex: 'female', ownership_type: 'owned', status: 'puppy', kennel_id: k.id });
+  let sale = await saleRepo.create({ dog_id: pup.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_pending', price: 3000, deposit_amount: 500, kennel_id: k.id,
+    deposit_paid_via_account_id: acct.id });
+  sale = await stripe.makeSaleLink({ sale, account: acct, component: 'deposit', amount: 500 });
+  const ref = sale.payment_link_ref;
+  sessionsByLink[ref] = [paidSession({ kennelos_sale_id: sale.id, kennelos_component: 'deposit' })]; // paid that evening
+  const made = stripeCalls.filter((c) => c.path === '/v1/payment_links' && c.method === 'POST').length;
+  await assert.rejects(stripe.makeSaleLink({ sale, account: acct, component: 'payment', amount: 3000 }), (e) => e.name === 'LinkAlreadyPaidError' && e.sale.status === 'deposit_paid');
+  assert.equal(stripeCalls.filter((c) => c.path === '/v1/payment_links' && c.method === 'POST').length, made, 'no new link');
+  const after = await saleRepo.getById(sale.id);
+  assert.equal(after.status, 'deposit_paid');
+  assert.equal(after.payment_link_ref, null);
+
+  // Unpaid, it's switched off and replaced as before.
+  sale = await stripe.makeSaleLink({ sale: after, account: acct, component: 'payment', amount: 2500 });
+  const fresh = await stripe.makeSaleLink({ sale, account: acct, component: 'payment', amount: 2400 });
+  assert.notEqual(fresh.payment_link_ref, sale.payment_link_ref);
+  assert.ok(stripeCalls.some((c) => c.method === 'POST' && c.path === `/v1/payment_links/${sale.payment_link_ref}`), 'the old link switched off');
+});
+
+// Review K12-3: one refused key stopped the check for every other account.
+test('one account\'s refused key is kept as its error; the other accounts are still checked', async () => {
+  const { k, acct } = await setup();
+  const old = await accountRepo.create({ name: 'Old Stripe', account_type: PS });
+  const BAD = 'rk_test_rolledkey0123456789';
+  await stripe.connectStripe(old.id, BAD, 'usd');
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => (new URL(url).pathname === '/v1/checkout/sessions' && opts.headers?.Authorization === `Bearer ${BAD}`
+    ? { ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({ error: { message: 'Invalid API Key provided' } }) }
+    : inner(url, opts));
+  const buyer = await contactRepo.create({ name: 'Two Keys' });
+  const mk = async (name, via) => {
+    const pup = await dogRepo.create({ call_name: name, breed: 'Lab', sex: 'female', ownership_type: 'owned', status: 'puppy', kennel_id: k.id });
+    const s = await saleRepo.create({ dog_id: pup.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_pending', price: 3000, deposit_amount: 500, kennel_id: k.id, deposit_paid_via_account_id: via.id });
+    return saleRepo.update(s.id, { payment_link_ref: `plink_${name}`, payment_link_component: 'deposit', payment_link_amount: 500 });
+  };
+  const a = await mk('A', old);
+  const b = await mk('B', acct);
+  sessionsByLink.plink_B = [paidSession({ kennelos_sale_id: b.id, kennelos_component: 'deposit' })];
+  const res = await stripe.checkStripePayments({ force: true });
+  assert.equal(res.failed, 1);
+  assert.equal(res.applied, 1, 'sale B, on the working key, is recorded');
+  assert.equal((await saleRepo.getById(b.id)).status, 'deposit_paid');
+  assert.equal((await saleRepo.getById(a.id)).status, 'deposit_pending');
+  assert.match((await stripe.stripeConnection(old.id)).lastError.message, /didn't accept that key/);
+  assert.equal((await stripe.stripeConnection(acct.id)).lastError, null);
+  // A new key starts clean.
+  globalThis.fetch = inner;
+  await stripe.connectStripe(old.id, 'rk_test_newkey0123456789ab', 'usd');
+  assert.equal((await stripe.stripeConnection(old.id)).lastError, null);
 });

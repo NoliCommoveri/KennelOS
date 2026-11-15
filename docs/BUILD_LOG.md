@@ -5010,3 +5010,47 @@ after `HEAT_OPEN_DAYS`) was already on `main`.
 - **Docs:** End-State guide (Pairing and Litter fields, the dogs she looks after, §19's table).
 - **Service worker:** no app file added or renamed.
 - `CACHE_NAME` bumped to `kennelos-shell-v145` (owner asked), covering fix steps 5 (K05) and 6 (K09).
+
+## 2026-11-15: Fix step 7, K10 remainder and K12's Stripe items (money in her own books)
+
+From `docs/review/findings/K10-money.md` and `K12-integrations-notifications.md`.
+- **Decided (owner):** K10-4: each payment's processing fee is on the payment that paid it, and
+  stays a cost when a sale ends, a refund included. Breeders charge back the fee of a payment
+  made through an account like PayPal business, collected with the final payment, which is always
+  cash or Zelle (no fee of its own). The fee built into the price (`fee_passed_to_buyer`) is for
+  marketplaces like GoodDog that forbid a separate fee; both are needed. K10-13: currency is out
+  of scope unless KennelOS goes international.
+- **Fees charged back on the final payment:** `extraCharges` `paymentFeeChargeBack`,
+  `feeChargeBackOffers`, `chargesWithPaymentFee`; `paymentSchedule.saleCharges` puts every
+  `fee_for` charge on the last due date only (`finalOnly`, `coveredTotal({ final })`). Record a
+  payment asks to charge a payment's fee back; an edit moves it, removing the payment removes it;
+  Kels's Pups are going home offers every fee not charged back yet. Never on a sale whose fee is
+  in the price. `addedFees` and the schedule editor's cover choices leave them out.
+- **K10-4:** `incomeView.feeComponents` puts the deposit's part (`depositFeePart`: Stripe's
+  report, else the paid-via estimate) on the deposit and the rest on the other parts; a released
+  sale keeps the fee of money taken, a voided one included. `getIncomeRows` loads accounts.
+- **K10-1, K10-2, K10-12:** fixed by Payment Schedules; regression tests with the reviewer's
+  scenarios.
+- **K10-3:** the Litter page's total leaves out ended sales (listed, struck through);
+  `litterFinances` counts only sales still going as puppies sold.
+- **K10-5:** undated sale and stud income is filed under the day the record was entered.
+- **K10-6:** P&L's `rowsIn(range)` counts only money dated inside a custom range.
+- **K10-7:** `familyCredit`'s date is the latest credit it used.
+- **K10-8:** a credited fee is on the litter of the sale `feeCreditsBySale` credits.
+- **K10-14 (and the D17 gap):** Financials' Adjust no longer changes a sale's status (a link to
+  the Sale page); a fee still at its estimate follows a price change; a new transport fee or
+  boarding asks about the schedule.
+- **K12-1:** `makeSaleLink` asks Stripe about the open link first; paid, it records the payment
+  and throws `LinkAlreadyPaidError` (Send payment link says so; nothing is sent).
+- **K12-3 (Stripe half):** `checkStripePayments` catches per sale, keeps `stripeErrors` per
+  account, and still checks the others; the Accounts card and account health show it; connecting
+  a new key clears it.
+- **Tests:** `paymentSchedule.test.js` (+1), `processingFees.test.js` (+1, one changed: a voided
+  sale keeps its deposit's fee as a cost), new `litterFinances.test.js` (4), `familyMoney` (+1),
+  `familyPayments` (+2), `contractSchedule` (+1), `stripePayments.test.js` (+2, one changed).
+  `node --test` 2033 pass. In Chromium: a $1,000 PayPal payment on a 50%/final schedule asks to
+  charge back $35.39, which goes on the final payment ($1,535.39; Payment 1 stays $1,000);
+  Adjust shows the status with a link. No console errors.
+- **Docs:** End-State guide §21 (Financials, per litter, §21.1, §21.2), the reports, §32 Stripe;
+  `KennelOS_Payment_Schedule_Plan.md` (Modified note); `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
