@@ -21,7 +21,7 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
 |---|---|---|---|---|---|
-| **K03** | Cloud client: sync, conflicts | 2/6/2/1 | **All eleven built** (build log, 2026-11-15). Migration `0025` to apply | 0 · 0 | Follow-ups built too: Put mine back (30 days) and Choose records… in Restore as of…. |
+| **K03** | Cloud client: sync, conflicts | 2/6/2/1 | **All eleven built** (build log, 2026-11-15). | 0 · 0 | Follow-ups built too: Put mine back (30 days) and Choose records… in Restore as of…. |
 | **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12) | **3 · 3** | `privacy.html` was edited twice for Firma, but its three false statements are unchanged. The deploy still runs no tests. |
 | **K02** | Backup, restore, CSV import | 1/5/6/2 | none | **1 · 5** | `importExport.js`, `importView.js` and `dropbox.js` are untouched. `csvImport` and `dogCard` got only the titles phases. |
 | **K01** | Schema, repos, identity matching | 1/3/3/3 | none | **1 · 3** | `dogSearch.nameKey` still drops all-digit words (line 104). Furever's `db.js` still has no `blocked` handler. |
