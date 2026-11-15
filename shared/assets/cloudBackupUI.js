@@ -153,7 +153,8 @@ export function errorText(e) {
     }
   }
   if (e && e.name === 'CapExceededError') {
-    return `This backup has ${e.current} active dogs. KennelOS Lite keeps up to ${e.limit}, so nothing was restored. Upgrade to Pro to restore it.`;
+    const what = e.kind === 'litters' ? 'litters' : 'active dogs';
+    return `This backup has ${e.current} ${what}. KennelOS Lite keeps up to ${e.limit}, so nothing was restored. Upgrade to Pro to restore it.`;
   }
   return e?.message || String(e);
 }

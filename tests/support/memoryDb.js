@@ -80,9 +80,10 @@ function memoryTable(name) {
 
 // Patches `db` (shared/data/db.js) so every table is in memory. Returns
 // { tables } — a map of table name → stand-in, whose `.rows` Map holds the data.
-export async function installMemoryDb() {
+// `dbUrl` points it at another copy of db.js (the Lite harness's, liteHarness.js).
+export async function installMemoryDb({ dbUrl = '../../shared/data/db.js' } = {}) {
   if (!globalThis.localStorage) globalThis.localStorage = memoryStorage();
-  const { db } = await import('../../shared/data/db.js');
+  const { db } = await import(dbUrl);
   const tables = {};
   for (const t of db.tables) {
     tables[t.name] = memoryTable(t.name);

@@ -5055,3 +5055,41 @@ From `docs/review/findings/K10-money.md` and `K12-integrations-notifications.md`
   `KennelOS_Payment_Schedule_Plan.md` (Modified note); `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
 - `CACHE_NAME` bumped to `kennelos-shell-v146` (owner asked), covering fix step 7.
+
+## 2026-11-15: Fix step 8, edition gates (review K13 + K11)
+
+Owner's decisions: Demo blocks the Companion and Furever saves and Google Drive (K13-6); Kels in
+the Demo walks a task to its review, then says so and keeps nothing (K11-5); Lite's CSV refuses
+leased ownerships, restores aren't changed for them (K13-4); a restore over the litter cap is
+refused all or nothing (K13-5).
+- **K13-4:** `csvImport` dog rows: with `externalOwnership` off, a leased row, an external row
+  with an owner, or an update to either goes to review ("isn't available in this edition"). A new
+  external row with no owner still lands pedigree-only.
+- **K13-5:** new edition hook `enforceImportLitterCap({ incomingLitters, mode })` (no-op in
+  shared/Pro/Demo; Lite counts the raw litters after the restore). File Replace and Merge, cloud
+  and vault restores await it beside the dog hook. Import/Export and cloud restore messages name
+  litters when that's the cap.
+- **K13-6:** Companion's template Save and Furever's kennel-identity Save are replaced by a demo
+  line; Furever's prefill shows without being kept; Furever's Drive card (Connect, Publish) isn't
+  drawn in the Demo.
+- **K13-9:** `dogRepo.update(id, changes, { capExcludeIds })`, passed by `mergeDuplicate` for the
+  duplicate it deletes next; Lite's `enforceDogCap` leaves those out. Scan for duplicates and
+  Tidy up show the upgrade nudge on a cap refusal.
+- **K13-11:** the welcome card's sales, documents and dogs lines follow `editionFlags`.
+- **K11-1 (dog-cap half):** `litterCapStatus()` (new read, all four configs). Record a litter
+  stops before any question at the litter cap; "A dog that isn't in KennelOS yet" shows the
+  nudge with no room (`roomForNewParent`); `saveGuidedLitter` checks room for every new parent
+  (`newParentsToMake`) before making any.
+- **K11-5:** `StepConversation.demoEnd` (Yes, build it in the Demo); the four drafted tasks
+  don't store a draft in the Demo; Save for later says it can't keep one there.
+- **K11-17:** `?task=` opens the menu when the task isn't `available()`.
+- **Tests:** new `tests/liteCap.test.js` (12) on the real Lite config through new
+  `tests/support/liteHarness.js` (`installMemoryDb` takes a `dbUrl`); `editionConfig.test.js`
+  checks the two new hooks. `node --test` 2045 pass; `node build/assemble.mjs` (and `--release`)
+  green. In Chromium on `dist/demo`: Companion and Furever show the demo lines, no Drive card, no
+  `furever` key stored; Add dogs runs to its review and ends with the demo line, no draft;
+  `?task=get-started` opens the menu. On `dist/lite`: the welcome card says "buyers and
+  deposits", no documents line; `?task=add-people` opens the menu. No page errors.
+- **Docs:** End-State guide §0, §0.1, §0.2, the restore section, §33 (Kels's voice, the menu,
+  the litter save); cap spec §1 and §9 (Modified notes); `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.

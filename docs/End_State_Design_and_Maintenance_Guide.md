@@ -24,7 +24,8 @@ Each edition deploys to its own origin, so their IndexedDBs never mix.
 The shared core never checks which edition it is: it reads the two injection points.
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
-  `enforceLitterCap`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only) and `licenseConfig`. The `shared/` copy is
+  `enforceLitterCap`, `enforceImportDogCap`, `enforceImportLitterCap`) and reads
+  (`dogCapStatus`, `litterCapStatus`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only) and `licenseConfig`. The `shared/` copy is
   the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
 - **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
   Lite supplies its own; Pro and Demo use the shared default.
@@ -69,11 +70,33 @@ form, the litter form and Today's promote-pup nudge catch the error and show
 "Creating x/6" counter from the same predicate. Pro and Demo's hooks are no-ops, so no cap
 logic ships in Pro.
 
+Every other door goes through the same hooks:
+- **Restores** (file Replace and Merge, cloud, vault) await `enforceImportDogCap` and
+  `enforceImportLitterCap` with the rows as they'll be after the restore, before any write,
+  and refuse the whole restore over either cap.
+- **CSV import:** an edition without `externalOwnership` takes only `owned` / `co_owned` dog
+  rows, as its dog form does. A leased row, an external row with an owner, or an update to
+  either goes to review. A new external row with no owner still lands pedigree-only.
+- **Duplicate merge** (`recordMerge.mergeDuplicate`) passes the duplicate's id to the dog
+  hook (`dogRepo.update(id, changes, { capExcludeIds })`), since it's deleted right after, so
+  a merge that leaves the count unchanged isn't refused. Scan for duplicates and Kels's Tidy
+  up show the upgrade nudge when a merge would add an adult at the cap.
+- **Kels** (§33): Add dogs and Record a litter read `dogCapStatus` / `litterCapStatus` and
+  stop before their questions when there's no room.
+
+`tests/liteCap.test.js` runs these against the real `lite/editionConfig.js`
+(`tests/support/liteHarness.js` overlays it on a scratch copy of `shared/data`).
+
 ### 0.2 Demo mode
 `data/demoMode.js`: every repo write (`repoBase` create/update/hardDelete, `fileRepo`,
 `restoreBackup`) calls `assertWritable()`, which throws a friendly `DemoModeError` when
 `editionFlags.demoMode` is on. The sample seed runs inside `withSeedAllowed()`. `app.js`
 seeds an empty database on load, skips first-run prompts, and shows a read-only banner.
+The writes outside the repos check `isDemo()` themselves: Companion's template Save and
+Furever's kennel-identity Save aren't offered (Furever's prefill shows without being kept),
+and Furever's Google Drive card isn't drawn, so nothing is connected or published. Kels's
+saving tasks run to their review; "Yes, build it" then says it's the demo and nothing is
+kept (`StepConversation.demoEnd`), and no draft is stored (§33).
 
 ### 0.3 Pro license gate
 - **Boot gate** (`data/license.js` + `assets/licenseGate.js`): in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
@@ -657,8 +680,9 @@ The cross-device data path, and one of the two modules that write tables directl
   - Unknown tables and fields are skipped. Every restore calls `markDataChanged()`.
   - A file restore points the `myKennelId` setting at the restored own kennel if it's unset
     or stale.
-  - Before writing it awaits the edition hook `enforceImportDogCap` (Lite refuses a restore
-    that would exceed its cap, all or nothing; cap spec §9).
+  - Before writing it awaits the edition hooks `enforceImportDogCap` and
+    `enforceImportLitterCap` (Lite refuses a restore that would exceed either cap, all or
+    nothing; cap spec §9).
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
 
@@ -3643,7 +3667,8 @@ again keeps hers). Only a missing answer, or one that can't be saved, stops her.
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
 straight to a task (`?task=`), she still greets with her first message (`kelsWelcome`),
-and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
+and the task is the breeder's answer; a task its `available()` doesn't offer (this edition,
+or her records) opens the menu instead. **Every new task** (not a resumed draft) then starts
 with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
 go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
 collecting the information, I'll build the records for you to approve. If you get stuck or
@@ -3686,7 +3711,9 @@ my waitlist (25, Pro), set up my application form (24, Pro), set up my accounts 
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
 drops the open question, discards a resumable task's draft (its `discard`) and returns to the
-menu (records already saved stay), and the floating button's dot shows while any draft is unfinished. `beforeStart`
+menu (records already saved stay), and the floating button's dot shows while any draft is unfinished.
+In the Demo no draft is stored, Save for later says it can't keep one, and a drafted task's
+"Yes, build it" ends with "This is where I'd build it…" (`StepConversation.demoEnd`). `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -3920,8 +3947,11 @@ prices (prefilled from her last priced litter of that breed, previewed with the
 **The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
 `whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
 Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite a new litter is checked
-against the cap (`enforceLitterCap`) before anything is written, new parents included, so a
-refusal leaves nothing behind. **Resumable:** each new id goes back
+against the cap (`enforceLitterCap`), and her new parents against the room left
+(`newParentsToMake` against `dogCapStatus`), before anything is written, so a refusal leaves
+nothing behind. The task asks earlier too: at the litter cap a new litter stops with the
+upgrade nudge before any question, and "A dog that isn't in KennelOS yet" shows it when
+there's no room for another dog of hers (`roomForNewParent`). **Resumable:** each new id goes back
 on the draft as it's made, so a retry never duplicates.
 
 **The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;

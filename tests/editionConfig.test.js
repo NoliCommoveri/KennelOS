@@ -1,9 +1,8 @@
 // editionConfig.test.js — guards the SHARED editionConfig (the Pro/Demo default
 // that ships in shared/). Its whole job is to be a no-op so no cap logic runs in
 // Pro/Demo; a regression that made a default hook throw would brick those builds.
-// (Lite's real cap lives in lite/editionConfig.js, which can't be imported here —
-// its relative imports only resolve inside an assembled dist/ — so the Lite cap
-// math is covered by rosterCount.test.js instead.)
+// (Lite's real cap lives in lite/editionConfig.js; liteCap.test.js runs it
+// through tests/support/liteHarness.js, and rosterCount.test.js covers its math.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,7 +13,7 @@ test('the default edition is pro (the shared copy)', () => {
 });
 
 test('all cap hooks exist and are no-ops (Pro/Demo are uncapped)', async () => {
-  for (const name of ['enforceDogCap', 'enforceLitterCap', 'enforceImportDogCap', 'dogCapStatus']) {
+  for (const name of ['enforceDogCap', 'enforceLitterCap', 'enforceImportDogCap', 'enforceImportLitterCap', 'dogCapStatus', 'litterCapStatus']) {
     assert.equal(typeof cfg[name], 'function', `${name} must be exported`);
   }
   // None of these throw, whatever you pass — that's the whole contract.
@@ -22,7 +21,9 @@ test('all cap hooks exist and are no-ops (Pro/Demo are uncapped)', async () => {
   await cfg.enforceLitterCap({ candidate: {} });
   const big = Array.from({ length: 500 }, (_, i) => ({ id: `d${i}`, ownership_type: 'owned', status: 'active_breeding' }));
   await cfg.enforceImportDogCap({ incomingDogs: big, mode: 'replace' }); // 500 dogs, no throw
+  await cfg.enforceImportLitterCap({ incomingLitters: big, mode: 'replace' }); // 500 litters, no throw
   assert.equal(await cfg.dogCapStatus(), null, 'uncapped → no counter shown');
+  assert.equal(await cfg.litterCapStatus(), null);
 });
 
 test('the Pro-only feature flags are all ON in the shared default', () => {

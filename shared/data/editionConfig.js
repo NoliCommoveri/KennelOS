@@ -69,9 +69,21 @@ export async function enforceImportDogCap(/* { incomingDogs, mode } */) {
   // no-op: Pro/Demo are unlimited.
 }
 
+// The litter half of the bulk-import cap (K13-5): every restore passes the
+// litters as they'll be after it. No-op here.
+export async function enforceImportLitterCap(/* { incomingLitters, mode } */) {
+  // no-op: Pro/Demo are unlimited.
+}
+
 // Read by dog.js's "New Dog" page for its "Creating x/6 available dogs"
 // banner. Null means uncapped, so Pro/Demo show nothing.
 export async function dogCapStatus() {
+  return null;
+}
+
+// Read before a task that would make a litter (Kels's Record a litter), so it can
+// stop before any question. Null means uncapped, so Pro/Demo shows nothing.
+export async function litterCapStatus() {
   return null;
 }
 
