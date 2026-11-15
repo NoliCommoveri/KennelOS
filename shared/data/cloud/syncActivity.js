@@ -12,6 +12,12 @@ const NOUNS = {
   breed_feeding_schedules: 'a feeding schedule', do_not_sell: 'a do-not-sell listing'
 };
 
+// What kind of record a table holds, without the article: "Dog", "Waitlist entry".
+export function recordKind(tbl) {
+  const noun = (NOUNS[tbl] || 'a record').replace(/^an? /, '');
+  return noun.charAt(0).toUpperCase() + noun.slice(1);
+}
+
 // The name she'd know it by, or what kind of record it is.
 export function recordName(tbl, row) {
   const name = row && [row.call_name, row.registered_name, row.name, row.kennel_name, row.nickname, row.title, row.filename, row.description]

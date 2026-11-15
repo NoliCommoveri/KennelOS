@@ -27,6 +27,7 @@ import {
 import { readRecord, cloudFileIds, APPLY_ORDER } from './cloud/syncRecords.js';
 import { readSyncMeta, writeSyncMeta, removeSyncMeta, syncRowFor, metaId } from './cloud/syncState.js';
 import { decryptFile } from './cloud/vaultCrypto.js';
+import { lostRecord } from './cloud/syncLost.js';
 
 export const SYNC_APPLIED_EVENT = 'kennelos:syncapplied';
 
@@ -87,6 +88,9 @@ export function joinKeepsLocal(local, row, now = new Date()) {
 //                one built without seeing it: the record's `base_seq` is older
 //                than the version this device pushed. Versions from before
 //                the Worker kept base_seq carry null and are never reported.
+// Each of those (files rows aside) keeps the row as it was here in the
+// device-only `sync_lost` table, in the page's transaction, for 30 days, and
+// the item carries its id as `lost` (data/cloud/syncLost.js: Put mine back).
 //
 // `merge: true` is a device joining (plan §5.5, §2.1): nothing is deleted on
 // either side, and a row this device has keeps whichever version has the newer
@@ -107,6 +111,17 @@ export async function applyPulledRecords(records, { vault, fetchFile, now = new 
   const out = {
     applied: 0, skipped: 0, keptTheirs: [], replacedMine: [], clock: [], archivedInstead: [], missingFiles: [],
     unknownTables: [], keptOurs: 0
+  };
+  const lostRows = [];
+  // A loss, noted; the version lost here is kept (not a file's bytes).
+  const noteLoss = (list, item, local, seq) => {
+    if (local && item.tbl !== 'files') {
+      const kind = list === 'replacedMine' ? 'replaced_mine' : 'kept_theirs';
+      const kept = lostRecord({ tbl: item.tbl, id: item.id, seq, row: local, kind, by: item.by, op: item.op }, now);
+      lostRows.push(kept);
+      item = { ...item, lost: kept.id };
+    }
+    out[list].push(item);
   };
   let docs = null;
   const hashOf = async (tbl, row) => {
@@ -139,11 +154,11 @@ export async function applyPulledRecords(records, { vault, fetchFile, now = new 
         out.archivedInstead.push({ tbl: r.tbl, id: r.id });
       } else {
         plans.push({ kind: 'delete', r });
-        if (loss) out[loss[0]].push(loss[1]);
+        if (loss) noteLoss(loss[0], loss[1], local, r.seq);
       }
       continue;
     }
-    if (loss) out[loss[0]].push(loss[1]);
+    if (loss) noteLoss(loss[0], loss[1], local, r.seq);
     const rec = await readRecord(r, vault);
     let row = rec.row;
     if (merge && local && r.tbl !== 'files') {
@@ -156,7 +171,7 @@ export async function applyPulledRecords(records, { vault, fetchFile, now = new 
       }
       // The server's version replaces a different one here: say so.
       if (!join.suspect && (await hashOf(r.tbl, local)) !== (await hashOf(r.tbl, row))) {
-        out.keptTheirs.push({ tbl: r.tbl, id: r.id, by: r.device_id ?? null, op: 'put', reason: 'older' });
+        noteLoss('keptTheirs', { tbl: r.tbl, id: r.id, by: r.device_id ?? null, op: 'put', reason: 'older' }, local, r.seq);
       }
     }
     let plainSha256 = null;
@@ -202,7 +217,8 @@ export async function applyPulledRecords(records, { vault, fetchFile, now = new 
 
   // 2. One transaction for the page.
   const tables = [...new Set(plans.map((p) => p.r.tbl))].map((t) => db.table(t));
-  await db.transaction('rw', [...tables, db.sync_meta], async () => {
+  await db.transaction('rw', [...tables, db.sync_meta, db.sync_lost], async () => {
+    if (lostRows.length) await db.sync_lost.bulkPut(lostRows);
     for (const p of plans) {
       if (p.kind === 'put' || p.kind === 'archive') await db.table(p.r.tbl).put(p.row);
       else if (p.kind === 'delete') await db.table(p.r.tbl).delete(p.r.id);

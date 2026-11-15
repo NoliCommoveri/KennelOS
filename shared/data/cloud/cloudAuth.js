@@ -13,6 +13,7 @@ import {
   updateCloudBackupState, updateCloudSyncState
 } from '../settings.js';
 import { clearSyncMeta } from './syncState.js';
+import { clearLostVersions } from './syncLost.js';
 
 // This device's place in live sync (its cursor and sync_meta) belongs to one
 // program. Signing out, or into another account, forgets it, so a later sign-in
@@ -21,6 +22,7 @@ import { clearSyncMeta } from './syncState.js';
 async function forgetSyncPosition() {
   updateCloudSyncState({ enabled: false, joining: false, cursor: 0, rejected: {}, waiting: {}, lastError: null, activity: [] });
   await clearSyncMeta();
+  await clearLostVersions();
 }
 
 function requireCloud() {

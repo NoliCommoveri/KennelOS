@@ -45,6 +45,7 @@ import { scanLocalChanges, writeSyncMeta, removeSyncMeta, clearSyncMeta, metaId 
 import { isBackupBlocked } from './cloudBackup.js';
 import { applyPulledRecords, retryMissingFiles } from '../syncApply.js';
 import { db } from '../db.js';
+import { pruneLostVersions, clearLostVersions } from './syncLost.js';
 import { planJoinMatches, mergeJoinMatches } from '../importExport.js';
 import { CloudKeyError } from '../syncRegistry.js';
 import { getCloudSyncState, updateCloudSyncState, getCloudBackupState, updateCloudBackupState, CLOUD_DATA_CHANGED_EVENT, SYNC_STATUS_EVENT } from '../settings.js';
@@ -255,8 +256,8 @@ export async function pullChanges({ merge = false, onProgress = null, total = nu
       applied += out.applied;
       keptOurs += out.keptOurs || 0;
       noteActivity([
-        ...out.keptTheirs.map((x) => ({ kind: 'kept_theirs', tbl: x.tbl, id: x.id, by: x.by, op: x.op, ...(x.reason ? { reason: x.reason } : {}) })),
-        ...out.replacedMine.map((x) => ({ kind: 'replaced_mine', tbl: x.tbl, id: x.id, by: x.by, op: x.op })),
+        ...out.keptTheirs.map((x) => ({ kind: 'kept_theirs', tbl: x.tbl, id: x.id, by: x.by, op: x.op, ...(x.reason ? { reason: x.reason } : {}), ...(x.lost ? { lost: x.lost } : {}) })),
+        ...out.replacedMine.map((x) => ({ kind: 'replaced_mine', tbl: x.tbl, id: x.id, by: x.by, op: x.op, ...(x.lost ? { lost: x.lost } : {}) })),
         ...out.clock.map((x) => ({ kind: 'clock', tbl: x.tbl, id: x.id, where: x.where })),
         ...out.archivedInstead.map((x) => ({ kind: 'archived_instead', tbl: x.tbl, id: x.id })),
         ...out.missingFiles.map((x) => ({ kind: 'missing_file', tbl: x.tbl, id: x.id })),
@@ -268,8 +269,10 @@ export async function pullChanges({ merge = false, onProgress = null, total = nu
       progress(onProgress, 'pull', cursor, total ?? res.seq ?? cursor);
       if (!res.more) break;
     }
-    // A file that didn't come down before is tried again (K03 review, 5).
+    // A file that didn't come down before is tried again (K03 review, 5), and
+    // versions lost more than 30 days ago go (syncLost.js).
     await retryMissingFiles({ vault, fetchFile });
+    await pruneLostVersions();
     const state = updateCloudSyncState({ lastPullAt: new Date().toISOString(), lastError: null });
     if (!state.lastCursorSentAt || Date.now() - Date.parse(state.lastCursorSentAt) >= CURSOR_EVERY_MS) {
       try {
@@ -390,9 +393,11 @@ export function syncStatus() {
   };
 }
 
-// The activity list's "Got it": clear what's been read.
-export function clearSyncActivity() {
-  updateCloudSyncState({ activity: [] });
+// The activity list's "Clear the list": clear what's been read. `keep` (a Set of
+// sync_lost ids still kept) leaves the lines that can still Put mine back.
+export function clearSyncActivity({ keep = null } = {}) {
+  const activity = keep ? (getCloudSyncState().activity || []).filter((a) => a.lost && keep.has(a.lost)) : [];
+  updateCloudSyncState({ activity });
 }
 
 // A stop she's read and set aside (sync_off: turned off elsewhere).
@@ -544,6 +549,7 @@ export async function programSyncs() {
 async function stopHere() {
   updateCloudSyncState({ enabled: false, joining: false, cursor: 0, rejected: {}, waiting: {}, lastError: null });
   await clearSyncMeta();
+  await clearLostVersions(); // the activity list that offers them isn't shown while off
 }
 
 export function disableSyncHere() {

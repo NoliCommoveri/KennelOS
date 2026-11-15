@@ -83,8 +83,9 @@ device where something now points at the record becomes an archive (§5.4).
 > the one whose sent version was replaced unseen (`replaced_mine`, from each version's
 > `base_seq`, migration `0025`) as well as the one that replaced it. The lines say what
 > happened, not that one version was "older" (receive order says nothing about when a
-> change was made). Restore as of… rolls back every record on every syncing device, and
-> its confirm says so; a per-record restore isn't built.
+> change was made). The device that lost keeps its version 30 days (device-only
+> `sync_lost`), with **Put mine back** in the activity list. Restore as of… rolls back every
+> record on every syncing device, and says so, or restores only the records she chooses.
 
 ### 2.4 Turning it off
 **Turn off on this device** stops syncing here; the device keeps its records and goes back to

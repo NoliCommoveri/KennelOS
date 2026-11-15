@@ -322,7 +322,8 @@ index strings. `version(1)` holds every kennel table and is **frozen**. Later bl
 only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
 account FKs on sales, waitlist entries and kennels (§21.1, §32), `version(5)`
 `expenses.stud_service_id` (our dam's stud fee, §21), `version(6)` `dogs.public_id` (a dog's
-Dog Card id, §36), `version(7)` the `do_not_sell` table (her do-not-sell list, §29).
+Dog Card id, §36), `version(7)` the `do_not_sell` table (her do-not-sell list, §29),
+`version(8)` the device-only `sync_lost` (versions this device lost to sync, §34).
 
 **The versioning rule.** Schema changes are additive: a new table or index goes in a new
 `db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
@@ -345,7 +346,7 @@ edited. A new plain field needs no block. JSON backups stay backward compatible 
 **Device-only tables** (`db.DEVICE_ONLY_TABLES`): `device_secrets` (the unlocked vault key,
 an open unlock request, her Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
 its key-store module; any `jotform:` row left from the retired Connect Jotform is deleted on app open by
-`jotformKeyStore.forgetJotformKeys`, §32) and `sync_meta` (§34). They're not kennel data: no registry entries,
+`jotformKeyStore.forgetJotformKeys`, §32), `sync_meta` and `sync_lost` (§34). They're not kennel data: no registry entries,
 never in a backup. Code that means "the records" iterates `db.dataTables()`. Reset App and
 remote erase still clear them.
 
@@ -2953,7 +2954,11 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   Restore as of… counts what either part of the backup would change
   (`cloudBackup.previewRestore` plans the vault part too when this device is unlocked, so a
   change to private fields alone isn't "Nothing to restore"), and on a syncing device its
-  confirm says the roll back reaches every device. The
+  confirm says the roll back reaches every device. It offers **Roll back everything** or
+  **Choose records…**: a ticked list of the records the backup would change or add back
+  (`previewRestore().records`), restored alone with `restoreSnapshot({ only })` (the
+  `only` filter of `planCloudMerge` / `planVaultMerge`; a chosen document or expense brings
+  its file; nothing is paired). The
   **Settings** page's Account card has sign-in, Change email…, Pro on this account, Your
   devices, sign out, delete cloud data. Today shows turn-on, paused and "save your recovery
   code" nudges (none while sample data is loaded). The 409 and shrink dialogs need typed
@@ -4577,8 +4582,15 @@ The plan is the detailed design. This is the shape of what's built.
   device's sent version was replaced or deleted by one built without seeing it),
   `replaced_theirs` (this device's push replaced one it hadn't seen, naming that device;
   never its own version whose answer was lost), `clock` (a join met a date in the future),
-  `archived_instead`, `missing_file`, `needs_update`, `dropped`. Its advice warns that
-  Restore as of… rolls back every record on every device.
+  `archived_instead`, `missing_file`, `needs_update`, `dropped`.
+- **Put mine back** (`data/cloud/syncLost.js`): when a pull replaces or deletes a version
+  this device loses (`kept_theirs`, `replaced_mine`, a join's older version; not files
+  rows), `syncApply` keeps the row as it was in the device-only `sync_lost` table
+  (`db.version(8)`), in the page's transaction, and the activity line carries its id as
+  `lost`. The list shows what differs from the record now, with **Put mine back** (the kept
+  row written dated now, `markDataChanged()`, so the next push sends it everywhere) and
+  **Forget it**. Kept 30 days (`pruneLostVersions` after each pull); Clear the list keeps
+  those lines; sign-out, another account and turning sync off here clear them.
 - **An open page when records arrive** (`SYNC_APPLIED_EVENT`, relayed to other tabs by
   `BroadcastChannel`): a record page whose record changed shows "Updated on another device"
   with Reload; a list page or Today reloads itself unless she's typed there or a dialog is
