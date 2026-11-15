@@ -5170,3 +5170,4 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Deploy:** the Worker, then Apply pending on /ops for `0026`, before the app (its Account
   card reads the new `failed` field, and ignores it when absent).
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v147` (owner asked), covering fix steps 8 and 9 and the lifetime / end-of-life build batch.
