@@ -19,14 +19,17 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ## 1. Where each document stands
 
+*Updated 2026-11-15 after steps 1–4 and step 3 (Waitlist Fixes step 5) were built. Rows not
+touched by those steps are as first written.*
+
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
 |---|---|---|---|---|---|
 | **K03** | Cloud client: sync, conflicts | 2/6/2/1 | **All eleven built** (build log, 2026-11-15). Migration `0025` to apply | 0 · 0 | Follow-ups built too: Put mine back (30 days) and Choose records… in Restore as of…. |
-| **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12) | **3 · 3** | `privacy.html` was edited twice for Firma, but its three false statements are unchanged. The deploy still runs no tests. |
-| **K02** | Backup, restore, CSV import | 1/5/6/2 | none | **1 · 5** | `importExport.js`, `importView.js` and `dropbox.js` are untouched. `csvImport` and `dogCard` got only the titles phases. |
-| **K01** | Schema, repos, identity matching | 1/3/3/3 | none | **1 · 3** | `dogSearch.nameKey` still drops all-digit words (line 104). Furever's `db.js` still has no `blocked` handler. |
-| **K05** | Vault, licence, assisted setup | 2/5/3/4 | none | **2 · 5** | Only Jotform's retirement touched `cloudAssistUI.js`. |
-| **Waitlist Fixes plan** (K6, K6b, K7, K8) | Waitlist engine, online, family requests | 3/12/30/7 | Steps 1–4, K8-1, K8-10, K6-5, K8-5 (Kels part) | **1 · 5** | It has its own plan (`docs/KennelOS_Waitlist_Fixes_Plan.md`). Steps 5–10 remain. |
+| **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12). **Step 2 (11-15):** K13-1, -2, -3 (the policy's words, owner's choice), K13-12, K13-15 | 0 · 3 | Open: K13-4, -5, -6 (S2) and K13-9, -10, -11, -13 (S3), all in step 8 (edition gates) or group J. |
+| **K02** | Backup, restore, CSV import | 1/5/6/2 | **Step 4 (11-15):** K2-1 to K2-6 | 0 · 0 | Open: K2-7 (S3, the 10k-row preview: step 13), K2-8 to K2-12 (S3) and K2-13, K2-14 (S4). Not yet in a step. |
+| **K01** | Schema, repos, identity matching | 1/3/3/3 | **Step 4 (11-15):** K1-1, K1-3, K1-6 | 0 · 2 | Open: K1-2 (Furever's `blocked` handler, step 10's Furever half), K1-4 (the duplicate scan's speed, step 13), K1-5, K1-7 (S3) and K1-8 to K1-10 (S4). |
+| **K05** | Vault, licence, assisted setup | 2/5/3/4 | none | **2 · 5** | Only Jotform's retirement touched `cloudAssistUI.js`. **Next (step 5).** K5-3 decided: export only (§4). |
+| **Waitlist Fixes plan** (K6, K6b, K7, K8) | Waitlist engine, online, family requests | 3/12/30/7 | Steps 1–4, K8-1, K8-10, K6-5, K8-5 (Kels part). **Its step 5 (11-15):** K8-2 (D9: nothing refunded on a back-out, her credit), K8-3, K8-4, K8-13, K6b-5, K6b-8; and every back-out she records goes through one confirm | 0 · 2 | Open S2: K6-3 (the clock, its step 7), K6-6 (its step 6). Its steps 6–10 remain. |
 | **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part) | **1 · 2** | `pairingIdsWithLitter` still counts an Expected litter, so both due-date nudges stay off (`nudges.js:288`). `pairing.js` and `litter.js` are untouched. |
 | **K10** | Money: sales, invoices, reports | 2/3/9/0 | K10-1, K10-2, K10-12: Payment Schedules rebuilt receipts, Companion and contract prefills (*recheck* with a test) | **0 · 3** | `incomeView` changed 12 times, but the fee is still spread across components (`feeComponents`). `litter.js` is untouched. |
 | **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved) | **0 · 6** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
@@ -43,21 +46,20 @@ theme as well as by document. Bold marks an S1.
 
 | Kind | Open findings | Why it matters |
 |---|---|---|
-| **A. Her records silently lost or overwritten** | **K3-1**, **K3-2**, K3-3, K3-5, K3-8, **K1-1**, **K2-1**, K2-5, K2-6, K2-11, K11-4, K11-7, K7-13, **K14-1**, K14-5 | The worst kind: nothing tells her, and by the time she notices, the backup holds the damage too. |
-| **B. Money shown wrong** (to a family, in a report, or by Stripe) | **K8-2**, K8-3, K8-4*, K8-13*, K6b-5, K6b-8, K10-3, K10-4, K10-5, K10-6–8, K10-10, K10-11, K10-13, K10-14, K12-1, K12-3 (Stripe half) | Families are told the wrong amount, or her P&L and Year in Review disagree with her ledger. |
-| **C. Privacy and the policy's promises** | **K13-1**, **K13-2**, **K13-3**, K14-3, K14-13, K14-15, K12-9, K7-10, K14-17 | The published privacy policy says things that aren't true. The fix is mostly text, but each one is a privacy decision. |
+| **A. Her records silently lost or overwritten** | K2-11, K11-4, K11-7, K7-13, **K14-1**, K14-5 *(built: K3-1, -2, -3, -5, -8; K1-1; K2-1, -5, -6)* | The worst kind: nothing tells her, and by the time she notices, the backup holds the damage too. |
+| **B. Money shown wrong** (to a family, in a report, or by Stripe) | K10-3, K10-4, K10-5, K10-6–8, K10-10, K10-11, K10-13, K10-14, K12-1, K12-3 (Stripe half) *(built: K8-2, -3, -4, -13; K6b-5, -8)* | Families are told the wrong amount, or her P&L and Year in Review disagree with her ledger. |
+| **C. Privacy and the policy's promises** | K14-3, K14-13, K14-15, K12-9, K7-10, K14-17 *(built: K13-1, -2, -3)* | The published privacy policy says things that aren't true. The fix is mostly text, but each one is a privacy decision. |
 | **D. Support, account and licence safety** | **K5-1**, **K5-2**, K5-3–7, K5-8–13, K4-6, K4-13, K12-8 | A support device can carry one kennel into another account, a typo can erase a stranger, and the licence wall has no way out to her records. |
 | **E. Edition gates leak or dead-end** (Lite cap, Demo read-only) | K13-4, K13-5, K13-6, K13-9, K13-11, K11-1 (dog cap), K11-5, K11-17 | Lite takes more than its cap through import, restore and Kels. Demo saves things it says it won't. |
-| **F. Server resilience** | K4-1, K4-2, K4-3, K4-4, K4-5, K4-7, K4-11, K4-12, K4-14, K3-11 | These are rare events with large effects: a family emailed twice, a Worker rollback that leaves the API on 503 for good, a missed day of retention or digests. |
+| **F. Server resilience** | K4-1, K4-2, K4-3, K4-4, K4-5, K4-7, K4-11, K4-12, K4-14 *(built: K3-11)* | These are rare events with large effects: a family emailed twice, a Worker rollback that leaves the API on 503 for good, a missed day of retention or digests. |
 | **G. Breeding dates and the clock** | **K9-1**, K9-2, K9-3 (root), K9-5, K9-6, K9-7, K9-10, K6-3, K8-9 | A missed whelping reminder, due dates that don't follow a corrected first date, and deadlines kept on the device's clock instead of the kennel's. |
-| **H. Half-applied writes and stale drafts** | K2-5, K2-8, K11-2, K11-3, K11-6, K6-13, K14-6, K14-7, K1-3 | A retry duplicates records, or a draft resumes over newer work. |
+| **H. Half-applied writes and stale drafts** | K2-8, K11-2, K11-3, K11-6, K6-13, K14-6, K14-7 *(built: K2-5, K1-3)* | A retry duplicates records, or a draft resumes over newer work. |
 | **I. Slow at scale** | K1-4, K2-7, K4-3, K4-11 | 49 s of frozen page for the duplicate scan at 4,000 dogs, and a 10k-row import preview that never renders. |
-| **J. Phone, wording, layout** | K1-7, K10-9, K12-11, K6b-9, K14-16, K3-10, and most S3s | Overlaps K15. Fold these in when K15 is redone, unless one is a one-liner beside a fix you're already making. |
-| **K. Latent** (build, tests, docs) | **K13-15** (no tests before deploy), K13-10, K1-8–10, K11-16, K11-18, K9-13, K5-14 | K13-15 is cheap and protects every later batch. |
+| **J. Phone, wording, layout** | K1-7, K10-9, K12-11, K6b-9, K14-16, and most S3s *(built: K3-10)* | Overlaps K15. Fold these in when K15 is redone, unless one is a one-liner beside a fix you're already making. |
+| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18, K9-13, K5-14 *(built: K13-15, the deploy runs the tests)* | Small, and best folded into the batch that touches the same files. |
 
-\* *recheck:* the 11-15 lost-pup credit work (money carried as a credit, "Carried over from
-*pup*'s sale") may already cover K8-4 and K8-13. K8-2's core problem remains: Move carries
-only the deposit, and Refund wipes everything.
+Rechecked and built (11-15): K8-4 was already covered by the lost-pup credit (now held by a
+test); K8-13's wording and K8-2 (D9) are built with Waitlist Fixes step 5.
 
 ---
 
