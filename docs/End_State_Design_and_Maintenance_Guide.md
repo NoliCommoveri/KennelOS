@@ -21,10 +21,12 @@ at the shared path, drops files the edition doesn't ship, and generates its `sw.
 (`build/README.md`). It then fails if any file it ships statically imports one the edition
 dropped (`build/checkImports.mjs`). The deploy publishes only after `node --test` passes.
 Each edition deploys to its own origin, so their IndexedDBs never mix.
+`--final` builds the end-of-life version the terms promise (§0.3, `build/finalRelease.mjs`).
 The shared core never checks which edition it is: it reads the two injection points.
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
-  `enforceLitterCap`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only) and `licenseConfig`. The `shared/` copy is
+  `enforceLitterCap`, `enforceImportDogCap`, `enforceImportLitterCap`) and reads
+  (`dogCapStatus`, `litterCapStatus`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only) and `licenseConfig`. The `shared/` copy is
   the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
 - **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
   Lite supplies its own; Pro and Demo use the shared default.
@@ -69,11 +71,33 @@ form, the litter form and Today's promote-pup nudge catch the error and show
 "Creating x/6" counter from the same predicate. Pro and Demo's hooks are no-ops, so no cap
 logic ships in Pro.
 
+Every other door goes through the same hooks:
+- **Restores** (file Replace and Merge, cloud, vault) await `enforceImportDogCap` and
+  `enforceImportLitterCap` with the rows as they'll be after the restore, before any write,
+  and refuse the whole restore over either cap.
+- **CSV import:** an edition without `externalOwnership` takes only `owned` / `co_owned` dog
+  rows, as its dog form does. A leased row, an external row with an owner, or an update to
+  either goes to review. A new external row with no owner still lands pedigree-only.
+- **Duplicate merge** (`recordMerge.mergeDuplicate`) passes the duplicate's id to the dog
+  hook (`dogRepo.update(id, changes, { capExcludeIds })`), since it's deleted right after, so
+  a merge that leaves the count unchanged isn't refused. Scan for duplicates and Kels's Tidy
+  up show the upgrade nudge when a merge would add an adult at the cap.
+- **Kels** (§33): Add dogs and Record a litter read `dogCapStatus` / `litterCapStatus` and
+  stop before their questions when there's no room.
+
+`tests/liteCap.test.js` runs these against the real `lite/editionConfig.js`
+(`tests/support/liteHarness.js` overlays it on a scratch copy of `shared/data`).
+
 ### 0.2 Demo mode
 `data/demoMode.js`: every repo write (`repoBase` create/update/hardDelete, `fileRepo`,
 `restoreBackup`) calls `assertWritable()`, which throws a friendly `DemoModeError` when
 `editionFlags.demoMode` is on. The sample seed runs inside `withSeedAllowed()`. `app.js`
 seeds an empty database on load, skips first-run prompts, and shows a read-only banner.
+The writes outside the repos check `isDemo()` themselves: Companion's template Save and
+Furever's kennel-identity Save aren't offered (Furever's prefill shows without being kept),
+and Furever's Google Drive card isn't drawn, so nothing is connected or published. Kels's
+saving tasks run to their review; "Yes, build it" then says it's the demo and nothing is
+kept (`StepConversation.demoEnd`), and no draft is stored (§33).
 
 ### 0.3 Pro license gate
 - **Boot gate** (`data/license.js` + `assets/licenseGate.js`): in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
@@ -114,6 +138,18 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
   used only for that label — no fingerprinting, no system data — and, like the license
   record, it sits outside `KEYS` so Reset App leaves it alone.
+- **The final build has no gate.** If KennelOS ends, the terms (`site/terms.html` §14, "If
+  KennelOS ends", and §9's "What lifetime means") promise a final version of Lite and Pro that
+  needs no key and no server of ours. `node build/assemble.mjs --final` builds it:
+  `build/finalRelease.mjs` rewrites each edition's assembled `editionConfig.js` so
+  `cloudUrl`, `devCloudUrl`, `kennelportUrl`, `devKennelportUrl`, `upgradeUrl` and `demoUrl`
+  are `null` and Pro's `licenseGate` is `false` (every other flag unchanged, so Pro opens for
+  anyone with every on-device feature), and suffixes the edition's `CACHE_NAME` with `-final`
+  so installed apps take it on their next online open. It throws if an anchor is missing, so a
+  moved config fails the build instead of shipping a final Pro that walls. The deploy builds it
+  while the repository variable `KENNELOS_FINAL_RELEASE` is `true`. The order of a shutdown
+  (notice, final build, then the store and the Worker) is in `build/README.md`.
+  `tests/finalRelease.test.js` pins it.
 
 **Details:** Editions Plan "Licensing", `docs/KennelOS_License_Link_Plan.md`.
 
@@ -174,6 +210,7 @@ CLAUDE.md, README.md         Session brief; summary + doc map
 docs/                        Plans, specs, BUILD_LOG.md, this guide
 build/assemble.mjs           Edition builds → dist/<edition>/ (§0)
 build/checkImports.mjs       Every build: each shipped static import resolves (§0)
+build/finalRelease.mjs       --final: the end-of-life build, no server, no license gate (§0.3)
 lite/ pro/ demo/             Each edition's editionConfig.js (+ Lite's editionTour.js) (§0)
 cloud/                       Cloud backup / sync Worker (§30, §34; cloud/README.md)
 furever/, site/              Family app; marketing site (separate, not editions)
@@ -657,8 +694,9 @@ The cross-device data path, and one of the two modules that write tables directl
   - Unknown tables and fields are skipped. Every restore calls `markDataChanged()`.
   - A file restore points the `myKennelId` setting at the restored own kennel if it's unset
     or stale.
-  - Before writing it awaits the edition hook `enforceImportDogCap` (Lite refuses a restore
-    that would exceed its cap, all or nothing; cap spec §9).
+  - Before writing it awaits the edition hooks `enforceImportDogCap` and
+    `enforceImportLitterCap` (Lite refuses a restore that would exceed either cap, all or
+    nothing; cap spec §9).
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
 
@@ -2088,7 +2126,8 @@ restored into Lite keeps its waitlist rows, dormant.
   and extras plan steps "after approval" / "before pickup" (`planSteps`, `stepDueDate`).
   The projection's kennel carries `open_days` and the live `closed_dates` so a turn the
   server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
-  on the open day before. Dates already set (an offer made, a fee asked for) keep theirs.
+  on the open day before (or, if that day's runs were all missed, any day up to the due
+  date; the default subject names the date, `[Pay by]`). Dates already set (an offer made, a fee asked for) keep theirs.
   A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
   dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
   Demo).
@@ -2928,7 +2967,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `auto_offer_on`, the server closes expired turns and offers the next family from her
   published `turn_queue`, and sends reminders (with `email_reminders`). Each move is an event
   her device applies next sync (`planServerEvent`). A publish that hasn't seen them is
-  refused (`409 events_pending`).
+  refused (`409 events_pending`). A run's events and its projection write land together or
+  not at all (one batch, conditional on the version it read), so a second run, or her
+  publish in between, writes nothing and emails nobody; emails go once the batch lands.
 - **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
   non-answerers under `remove_after`, Today lists them under `keep_paused`.
 - **Before picks open:** `show_upcoming` switches publish pairings and early litters
@@ -2990,6 +3031,14 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **One backup device** per program: another device gets a 409 and chooses to restore that
   backup or replace it. A **shrink guard** refuses an upload that looks half-empty. Reset
   App turns backup off.
+- **Files and backups R2 lost:** the server's HEAD and PUT for a file check R2 as well as
+  its `files` row, so a document whose bytes are gone reads as missing and the next push
+  uploads it again; Restore doesn't list a backup whose body is gone.
+- **Changing the account's email** (`cloudAuth.changeAccountEmail`): at once with the old
+  inbox, else after a day, shown on every device (`emailChange`) with Cancel. A change whose
+  address was taken while it waited didn't happen: the server keeps it marked failed, and
+  every device shows "Your email change didn't happen" (`emailChangeFailed`, the Account
+  card and Today) until she taps OK (`cancelAccountEmailChange`) or 30 days pass.
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
@@ -3031,7 +3080,9 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
   as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
-  everything that changes her account itself, adding a passkey wrap included.
+  everything that changes her account itself, adding a passkey wrap included. A helper may
+  take over backing up (to push her first backup); its label already reads "KennelOS support
+  (…)", and the server marks it `helper: true` in `backingDevice` and the device list.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it
@@ -3643,7 +3694,8 @@ again keeps hers). Only a missing answer, or one that can't be saved, stops her.
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
 straight to a task (`?task=`), she still greets with her first message (`kelsWelcome`),
-and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
+and the task is the breeder's answer; a task its `available()` doesn't offer (this edition,
+or her records) opens the menu instead. **Every new task** (not a resumed draft) then starts
 with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
 go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
 collecting the information, I'll build the records for you to approve. If you get stuck or
@@ -3686,7 +3738,9 @@ my waitlist (25, Pro), set up my application form (24, Pro), set up my accounts 
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
 drops the open question, discards a resumable task's draft (its `discard`) and returns to the
-menu (records already saved stay), and the floating button's dot shows while any draft is unfinished. `beforeStart`
+menu (records already saved stay), and the floating button's dot shows while any draft is unfinished.
+In the Demo no draft is stored, Save for later says it can't keep one, and a drafted task's
+"Yes, build it" ends with "This is where I'd build it…" (`StepConversation.demoEnd`). `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -3920,8 +3974,11 @@ prices (prefilled from her last priced litter of that breed, previewed with the
 **The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
 `whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
 Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite a new litter is checked
-against the cap (`enforceLitterCap`) before anything is written, new parents included, so a
-refusal leaves nothing behind. **Resumable:** each new id goes back
+against the cap (`enforceLitterCap`), and her new parents against the room left
+(`newParentsToMake` against `dogCapStatus`), before anything is written, so a refusal leaves
+nothing behind. The task asks earlier too: at the litter cap a new litter stops with the
+upgrade nudge before any question, and "A dog that isn't in KennelOS yet" shows it when
+there's no room for another dog of hers (`roomForNewParent`). **Resumable:** each new id goes back
 on the draft as it's made, so a retry never duplicates.
 
 **The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;

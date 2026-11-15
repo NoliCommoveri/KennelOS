@@ -125,7 +125,7 @@ export async function requestRecoveryEmail(env, request, body) {
      VALUES (?, ?, 'recovery', NULL, ?, ?, 'recovery')
      ON CONFLICT (user_id) DO UPDATE SET new_email_hash = excluded.new_email_hash, device_id = excluded.device_id,
        device_label = excluded.device_label, requested_at = excluded.requested_at, effective_at = excluded.effective_at,
-       via = excluded.via`,
+       via = excluded.via, failed_at = NULL, failed_reason = NULL`,
   ).bind(row.user_id, newHash, at.toISOString(), effectiveAt).run();
 
   // Tell the old address. A failed send doesn't undo the request: the wait

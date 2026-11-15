@@ -9,7 +9,9 @@ This file is the map.
 wrangler.toml          the STAGING Worker: bindings DB (D1) and FILES (R2), the .sql text rule
 package.json           wrangler (dev only) and the test script; read by Workers Builds
 src/index.js           router: /ops, preflights, /notice, /health, /notify/off, the 503 gate, the API; and
-                       the crons (daily: retention; hourly: serverMoves, email changes, digests)
+                       the crons (daily: retention; hourly: serverMoves, email changes, digests, e-sign
+                       copies and previews), each job in its own try so one failure is logged and the
+                       rest still run. Everything, family pages and preflights too, is inside one try
 src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
@@ -18,7 +20,9 @@ src/mail.js            sending a code through Resend; without a key, staging's D
                        mail_daily (UTC day, 0021) for /ops.
                        Emails to waitlist families go out in the kennel's name from
                        MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
-src/files.js           content-addressed files; R2 verifies the sha256
+src/files.js           content-addressed files; R2 verifies the sha256. HEAD and PUT check R2 as well
+                       as the files row, so a row whose object is gone reads as missing and the
+                       app's next upload puts it back
 src/snapshots.js       describe → (vault part) → upload body → commit, with the 409 rule at both
                        steps and, while the program has a vault, the vault_required rule; a
                        syncing program: any caught-up device (sync_seq), or the Phase 1 rule
@@ -32,7 +36,9 @@ src/vault.js           the private vault: wraps (recovery, passkeys), turn on/of
                        strings. A passkey wrap keeps its credential id and PRF salt; the server
                        never verifies a WebAuthn assertion
 src/emailChange.js     changing the account's email: at once with the old inbox, else after a day,
-                       cancellable from any signed-in device (migration 0012; plan §2.6)
+                       cancellable from any signed-in device (migration 0012; plan §2.6). One whose
+                       address was taken while it waited is kept, failed_at set (0026), and shown on
+                       every device until she dismisses it (DELETE /account/email) or 30 days pass
 src/sync.js            live sync (docs/KennelOS_Cloud_Phase2_Sync_Plan.md §6): /sync/enable, DELETE
                        /sync, /sync/head, /sync/push, /sync/pull, /sync/cursor. One row per record
                        (sync_records), numbered from programs.sync_seq in one batch; the cloud part
@@ -109,9 +115,12 @@ src/familyActions.js   what a signed-in family does on their status page (POST /
                        the inbox
 src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the hourly cron
                        and a family's pass/leave close turns past their last day and offer the next
-                       family, only for moments she ticked; reminders once each. Events made_by
-                       'server'; the stored projection updated; a publish that hasn't seen them is
-                       refused (409 events_pending)
+                       family, only for moments she ticked; reminders once each (the fee reminder
+                       catches up through its due day). A run's events, hold deletes and projection
+                       write go in one batch, each conditional on the version it read, so a second
+                       run or her publish in between writes nothing; emails go only after it lands.
+                       Events made_by 'server'; a publish that hasn't seen them is refused (409
+                       events_pending). The hourly run reads the kennels' ids, then one body at a time
 src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_Plan.md, migration 0018):
                        notifyEvent (called by familyActions, familyPages' application confirm and
                        serverMoves) records an item and sends payload-free web push (VAPID ES256 via
@@ -131,23 +140,29 @@ src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweepR2Orphans walks the
                        bucket a few pages a run (its place in r2_sweep, migration 0017) and deletes
                        objects D1 doesn't track, for programs D1 knows, uploaded over a day ago;
-                       more than 1000 in one run deletes none (D1 may not be the real index)
+                       more than 1000 in one run deletes none (D1 may not be the real index). The
+                       sweep runs after the D1 purge, on its own: an R2 failure skips only it
+                       (r2SweepError in the summary, said on /ops)
 src/backup.js          /ops export/import of the D1 rows (not R2)
-src/gate.js            503 {maintenance:true} until every bundled migration is applied
+src/gate.js            503 {maintenance:true} until every bundled migration is applied and none
+                       drifted. An orphan (applied but not in this build, after a rollback) doesn't
+                       gate: the schema only adds; /ops shows it
 src/assist.js          assisted setup and help: the editions' /assist/* routes (redeem a one-time link
                        into a helper session, state, claimed, help, end) and the manager app at
-                       /manager/ (ops-token cookie, installable, web push; files in assistApp.js and
+                       /manager/ (ops-token sign-in kept server-side in manager_sessions, 0026: Log out
+                       ends it, /ops can end them all; installable, web push; files in assistApp.js and
                        assistIcons.js). Helper sessions are sessions.role = 'helper'; api.js refuses
-                       them the owner-only routes (OWNER_ONLY). Optional var PRO_APP_URL (where the
+                       them the owner-only routes (OWNER_ONLY; taking over backing up is left open on
+                       purpose, and the server marks a helper backing device). Optional var PRO_APP_URL (where the
                        links open; default https://pro.kennelos.app). Migration 0020
-src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
+src/ops.js             /ops (a CSP that allows no script): sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
                        yesterday and the average per day over the previous 30 days,
                        outbox, notices, retention, export/import, and Delete an account (look up by
                        email, then delete against a fingerprint of what was shown, optionally erasing
                        its devices: program.js accountSummary / summaryFingerprint / removeAccount;
                        the manager app does the same in two calls, delete-lookup then delete;
                        a deleted account's token hashes stay 90 days in account_deletions, 0020, so
-                       its devices hear 401 account_deleted {erase})
+                       its devices hear 401 account_deleted {erase}), and Sign every manager app out
 src/migrate.js         the runner (ported from MCCE): status, drift, atomic apply
 src/health.js          bindings, secrets present, schema version, row counts
 src/lib/cors.js        the allowed origins (Lite, Pro, localhost); and KennelPort sites, for

@@ -38,7 +38,7 @@ export const demoUrl = 'https://demo.kennelos.app/';
 
 // Cloud backup API (Cloud Phase 1 plan §7): production, live since the go-live
 // change (plan §9 step 6). Back to null is how a shutdown release turns every
-// cloud feature off. `devCloudUrl` (the staging Worker) applies when served from
+// cloud feature off: the final build (build/finalRelease.mjs) does that. `devCloudUrl` (the staging Worker) applies when served from
 // localhost, or in a browser that opted in with ?cloud=staging (the test-server
 // switch); see data/cloud/cloudConfig.js.
 export const cloudUrl = 'https://api.kennelos.app';
@@ -70,23 +70,25 @@ export const licenseConfig = { checkoutUrl: null, portalUrl: null }; // variant 
 // - co_owned counts (excluding it would be a one-click "mark it co-owned" bypass).
 const countsTowardDogCap = isActiveRosterDog;
 
-// Count the current counting dogs, optionally excluding one id (an update
-// compares the record against everyone *else*).
-async function countCountingDogs(excludeId = null) {
-  return countActiveRosterDogs(await db.dogs.toArray(), excludeId);
+// Count the current counting dogs, optionally excluding ids (an update compares
+// the record against everyone *else*; a merge leaves out the duplicate it deletes).
+async function countCountingDogs(excludeIds = []) {
+  const skip = new Set(excludeIds.filter(Boolean));
+  return countActiveRosterDogs((await db.dogs.toArray()).filter((d) => !skip.has(d.id)));
 }
 
 // --- Cap hooks (cap spec §3/§4) --------------------------------------------
 // The rule is NOT "block while over cap"; it is "block a write that adds a *new*
 // counting dog while already at the cap." Editing a dog that already counts is
 // never blocked, and departing (archive / deceased) always frees a slot.
-export async function enforceDogCap({ candidate, existing /*, id */ }) {
+export async function enforceDogCap({ candidate, existing, excludeIds = [] /*, id */ }) {
   const will = countsTowardDogCap(candidate);
   if (!will) return; // result doesn't count (departure, puppy, deceased…) — never blocked
   const was = existing ? countsTowardDogCap(existing) : false;
   if (was) return; // ✓→✓: already counted — editing other fields is always allowed
   // create (no existing) or a ✗→✓ transition-in (e.g. a kept puppy maturing).
-  const current = await countCountingDogs(existing ? existing.id : null);
+  // excludeIds: dogs a merge deletes right after this write (K13-9).
+  const current = await countCountingDogs([existing ? existing.id : null, ...excludeIds]);
   if (current >= CAP_DOGS) throw new CapExceededError('dogs', current, CAP_DOGS);
 }
 
@@ -113,12 +115,31 @@ export async function enforceImportDogCap({ incomingDogs = [], mode = 'replace' 
   if (resulting > CAP_DOGS) throw new CapExceededError('dogs', resulting, CAP_DOGS);
 }
 
+// The litter half of the bulk-import cap (K13-5). Every restore (file Replace and
+// Merge, cloud, vault) passes the litters as they'll be after it; Lite refuses the
+// whole restore, nothing written, when the raw litter count would pass the cap —
+// the same raw count enforceLitterCap uses. Without it an oversized backup landed
+// whole and every later new litter was refused.
+export async function enforceImportLitterCap({ incomingLitters = [], mode = 'replace' } = {}) {
+  const rows = mode === 'merge'
+    ? dogsAfterImport(await db.litters.toArray(), incomingLitters, 'merge') // same upsert-by-id set math
+    : incomingLitters;
+  if (rows.length > CAP_LITTERS) throw new CapExceededError('litters', rows.length, CAP_LITTERS);
+}
+
 // Read by dog.js's "New Dog" page for a "Creating x/6 available dogs" banner —
 // a plain read of the same countsTowardDogCap predicate the create guard
 // above enforces, so the number shown always matches what would actually
 // block the save.
 export async function dogCapStatus() {
   return { current: await countCountingDogs(), cap: CAP_DOGS };
+}
+
+// Read before a task that would make a litter (Kels's Record a litter, K11-1), so
+// it stops before any question rather than at the save. Same raw count as
+// enforceLitterCap.
+export async function litterCapStatus() {
+  return { current: await db.litters.count(), cap: CAP_LITTERS };
 }
 
 // --- UI capability flags ---------------------------------------------------

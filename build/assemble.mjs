@@ -7,6 +7,7 @@
 //
 //   node build/assemble.mjs            # all editions
 //   node build/assemble.mjs lite       # just one
+//   node build/assemble.mjs --final    # the end-of-life build (build/finalRelease.mjs)
 //
 // What it does per edition:
 //   1. copy shared/ -> dist/<edition>/           (the artifact is shaped like the app,
@@ -22,6 +23,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE, DEMO_EXCLUDED_PAGES } from '../shared/data/proPages.js';
 import { assertImportsResolve } from './checkImports.mjs';
+import { finalizeEditionConfig, finalizeServiceWorker } from './finalRelease.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
@@ -153,7 +155,7 @@ function rewriteIndexTitle(destDir, edition) {
   writeFileSync(p, text);
 }
 
-function assemble(edition, release) {
+function assemble(edition, release, final) {
   const dest = join(ROOT, 'dist', edition);
   rmSync(dest, { recursive: true, force: true });
   cpSync(join(ROOT, 'shared'), dest, { recursive: true });
@@ -181,10 +183,19 @@ function assemble(edition, release) {
   rewriteIndexTitle(dest, edition);
 
   const sw = rewriteServiceWorker(dest, edition);
+  // The end-of-life build (terms §14): no server, no license gate, a fresh cache name.
+  if (final) {
+    const cfgPath = join(dest, 'data', 'editionConfig.js');
+    writeFileSync(cfgPath, finalizeEditionConfig(readFileSync(cfgPath, 'utf8'), edition));
+    const swPath = join(dest, 'sw.js');
+    const fin = finalizeServiceWorker(readFileSync(swPath, 'utf8'), edition);
+    writeFileSync(swPath, fin.text);
+    sw.cacheName = fin.cacheName;
+  }
   // Every build, not only --release: a dropped file a kept page still imports is a
   // dead page in that edition (K13-7, K13-15).
   assertImportsResolve(dest, edition);
-  console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
+  console.log(`✅ ${edition}${final ? ' (final)' : ''}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
 // --- Standalone app assembly (Furever) ------------------------------------
@@ -226,9 +237,11 @@ function assembleStaticSite(name) {
 
 // Args: an optional edition name (or 'all') plus an optional --release flag that
 // turns the launch-placeholder check from a warning into a hard failure (used by
-// the deploy workflow, which ships to the live origins).
+// the deploy workflow, which ships to the live origins). --final builds the editions'
+// end-of-life version (build/finalRelease.mjs); Furever and the site are unchanged by it.
 const args = process.argv.slice(2);
 const release = args.includes('--release');
+const final = args.includes('--final');
 const positional = args.filter((a) => !a.startsWith('--'));
 const arg = positional[0];
 const ALL_TARGETS = [...EDITIONS, ...STANDALONE_APPS, ...STATIC_SITES];
@@ -237,5 +250,5 @@ for (const t of targets) {
   if (STATIC_SITES.includes(t)) { assembleStaticSite(t); continue; }
   if (STANDALONE_APPS.includes(t)) { assembleStandalone(t); continue; }
   if (!EDITIONS.includes(t)) { console.error(`unknown target: ${t}`); process.exit(1); }
-  assemble(t, release);
+  assemble(t, release, final);
 }

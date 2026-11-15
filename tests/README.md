@@ -24,6 +24,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | --- | --- |
 | `rosterCount.test.js` | The active-roster classification + the import-cap set math behind the Lite dog cap and the JSON-restore cap (cap spec §2/§9). |
 | `license.test.js` | The Pro license verdict state machine — interval detection and the grace windows (**yearly 7d, monthly 3d**), lifetime/expired/revoked branches. |
+| `finalRelease.test.js` | The end-of-life build (`build/finalRelease.mjs`): each edition's final config nulls every server URL and Pro's license gate is off, nothing else changes, a config it can't read fails the build, and the final service worker gets a new cache name. |
 | `importExport.test.js` | The Blob ⇄ base64 marker round-trip that keeps documents/receipts durable across backup + Dropbox sync. |
 | `serviceWorker.test.js` | The precache ↔ disk bijection (CLAUDE.md's most-forgotten step), promoted from the End-State guide's Python snippet. |
 | `referenceRegistry.test.js` | Structural integrity of the FK registry that drives hard-delete blocking. |

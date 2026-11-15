@@ -48,11 +48,14 @@ export async function migrationStatus(db, migrations = MIGRATIONS) {
   return rows;
 }
 
-// True when the database is exactly what this deploy's code expects: every
-// bundled migration applied, none drifted, none orphaned.
+// True when the database has everything this deploy's code expects: every bundled
+// migration applied and none drifted. An orphan (applied, but not in this build's
+// list, as after rolling the Worker back past a migration) doesn't count against
+// it: the schema is additive only, so an older build runs on a newer schema. /ops
+// shows the orphan instead (review K4-2).
 export async function schemaIsCurrent(db, migrations = MIGRATIONS) {
   const rows = await migrationStatus(db, migrations);
-  return rows.every((r) => r.state === 'applied');
+  return rows.every((r) => r.state === 'applied' || r.state === 'orphaned');
 }
 
 // Apply every pending migration in order. Each migration's statements and its

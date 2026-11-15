@@ -228,3 +228,32 @@ test('pending: a manager push says who and what; delete from the manager removes
   for (const t of ['assist_programs', 'assist_events', 'users']) assert.equal(env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n, 0, t);
   assert.equal(programId.length, 36);
 });
+
+test('K5-13: Log out ends that manager sign-in for good, and /ops can end them all', async () => {
+  const env = await makeEnv();
+  const cookie = await managerCookie(env);
+  const get = (c) => worker.fetch(mreq('/manager/api/programs', { headers: { Cookie: c } }), env);
+  assert.equal((await get(cookie)).status, 200);
+  await worker.fetch(mreq('/manager/api/logout', { method: 'POST', headers: { Cookie: cookie, 'content-type': 'application/json' }, body: '{}' }), env);
+  assert.equal((await get(cookie)).status, 401, 'a copied cookie no longer works after Log out');
+
+  const a = await managerCookie(env);
+  const b = await managerCookie(env);
+  const { endManagerSessions } = await import('../src/assist.js');
+  assert.equal(await endManagerSessions(env), 2);
+  assert.equal((await get(a)).status, 401);
+  assert.equal((await get(b)).status, 401);
+  // A forged id with no row is refused even when signed.
+  assert.equal((await get('assist_session=' + 'f'.repeat(64) + '.x')).status, 401);
+});
+
+test('9-B: support\'s helper device may take over backing up, and her app names it as support', async () => {
+  const env = await makeEnv();
+  const { helper } = await setUp(env);
+  assert.equal((await call(env, 'POST', '/program/backing-device', { token: helper.token })).status, 200);
+  const program = await (await call(env, 'GET', '/program', { token: helper.token })).json();
+  assert.equal(program.backingDevice.helper, true);
+  assert.match(program.backingDevice.label, /^KennelOS support/);
+  const { devices } = await (await call(env, 'GET', '/devices', { token: helper.token })).json();
+  assert.equal(devices.find((d) => d.id === SUPPORT).helper, true);
+});

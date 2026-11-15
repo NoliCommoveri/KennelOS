@@ -5055,3 +5055,119 @@ From `docs/review/findings/K10-money.md` and `K12-integrations-notifications.md`
   `KennelOS_Payment_Schedule_Plan.md` (Modified note); `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
 - `CACHE_NAME` bumped to `kennelos-shell-v146` (owner asked), covering fix step 7.
+
+## 2026-11-15: Fix step 8, edition gates (review K13 + K11)
+
+Owner's decisions: Demo blocks the Companion and Furever saves and Google Drive (K13-6); Kels in
+the Demo walks a task to its review, then says so and keeps nothing (K11-5); Lite's CSV refuses
+leased ownerships, restores aren't changed for them (K13-4); a restore over the litter cap is
+refused all or nothing (K13-5).
+- **K13-4:** `csvImport` dog rows: with `externalOwnership` off, a leased row, an external row
+  with an owner, or an update to either goes to review ("isn't available in this edition"). A new
+  external row with no owner still lands pedigree-only.
+- **K13-5:** new edition hook `enforceImportLitterCap({ incomingLitters, mode })` (no-op in
+  shared/Pro/Demo; Lite counts the raw litters after the restore). File Replace and Merge, cloud
+  and vault restores await it beside the dog hook. Import/Export and cloud restore messages name
+  litters when that's the cap.
+- **K13-6:** Companion's template Save and Furever's kennel-identity Save are replaced by a demo
+  line; Furever's prefill shows without being kept; Furever's Drive card (Connect, Publish) isn't
+  drawn in the Demo.
+- **K13-9:** `dogRepo.update(id, changes, { capExcludeIds })`, passed by `mergeDuplicate` for the
+  duplicate it deletes next; Lite's `enforceDogCap` leaves those out. Scan for duplicates and
+  Tidy up show the upgrade nudge on a cap refusal.
+- **K13-11:** the welcome card's sales, documents and dogs lines follow `editionFlags`.
+- **K11-1 (dog-cap half):** `litterCapStatus()` (new read, all four configs). Record a litter
+  stops before any question at the litter cap; "A dog that isn't in KennelOS yet" shows the
+  nudge with no room (`roomForNewParent`); `saveGuidedLitter` checks room for every new parent
+  (`newParentsToMake`) before making any.
+- **K11-5:** `StepConversation.demoEnd` (Yes, build it in the Demo); the four drafted tasks
+  don't store a draft in the Demo; Save for later says it can't keep one there.
+- **K11-17:** `?task=` opens the menu when the task isn't `available()`.
+- **Tests:** new `tests/liteCap.test.js` (12) on the real Lite config through new
+  `tests/support/liteHarness.js` (`installMemoryDb` takes a `dbUrl`); `editionConfig.test.js`
+  checks the two new hooks. `node --test` 2045 pass; `node build/assemble.mjs` (and `--release`)
+  green. In Chromium on `dist/demo`: Companion and Furever show the demo lines, no Drive card, no
+  `furever` key stored; Add dogs runs to its review and ends with the demo line, no draft;
+  `?task=get-started` opens the menu. On `dist/lite`: the welcome card says "buyers and
+  deposits", no documents line; `?task=add-people` opens the menu. No page errors.
+- **Docs:** End-State guide §0, §0.1, §0.2, the restore section, §33 (Kels's voice, the menu,
+  the litter save); cap spec §1 and §9 (Modified notes); `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+
+## 2026-11-15: What "lifetime" means, and the end-of-life build
+
+The owner asked whether "lifetime" commits KennelOS to hosting forever. Nothing promised that,
+but nothing defined "lifetime" either, the Pro page said lifetime keys need "no re-validation,
+works offline indefinitely" (they check in every 90 days), and a shutdown would have walled
+every lifetime owner within four months, because the key's check needs Lemon Squeezy. The owner
+chose a final build, and Mississippi law.
+- **Build:** `build/finalRelease.mjs` + `node build/assemble.mjs --final`: each edition's
+  config nulls `cloudUrl`, `devCloudUrl`, `kennelportUrl`, `devKennelportUrl`, `upgradeUrl` and
+  `demoUrl`; Pro's `licenseGate` is `false`; `CACHE_NAME` gets `-final`. Throws on a missing
+  anchor. The deploy passes `--final` while the repository variable `KENNELOS_FINAL_RELEASE` is
+  `true`. The shutdown order (notice, final build, then the Worker and the store) is in
+  `build/README.md`.
+- **Terms:** §9 defines lifetime (the life of KennelOS Pro, not the buyer's; no promise to run
+  anything for a set time) and says the final version makes no checks; §14 adds "If KennelOS
+  ends" (90 days' notice in the app, a final Lite and Pro with no key and no server, kept online
+  at least 12 months, no updates promised after); §18 is Mississippi law and courts. Privacy
+  §18 says 90 days and that the final version sends nothing.
+- **Site:** the Pro page's lifetime card says "for as long as Pro is offered" and "3 months
+  offline between check-ins", with a "What lifetime means" link (also on the upgrade page, the
+  home page and the editions page); a new FAQ, "What does lifetime mean?".
+- **Tests:** new `finalRelease.test.js` (6). `node --test` 2039 pass. In Chromium, the final Pro
+  opens to Today with no key, Dogs, Waitlist, Settings and Reports render, and no request leaves
+  the origin; the normal Pro build still walls.
+- **Docs:** End-State guide §0, §0.3, §3; Editions Plan "Licensing"; Cloud Accounts Proposal
+  (Modified note); `build/README.md`; `tests/README.md`.
+- **Service worker:** no app file added or renamed (the site isn't a PWA). `CACHE_NAME` not bumped.
+
+## 2026-11-15: Fix step 9, K04 (Worker resilience)
+
+Owner's decisions: an orphaned migration doesn't gate (9-A); support's helper device may take
+over backing up, named as support (9-B); K5-13 rides this branch's migration (9-C).
+- **K4-3:** `scheduled` runs each job (retention; waitlist moves, email changes, digests, both
+  e-sign jobs) in its own `try`, logging `<job> failed`. `runWaitlistMoves` reads the kennels'
+  ids a page at a time (`MOVES_PAGE`), then one projection body at a time.
+- **K4-4:** `runRetention` runs its D1 purge first; the R2 sweep runs last in its own `try`
+  (`r2SweepError`), and R2 deletes after their rows went are caught (`r2DeleteError`). /ops's
+  Retention done line says either.
+- **K4-12:** `fetch` is one `try` around a `route()`; CORS is filled in as soon as it's known.
+- **K4-1:** `runKennel` queues its events, hold deletes and projection write and sends them in
+  one `db.batch`, each conditional on the version it read (`AT_VERSION`), the projection last;
+  a deadline's offer takes the close's seq inside the batch (`json_set … MAX(seq)`). A lost
+  race writes nothing, sends nothing and returns `lost: true`. Notifications and emails go only
+  after the batch lands; a send that throws is recorded `failed` (`emailOnce`). The offer email
+  keeps its `turn_id` id: with the batch only the run that landed sends it.
+- **K4-7:** the fee reminder goes from the open day before through the due day; the default
+  `fee_reminder` subject names the date (`[Pay by]`). The turn's last-day reminder stays on its
+  day (after it the turn has ended); the halfway one already caught up.
+- **K4-2:** `schemaIsCurrent` counts an orphan as current; /ops says what an orphan means and
+  that the API still serves; a drift still gates.
+- **K4-5:** `headFile` / `putFile` ask R2 (`FILES.head`) as well as the `files` row, so a row
+  whose object is gone reads 404 and a PUT stores the bytes again; `GET /snapshots` leaves out
+  a backup whose body R2 doesn't have. `latestSnapshot` is left as the push base.
+- **K4-8:** migration `0026` adds `email_changes.failed_at` / `failed_reason`. A waiting change
+  whose address was taken is kept, marked failed, never retried; `emailChangeState` returns
+  `failed`; a new request clears it; retention clears it after 30 days. The app keeps it as
+  `emailChangeFailed` and the Account card and Today say "Your email change didn't happen" with
+  OK (which dismisses it on the server).
+- **K5-13:** `0026` adds `manager_sessions`. A manager sign-in is a random id, signed with
+  `OPS_TOKEN` and stored as a hash; Log out deletes it; /ops's **Sign every manager app out**
+  ends them all; retention clears expired ones. Existing manager cookies stop working (sign in
+  again).
+- **K4-10:** /ops pages send a CSP that allows no script (`default-src 'none'`, inline style,
+  `form-action 'self'`, `frame-ancestors 'none'`), with `nosniff` and `no-referrer`.
+- **K4-13 (9-B):** left open on purpose and said beside `OWNER_ONLY`; `backingInfo` and the
+  device list mark a helper device `helper: true` (its label already reads "KennelOS support").
+- **Tests:** cloud: new `cronResilience.test.js` (5); `serverMoves` (+4), `backup-api` (+2),
+  `migrate` (+1), `emailChange` (+1), `assist` (+2), `ops` (+1); the R2 stand-in has `head`.
+  App: `cloudClient` (+1). `cd cloud && npm test` 365 pass; `node --test` 2068 pass;
+  `node build/assemble.mjs` green.
+- **Docs:** `cloud/README.md`; End-State guide §29 (the fee reminder, server moves), §30
+  (files, the email change, the helper backing); Cloud Phase 1 plan, Assisted Setup plan, W2
+  plan (Modified notes); README Status (`0026` to apply); `FIX_PRIORITIES.md`.
+- **Deploy:** the Worker, then Apply pending on /ops for `0026`, before the app (its Account
+  card reads the new `failed` field, and ignores it when absent).
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v147` (owner asked), covering fix steps 8 and 9 and the lifetime / end-of-life build batch.

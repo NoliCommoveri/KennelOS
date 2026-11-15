@@ -1031,6 +1031,25 @@ test('email change without the old inbox: pending on every device; the other dev
   assert.equal(auth.currentAccount().signedIn, true);
 });
 
+test('email change whose address was taken while it waited: every device says it didn\'t happen; OK clears it (K4-8)', async () => {
+  await signIn('breeder@example.com', 'Phone A');
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();
+  await auth.startSignIn('new@example.com');
+  await auth.changeAccountEmail({ email: 'new@example.com', code: lastCode(env) });
+  switchDevice('B');
+  await signIn('new@example.com', 'Someone else'); // the address is taken meanwhile
+  switchDevice('A');
+  env.DB.raw.prepare("UPDATE email_changes SET effective_at = '2020-01-01T00:00:00.000Z'").run();
+  await dv.checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChange, null);
+  assert.equal(settings.getCloudBackupState().emailChangeFailed.reason, 'taken');
+  assert.equal(auth.currentAccount().email, 'breeder@example.com', 'still the old address');
+  await auth.cancelAccountEmailChange();
+  assert.equal(settings.getCloudBackupState().emailChangeFailed, null);
+  await dv.checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChangeFailed, null, 'gone on the server too');
+});
+
 test('email change: cancelled from another device', async () => {
   await signIn('breeder@example.com', 'Phone A');
   env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();

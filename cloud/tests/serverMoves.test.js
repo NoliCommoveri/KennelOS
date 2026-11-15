@@ -291,3 +291,65 @@ test('a side sale row (direct) is never a turn: no block, no close, no "deciding
   assert.equal(events(env).filter((e) => e.kind === 'server_close').length, 0, 'a side sale is never closed by the server');
   assert.deepEqual(stored(env).entries.cy.offers.map((o) => o.id), ['s1']);
 });
+
+// --- Review K4-1 and K4-7 (fix step 9b): a move lands once, or not at all ---------
+
+test('K4-1: two runs on the same version (the hourly run and a pass) make one close, one offer, one email each', async () => {
+  const { env } = await published();
+  const r = row(env);
+  const first = await runKennel(env, r, { now: NOW, origin: 'o' });
+  const second = await runKennel(env, r, { now: NOW, origin: 'o' });
+  assert.deepEqual(first, { closed: 1, offered: 1, reminders: 0 });
+  assert.equal(second.lost, true);
+  assert.deepEqual(events(env).map((e) => e.kind), ['server_close', 'server_offer']);
+  assert.deepEqual(mails(env).map((m) => [m.kind, m.to_email]), [['deadline_passed', 'ann@example.com'], ['offer', 'bo@example.com']]);
+});
+
+test('K4-1: her device publishing inside the run\'s window: nothing written, nobody emailed, the next run does it once', async () => {
+  const { env } = await published();
+  const r = row(env);
+  env.DB.raw.prepare('UPDATE wl_projection SET version = version + 1').run(); // her publish lands first
+  const lost = await runKennel(env, r, { now: NOW, origin: 'o' });
+  assert.equal(lost.lost, true);
+  assert.equal(count(env, 'wl_events'), 0);
+  assert.equal(count(env, 'wl_messages'), 0);
+  assert.equal(stored(env).entries.ann.offers.length, 1, 'Ann\'s turn still open');
+  const next = await runKennel(env, row(env), { now: NOW, origin: 'o' });
+  assert.deepEqual(next, { closed: 1, offered: 1, reminders: 0 });
+  assert.equal(count(env, 'wl_events'), 2);
+});
+
+test('K4-1: an email that throws after the move landed is recorded as failed; the move is not done again', async () => {
+  const { env } = await published();
+  env.RESEND_API_KEY = 'test-key';
+  delete env.DEV_OUTBOX;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('network down'); };
+  const error = console.error;
+  console.error = () => {};
+  try {
+    const c = await runKennel(env, row(env), { now: NOW, origin: 'o' });
+    assert.deepEqual(c, { closed: 1, offered: 1, reminders: 0 });
+    assert.deepEqual(env.DB.raw.prepare('SELECT kind, status FROM wl_messages ORDER BY rowid').all().map((m) => [m.kind, m.status]),
+      [['deadline_passed', 'failed'], ['offer', 'failed']]);
+    await runKennel(env, row(env), { now: NOW, origin: 'o' });
+    assert.deepEqual(events(env).map((e) => e.kind), ['server_close', 'server_offer'], 'no second close or offer');
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = error;
+  }
+});
+
+test('K4-7: a fee reminder whose day was missed goes on the due day, once', async () => {
+  const { env } = await published({ auto: [], feeDue: '2026-10-13', respondBy: '2026-10-20' });
+  // Oct 12 (the day before) had no run; Oct 13, 10:00 Chicago.
+  const dueDay = new Date('2026-10-13T15:00:00Z');
+  await runKennel(env, row(env), { now: dueDay, origin: 'o' });
+  assert.equal(mails(env).filter((m) => m.kind === 'fee_reminder').length, 1);
+  await runKennel(env, row(env), { now: dueDay, origin: 'o' });
+  assert.equal(mails(env).filter((m) => m.kind === 'fee_reminder').length, 1, 'once');
+  // After the due day, nothing.
+  const late = await published({ auto: [], feeDue: '2026-10-11', respondBy: '2026-10-20' });
+  await runKennel(late.env, row(late.env), { now: NOW, origin: 'o' });
+  assert.equal(mails(late.env).filter((m) => m.kind === 'fee_reminder').length, 0);
+});

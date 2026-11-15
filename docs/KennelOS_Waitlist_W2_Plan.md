@@ -707,6 +707,9 @@ means no fee reminder ever.
        from 8 am kennel time: halfway through a turn of two days or more and on its last day
        (`offer_reminder`); the day before an unpaid fee is due (`fee_reminder`; none without
        a due date); "Ready now?" once her device has asked it (`ready_check`).
+       **Modified:** the fee reminder also goes on any later day up to the due date if the
+       day before's runs were all missed, and a run's events and projection land in one
+       batch or not at all (review K4-7, K4-1; fix step 9).
      - **The publish guard:** `PUT /waitlist/projection` answers `409 events_pending` while
        a server move after its `events_through` exists, so a publish never undoes a move
        her device hasn't seen. Her device then applies the events and publishes again.

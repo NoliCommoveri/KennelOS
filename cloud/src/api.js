@@ -38,6 +38,11 @@ const INT_CONNECTION = /^\/integrations\/connections\/([0-9a-f-]{36})$/;
 
 // What only the account's owner may do; support's helper device gets 403
 // helper_not_allowed (docs/KennelOS_Assisted_Setup_Plan.md §5).
+// Left open on purpose (decision 9-B, review K4-13): POST /program/backing-device,
+// so support can push her first backup during assisted setup. Where her app names
+// the backing device it says "KennelOS support (…)", the label every helper session
+// gets, and the server marks it `helper: true` (snapshots.backingInfo, devices.js),
+// so she can see it and take it back.
 const OWNER_ONLY = new Set([
   'POST /auth/signout-others', 'DELETE /account', 'POST /account/email', 'DELETE /account/email',
   'POST /account/license-links/start', 'POST /account/license-links/verify', 'DELETE /account/license-links',

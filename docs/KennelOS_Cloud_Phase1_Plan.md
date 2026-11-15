@@ -766,6 +766,9 @@ whose page is open to anyone until the first account exists.
   used: it needs one statement per line.
 - **While anything is pending or drifted,** the page shows only the migration table and
   Apply pending, and the API answers 503 (§6.1).
+- **Modified:** an orphaned migration (applied, but not in this build, as after rolling the
+  Worker back past it) doesn't gate the API: the schema is additive only, so an older build
+  runs on a newer schema. /ops shows it in red (review K4-2, fix step 9, 2026-11-15).
 - **Migration rules:**
   - pre-launch, `0001` may be squashed and edited on staging;
   - from the first real sign-in on production, files are **forward-only, additive**, and an

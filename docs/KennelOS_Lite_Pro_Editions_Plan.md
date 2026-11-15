@@ -237,6 +237,15 @@ like any other and the yearly grace window (below) applies before the wall.
   **The two walls are not interchangeable.** A lifetime key blocked on staleness is told to
   *reconnect*, never to renew — there is nothing to buy, and a checkout link there would read as
   being asked to pay twice. `licenseGate.js` branches on it (`isStaleLifetime`).
+- **What "lifetime" means, and the end of life.** "Lifetime" is the life of KennelOS Pro, not
+  the buyer's: the key unlocks Pro for as long as it's offered, and no promise is made to run
+  the service for any set time (terms §9). The check-in above means a lifetime key depends on
+  the store answering, so a shutdown would otherwise wall every lifetime owner within four
+  months. The answer is a **final build**: if KennelOS ends, a final version of Lite and Pro
+  ships with no license gate and no server (terms §14: at least 90 days' notice in the app,
+  the final version kept online for at least 12 months, no updates promised after it). Pro's
+  final version opens for everyone, whatever plan they had. Built by `--final`
+  (`build/finalRelease.mjs`, End-State guide §0.3); the shutdown order is in `build/README.md`.
 - **Activations are a counter, and slots come back.** Lemon Squeezy tracks *activations*
   ("instances") against a per-variant **activation limit**. This is not device detection — the
   store knows nothing about the machine and neither does the app; it is simply "this key has

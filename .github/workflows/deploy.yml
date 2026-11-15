@@ -79,7 +79,11 @@ jobs:
         # ONLY — site/'s per-tier checkout links are not covered (LAUNCH_CHECKLIST §1).
         # Every build (release or not) also fails if a file it ships statically imports
         # one the edition dropped (build/checkImports.mjs).
-        run: node build/assemble.mjs ${{ matrix.edition }} --release
+        # The end-of-life build (terms §14, build/finalRelease.mjs): set the repository
+        # variable KENNELOS_FINAL_RELEASE to `true` and every deploy from then on ships the
+        # final editions (no server, no license gate). A variable rather than a one-off
+        # input, so a later push to main can't put the license wall back.
+        run: node build/assemble.mjs ${{ matrix.edition }} --release ${{ vars.KENNELOS_FINAL_RELEASE == 'true' && '--final' || '' }}
 
       - name: Add CNAME
         run: echo "${{ matrix.domain }}" > dist/${{ matrix.edition }}/CNAME

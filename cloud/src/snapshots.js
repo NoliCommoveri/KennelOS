@@ -44,13 +44,19 @@ export async function backingInfo(env, program) {
       edition = latest.edition ?? null;
     }
   }
-  if (program.backing_device_id && !label) {
-    const s = await env.DB.prepare('SELECT device_label FROM sessions WHERE device_id = ? ORDER BY last_seen_at DESC LIMIT 1')
+  let helper = false;
+  if (program.backing_device_id) {
+    const s = await env.DB.prepare('SELECT device_label, role FROM sessions WHERE device_id = ? ORDER BY last_seen_at DESC LIMIT 1')
       .bind(program.backing_device_id).first();
-    label = s?.device_label ?? null;
+    if (!label) label = s?.device_label ?? null;
+    // Support's helper device took over backing up (allowed, decision 9-B). Its
+    // label already reads "KennelOS support (…)" (assist.js), so her app names it.
+    helper = s?.role === 'helper';
   }
   return {
-    backingDevice: program.backing_device_id ? { id: program.backing_device_id, label, lastPushAt, edition } : null,
+    backingDevice: program.backing_device_id
+      ? { id: program.backing_device_id, label, lastPushAt, edition, ...(helper ? { helper: true } : {}) }
+      : null,
     latestSnapshotId: program.latest_snapshot_id ?? null,
     // A syncing program has no backing device (Cloud Phase 2 plan §6.4): any of
     // its devices that's caught up pushes, so a refused device is told the seq.
@@ -211,11 +217,15 @@ export async function uploadSnapshotBody(env, auth, id, request) {
 
 export async function listSnapshots(env, auth) {
   const { results } = await env.DB.prepare(
-    `SELECT id, created_at, size, counts_json, device_id, device_label, edition, vault_key_id FROM snapshots
+    `SELECT id, created_at, size, counts_json, device_id, device_label, edition, vault_key_id, r2_key FROM snapshots
       WHERE program_id = ? AND status = 'committed' ORDER BY created_at DESC LIMIT 200`,
   ).bind(auth.programId).all();
+  // A backup whose body R2 no longer has can't be restored, so it isn't offered
+  // (review K4-5). R2 heads are cheap; a page lists at most 200.
+  const stored = await Promise.all(results.map((r) => env.FILES.head(r.r2_key).then(Boolean, () => true)));
+  const kept = results.filter((_, i) => stored[i]);
   return {
-    snapshots: results.map((r) => ({
+    snapshots: kept.map((r) => ({
       id: r.id, createdAt: r.created_at, size: r.size, counts: JSON.parse(r.counts_json),
       deviceId: r.device_id, deviceLabel: r.device_label, edition: r.edition ?? null,
       vaultKeyId: r.vault_key_id ?? null,

@@ -24,6 +24,7 @@ import { importFromLemonSqueezy } from './license.js';
 import { generateVapidKeys } from './notify.js';
 import { emailHash, normalizeEmail } from './auth.js';
 import { accountSummary, maskEmail, removeAccount, summaryFingerprint } from './program.js';
+import { endManagerSessions } from './assist.js';
 import { esignOpsSummary, setDefaultMonthlyLimit, setProgramMonthlyLimit, usage as esignUsage, ESIGN_LIMIT_MAX } from './firma.js';
 
 const COOKIE = 'ops_session';
@@ -68,7 +69,13 @@ function page(title, body, status = 200) {
   .pending { font-weight: 600; }
   .note { background: #8881; padding: .6rem .8rem; border-radius: 6px; margin: .75rem 0; }
 </style></head><body>${body}</body></html>`,
-    { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
+    // No script runs on /ops, so the policy allows none (review K4-10): its own
+    // inline style, its own form posts, no framing.
+    { status, headers: {
+      'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer',
+    } },
   );
 }
 
@@ -108,7 +115,8 @@ async function dashboard(env, flash) {
   const health = await healthCheck(env);
   const migrations = health.d1.reachable ? await migrationStatus(env.DB) : [];
   const pending = migrations.filter((m) => m.state === 'pending').length;
-  const behind = migrations.some((m) => m.state !== 'applied');
+  // An orphan doesn't hold the API (migrate.schemaIsCurrent); pending and drifted do.
+  const behind = migrations.some((m) => m.state === 'pending' || m.state === 'drifted');
 
   const migrationRows = migrations
     .map((m) => `<tr>
@@ -126,7 +134,7 @@ async function dashboard(env, flash) {
   const apiState = !health.d1.reachable
     ? '<p class="bad">D1 is not reachable, so the API is answering 503.</p>'
     : behind
-      ? '<p class="bad">The API is answering 503 (maintenance) until every migration below reads applied.</p>'
+      ? '<p class="bad">The API is answering 503 (maintenance) until every migration below reads applied (an orphaned one aside).</p>'
       : '<p class="ok">Schema is current. The API is serving.</p>';
 
   return page('Ops', `<h1>KennelOS ops</h1>
@@ -138,8 +146,10 @@ ${apiState}
 ${health.d1.reachable
     ? `<table><tr><th>id</th><th>name</th><th>state</th><th>applied</th></tr>${migrationRows}</table>
 <form method="post" action="/ops/migrate"><button type="submit"${pending ? '' : ' disabled'}>Apply pending (${pending})</button></form>
-${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
-    ? '<p class="bad">A migration has drifted or is orphaned. It is shown, never fixed automatically.</p>'
+${migrations.some((m) => m.state === 'drifted')
+    ? '<p class="bad">A migration has drifted: its file no longer matches what was applied. The API is answering 503 until the file is put back. It is shown, never fixed automatically.</p>'
+    : ''}${migrations.some((m) => m.state === 'orphaned')
+    ? '<p class="bad">A migration is orphaned: it was applied, but this build doesn\'t ship it (the Worker was rolled back past it). The API still serves, since the schema only ever adds. Deploy a build that includes it again.</p>'
     : ''}`
     : `<p class="bad">D1 is not reachable.</p><pre>${esc(health.d1.error ?? 'No DB binding.')}</pre>`}
 
@@ -288,7 +298,14 @@ nothing is deleted until you confirm on the next page.</p>
   <button type="submit">Look up</button>
 </form>`;
 
-  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}${esign}${deleteAccountForm}
+  // The manager app's sign-ins (manager_sessions, migration 0026): ended here
+  // without rotating OPS_TOKEN, e.g. for a lost or shared support laptop.
+  const managerCount = (await env.DB.prepare('SELECT COUNT(*) AS n FROM manager_sessions WHERE expires_at > ?').bind(new Date().toISOString()).first())?.n ?? 0;
+  const managerSessions = `<h2>Manager app sign-ins</h2>
+<p class="muted">${esc(managerCount)} signed in. Ending them signs every KennelOS Assist manager app out; each signs in again with the ops token.</p>
+<form method="post" action="/ops/manager-sessions/end"><button type="submit"${managerCount ? '' : ' disabled'}>Sign every manager app out</button></form>`;
+
+  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}${esign}${deleteAccountForm}${managerSessions}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -470,7 +487,7 @@ async function route(request, env) {
 
   if (url.pathname === '/ops/retention' && request.method === 'POST') {
     const r = await runRetention(env);
-    return dashboard(env, `<p class="ok">Retention done: ${esc(r.snapshotsDropped)} snapshots and ${esc(r.pendingDropped)} abandoned uploads removed, ${esc(r.filesDropped)} unreferenced files removed, ${esc(r.r2Untracked)} untracked R2 objects removed.${r.r2SweepHalted ? ` The R2 sweep stopped: it found ${esc(r.r2SweepHalted)} objects D1 doesn't track and deleted none of them. Check D1 is the bucket's real index before it runs again.` : ''}</p>`);
+    return dashboard(env, `<p class="ok">Retention done: ${esc(r.snapshotsDropped)} snapshots and ${esc(r.pendingDropped)} abandoned uploads removed, ${esc(r.filesDropped)} unreferenced files removed, ${esc(r.r2Untracked)} untracked R2 objects removed.${r.r2SweepHalted ? ` The R2 sweep stopped: it found ${esc(r.r2SweepHalted)} objects D1 doesn't track and deleted none of them. Check D1 is the bucket's real index before it runs again.` : ''}${r.r2SweepError ? ' The R2 sweep failed (R2 didn\'t answer), so it was skipped this time; everything else ran.' : ''}${r.r2DeleteError ? ' Some R2 deletes failed; the sweep removes those objects on a later run.' : ''}</p>`);
   }
 
   if (url.pathname === '/ops/notices' && request.method === 'POST') {
@@ -481,6 +498,11 @@ async function route(request, env) {
       return dashboard(env, `<p class="bad">${esc(err.message)}</p>`);
     }
     return dashboard(env, '<p class="ok">Notice added.</p>');
+  }
+
+  if (url.pathname === '/ops/manager-sessions/end' && request.method === 'POST') {
+    const n = await endManagerSessions(env);
+    return dashboard(env, `<p class="ok">${esc(n)} manager app sign-in(s) ended.</p>`);
   }
 
   if (url.pathname === '/ops/notices/remove' && request.method === 'POST') {

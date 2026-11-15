@@ -48,6 +48,11 @@ External and leased dogs are **Pro-only**. In Lite the dog form's ownership pick
   true. We still test it (below) for robustness, but it never excludes anything in practice.
 - **`co_owned` counts toward the cap** (excluding it would be a one-click "mark it co-owned"
   loophole). This is the resolution of the old open-decision on co-ownership.
+- **Modified:** Lite's CSV import holds the same line as the form (`editionFlags.externalOwnership`
+  off): a leased row, an external row with an owner, or an update to either goes to review, so a
+  spreadsheet can't add leased adults the count never sees (review K13-4). A new external row with
+  no owner still lands pedigree-only (an ancestor). A restored Pro backup can still carry leased
+  dogs, which don't count; the owner chose to close only the CSV door (2026-11-15).
 
 ---
 
@@ -279,6 +284,10 @@ Two bulk paths reach Dexie outside the interactive dog form; **both are cap-gate
   `CapExceededError` if that exceeds the cap. The restore is **all-or-nothing** — nothing is
   written, and the Import/Export page surfaces the message so the user can trim the file or upgrade.
   A legitimate ≤6 backup restores cleanly.
+- **Modified:** the litter cap is gated the same way (review K13-5). Every restore (file Replace and
+  Merge, cloud, vault) also awaits `enforceImportLitterCap({ incomingLitters, mode })` with the
+  litters as they'll be after it, and Lite refuses the whole restore when the raw litter count would
+  pass 10. Before this an oversized backup landed whole and every later new litter was refused.
 
 **This reverses the earlier "Lite import may exceed the cap" stance.** The earlier design let an
 oversized backup land the user in an over-cap `✓→✓` state (edits work, new adds blocked); we now

@@ -199,17 +199,32 @@ export async function handleAssistApi(env, request, url, auth) {
 const COOKIE = 'assist_session';
 const COOKIE_SECONDS = 60 * 24 * 60 * 60; // an installed app: 60 days
 
-async function mintCookie(secret) {
-  const expires = Math.floor(Date.now() / 1000) + COOKIE_SECONDS;
-  return `${expires}.${await hmacHex(secret, `assist:${expires}`)}`;
+// A sign-in is a random id, signed with OPS_TOKEN (so rotating it still ends every
+// sign-in) and kept server-side as a hash in manager_sessions (migration 0026), so
+// Log out ends that cookie for good and /ops can end them all (review K5-13).
+async function mintCookie(env) {
+  const id = randomHex(32);
+  const now = Date.now();
+  await env.DB.prepare('INSERT INTO manager_sessions (id_hash, created_at, expires_at) VALUES (?, ?, ?)')
+    .bind(await sha256Hex(id), new Date(now).toISOString(), new Date(now + COOKIE_SECONDS * 1000).toISOString()).run();
+  return `${id}.${await hmacHex(env.OPS_TOKEN, `assist:${id}`)}`;
 }
 
-async function cookieValid(secret, value) {
-  if (!value) return false;
-  const [expiresRaw, sig] = value.split('.');
-  const expires = Number(expiresRaw);
-  if (!Number.isFinite(expires) || expires * 1000 < Date.now()) return false;
-  return timingSafeEqual(sig ?? '', await hmacHex(secret, `assist:${expires}`));
+// The cookie's id when it's signed and its sign-in hasn't ended, else null.
+async function cookieSession(env, value) {
+  if (!value) return null;
+  const [id, sig] = value.split('.');
+  if (!id || !/^[0-9a-f]{64}$/.test(id)) return null;
+  if (!timingSafeEqual(sig ?? '', await hmacHex(env.OPS_TOKEN, `assist:${id}`))) return null;
+  const hash = await sha256Hex(id);
+  const row = await env.DB.prepare('SELECT 1 FROM manager_sessions WHERE id_hash = ? AND expires_at > ?').bind(hash, new Date().toISOString()).first();
+  return row ? hash : null;
+}
+
+// /ops: end every manager app sign-in. → how many were live.
+export async function endManagerSessions(env) {
+  const res = await env.DB.prepare('DELETE FROM manager_sessions').run();
+  return res.meta?.changes ?? 0;
 }
 
 const appUrl = (env) => String(env.PRO_APP_URL || 'https://pro.kennelos.app').replace(/\/+$/, '');
@@ -390,10 +405,11 @@ export async function handleManager(request, env) {
       if (!timingSafeEqual(String(body.token ?? ''), env.OPS_TOKEN)) fail(401, 'wrong_token');
       return json({ ok: true }, 200, {
         ...sameSite,
-        'set-cookie': `${COOKIE}=${await mintCookie(env.OPS_TOKEN)}; Path=/manager; HttpOnly; Secure; SameSite=Lax; Max-Age=${COOKIE_SECONDS}`,
+        'set-cookie': `${COOKIE}=${await mintCookie(env)}; Path=/manager; HttpOnly; Secure; SameSite=Lax; Max-Age=${COOKIE_SECONDS}`,
       });
     }
-    if (!(await cookieValid(env.OPS_TOKEN, readCookie(request, COOKIE)))) fail(401, 'signed_out');
+    const session = await cookieSession(env, readCookie(request, COOKIE));
+    if (!session) fail(401, 'signed_out');
     // A cookie only rides same-site requests (Lax), and every write is a JSON POST,
     // which a form on another site can't send; check Origin as well.
     const origin = request.headers.get('origin');
@@ -402,6 +418,7 @@ export async function handleManager(request, env) {
     const body = request.method === 'POST' ? await readJson(request) : {};
     let out;
     if (p === 'api/logout' && request.method === 'POST') {
+      await env.DB.prepare('DELETE FROM manager_sessions WHERE id_hash = ?').bind(session).run();
       return json({ ok: true }, 200, { ...sameSite, 'set-cookie': `${COOKIE}=; Path=/manager; HttpOnly; Secure; SameSite=Lax; Max-Age=0` });
     } else if (p === 'api/programs' && request.method === 'GET') out = await listPrograms(env);
     else if (p === 'api/start' && request.method === 'POST') out = await startSetup(env, body);
