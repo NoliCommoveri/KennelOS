@@ -4883,3 +4883,46 @@ tick box per template; buyers get an emailed link.
   family Placed, with the "Not cancelled" note. No console errors.
 - **Docs:** End-State guide (backing out), Waitlist Spec §16.11 and Family Requests plan §7
   (Modified).
+
+## 2026-11-15: Restore, import and identity matching (review K02 + K01, fix priorities step 4)
+
+- **K2-1 (S1):** backups now carry `app: 'kennelos'` (`BACKUP_APP`; optional, no format bump:
+  older builds ignore it). `inspectBackup` refuses another app's file (Furever's says so by
+  name) and a file with no KennelOS records, before Merge or Replace can run; it returns
+  `records`. The unknown-tables line says what it is ("this version of KennelOS doesn't
+  have… If you didn't make this backup with KennelOS, don't restore it"), and Replace's
+  confirm names both counts (`countRecords()`).
+- **K1-1 (S1):** `dogSearch.nameKey` keeps a short bare number ("Thornfield Blue 1" ≠ "Blue 2");
+  a registration-like run of digits is still dropped. Littermates by registered name alone
+  are only `possible` in the tidy-up and Scan for duplicates, and asked about (never paired
+  by themselves) in a backup merge.
+- **K1-6:** one Dog Card id is one dog: `RULES.dogs` pairs on `public_id` first;
+  `compareDogs` makes it `certain` ("KennelOS ID"); both scanners bucket on it and
+  Scan for duplicates shows it as shared. A card whose dog two of hers hold is refused,
+  naming both, until she merges them.
+- **K1-3:** a dog merge never copies `public_id` (it was refused as taken by the duplicate
+  still holding it); the kept dog takes the dropped one's id after the delete.
+- **K2-5:** `applyDogCard` writes in one transaction (an `async` callback: a bare promise
+  ended it early in Chromium, PrematureCommitError, caught by the browser check), leaves out a
+  dog the repo would refuse (`cardDogProblem`, named in the preview and the result), and
+  reuses a contact of the same name rather than adding one per retry.
+- **K2-6:** an update row lists each change `from → to`, has Update from the card / Keep mine
+  (`skip` honoured for updates: `kept`), and starts on Keep mine when her copy changed after
+  the card was made (`mineIsNewer`). The footer says which fields an update sets.
+- **K2-2:** `markRepeatedRows` with dog and contact `batchKeys`: the same record on several
+  rows of one CSV is one; later rows wait for review naming the first.
+- **K2-3:** `detectDateOrder`; `normDate` reads the file's order; `buildPlan` takes
+  `{ dateOrder }` and returns `dates`; the preview offers month/day first when unsure and shows
+  each row's dates as read.
+- **K2-4:** the CSV preview's update rows list `field: old → new`.
+- **Tests:** `importExport.test.js` (+1 K2-1), `cloudVault.test.js` (the `app` stamp),
+  `tidyRules.test.js` (+2), `restoreMatch.test.js` (+2), `recordMerge.test.js` (+1),
+  `dogCard.test.js` (+3), new `csvImportPlan.test.js` (3). `node --test` 2007 pass. In
+  Chromium: a Furever backup at Restore is refused; a CSV with Juno twice and an either-way
+  date previews as one update (status and colour from → to), one review naming row 2, and
+  Wren's date flipping to 5 January on "day first"; a Dog Card with Duke's 2047 birthday adds
+  Star and names Duke left out; the same card resent after her edit starts on Keep mine with
+  both changes from → to. No console errors.
+- **Docs:** End-State guide §9, §10 (backup, merge rules, duplicates), dog identity, Dog Cards;
+  `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed.

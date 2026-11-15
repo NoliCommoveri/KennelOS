@@ -545,6 +545,16 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
   never auto-matched or silently created.
 - Names match case-insensitively and trimmed; dates exactly. A present but unrecognised
   enum or date is flagged.
+- **Day or month first** (`detectDateOrder`): the file's own slashed dates decide (a first
+  number over 12 is day-first, a second over 12 month-first); none tells, month-first, and
+  where some could be read either way the preview says so and offers **They're month first /
+  day first** (`buildPlan(entity, rows, { dateOrder })`, re-planned). A file using both
+  orders leaves an either-way date for review. Every preview row shows its dates as read.
+- **One record per file** (`markRepeatedRows`, a mapping's `batchKeys`: dogs by name and
+  birthday, registration number or the dog matched; contacts by name): a later row with an
+  earlier row's key waits for review, naming that row, never a second record.
+- **An update says what it changes:** the preview's Notes list each field `old → new`
+  (more than three behind a count; ids just "changed"), or "nothing changes".
 - Relationship columns resolve against **existing** records only. An unresolved name is
   flagged, never invented. Two deliberate exceptions create a Contact at commit: Sale
   `buyer_name` and StudService `partner_contact_name` (each mapping's `prepareRecord`).
@@ -608,10 +618,16 @@ UTF-8 (no BOM).
 
 The cross-device data path, and one of the two modules that write tables directly.
 
-- `exportAll()` iterates every data table (no hardcoded list) → `{ schema_version,
-  format_version, exported_at, collections }`. `downloadBackup()` saves it and stamps
+- `exportAll()` iterates every data table (no hardcoded list) → `{ app: 'kennelos',
+  schema_version, format_version, exported_at, collections }` (`app`, `BACKUP_APP`, names
+  the app that made it; older files carry none). `downloadBackup()` saves it and stamps
   `lastBackupDate`. `{ encodeBlobs: false }` keeps Blobs for the cloud snapshot builder.
-- `inspectBackup(obj)` validates shape and reports counts and unknown tables before writing.
+- `inspectBackup(obj)` validates shape and reports counts, unknown tables and `records` (rows
+  in tables this app knows) before writing. It refuses another app's file (`app` set and not
+  `kennelos`: Furever's names itself, and shares three table names) and a file with no
+  KennelOS records, since Replace would otherwise empty her program for nothing. Replace's
+  confirm states both numbers ("Replace the 412 records on this device with the file's 16?";
+  `countRecords()`).
 - `restoreBackup(obj, mode)` sees only `db.dataTables()`:
   - `'replace'` clears every table first, so the result is exactly the file.
   - `'merge'` upserts by id. With `opts.keepNewer`, a row whose local `updated_at` is later
@@ -667,11 +683,12 @@ writes nothing; called with no `ask`, it makes only the certain pairs.
   - *Contact*: Same on name plus a shared email or phone (last 10 digits). Ask on a shared
     email or phone with a different name, or the same name with nothing to compare. Never
     when the emails and the phones both differ.
-  - *Dog*: Same on a registered name in common (`dogSearch.nameKey`: titles, case,
-    punctuation and spacing ignored), a registration number in common (`normReg`) — any
-    either holds, additional registrations included (`sameRegisteredName`,
-    `sameRegistration`) — or microchip; or a pup of a paired litter with the same call name
-    and sex. Ask on the same call name, breed and sex (two pups pair only through their
+  - *Dog*: Same on one Dog Card id (`public_id`, before anything else); on a registered name
+    in common (`dogSearch.nameKey`: titles, case, punctuation and spacing ignored, a short
+    bare number kept), a registration number in common (`normReg`) — any either holds,
+    additional registrations included (`sameRegisteredName`, `sameRegistration`) — or
+    microchip; or a pup of a paired litter with the same call name and sex. Two of one
+    litter by a registered name alone are asked about, never paired by themselves. Ask on the same call name, breed and sex (two pups pair only through their
     litters, never by name alone). Never, whatever else agrees: known sexes differ;
     registration numbers conflict (`registrationsConflict`); both have a microchip or
     birthday and it differs; one is the other's parent.
@@ -725,7 +742,10 @@ tidy-up's duplicate dogs and contacts (§33), so anything either would call the 
   and expenses. Live records only. Demo has no Import/Export page.
 - **Nothing merges by itself.** A rule's *Same* is "These look like the same…", its *Ask*
   "These might be the same…", with what the two have in common; she decides each pair. Two
-  pups of one litter by call name are only ever *Ask*. Foreign keys compare as stored, so the
+  pups of one litter by call name are only ever *Ask*, and by registered name only
+  *possible*. Two dogs holding one Dog Card id are *certain* ("KennelOS ID"), whatever their
+  names. A merge never copies a Dog Card id (`recordMerge` `NEVER_COPY`): the kept dog takes
+  the dropped one's once it's gone, when it has none. Foreign keys compare as stored, so the
   card scans again after every merge: merging two records for one dam makes her two litters a
   pair. Records are bucketed by what a rule compares first, so a scan never compares every
   pair.
@@ -3518,7 +3538,9 @@ different dog, never offered; a clearly different number only lowers it to `poss
 **A dog's identity, one rule everywhere** (`dogSearch.js`): `dogRegistrationNumbers` /
 `dogRegKeys` (every number a dog holds, main first, then its `additional_registrations`;
 keys by `normReg`), `dogRegisteredNames` / `dogNameKeys` (its registered name and any an
-additional registration gives; keys by `nameKey`), `sameRegistration` and
+additional registration gives; keys by `nameKey`, which drops titles, case, punctuation and
+a registration-like run of digits but keeps a short bare number: "Thornfield Blue 1" and
+"Thornfield Blue 2" are two dogs), `sameRegistration` and
 `sameRegisteredName` (any one in common), and `registrationsConflict` (both have numbers,
 none shared, and two of them could be one registry's: the same registry, or one not given;
 an AKC number on one and a UKC number on the other never rule a pair out). The duplicate
@@ -4971,8 +4993,16 @@ updates the same dogs.
   (`dogChanges` plus how many tests and titles are new or changed), `unchanged` or `adopt` (she
   has it as a pedigree-only ancestor from an earlier card); look-alikes she may link to (same
   registration number, else registered name, else call name, sex and breed; only dogs with no
-  public id); ancestors as a count.
-- **Apply** (`applyDogCard`): every choice is checked before anything is written. The sending
+  public id); ancestors as a count. Each dog's `problem` (`cardDogProblem`: a birthday in the
+  future, a death before birth, what the dog repo would refuse) and, on an update,
+  `mineNewer` (`mineIsNewer`: her copy changed after the card's `issuedAt`). Two of her dogs
+  holding one of the card's ids refuses the card, naming them, until she merges them.
+- **Apply** (`applyDogCard`): every choice is checked before anything is written, and every
+  write is one `db.transaction` over the data tables, so a failure part-way leaves nothing (an
+  `async` callback that awaits: a bare promise ends it early in a browser). A dog with a
+  `problem` is left out and named (`leftOut`); the rest goes in. A new contact reuses one of
+  the same name (an earlier card's), never a second. `skip` leaves out a new dog or an update
+  (Keep mine: `kept`). The sending
   kennel through `applyKennelCard` (or linked to one she picks); breeder kennels by public id,
   else `findOrCreateOutside`. New dogs are **co-owned** with a contact (picked, or a new one
   affiliated with the sending kennel) in one of her own kennels, **Lives with** them or her, or
@@ -4986,7 +5016,9 @@ updates the same dogs.
 - **Screens:** Sharing → **Dog cards** (`pages/dog-cards.html`): Send (from kennel, a
   co-owner filter, ticks, Make the card → link, code, Save as a file, What's on the card) and
   Add dogs from a card (paste or open a file → the preview, with How do you hold the new dogs,
-  per-dog Add as new / Same as my … / Leave out and Lives with). **Send a dog card** on a dog's
+  per-dog Add as new / Same as my … / Leave out and Lives with; an update lists each change
+  `from → to`, with Update from the card / Keep mine, Keep mine first when `mineNewer`; a dog
+  left out says why; the footer says which fields an update sets). **Send a dog card** on a dog's
   page (`dog-cards.html?dog=<id>`: that dog ticked, its card made) and **Add dogs from a card**
   on the Dogs page (`#receive`), both behind the flag.
 - **Registries:** `dogs.public_id` and `events.shared_ref` are cloud fields (random ids);

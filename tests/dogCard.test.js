@@ -265,3 +265,61 @@ test('titles held and country of origin travel on the card; an old card without 
   // An old card leaves her titles alone.
   assert.deepEqual((await C.previewDogCard(oldCard)).dogs[0].changes, []);
 });
+
+// K1-6: two of her dogs holding one card id (two devices' copies kept apart by a
+// merge) — the card never picks one at random; she's told to merge them first.
+test('K1-6: a card whose dog two of her dogs are linked to is refused, naming them', async () => {
+  const s = await senderProgram();
+  const card = C.decodeDogCard(C.encodeDogCard(await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id] })));
+  for (const t of Object.values(tables)) t.rows.clear();
+  const k = await receiver();
+  const id = card.dogs.find((d) => d.sent).publicId;
+  const base = { sex: 'female', breed: LAB, ownership_type: 'co_owned', status: 'active_breeding', kennel_id: k.id, is_archived: false, created_at: '2026-01-01T00:00:00Z' };
+  tables.dogs.rows.set('m1', { ...base, id: 'm1', call_name: 'Maple', public_id: id });
+  tables.dogs.rows.set('m2', { ...base, id: 'm2', call_name: 'Maply', public_id: id });
+  await assert.rejects(C.previewDogCard(card), /Two of your dogs \("Maple" and "Maply"\) are linked to the same Dog Card/);
+  await assert.rejects(C.applyDogCard(card, {}), /Merge them first/);
+});
+
+// K2-5: a dog the repo would refuse is named in the preview and left out; the rest goes
+// in. Applying again never adds a second contact.
+test('K2-5: a card dog with an impossible date is left out by name, the rest goes in, and a retry reuses the contact', async () => {
+  const s = await senderProgram();
+  const encoded = C.encodeDogCard(await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id, s.sire.id] }));
+  for (const t of Object.values(tables)) t.rows.clear();
+  const mine = await receiver();
+  const card = C.decodeDogCard(encoded);
+  card.dogs.find((d) => d.callName === 'Duke').dateOfBirth = '2047-01-01';
+  const p = await C.previewDogCard(card);
+  assert.equal(p.dogs.find((d) => d.cardDog.callName === 'Duke').problem, "Duke's date of birth (2047-01-01) is in the future");
+  assert.equal(p.dogs.find((d) => d.cardDog.callName === 'Maple').problem, '');
+  const r = await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
+  assert.deepEqual([r.created, r.leftOut], [1, ["Duke's date of birth (2047-01-01) is in the future"]]);
+  // They fix Duke's date and send it again: Duke goes in, with the same contact.
+  const fixed = C.decodeDogCard(encoded);
+  const r2 = await C.applyDogCard(fixed, { holding: 'co_owned', newContactName: 'thornfield ', kennelId: mine.id });
+  assert.deepEqual([r2.created, r2.leftOut], [1, []]);
+  assert.equal((await contactRepo.getAll()).filter((c) => /thornfield/i.test(c.name)).length, 1, 'the same contact, never a second');
+});
+
+// K2-6: a card resent after she corrected the dog shows what would change, from → to,
+// and starts on Keep mine; keeping leaves her corrections, updating takes the card's.
+test('K2-6: a resent card never quietly puts back what she corrected', async () => {
+  const s = await senderProgram();
+  const encoded = C.encodeDogCard(await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id] }));
+  for (const t of Object.values(tables)) t.rows.clear();
+  const mine = await receiver();
+  await C.applyDogCard(C.decodeDogCard(encoded), { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
+  const maple = (await dogRepo.getAll()).find((d) => d.call_name === 'Maple');
+  await dogRepo.update(maple.id, { registered_name: 'Thornfield Maple Leafe', color_markings: 'light yellow' });
+  const resent = { ...C.decodeDogCard(encoded), issuedAt: '2020-01-01T00:00:00.000Z' };
+  const row = (await C.previewDogCard(resent)).dogs[0];
+  assert.deepEqual([row.action, row.mineNewer], ['update', true]);
+  assert.deepEqual(row.changes.find((c) => c.field === 'registered_name'), { field: 'registered_name', label: 'Registered name', from: 'Thornfield Maple Leafe', to: 'Thornfield Maple Leaf' });
+  const kept = await C.applyDogCard(resent, { dogs: { [row.cardDog.publicId]: { skip: true } } });
+  assert.deepEqual([kept.kept, kept.updated], [1, 0]);
+  assert.equal((await dogRepo.getById(maple.id)).registered_name, 'Thornfield Maple Leafe', 'Keep mine keeps her correction');
+  await C.applyDogCard(resent, {});
+  assert.equal((await dogRepo.getById(maple.id)).registered_name, 'Thornfield Maple Leaf', 'Update takes the card\'s');
+  assert.equal(C.mineIsNewer({ updated_at: '2026-01-01T00:00:00Z' }, { issuedAt: '2026-02-01T00:00:00Z' }), false, 'a newer card is offered as an update');
+});

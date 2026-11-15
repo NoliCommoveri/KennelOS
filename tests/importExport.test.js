@@ -67,7 +67,22 @@ test('inspectBackup refuses a format newer than this build understands', () => {
 test('inspectBackup accepts equal, older, or absent format_version', () => {
   // These must NOT throw on the format check (they may still report unknown tables,
   // which is not an error). A v1 file predates the field → undefined → allowed.
-  assert.doesNotThrow(() => inspectBackup({ format_version: BACKUP_FORMAT_VERSION, collections: {} }));
-  assert.doesNotThrow(() => inspectBackup({ format_version: 1, collections: {} }));
-  assert.doesNotThrow(() => inspectBackup({ collections: {} }));
+  const collections = { dogs: [{ id: 'd1', call_name: 'Juno' }] };
+  assert.doesNotThrow(() => inspectBackup({ format_version: BACKUP_FORMAT_VERSION, collections }));
+  assert.doesNotThrow(() => inspectBackup({ format_version: 1, collections }));
+  assert.doesNotThrow(() => inspectBackup({ collections }));
+});
+
+// K2-1: Replace clears first, so a wrong file must never get that far.
+test('K2-1: another app\'s backup, or one with no KennelOS records, is refused before anything is written', async () => {
+  const { BACKUP_APP } = await import('../shared/data/importExport.js');
+  const furever = { app: 'furever', schema_version: 3, format_version: 1, exported_at: '2026-11-01T00:00:00Z',
+    collections: { pets: [{ id: 'p1' }], breeders: [{ id: 'b1' }], contacts: [{ id: 'fc1', name: 'Riverside Vets' }], documents: [{ id: 'fd1' }], files: [{ id: 'ff1' }] } };
+  assert.throws(() => inspectBackup(furever), /made by KennelOS Furever, not KennelOS/);
+  assert.throws(() => inspectBackup({ app: 'something', collections: { dogs: [{ id: 'd1' }] } }), /another app/);
+  assert.throws(() => inspectBackup({ collections: {} }), /holds no records/);
+  assert.throws(() => inspectBackup({ collections: { pets: [{ id: 'p1' }], care_events: [] } }), /none of KennelOS's records/);
+  assert.throws(() => inspectBackup({ collections: { dogs: [] } }), /holds no records/);
+  assert.equal(inspectBackup({ collections: { dogs: [{ id: 'd1' }, null], pets: [{ id: 'p' }] } }).records, 1, 'only rows in tables this app knows count');
+  assert.equal(inspectBackup({ app: BACKUP_APP, collections: { dogs: [{ id: 'd1' }] } }).records, 1);
 });

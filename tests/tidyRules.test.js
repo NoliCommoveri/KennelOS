@@ -284,3 +284,25 @@ test('tidyFindings: the titles findings come after dog-no-parents, in every edit
   const i = T.TIDY_KINDS.indexOf('dog-no-parents');
   assert.deepEqual(T.TIDY_KINDS.slice(i + 1, i + 3), ['dog-titles-in-notes', 'dog-titles-in-name']);
 });
+
+// K1-1: littermates numbered "Blue 1", "Blue 2" are two dogs; a bare number is part of
+// the name. Two of one litter by an identical name are only possible, never certain.
+test('K1-1: a number in a registered name tells dogs apart; littermates by name alone are only possible', async () => {
+  const { nameKey } = await import('../shared/data/dogSearch.js');
+  assert.equal(nameKey('Thornfield Blue 1'), 'thornfield blue 1');
+  assert.notEqual(nameKey('Thornfield Blue 1'), nameKey('Thornfield Blue 2'));
+  assert.equal(nameKey('GCH CH Thornfield Zoey-Mae SR123456'), 'thornfield zoey mae', 'a registration number in the name is still dropped');
+  const pup = (id, call, reg) => ({ id, call_name: call, registered_name: reg, sex: 'male', breed: 'Boston Terrier', litter_id: 'L1', date_of_birth: '2026-08-01' });
+  assert.equal(T.compareDogs(pup('a', 'Blue', 'Thornfield Blue 1'), pup('b', 'Ozzy', 'Thornfield Blue 2')), null);
+  assert.equal(T.compareDogs(pup('a', 'Blue', 'Thornfield Blue'), pup('b', 'Ozzy', 'Thornfield Blue')).strength, 'possible');
+  assert.equal(T.compareDogs({ ...pup('a', 'Blue', 'Thornfield Blue'), litter_id: null }, { ...pup('b', 'Blue', 'Thornfield Blue'), litter_id: null }).strength, 'certain');
+});
+
+// K1-6: one Dog Card id is one dog, whatever the names say.
+test('K1-6: two dogs holding one Dog Card id are a certain duplicate', () => {
+  const id = 'kosd1_11111111-2222-3333-4444-555555555555';
+  const a = { id: 'a', call_name: 'Ranger', sex: 'male', breed: 'Boston Terrier', public_id: id };
+  const b = { id: 'b', call_name: 'Rangey', sex: 'male', breed: 'Boston Terrier', public_id: id };
+  assert.deepEqual(T.compareDogs(a, b).reasons, ['KennelOS ID']);
+  assert.equal(T.duplicateDogFindings([a, b]).length, 1, 'found though the call names differ');
+});

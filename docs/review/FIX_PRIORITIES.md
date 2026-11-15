@@ -98,7 +98,7 @@ same time in two sessions.
 
 ### Tier 2: next
 
-4. **K02 + K01 together: restore, import and identity matching.** K2-1 (S1: a non-KennelOS
+4. **K02 + K01 together: restore, import and identity matching.** *Built 2026-11-15.* K2-1 (S1: a non-KennelOS
    JSON empties her program on Replace), K1-1 (S1: "Blue 1" and "Blue 2" merge as one dog),
    K2-5 and K2-6 (Dog Cards: no transaction, and her corrections reverted), K2-2, K2-3 and
    K2-4 (CSV duplicates, ambiguous dates, a preview that never says what changes), K1-3,
