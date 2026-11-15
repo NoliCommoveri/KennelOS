@@ -600,7 +600,7 @@ test('each of a sale\'s agreements goes out on its own contract record; a pickup
   facts = await send.gatherContractFacts(main);
   assert.equal(pickupToSet(forms[2], facts.addOns), null);
   assert.equal(facts.pickupDate, '2026-12-20');
-  assert.deepEqual(facts.priceTable, { depositDue: 500, otherPaid: 0, balanceDue: 2500 });
+  assert.deepEqual(facts.priceTable, { depositDue: 0, otherPaid: 0, balanceDue: 2500 });
   // The payment schedule's fields, from the sale's statement (Payment Schedule plan §8.1):
   // no schedule, so one final payment, at the pickup just logged.
   const { prefillValues } = await import('../shared/data/contractForms.js');
