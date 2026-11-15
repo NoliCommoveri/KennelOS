@@ -19,7 +19,7 @@
 // Nothing here stores or logs an email: support types it once, to make the account, and
 // it's hashed like every sign-in. The manager shows the label support typed.
 import { emailHash, normalizeEmail } from './auth.js';
-import { removeAccount } from './program.js';
+import { accountSummary, maskEmail, removeAccount, summaryFingerprint } from './program.js';
 import { sendPush, validEndpoint, vapidConfig } from './notify.js';
 import { hmacHex, randomHex, sha256Hex, timingSafeEqual } from './lib/crypto.js';
 import { fail, json, readCookie, readJson } from './lib/http.js';
@@ -171,14 +171,17 @@ export async function requestHelp(env, auth) {
 }
 
 // POST /assist/end: either side ends help. In setup, support handing back leaves the
-// program waiting for her takeover.
+// program waiting for her takeover; her ending it (her device already holds the vault
+// key: the app offers it only then) ends the setup too, so no new assist link works
+// until she asks for help (review K05-4).
 export async function endHelp(env, auth) {
   const row = await assistRow(env, auth.programId);
   if (!row) return { ok: true, state: null };
   await removeHelpers(env, auth.programId);
-  if (row.state !== 'setup') await setState(env, auth.programId, 'idle');
+  const keepSetup = row.state === 'setup' && auth.role !== 'owner';
+  if (!keepSetup) await setState(env, auth.programId, 'idle');
   await assistEvent(env, auth.programId, auth.role === 'owner' ? 'help_ended_by_her' : 'help_ended');
-  return { ok: true, state: row.state === 'setup' ? 'setup' : 'idle' };
+  return { ok: true, state: keepSetup ? 'setup' : 'idle' };
 }
 
 export async function handleAssistApi(env, request, url, auth) {
@@ -280,18 +283,46 @@ async function endFor(env, body) {
   return { ok: true };
 }
 
-// Delete an account by email (step 1 of a fresh start), as /ops does. Its devices erase
-// themselves when they next open unless `erase` is false.
-async function deleteFor(env, body) {
-  if (String(body.confirm ?? '').trim() !== 'DELETE') fail(400, 'confirm_required');
+// Delete an account (step 1 of a fresh start), in two calls, as /ops does. The lookup
+// shows what only that account has (its newest backup, its devices, whether support set
+// it up) and returns a token for that account as it is now; the delete refuses a token
+// for another account, one older than ten minutes, or one whose account changed since
+// (review K05-2). Its devices erase themselves when they next open only when `erase` is
+// true: the form leaves it off.
+const DELETE_TOKEN_MS = 10 * 60 * 1000;
+const deleteSig = (env, userId, fingerprint, expires) => hmacHex(env.OPS_TOKEN, `delete:${userId}:${fingerprint}:${expires}`);
+
+async function deleteLookup(env, body) {
   const email = normalizeEmail(body.email);
   if (!email) fail(400, 'bad_email');
-  const user = await env.DB.prepare('SELECT id FROM users WHERE email_hash = ?').bind(await emailHash(env, email)).first();
+  const user = await env.DB.prepare('SELECT id, created_at FROM users WHERE email_hash = ?').bind(await emailHash(env, email)).first();
   if (!user) fail(404, 'no_account');
-  const program = await env.DB.prepare('SELECT id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
-  const devices = await env.DB.prepare('SELECT COUNT(DISTINCT device_id) AS n FROM sessions WHERE user_id = ?').bind(user.id).first('n');
-  await removeAccount(env, { userId: user.id, programId: program?.id ?? '' }, { erase: body.erase !== false });
-  return { ok: true, devices };
+  const s = await accountSummary(env, user);
+  const expires = Date.now() + DELETE_TOKEN_MS;
+  return {
+    typed: maskEmail(email),
+    userId: user.id,
+    createdAt: s.createdAt,
+    latestSnapshot: s.latestSnapshot ? { createdAt: s.latestSnapshot.createdAt, size: s.latestSnapshot.size, counts: s.latestSnapshot.counts } : null,
+    snapshots: s.snapshots, records: s.records, vault: s.vault, waitlist: s.waitlist > 0,
+    devices: s.devices.map((d) => ({ label: d.label, lastSeen: d.lastSeen, live: d.live, helper: d.helper })),
+    assist: s.assist,
+    confirmToken: `${expires}.${await deleteSig(env, user.id, await summaryFingerprint(s), expires)}`,
+  };
+}
+
+async function deleteFor(env, body) {
+  if (String(body.confirm ?? '').trim() !== 'DELETE') fail(400, 'confirm_required');
+  const [expiresRaw, sig] = String(body.confirmToken ?? '').split('.');
+  const expires = Number(expiresRaw);
+  if (!sig || !Number.isFinite(expires)) fail(400, 'look_up_first');
+  if (expires < Date.now()) fail(409, 'lookup_expired');
+  const user = await env.DB.prepare('SELECT id, created_at FROM users WHERE id = ?').bind(String(body.userId ?? '')).first();
+  if (!user) fail(404, 'no_account');
+  const s = await accountSummary(env, user);
+  if (!timingSafeEqual(sig, await deleteSig(env, user.id, await summaryFingerprint(s), expires))) fail(409, 'account_changed');
+  await removeAccount(env, { userId: user.id, programId: s.programId }, { erase: body.erase === true });
+  return { ok: true, devices: s.devices.length, erase: body.erase === true };
 }
 
 async function subscribe(env, body) {
@@ -376,6 +407,7 @@ export async function handleManager(request, env) {
     else if (p === 'api/start' && request.method === 'POST') out = await startSetup(env, body);
     else if (p === 'api/link' && request.method === 'POST') out = await linkFor(env, body);
     else if (p === 'api/end' && request.method === 'POST') out = await endFor(env, body);
+    else if (p === 'api/delete-lookup' && request.method === 'POST') out = await deleteLookup(env, body);
     else if (p === 'api/delete' && request.method === 'POST') out = await deleteFor(env, body);
     else if (p === 'api/push' && request.method === 'POST') out = await subscribe(env, body);
     else if (p === 'api/pending' && request.method === 'POST') out = await pending(env, body);

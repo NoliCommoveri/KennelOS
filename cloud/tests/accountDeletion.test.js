@@ -16,6 +16,12 @@ async function ops(env, path, fields) {
 }
 const count = (env, table) => env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
 const userId = (env) => env.DB.raw.prepare('SELECT id FROM users').get().id;
+// The confirm page's fingerprint of the account as it was looked up.
+async function fingerprint(env, email = EMAIL) {
+  const html = await (await ops(env, '/ops/account/find', { email })).text();
+  return /name="fingerprint" value="([0-9a-f]{64})"/.exec(html)[1];
+}
+const del = async (env, fields) => ops(env, '/ops/account/delete', { user_id: userId(env), fingerprint: await fingerprint(env), ...fields });
 async function refusal(env, token, path = '/program') {
   const res = await call(env, 'GET', path, { token });
   return { status: res.status, ...(await res.json()) };
@@ -39,13 +45,15 @@ test('/ops looks an account up by email without showing the address, and refuses
   assert.match(html, /Dana&#39;s Pixel|Dana's Pixel/);
   assert.match(html, /Type DELETE to confirm/);
   assert.doesNotMatch(html, /twice@example\.com/i);
+  assert.match(html, /You typed <strong>t•••e@e•••e\.com<\/strong>/, 'a masked echo of what was typed');
+  assert.match(html, /<input type="checkbox" name="erase" value="1">/, 'erase is off unless ticked');
   assert.match(await (await ops(env, '/ops/account/find', { email: 'nobody@example.com' })).text(), /No account uses that address/);
 });
 
 test('/ops deletes nothing without the typed confirmation', async () => {
   const env = await makeEnv();
   await signIn(env, EMAIL, { deviceId: PHONE });
-  const html = await (await ops(env, '/ops/account/delete', { user_id: userId(env), erase: '1', confirm: 'delete it' })).text();
+  const html = await (await del(env, { erase: '1', confirm: 'delete it' })).text();
   assert.match(html, /Nothing was deleted/);
   assert.equal(count(env, 'users'), 1);
 });
@@ -56,7 +64,7 @@ test('/ops delete with erase: everything goes, devices hear erase, the address c
   const laptop = await signIn(env, EMAIL, { deviceId: LAPTOP });
   await call(env, 'POST', '/auth/signout', { token: laptop.token, body: {} }); // a signed-out device hears it too
 
-  const html = await (await ops(env, '/ops/account/delete', { user_id: userId(env), erase: '1', confirm: 'DELETE' })).text();
+  const html = await (await del(env, { erase: '1', confirm: 'DELETE' })).text();
   assert.match(html, /Account deleted\. Its 2 device\(s\) will erase themselves/);
   for (const t of ['users', 'programs', 'sessions']) assert.equal(count(env, t), 0, t);
 
@@ -71,17 +79,28 @@ test('/ops delete with erase: everything goes, devices hear erase, the address c
   assert.notEqual(fresh.programId, phone.programId);
 });
 
+test('/ops refuses a delete whose account changed since it was looked up', async () => {
+  const env = await makeEnv();
+  await signIn(env, EMAIL, { deviceId: PHONE });
+  const stale = await fingerprint(env);
+  await signIn(env, EMAIL, { deviceId: LAPTOP }); // another device signed in after the look
+  const html = await (await ops(env, '/ops/account/delete', { user_id: userId(env), fingerprint: stale, confirm: 'DELETE' })).text();
+  assert.match(html, /the account changed since you looked it up/);
+  assert.equal(count(env, 'users'), 1);
+  assert.match(await (await ops(env, '/ops/account/delete', { user_id: userId(env), confirm: 'DELETE' })).text(), /Nothing was deleted/, 'no fingerprint, no delete');
+});
+
 test('/ops delete without erase: devices keep their records and hear erase: false', async () => {
   const env = await makeEnv();
   const phone = await signIn(env, EMAIL, { deviceId: PHONE });
-  await ops(env, '/ops/account/delete', { user_id: userId(env), confirm: 'DELETE' });
+  await del(env, { confirm: 'DELETE' });
   assert.deepEqual(await refusal(env, phone.token), { status: 401, error: 'account_deleted', erase: false });
 });
 
 test('retention forgets deleted accounts after 90 days', async () => {
   const env = await makeEnv();
   const phone = await signIn(env, EMAIL, { deviceId: PHONE });
-  await ops(env, '/ops/account/delete', { user_id: userId(env), erase: '1', confirm: 'DELETE' });
+  await del(env, { erase: '1', confirm: 'DELETE' });
   await runRetention(env);
   assert.equal(count(env, 'account_deletions'), 1, 'kept while recent');
   env.DB.raw.prepare("UPDATE account_deletions SET deleted_at = '2000-01-01T00:00:00.000Z'").run();

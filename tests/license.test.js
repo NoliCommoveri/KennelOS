@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import {
   detectInterval, onlineVerdict, offlineVerdict,
   buildInstanceName, recordFromPayload, DEFAULT_DEVICE_LABEL,
+  DEFAULT_LIFETIME_PATTERN, DEFAULT_YEARLY_PATTERN,
 } from '../shared/data/license.js';
+import { licenseConfig as proLicenseConfig } from '../pro/editionConfig.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const iso = (msFromNow) => new Date(Date.now() + msFromNow).toISOString();
@@ -32,6 +34,24 @@ test('detectInterval: reads the interval out of the variant name', () => {
   assert.equal(detectInterval(undefined), 'monthly');
   // Lifetime is checked before yearly so "Lifetime (annual billing)" reads lifetime.
   assert.equal(detectInterval('Lifetime annual'), 'lifetime');
+});
+
+// Review K05-9: a lifetime name the pattern missed was read as monthly and walled
+// after three days offline, on the renewal wall with a renew link.
+test('detectInterval: the names a store gives lifetime and yearly tiers', () => {
+  for (const n of ['KennelOS Pro Forever', 'One-time purchase', 'Pro (one time)', 'KennelOS Pro — Lifetime', 'Pro (Perpetual)']) {
+    assert.equal(detectInterval(n), 'lifetime', n);
+  }
+  for (const n of ['KennelOS Pro (12 months)', 'Pro 12-month', 'Pro 1 yr', 'Pro Yearly', 'Pro — Annual']) assert.equal(detectInterval(n), 'yearly', n);
+  for (const n of ['Pro Monthly', 'Pro', 'Someone’s plan', 'Pro (1 month)']) assert.equal(detectInterval(n), 'monthly', n);
+  // A misread name still picks the wall by interval: what the defaults miss walls as monthly.
+  const lifetimeOffline = rec({ interval: detectInterval('KennelOS Pro Forever'), lastValidated: iso(-4 * DAY) });
+  assert.equal(offlineVerdict(lifetimeOffline), 'valid', 'a Forever key four days offline keeps working');
+});
+
+test('the Pro edition’s patterns are the defaults', () => {
+  assert.equal(proLicenseConfig.lifetimeVariantPattern, DEFAULT_LIFETIME_PATTERN);
+  assert.equal(proLicenseConfig.yearlyVariantPattern, DEFAULT_YEARLY_PATTERN);
 });
 
 test('onlineVerdict: active with no/future expiry is valid', () => {

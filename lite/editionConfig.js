@@ -54,7 +54,7 @@ export const devKennelportUrl = null;
 // License gate config (data/license.js). Lite is free and never gates, but must
 // export this so license.js's named import resolves in the Lite build. The gate
 // stays off (editionFlags below carries no licenseGate:true).
-export const licenseConfig = { checkoutUrl: null, portalUrl: null, yearlyVariantPattern: 'year|annual' };
+export const licenseConfig = { checkoutUrl: null, portalUrl: null }; // variant patterns: data/license.js's defaults
 
 // --- The counting predicate (cap spec §2) ----------------------------------
 // A dog counts toward the Lite cap only when it is a live, owned/co-owned adult.

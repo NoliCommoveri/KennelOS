@@ -4937,3 +4937,48 @@ tick box per template; buyers get an emailed link.
 - **Then (owner):** `FIX_PRIORITIES.md` §1 and §2 brought up to date: what steps 1–4 and the
   Waitlist Fixes step 5 built, and what's still open in K13 (K13-4 to -6, -9 to -11, -13),
   K02 (K2-7 to K2-14), K01 (K1-2, -4, -5, -7 to -10) and the Waitlist Fixes plan.
+
+## 2026-11-15: Fix step 5, K05 (assisted setup, the licence wall, the vault)
+
+From `docs/review/findings/K05-vault-licence.md`, with K04-6 (the `/ops` delete).
+- **K5-1 (S1):** `cloudAssist.redeemAssistLink` refuses a link for another program on a device
+  holding any record (`AssistDeviceInUseError`, `deviceHoldsRecords`); the session the link
+  made is signed out before anything is stored, so Dana's records can't sync into Mia's account.
+- **K5-2 (S1) + K4-6:** Delete an account is two steps on both doors. `program.accountSummary`
+  (moved out of `ops.js`), `summaryFingerprint`, `maskEmail`. `/ops` shows the masked address,
+  the newest backup (date, size, counts), devices to the minute and support's involvement, and
+  refuses a delete whose fingerprint changed. The manager app has `api/delete-lookup` → a
+  ten-minute HMAC token for that account; `api/delete` needs it (`look_up_first`,
+  `lookup_expired`, `account_changed`). Erase is off by default on both.
+- **K5-3:** every licence wall offers "Download a backup of this device" once the device
+  holds a record; the renewal wall gains "Free a lost device's slot".
+- **K5-4:** Settings → Account offers *End support's access* in setup once her device holds
+  the vault key; her End help in setup sets the program `idle` (the Worker's `endHelp`).
+  The setup line and the "Later" confirm say support stays signed in until she finishes or ends it.
+- **K5-5:** `unlockAutomatically` waits on an open automatic request (`auto` kept on the
+  pending pairing row) instead of asking on every page load; pairing errors have their own
+  wording, and `too_many_pairings` is in `errorText`.
+- **K5-6:** the two account-recovery messages swapped to their real cases, each with a next step.
+- **K5-7:** `setUpForHer` checks `entitlement()` before turning anything on; `pro_required`
+  has wording in `errorText`.
+- **K5-8:** Hand back wipes the device even offline; End help is kept as
+  `kennelOS.assistEnd` and sent by `cloudDevices.finishAssistEnd` (boot, online, after an
+  erase). Her End help wording says the wipe happens when support's device next opens.
+- **K5-9:** wider default variant patterns (`DEFAULT_LIFETIME_PATTERN`,
+  `DEFAULT_YEARLY_PATTERN`); Pro's config uses the same; the shared, Lite and Demo configs
+  no longer carry an old yearly pattern of their own.
+- **K5-10:** `/ops` and the manager say a device away more than 90 days keeps its copy.
+- **K5-12:** `POST /vault/wraps` is owner-only.
+- **K5-14:** Pro's config comment on the lifetime check-in, and the guide's "Pro on the
+  server" (it gates sync, alerts and integrations too).
+- **Left open:** K5-11 (the helper exemption is a `localStorage` flag) and K5-13 (the manager
+  cookie can't be revoked: needs a table, so a migration).
+- **Tests:** cloud `assist.test.js` (+2, two changed), `accountDeletion.test.js` (+1, the
+  fingerprint); `cloudClient.test.js` (+5: the link guard, a same-program link, the reused
+  pairing, an offline hand back); `license.test.js` (+2). `cd cloud && npm test` 349 pass,
+  `node --test` 2016 pass, the build succeeds. In Chromium on the built Pro edition: an empty
+  device's activation wall offers no backup; a lapsed monthly with one dog gets the renewal
+  wall with "This device holds 1 record" and a working download, at 320 px.
+- **Docs:** End-State guide §0.3 and the cloud section (deleted accounts, assisted setup,
+  Pro on the server); `KennelOS_Assisted_Setup_Plan.md` §1–§3; `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.

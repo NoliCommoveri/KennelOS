@@ -45,7 +45,7 @@ export const devKennelportUrl = 'https://kennelport-staging.kennelport.workers.d
 // License gate config (data/license.js). Exported so license.js's named import
 // always resolves, but the gate is OFF in this default (editionFlags.licenseGate
 // unset) — Pro's own editionConfig turns it on and supplies the real checkout URL.
-export const licenseConfig = { checkoutUrl: null, portalUrl: null, yearlyVariantPattern: 'year|annual' };
+export const licenseConfig = { checkoutUrl: null, portalUrl: null }; // variant patterns: data/license.js's defaults
 
 // --- Cap hooks -------------------------------------------------------------
 // The interactive dog/litter writers await these before persisting (the three

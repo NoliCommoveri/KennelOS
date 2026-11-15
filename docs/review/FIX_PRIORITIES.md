@@ -19,7 +19,7 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ## 1. Where each document stands
 
-*Updated 2026-11-15 after steps 1–4 and step 3 (Waitlist Fixes step 5) were built. Rows not
+*Updated 2026-11-15 after steps 1–5 and step 3 (Waitlist Fixes step 5) were built. Rows not
 touched by those steps are as first written.*
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
@@ -28,11 +28,11 @@ touched by those steps are as first written.*
 | **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12). **Step 2 (11-15):** K13-1, -2, -3 (the policy's words, owner's choice), K13-12, K13-15 | 0 · 3 | Open: K13-4, -5, -6 (S2) and K13-9, -10, -11, -13 (S3), all in step 8 (edition gates) or group J. |
 | **K02** | Backup, restore, CSV import | 1/5/6/2 | **Step 4 (11-15):** K2-1 to K2-6 | 0 · 0 | Open: K2-7 (S3, the 10k-row preview: step 13), K2-8 to K2-12 (S3) and K2-13, K2-14 (S4). Not yet in a step. |
 | **K01** | Schema, repos, identity matching | 1/3/3/3 | **Step 4 (11-15):** K1-1, K1-3, K1-6 | 0 · 2 | Open: K1-2 (Furever's `blocked` handler, step 10's Furever half), K1-4 (the duplicate scan's speed, step 13), K1-5, K1-7 (S3) and K1-8 to K1-10 (S4). |
-| **K05** | Vault, licence, assisted setup | 2/5/3/4 | none | **2 · 5** | Only Jotform's retirement touched `cloudAssistUI.js`. **Next (step 5).** K5-3 decided: export only (§4). |
+| **K05** | Vault, licence, assisted setup | 2/5/3/4 | **Step 5 (11-15):** K5-1 to K5-10, K5-12, K5-14 | 0 · 0 | Open: K5-11 and K5-13 (S4; K5-13 needs a migration). Not yet in a step. |
 | **Waitlist Fixes plan** (K6, K6b, K7, K8) | Waitlist engine, online, family requests | 3/12/30/7 | Steps 1–4, K8-1, K8-10, K6-5, K8-5 (Kels part). **Its step 5 (11-15):** K8-2 (D9: nothing refunded on a back-out, her credit), K8-3, K8-4, K8-13, K6b-5, K6b-8; and every back-out she records goes through one confirm | 0 · 2 | Open S2: K6-3 (the clock, its step 7), K6-6 (its step 6). Its steps 6–10 remain. |
 | **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part) | **1 · 2** | `pairingIdsWithLitter` still counts an Expected litter, so both due-date nudges stay off (`nudges.js:288`). `pairing.js` and `litter.js` are untouched. |
 | **K10** | Money: sales, invoices, reports | 2/3/9/0 | K10-1, K10-2, K10-12: Payment Schedules rebuilt receipts, Companion and contract prefills (*recheck* with a test) | **0 · 3** | `incomeView` changed 12 times, but the fee is still spread across components (`feeComponents`). `litter.js` is untouched. |
-| **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved) | **0 · 6** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
+| **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved). **Step 5 (11-15):** K4-6 | **0 · 5** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
 | **K12** | Integrations, notifications | 0/4/9/1 | K12-10. Jotform is retired, so K12-2 and the Jotform halves of K12-3 and K12-6 are gone | **0 · 3** | `makeSaleLink` still deactivates the open link without asking whether it was paid (`stripeLinks.js:69`). |
 | **K14** | Multi-kennel, shows, Companion, Furever | 1/7/8/2 | none | **1 · 7** | Furever isn't live yet ("in active development"). The scope items (K14-6, -9, -10, -11) hit multi-kennel Pro users today. |
 | **K11** | Kels and the guided tasks | 0/7/8/3 | Litter-cap half of K11-1 (via K13-14) | **0 · 7** | K11's baseline is from *before* the Kels batch, but only K11-1 overlapped it. The dog-cap half is still open: `guidedLitter.js` checks only `enforceLitterCap` up front. |
@@ -106,12 +106,12 @@ same time in two sessions.
    K2-4 (CSV duplicates, ambiguous dates, a preview that never says what changes), K1-3,
    and K1-6. Both docs share `restoreMatch` and `dogSearch`, so one batch avoids fixing the
    matching twice. Leave K1-4 and K2-7 (performance) for their own batch.
-5. **K05: assisted setup, the licence wall, the vault.** *Next. K5-3 decided: export only (§4).* K5-1 and K5-2 (S1), then K5-3 (the
+5. **K05: assisted setup, the licence wall, the vault.** *Built 2026-11-15 (K5-3: export only). Next is step 6.* K5-1 and K5-2 (S1), then K5-3 (the
    licence wall has no export, though the editions plan promises one), K5-4 to K5-7, and
    K5-9 (a lifetime key treated as monthly). **Move this to Tier 1 if support is already
    running assisted setups for real breeders:** K5-1 carries a whole kennel into the next
    user's account. K4-6 (/ops "Delete an account") belongs in this batch.
-6. **K09: breeding reminders.** K9-1 (S1: an Expected litter silences both due-date
+6. **K09: breeding reminders.** *Next.* K9-1 (S1: an Expected litter silences both due-date
    nudges), K9-2, K9-3's root (`litter.js` dates a litter made from its pairing today), K9-5,
    K9-6, K9-10. Small, contained fixes in `nudges.js`, `dogCare.js`, `pairing.js` and
    `litter.js`. A missed whelping is the cost of waiting.

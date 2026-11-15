@@ -65,10 +65,14 @@ function managerPage() {
   const ERRORS = {
     wrong_token: 'That token didn’t match.', account_exists: 'That email already has an account. Delete it below first, then start again.',
     bad_email: 'Check the email address.', label_required: 'Give her a name you’ll recognise.', no_account: 'No account uses that email.',
-    confirm_required: 'Type DELETE to confirm.', help_not_requested: 'She hasn’t asked for help. She presses Get help in her app first.',
+    confirm_required: 'Type DELETE to confirm.', look_up_first: 'Look the account up first.',
+    lookup_expired: 'That look-up is over ten minutes old. Look the account up again.',
+    account_changed: 'Nothing was deleted: the account changed since you looked it up (a device synced, backed up or signed in). Look it up again.',
+    help_not_requested: 'She hasn’t asked for help. She presses Get help in her app first.',
     maintenance: 'The server is in maintenance (a migration is waiting on /ops).',
   };
   let lastLink = null;
+  let toDelete = null; // the account looked up for Delete, until it's deleted or cancelled
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const when = (iso) => {
     if (!iso) return 'never';
@@ -124,6 +128,27 @@ function managerPage() {
     await api('push', { endpoint: sub.endpoint });
   }
 
+  const sizeText = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round((b || 0) / 1024)) + ' KB');
+  const stamp = (iso) => (iso ? new Date(iso).toLocaleString() : 'never');
+  // What only this account has, shown before the delete can be pressed (review K05-2).
+  function deleteConfirmHtml(a) {
+    const counts = a.latestSnapshot && a.latestSnapshot.counts
+      ? Object.keys(a.latestSnapshot.counts).filter((k) => a.latestSnapshot.counts[k]).map((k) => a.latestSnapshot.counts[k] + ' ' + k).join(', ') : '';
+    return '<form id="del" class="card" style="border:0;padding:0">'
+      + '<p>You typed <strong>' + esc(a.typed) + '</strong>. Is this her account?</p>'
+      + '<ul class="events">'
+      + '<li>Made ' + esc(stamp(a.createdAt)) + '</li>'
+      + '<li>Newest cloud backup: ' + (a.latestSnapshot ? esc(stamp(a.latestSnapshot.createdAt) + ', ' + sizeText(a.latestSnapshot.size) + (counts ? ' (' + counts + ')' : '')) : 'none') + '</li>'
+      + '<li>' + esc(a.snapshots) + ' backup(s), ' + esc(a.records) + ' synced record(s)' + (a.vault ? ', private records on' : '') + (a.waitlist ? ', waitlist online' : '') + '</li>'
+      + '<li>' + (a.assist ? 'Support set up or helped this account as “' + esc(a.assist.label) + '”' : 'Support never set up or helped this account') + '</li>'
+      + (a.devices.length ? a.devices.map((d) => '<li>' + esc(d.label || 'Unnamed device') + (d.helper ? ' (support)' : '') + ': last seen ' + esc(stamp(d.lastSeen)) + (d.live ? '' : ', signed out') + '</li>').join('') : '<li>No devices</li>')
+      + '</ul>'
+      + '<p class="muted">Everything the account holds in the cloud goes. A Pro purchase stays on record.</p>'
+      + '<label class="check"><input id="d-erase" type="checkbox"> Also erase its devices when they next open: only for a fresh start where nothing on them is worth keeping (they free their Pro activations and drop its passkeys). A device that doesn’t open KennelOS within 90 days keeps its copy.</label>'
+      + '<label for="d-confirm">Type DELETE to confirm<input id="d-confirm" autocomplete="off" required></label>'
+      + '<div class="row"><button class="danger">Delete this account</button><button type="button" id="del-cancel">Cancel</button></div></form>';
+  }
+
   function programCard(p) {
     const canLink = p.state !== 'idle';
     const canEnd = p.helperSignedIn || p.state === 'requested' || p.state === 'helping';
@@ -161,12 +186,13 @@ function managerPage() {
       + '<label for="s-email">Her email<input id="s-email" type="email" autocomplete="off" required></label>'
       + '<button class="solid">Make her account</button></form></details>'
       + (data.programs.filter((p) => p.state !== 'requested').map(programCard).join('') || '')
-      + '<details class="card"><summary>Delete an account</summary><form id="del" class="card" style="border:0;padding:0">'
-      + '<p class="muted">Everything the account holds in the cloud goes. A Pro purchase stays on record.</p>'
-      + '<label for="d-email">Its email<input id="d-email" type="email" autocomplete="off" required></label>'
-      + '<label class="check"><input id="d-erase" type="checkbox" checked> Erase its devices when they next open (they free their Pro activations and drop its passkeys)</label>'
-      + '<label for="d-confirm">Type DELETE to confirm<input id="d-confirm" autocomplete="off" required></label>'
-      + '<button class="danger">Delete the account</button></form></details>';
+      + '<details class="card"' + (toDelete ? ' open' : '') + '><summary>Delete an account</summary>'
+      + (toDelete ? deleteConfirmHtml(toDelete)
+        : '<form id="del-find" class="card" style="border:0;padding:0">'
+        + '<p class="muted">Look the account up first: nothing is deleted until you have seen whose it is.</p>'
+        + '<label for="d-email">Its email<input id="d-email" type="email" autocomplete="off" required></label>'
+        + '<button>Look up</button></form>')
+      + '</details>';
     const pushBtn = document.getElementById('push');
     if (pushBtn) pushBtn.addEventListener('click', async () => { try { await turnOnPush(data.push); toast('Notifications on'); load(); } catch (err) { toast(err.message); } });
     document.getElementById('start').addEventListener('submit', async (e) => {
@@ -176,12 +202,25 @@ function managerPage() {
         lastLink = { programId: r.programId, link: r.link }; toast('Account made. Copy the link.'); load();
       } catch (err) { toast(err.message); }
     });
-    document.getElementById('del').addEventListener('submit', async (e) => {
+    document.getElementById('del-find')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { toDelete = await api('delete-lookup', { email: document.getElementById('d-email').value }); load(); } catch (err) { toast(err.message); }
+    });
+    document.getElementById('del-cancel')?.addEventListener('click', () => { toDelete = null; load(); });
+    document.getElementById('del')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
-        const r = await api('delete', { email: document.getElementById('d-email').value, erase: document.getElementById('d-erase').checked, confirm: document.getElementById('d-confirm').value });
-        toast('Deleted' + (r.devices ? '. ' + r.devices + ' device(s) will be told when they next open.' : '.')); load();
-      } catch (err) { toast(err.message); }
+        const erase = document.getElementById('d-erase').checked;
+        const r = await api('delete', { userId: toDelete.userId, confirmToken: toDelete.confirmToken, erase, confirm: document.getElementById('d-confirm').value });
+        toDelete = null;
+        toast('Deleted.' + (r.devices ? (erase
+          ? ' Devices that open KennelOS within 90 days erase their copy; one that stays away longer keeps it.'
+          : ' Its devices keep their records.') : ''));
+        load();
+      } catch (err) {
+        if (err.code === 'account_changed' || err.code === 'lookup_expired' || err.code === 'no_account') toDelete = null;
+        toast(err.message); load();
+      }
     });
     main.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', async () => {
       try { const r = await api('link', { programId: b.dataset.link }); lastLink = { programId: b.dataset.link, link: r.link }; load(); } catch (err) { toast(err.message); }

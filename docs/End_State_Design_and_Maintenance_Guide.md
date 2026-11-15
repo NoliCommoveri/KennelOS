@@ -84,6 +84,13 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   full access from the last successful `/validate`, then 30 days of a reconnect banner,
   then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  The interval comes from the variant name (`detectInterval`), against
+  `DEFAULT_LIFETIME_PATTERN` (`lifetime|perpetual|forever|one-time`) and
+  `DEFAULT_YEARLY_PATTERN` (`year|annual|12 months|yr`) unless the edition's
+  `licenseConfig` sets its own (Pro sets the same); anything else reads as monthly.
+  Every wall (activation, renewal, reconnect) offers **Download a backup of this device**
+  (`importExport.downloadBackup`) once the device holds any record, and the activation and
+  renewal walls offer *Free a lost device's slot*: the license gates the app, never her records.
   Only a network failure, a 5xx or a 429 counts as offline. The store's own "not found"
   (a 4xx whose JSON says `valid:false`, `isGoneAnswer`: a released activation answers this
   way) clears the cached record, so the device asks for its key again. A validate's answer is
@@ -2959,29 +2966,45 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
-- **A deleted account** (`DELETE /account`, or `/ops` → Delete an account for a user who
-  asked): the server keeps the hash of each of its session tokens for 90 days, so a device
+- **A deleted account** (`DELETE /account`, or Delete an account on `/ops` or in the manager
+  app, for a user who asked): `/ops` and the manager look the account up first and show what
+  only it has (`program.accountSummary`: the newest backup's date, size and counts, its devices
+  to the minute, whether support set it up, a masked echo of the typed address), then delete
+  against a fingerprint of that summary (`summaryFingerprint`; the manager's is a ten-minute
+  HMAC token), so an account that changed since the look is refused. *Erase its devices* is
+  off unless ticked. The server keeps the hash of each of its session tokens for 90 days, so a device
   that turns up later hears `401 account_deleted {erase}` (`CloudAccountDeletedError`).
   `cloudDevices.accountDeleted` first tells the password manager to drop every passkey of
   that program (`vaultPasskey.forgetAllPasskeys`: WebAuthn `signalAllAcceptedCredentials`
   with no accepted ids; the user handle is the program id; best effort), then with
   `erase` (support asked for a fresh start) erases the device like a remote erase, and
   without it keeps its records and drops the session. Deleting your own cloud data does the
-  passkey step on the deleting device; only her other devices are told.
+  passkey step on the deleting device; only her other devices are told. A device that
+  stays away past those 90 days hears a plain `unauthorized` and keeps its records.
 - **Assisted setup and help** (`data/cloud/cloudAssist.js`, `assets/cloudAssistUI.js`;
   `docs/KennelOS_Assisted_Setup_Plan.md`): KennelOS support's device signs in to a user's
   account as a **helper** through a one-time link (`?assist=<token>`, read in `app.js`
   before the license gate, which a helper device skips). Its session (`role: 'helper'`,
   `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
-  vault and sync once per program (in setup) or joins her (when she asked for help). Her
+  vault and sync once per program (in setup, after checking `entitlement()` finds her Pro
+  purchase: sync needs it) or joins her (when she asked for help). `redeemAssistLink`
+  refuses a link for another program on a device that holds any record
+  (`AssistDeviceInUseError`; the new session is signed out before anything is stored), so
+  one user's records can't sync into the next one's account. Hand back wipes the device
+  even offline (`eraseThisDevice(token, { endHelpToken })`): End help is kept as
+  `kennelOS.assistEnd` and sent by `finishAssistEnd` once it is back online. Her
   first sign-in on a program support set up answers `assisted`; "I already use KennelOS"
   then runs `claimAssistedAccount` (the vault key from support's device, the join, her own
   recovery code, `POST /assist/claimed`) in place of a restore, and `bootCloud` finishes an
-  interrupted one. Settings → Account has Get help / End help. The vault key moves by an
-  **automatic pairing** (`requestDeviceUnlock({ auto: true })` posts its code;
+  interrupted one. Settings → Account has Get help / End help, and in setup *End support's
+  access* once her device holds the vault key (her End help in setup ends the setup too:
+  state `idle`). The vault key moves by an
+  **automatic pairing** (`requestDeviceUnlock({ auto: true })` posts its code, and
+  `unlockAutomatically` waits on an open automatic request rather than asking again;
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
-  as `device_erased`.
+  as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
+  everything that changes her account itself, adding a passkey wrap included.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it
@@ -2993,8 +3016,9 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   A restore merges it with `'vault-merge'` (§10) when unlocked. `cloudConfig.VAULT_RELEASED`
   (true) offers it everywhere cloud backup is.
 - **Pro on the server** (`cloudEntitlement.js`): the server learns of purchases from Lemon
-  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates only
-  server features (the online waitlist); `license.js` still gates the app.
+  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates the
+  server features: the online waitlist, live sync, alerts and integrations (`requirePro`,
+  `403 pro_required`); `license.js` still gates the app.
 
 ### Where it lives
 - **Server:** `cloud/` — one Cloudflare Worker + D1 + R2, deployed by Workers Builds (not
