@@ -4675,3 +4675,91 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide (sale income); plan §3.2a (Modified); Family Requests plan §7; README.
 - `CACHE_NAME` bumped to `kennelos-shell-v142` (owner asked), covering this session's batch: the
   preview's field list, Place fields computer only, the lost-pup credit and this.
+
+## 2026-11-15: Review fixes ranked (plan only)
+
+- **New:** `docs/review/FIX_PRIORITIES.md`, nothing built. Each K1–K14 finding checked against
+  `main` (`0abf39b`): files touched since its review, the build log's finding ids, the code
+  where those disagreed. Already fixed: Waitlist Fixes steps 1–4, the Kels batch (K6-5,
+  K8-5, K9-3/4/12, K12-10, K13-7/8/14), K10-1/2/12 via Payment schedules (to confirm with
+  tests). Gone with Jotform: K12-2 and the Jotform halves of K12-3/6.
+- **Order:** K03 (sync conflicts, untouched, released) first; K13's privacy policy and
+  deploy gate alongside; then Waitlist Fixes step 5, K02+K01, K05, K09, K10's remainder.
+
+## 2026-11-15: Live sync's conflicts, stuck states and restore (K03 review fixes)
+
+- **From the review** (`docs/review/findings/K03-cloud-client.md`, all eleven). The rule is
+  unchanged (the version the server receives last wins, whole record, plan §12 decision 3);
+  what changed is that nothing is lost by timing and both devices are told.
+  - **K3-1:** each version keeps its `base_seq` (Worker migration `0025_sync_base_seq`); a
+    pull hands it on. `sync_meta` marks this device's own pushes (`mine`), so a pulled
+    version built without seeing one is noted `replaced_mine` (an edit or a delete). A push's
+    `superseded` names `overwrote_device`; a device's own version whose answer was lost is
+    no one's loss.
+  - **K3-2:** the 60-second poll (`pullIfBehind`) pushes before it pulls, as `syncNow` does.
+  - **K3-3:** a record for a table this build lacks is set aside (`waiting`, one activity
+    line, "some changes need an update" on the status line) and everything else still
+    arrives; once the table exists the pull goes back for it. `fromError` records any other
+    error as the stop `error` instead of throwing; the scheduler catches every run.
+  - **K3-4:** sign-out, and signing in to another account, clear the sync state and
+    `sync_meta`.
+  - **K3-5:** a file that came down without its bytes keeps `missing_file` on its
+    `sync_meta` row; `syncApply.retryMissingFiles` fetches it after each pull.
+  - **K3-6:** Restore as of…'s confirm says the roll back reaches every syncing device; the
+    activity list's advice says the same.
+  - **K3-7:** `previewRestore` plans the vault part too when unlocked (`counts`), so a change
+    to private fields alone can be rolled back.
+  - **K3-8:** a join compares `updated_at` as times, and a date more than a day in the future
+    never wins (`syncApply.joinKeepsLocal`), noted `clock`. A join that replaces a different
+    local version notes it.
+  - **K3-9:** Back up now on a syncing device that isn't in step says why; the status line
+    blames the paused sync, not the internet (`getBackupStatus().syncWaiting`).
+  - **K3-10:** every activity line says what happened, never that a version was "older".
+  - **K3-11:** the Worker drops an unknown table per record (`unknown_table`) instead of a
+    400 for the whole push; `GET /sync/head` carries a `fields` fingerprint, and a change
+    clears `rejected`. Deploy order (Worker first) written in `cloud/README.md` and guide §34.
+- **Not built in this entry:** keeping a lost version, and a per-record restore (the next
+  entry). A version pushed before `0025` is never reported.
+- **Release:** deploy the Worker, Apply pending (`0025`), then the app. Each half works with
+  the other's older version (an older app ignores `base_seq` and `fields`; a newer app with
+  an older Worker reports as before).
+- **Tests:** `tests/cloudSync.test.js` +13 (each finding, two devices against the real
+  Worker), `tests/syncActivity.test.js`, `cloud/tests/sync.test.js` +2. `node --test` 1980
+  pass, `cd cloud && npm test` 346 pass, `node build/assemble.mjs` succeeds; Import/Export
+  loads with no console errors in Pro and Lite.
+- **Docs:** guide §34 and the cloud screens; Phase 2 plan §2.3, §5.2 (Modified); settings.js's
+  sync state; `cloud/README.md`; README Status (`0025` to apply); `FIX_PRIORITIES.md`.
+- No new app files, no Dexie schema change (`mine` and `missing_file` are unindexed fields on
+  the device-only `sync_meta`), no syncRegistry change.
+
+## 2026-11-15: Put mine back, and restoring chosen records from a backup
+
+- **Asked (owner):** both follow-ups from the K03 batch above.
+- **Put mine back:** new device-only table `sync_lost` (`db.version(8)`, in
+  `DEVICE_ONLY_TABLES`, never in a file, a snapshot or sync). When a pull replaces or deletes
+  a version this device loses (`kept_theirs`, `replaced_mine`, a join's older version; files
+  rows aside), `syncApply` keeps the row as it was, in the page's transaction, and the
+  activity line carries its id (`lost`). New `data/cloud/syncLost.js`: what differs from
+  the record now, `putMineBack` (the kept row dated now, `markDataChanged()`, so the next
+  push sends it to every device), `forgetLostVersion`, a 30-day sweep after each pull,
+  cleared on sign-out, another account and turning sync off here. The activity list shows
+  "Your version is kept on this device until …. It differs … in: …" with **Put mine back**
+  and **Forget it**; Clear the list keeps those lines.
+- **Choose records…:** Restore as of… offers Roll back everything or Choose records…, a
+  ticked list (with a filter past 8) of what the backup would change or add back
+  (`previewRestore().records`, one line per record, the vault part's whole row when it has
+  one). `restoreSnapshot({ only })` restores just those, from both parts, pairing nothing;
+  a chosen document or expense brings its file. `planCloudMerge` / `planVaultMerge` and
+  their restores take `only`.
+- **Tests:** `tests/cloudSync.test.js` +4 (a lost sent version put back reaches the other
+  device; an unsent edit and a deleted record kept and put back; Clear the list and the
+  30-day sweep; restoring two of three changed records with a document's file);
+  `cloudDirty` (the new write sites), `cloudBackup` (schema 8), `syncRegistry` (device-only).
+  `node --test` 1984 pass, `cd cloud && npm test` 346 pass, editions build. In Chromium, Pro
+  and Lite open the database at version 8 with `sync_lost`, and Import/Export loads with no
+  console errors. The two dialogs weren't driven in a browser (they need a signed-in,
+  syncing device against a live Worker); their data paths are the tested ones.
+- **Docs:** guide §5 (schema, device-only tables), §34, the cloud screens; Phase 2 plan §2.3
+  (Modified); `FIX_PRIORITIES.md`.
+- **Service worker:** `data/cloud/syncLost.js` in `PRECACHE_URLS`. `CACHE_NAME` bumped to
+  `kennelos-shell-v143` (owner asked), covering this entry and the K03 batch above.

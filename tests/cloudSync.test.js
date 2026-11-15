@@ -508,3 +508,364 @@ test('backups on a syncing program: a caught-up device states its seq; one behin
   assert.equal(lapsed.status, 'pushed', 'a lapsed license backs up the Phase 1 way (decision 6)');
   assert.equal(env.DB.raw.prepare('SELECT sync_seq FROM snapshots WHERE id = ?').get(lapsed.snapshotId).sync_seq, null);
 });
+
+// --- The K03 review's findings (docs/review/findings/K03-cloud-client.md) ------------
+const deviceIdOf = () => auth.currentAccount().deviceId;
+
+test('K03-1: field-disjoint offline edits: the device whose sent version was replaced unseen is told', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  const laptop = deviceIdOf();
+  switchDevice('A');
+  const phone = deviceIdOf();
+  put('dogs', { ...get('dogs', 'd1'), microchip: '985000000001' });
+  await sync.syncNow(); // A's microchip reaches the server
+  switchDevice('B');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'from B, offline' }); // built on the old version
+  await sync.syncNow({ pull: false });
+  const bAct = settings.getCloudSyncState().activity;
+  assert.equal(bAct[0].kind, 'replaced_theirs');
+  assert.equal(bAct[0].by, phone, 'B is told whose version it replaced');
+
+  switchDevice('A');
+  await sync.pullChanges();
+  assert.equal(get('dogs', 'd1').notes, 'from B, offline', 'the rule is unchanged: the last received wins');
+  const aAct = settings.getCloudSyncState().activity;
+  assert.equal(aAct[0].kind, 'replaced_mine', 'A, whose microchip was lost, is told');
+  assert.equal(aAct[0].by, laptop);
+  assert.equal(aAct[0].op, 'put');
+});
+
+test('K03-1: an edit pushed, then deleted elsewhere by a device that never saw it: the editor is told', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  put('dogs', { ...get('dogs', 'd2'), notes: 'B edits d2' });
+  await sync.syncNow({ pull: false });
+  switchDevice('A');
+  tables.dogs.rows.delete('d2'); // A hasn't pulled B's edit
+  await sync.syncNow({ pull: false });
+  switchDevice('B');
+  await sync.pullChanges();
+  assert.equal(tables.dogs.rows.has('d2'), false);
+  const act = settings.getCloudSyncState().activity[0];
+  assert.deepEqual([act.kind, act.op], ['replaced_mine', 'delete']);
+});
+
+test('K03-1: a version built on this device\'s own is never reported', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  switchDevice('A');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'A first' });
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow(); // B sees A's version…
+  put('dogs', { ...get('dogs', 'd1'), notes: 'B on top of A' });
+  await sync.syncNow(); // …and builds on it
+  assert.deepEqual(settings.getCloudSyncState().activity, []);
+  switchDevice('A');
+  await sync.pullChanges();
+  assert.equal(get('dogs', 'd1').notes, 'B on top of A');
+  assert.deepEqual(settings.getCloudSyncState().activity, [], 'nothing was lost, so nothing is said');
+});
+
+test('K03-2: the poll pushes before it pulls, so an edit waiting here wins over an older one that arrived first', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  put('dogs', { ...get('dogs', 'd1'), call_name: 'Birch (09:00 on B)' });
+  await sync.syncNow({ pull: false });
+  switchDevice('A');
+  put('dogs', { ...get('dogs', 'd1'), call_name: 'Birch (12:00 on A)' }); // not pushed yet
+  await sync.pullIfBehind();
+  assert.equal(get('dogs', 'd1').call_name, 'Birch (12:00 on A)', 'A\'s newer edit is kept…');
+  assert.equal((await sync.pushChanges()).status, 'nothing', '…and is on the server');
+  switchDevice('B');
+  await sync.pullChanges();
+  assert.equal(get('dogs', 'd1').call_name, 'Birch (12:00 on A)');
+  assert.equal(settings.getCloudSyncState().activity[0].kind, 'replaced_mine', 'B is told its 09:00 edit was replaced');
+});
+
+test('K03-2: a push whose answer was lost: the poll keeps the next edit, and the device never names itself', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  const before = new Map(tables.sync_meta.rows);
+  put('dogs', { ...get('dogs', 'd1'), notes: 'edit 1' });
+  await sync.pushChanges();
+  tables.sync_meta.rows.clear(); // the answer never came: sync_meta as before the push
+  for (const [k, v] of before) tables.sync_meta.rows.set(k, v);
+  settings.updateCloudSyncState({ activity: [] });
+  put('dogs', { ...get('dogs', 'd1'), notes: 'edit 2' });
+  await sync.pullIfBehind();
+  assert.equal(get('dogs', 'd1').notes, 'edit 2');
+  assert.deepEqual(settings.getCloudSyncState().activity, [], 'its own edit 1 is no one\'s loss');
+});
+
+test('K03-3: a record for a table this build lacks is set aside; every other change still arrives', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  switchDevice('A');
+  // A newer build on another device synced a table this one doesn't have.
+  const pid = auth.currentAccount().programId;
+  env.DB.raw.prepare('UPDATE programs SET sync_seq = sync_seq + 1 WHERE id = ?').run(pid);
+  const seq = env.DB.raw.prepare('SELECT sync_seq FROM programs WHERE id = ?').get(pid).sync_seq;
+  env.DB.raw.prepare(`INSERT INTO sync_records (program_id, tbl, id, seq, deleted, sealed, key_id, device_id, received_at)
+    SELECT ?, 'new_table', 'n1', ?, 0, sealed, key_id, device_id, received_at FROM sync_records WHERE program_id = ? LIMIT 1`).run(pid, seq, pid);
+  switchDevice('B');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'after the new table' });
+  await sync.syncNow();
+  switchDevice('A');
+  const res = await sync.syncNow();
+  assert.equal(res.pull.status, 'pulled', 'not stuck');
+  assert.equal(get('dogs', 'd1').notes, 'after the new table', 'the change after it arrives');
+  assert.deepEqual(sync.syncStatus().needsUpdate, ['new_table']);
+  assert.equal(settings.getCloudSyncState().activity.find((a) => a.kind === 'needs_update').tbl, 'new_table');
+  assert.equal(sync.syncStatus().paused, null);
+
+  // After an update that has the table, the pull goes back for it.
+  // (`dogs` stands in for a table this build now has.)
+  settings.updateCloudSyncState({ waiting: { ...settings.getCloudSyncState().waiting, dogs: 2 } });
+  const cursor = settings.getCloudSyncState().cursor;
+  await sync.pullChanges();
+  assert.deepEqual(sync.syncStatus().needsUpdate, ['new_table'], 'dogs is done; the unknown table still waits');
+  assert.equal(settings.getCloudSyncState().cursor, cursor, 'caught up again');
+  assert.equal(settings.getCloudSyncState().activity.filter((a) => a.kind === 'needs_update').length, 1, 'said once');
+});
+
+test('K03-3: an unexpected error is recorded as a stop, never thrown', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => (String(url).includes('/sync/pull')
+    ? new Response('{"records": "not a list"', { status: 200, headers: { 'content-type': 'application/json' } })
+    : realFetch(url, init));
+  try {
+    const res = await sync.pullChanges();
+    assert.equal(res.status, 'paused');
+    assert.equal(sync.syncStatus().paused, res.code);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal((await sync.pullChanges()).status, 'pulled', 'the next run clears it');
+  assert.equal(sync.syncStatus().paused, null);
+});
+
+test('K03-4: signing out forgets this device\'s place in sync; another account joins afresh', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  assert.ok(tables.sync_meta.rows.size > 0);
+  await auth.signOut();
+  assert.equal(settings.getCloudSyncState().enabled, false);
+  assert.equal(settings.getCloudSyncState().cursor, 0);
+  assert.equal(tables.sync_meta.rows.size, 0);
+  assert.equal(tables.dogs.rows.size, 2, 'every record stays');
+});
+
+test('K03-4: signing in to a different account forgets the old program\'s sync position too', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  settings.updateCloudSyncState({ cursor: 4 });
+  const s = settings.getCloudSession();
+  settings.setCloudSession({ ...s, programId: 'another-program' }); // as if signed in to another account before
+  await signIn('Phone A');
+  assert.equal(settings.getCloudSyncState().enabled, false);
+  assert.equal(settings.getCloudSyncState().cursor, 0);
+  assert.equal(tables.sync_meta.rows.size, 0);
+});
+
+test('K03-5: a file whose download failed comes down on a later sync', async () => {
+  await twoDevices();
+  put('files', { id: 'fp', blob: new Blob(['%PDF pedigree'], { type: 'application/pdf' }), mime: 'application/pdf', filename: 'ped.pdf', size: 13, thumbnail: '', created_at: T0 });
+  put('documents', row('docp', { kennel_id: 'k1', dog_id: 'd1', doc_type: 'pedigree', file_id: 'fp', title: 'Pedigree' }));
+  await sync.syncNow();
+  switchDevice('B');
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => ((init?.method ?? 'GET') === 'GET' && String(url).includes('/files/')
+    ? Promise.reject(new TypeError('Failed to fetch'))
+    : realFetch(url, init));
+  try {
+    await sync.syncNow();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(get('files', 'fp').blob, undefined, 'it landed without its bytes');
+  assert.equal(settings.getCloudSyncState().activity[0].kind, 'missing_file');
+  assert.equal((await sync.pushChanges()).status, 'nothing', 'a bytes-less row is never pushed back');
+  await sync.pullChanges();
+  assert.equal(await get('files', 'fp').blob.text(), '%PDF pedigree', 'the next sync fetched it');
+  assert.equal((await sync.pushChanges()).status, 'nothing', 'and it hashes as synced');
+  assert.equal([...tables.sync_meta.rows.values()].some((m) => m.missing_file), false);
+});
+
+test('K03-8: a join never trusts a date in the future, and compares dates as times', async () => {
+  const { joinKeepsLocal } = apply;
+  const now = new Date('2026-06-01T12:00:00.000Z');
+  assert.deepEqual(joinKeepsLocal({ updated_at: '2027-06-01T00:00:00.000Z' }, { updated_at: '2026-05-31T00:00:00.000Z' }, now), { keep: false, suspect: 'here' });
+  assert.deepEqual(joinKeepsLocal({ updated_at: '2026-05-31T00:00:00.000Z' }, { updated_at: '2027-06-01T00:00:00.000Z' }, now), { keep: true, suspect: 'there' });
+  assert.deepEqual(joinKeepsLocal({ updated_at: '2026-05-01T10:00:00Z' }, { updated_at: '2026-05-01T10:00:00.900Z' }, now), { keep: false, suspect: null },
+    'as strings, "…00Z" sorts after "…00.900Z"');
+  assert.deepEqual(joinKeepsLocal({ updated_at: '2026-05-02T00:00:00.000Z' }, { updated_at: '2026-05-01T00:00:00.000Z' }, now), { keep: true, suspect: null });
+
+  // End to end: B's clock was far ahead when it edited d1, then B joins.
+  await beforeSync();
+  assert.equal((await sync.enableSync()).status, 'on');
+  switchDevice('B');
+  put('kennels', row('k1', { kennel_name: 'Oak Hill', is_own_kennel: true }));
+  put('dogs', { ...dog('d1'), notes: 'B, clock far ahead', updated_at: '2099-01-01T00:00:00.000Z' });
+  const joined = await sync.joinSync({ clashChoices: {} });
+  assert.equal(joined.status, 'on');
+  assert.equal(get('dogs', 'd1').notes, 'notes for d1', 'the server\'s version wins');
+  assert.ok(settings.getCloudSyncState().activity.some((a) => a.kind === 'clock' && a.where === 'here' && a.id === 'd1'));
+});
+
+test('K03-11: a newer Worker\'s field list clears what an older one dropped, so it is sent again', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  settings.updateCloudSyncState({ fieldsVersion: 'an-older-worker', rejected: { 'dogs:d1': 'some-hash' } });
+  switchDevice('B');
+  await sync.syncNow();
+  put('dogs', { ...get('dogs', 'd1'), notes: 'so A is behind' });
+  await sync.syncNow();
+  switchDevice('A');
+  await sync.pullIfBehind();
+  assert.deepEqual(settings.getCloudSyncState().rejected, {});
+  assert.match(settings.getCloudSyncState().fieldsVersion, /^[0-9a-f]{8}$/);
+});
+
+test('K03-7: Restore as of… counts a difference in sensitive fields alone, when this device is unlocked', async () => {
+  const backup = await import('../shared/data/cloud/cloudBackup.js');
+  await beforeSync();
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed');
+  const [older] = await backup.listSnapshots();
+  put('dogs', { ...get('dogs', 'd1'), notes: 'a private note, changed' });
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed');
+  const envelope = await backup.downloadSnapshot(older.id);
+  const preview = await backup.previewRestore(envelope, { overwrite: true });
+  assert.equal(preview.summary.dogs.updated, 0, 'nothing in the cloud part differs');
+  assert.ok(preview.vault, 'the vault part was planned');
+  assert.deepEqual(preview.counts, { updated: 1, inserted: 0 });
+});
+
+// --- Put mine back (data/cloud/syncLost.js) ----------------------------------------
+const lostMod = await import('../shared/data/cloud/syncLost.js');
+
+test('Put mine back: the version this device lost is kept, and putting it back reaches every device', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  switchDevice('A');
+  put('dogs', { ...get('dogs', 'd1'), microchip: '985000000001' });
+  await sync.syncNow();
+  switchDevice('B');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'from B, offline' });
+  await sync.syncNow({ pull: false });
+  switchDevice('A');
+  await sync.pullChanges();
+  const line = settings.getCloudSyncState().activity[0];
+  assert.equal(line.kind, 'replaced_mine');
+  assert.ok(line.lost, 'the line names the kept version');
+  const v = await lostMod.describeLostVersion(line.lost);
+  assert.equal(v.row.microchip, '985000000001');
+  assert.deepEqual(v.fields, ['microchip', 'notes']);
+  assert.equal(tables.sync_lost.rows.size, 1);
+  assert.equal((await exportAllCollections()).sync_lost, undefined, 'device-only: never in a backup');
+
+  const back = await lostMod.putMineBack(line.lost, new Date('2026-03-01T00:00:00.000Z'));
+  assert.equal(back.microchip, '985000000001');
+  assert.equal(get('dogs', 'd1').microchip, '985000000001');
+  assert.equal(get('dogs', 'd1').updated_at, '2026-03-01T00:00:00.000Z', 'dated now: a local edit');
+  assert.equal(tables.sync_lost.rows.size, 0, 'used up');
+  assert.equal(await lostMod.putMineBack(line.lost), null);
+  assert.equal((await sync.pushChanges()).pushed, 1);
+  switchDevice('B');
+  await sync.pullChanges();
+  assert.equal(get('dogs', 'd1').microchip, '985000000001', 'on every device');
+  assert.deepEqual(settings.getCloudSyncState().activity.filter((a) => a.kind === 'replaced_mine'), [], 'built on B\'s version: nothing lost there');
+});
+
+async function exportAllCollections() {
+  const { exportAll } = await import('../shared/data/importExport.js');
+  return (await exportAll({ encodeBlobs: false })).collections;
+}
+
+test('Put mine back: an edit not sent yet is kept too, and a deleted record comes back', async () => {
+  await twoDevices();
+  await sync.syncNow();
+  switchDevice('B');
+  await sync.syncNow();
+  tables.dogs.rows.delete('d2');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'B, sent' });
+  await sync.syncNow({ pull: false });
+  switchDevice('A');
+  put('dogs', { ...get('dogs', 'd1'), notes: 'A, waiting' });
+  put('dogs', { ...get('dogs', 'd2'), notes: 'A edits d2, waiting' });
+  await sync.pullChanges(); // a plain pull (not the poll), so A's waiting edits lose
+  const act = settings.getCloudSyncState().activity;
+  const d1 = act.find((a) => a.id === 'd1');
+  const d2 = act.find((a) => a.id === 'd2');
+  assert.deepEqual([d1.kind, d1.op], ['kept_theirs', 'put']);
+  assert.deepEqual([d2.kind, d2.op], ['kept_theirs', 'delete']);
+  assert.equal(tables.dogs.rows.has('d2'), false);
+  assert.deepEqual((await lostMod.describeLostVersion(d2.lost)).fields, ['the whole record (it was deleted)']);
+  await lostMod.putMineBack(d2.lost);
+  assert.equal(get('dogs', 'd2').notes, 'A edits d2, waiting', 'the deleted dog is back');
+  await lostMod.forgetLostVersion(d1.lost);
+  assert.equal(await lostMod.getLostVersion(d1.lost), null);
+});
+
+test('Put mine back: Clear the list keeps lines still offering it; kept versions go after 30 days', async () => {
+  await twoDevices();
+  const now = new Date();
+  put('sync_lost', lostMod.lostRecord({ tbl: 'dogs', id: 'd1', seq: 9, row: dog('d1'), kind: 'kept_theirs' }, now));
+  put('sync_lost', lostMod.lostRecord({ tbl: 'dogs', id: 'd2', seq: 9, row: dog('d2'), kind: 'kept_theirs' }, new Date(now.getTime() - 31 * 86400000)));
+  settings.updateCloudSyncState({ activity: [
+    { at: now.toISOString(), kind: 'kept_theirs', tbl: 'dogs', id: 'd1', lost: 'dogs:d1:9' },
+    { at: now.toISOString(), kind: 'missing_file', tbl: 'files', id: 'f1' }
+  ] });
+  sync.clearSyncActivity({ keep: await lostMod.keptLostIds() });
+  assert.deepEqual(settings.getCloudSyncState().activity.map((a) => a.id), ['d1']);
+  assert.equal(await lostMod.pruneLostVersions(now), 1);
+  assert.deepEqual([...tables.sync_lost.rows.keys()], ['dogs:d1:9']);
+  await auth.signOut();
+  assert.equal(tables.sync_lost.rows.size, 0, 'signing out forgets them');
+});
+
+test('Restore one record from a backup: only the ticked records change, and a document brings its file', async () => {
+  const backup = await import('../shared/data/cloud/cloudBackup.js');
+  await beforeSync();
+  put('files', { id: 'fp', blob: new Blob(['%PDF pedigree'], { type: 'application/pdf' }), mime: 'application/pdf', filename: 'ped.pdf', size: 13, thumbnail: '', created_at: T0 });
+  put('documents', row('docp', { kennel_id: 'k1', dog_id: 'd1', doc_type: 'pedigree', file_id: 'fp', title: 'Pedigree' }));
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed');
+  const [older] = await backup.listSnapshots();
+  put('dogs', { ...get('dogs', 'd1'), notes: 'd1 changed', call_name: 'Birch' });
+  put('dogs', { ...get('dogs', 'd2'), notes: 'd2 changed' });
+  tables.documents.rows.delete('docp');
+  tables.files.rows.delete('fp');
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed');
+
+  const envelope = await backup.downloadSnapshot(older.id);
+  const preview = await backup.previewRestore(envelope, { overwrite: true });
+  assert.deepEqual(preview.records.map((r) => [r.key, r.insert]).sort(), [['documents:docp', true], ['dogs:d1', false], ['dogs:d2', false]],
+    'one line per record; the file rides with its document');
+  assert.equal(preview.records.find((r) => r.key === 'dogs:d1').row.notes, 'notes for d1', 'the whole row, private fields included');
+
+  await backup.restoreSnapshot(envelope, { overwrite: true, only: new Set(['dogs:d1', 'documents:docp']) });
+  assert.equal(get('dogs', 'd1').notes, 'notes for d1', 'd1 is back, private note too');
+  assert.equal(get('dogs', 'd1').call_name, 'd1');
+  assert.equal(get('dogs', 'd2').notes, 'd2 changed', 'd2 left alone');
+  assert.equal(get('documents', 'docp').title, 'Pedigree');
+  assert.equal(await get('files', 'fp').blob.text(), '%PDF pedigree', 'with its file');
+});

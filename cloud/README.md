@@ -166,6 +166,10 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   measured). Rules for writing one are at the top of `index.js`.
 - **After a deploy that adds a migration, the API answers 503 until someone presses
   Apply pending on `/ops`.** That's deliberate (plan §6.1).
+- **When the cloud fields or tables change, deploy the Worker (and apply its migrations)
+  before the app.** An older Worker drops what it doesn't know (`dropped: cloud_key:…`,
+  `unknown_table`); once the newer one is live, `GET /sync/head`'s `fields` fingerprint
+  changes and every device sends those records again.
 - **Never log** an email address, a code, a token or a request body (plan §6.4).
 - **`DEV_OUTBOX = "1"` is staging-only.** The production Worker's config must not carry it.
 - **With a vault, a snapshot's vault part lands before its body.** `PUT /snapshots/:id/vault`

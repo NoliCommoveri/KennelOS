@@ -5,7 +5,9 @@
 // D1 batch (one transaction), so no two versions share a seq and a pull in seq
 // order never misses one. Whoever's version the server receives last wins
 // (plan §12 decision 3); a push whose base_seq is older than the stored version
-// is accepted and reported back as `superseded`.
+// is accepted and reported back as `superseded` (with the device whose version
+// it replaced). Each version keeps its base_seq, and a pull hands it on, so the
+// device whose version was replaced unseen can say so too (K03 review, 1).
 //
 // The server can read only each record's cloud part, the same allow-listed
 // fields every snapshot already holds (checked here against CLOUD_FIELDS, a
@@ -14,7 +16,7 @@
 //
 //   POST   /sync/enable                      turn sync on for the program (needs the vault)
 //   DELETE /sync {email?, code?}             turn it off for every device (fresh sign-in)
-//   GET    /sync/head                        { enabled, seq, keyId, devices }
+//   GET    /sync/head                        { enabled, seq, keyId, devices, fields }
 //   POST   /sync/push {records}              → { seq, accepted, superseded, dropped }
 //   GET    /sync/pull?since=&limit=          → { records, seq, more }; 410 resync_required
 //   POST   /sync/cursor {seq}                this device's applied cursor
@@ -41,6 +43,18 @@ const ROW_ID = /^[A-Za-z0-9_.:-]{1,100}$/;
 const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const nowIso = () => new Date().toISOString();
+
+// A short fingerprint of the cloud field list (FNV-1a over CLOUD_FIELDS). A
+// device remembers the records a Worker dropped for a field or table it didn't
+// know; when the fingerprint changes (a newer Worker), it sends them again (K03, 11).
+export const FIELDS_VERSION = (() => {
+  let h = 0x811c9dc5;
+  for (const ch of JSON.stringify(CLOUD_FIELDS)) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+})();
 
 async function loadSyncProgram(env, programId) {
   return env.DB.prepare('SELECT id, sync_enabled_at, sync_seq, sync_purged_seq FROM programs WHERE id = ?').bind(programId).first();
@@ -88,7 +102,7 @@ export async function syncHead(env, auth, { skipChecks = false } = {}) {
   const active = program.sync_enabled_at
     ? await env.DB.prepare('SELECT COUNT(*) AS n FROM sync_devices WHERE program_id = ? AND last_sync_at >= ?').bind(auth.programId, since).first()
     : null;
-  return { enabled: Boolean(program.sync_enabled_at), seq: program.sync_seq, keyId: vault?.key_id ?? null, devices: active?.n ?? 0 };
+  return { enabled: Boolean(program.sync_enabled_at), seq: program.sync_seq, keyId: vault?.key_id ?? null, devices: active?.n ?? 0, fields: FIELDS_VERSION };
 }
 
 const DEVICE_ACTIVE_DAYS = 30;
@@ -120,11 +134,14 @@ export function cloudPartProblem(tbl, cloud) {
 // → { ok: record } or { problem }; a malformed push as a whole is a 400 instead.
 function checkRecord(r, vault) {
   if (!isPlainObject(r)) fail(400, 'bad_record');
-  if (typeof r.tbl !== 'string' || !CLOUD_FIELDS.tables[r.tbl]) fail(400, 'bad_table');
+  if (typeof r.tbl !== 'string' || !r.tbl) fail(400, 'bad_table');
   if (typeof r.id !== 'string' || !ROW_ID.test(r.id)) fail(400, 'bad_id');
   if (r.op !== 'put' && r.op !== 'delete') fail(400, 'bad_op');
   const baseSeq = r.base_seq ?? 0;
   if (!Number.isInteger(baseSeq) || baseSeq < 0) fail(400, 'bad_base_seq');
+  // A table this Worker doesn't know (the app deployed before it): that record
+  // is dropped and the rest of the push goes through (K03, 11).
+  if (!Object.hasOwn(CLOUD_FIELDS.tables, r.tbl)) return { problem: 'unknown_table' };
   if (r.op === 'delete') return { ok: { tbl: r.tbl, id: r.id, op: 'delete', baseSeq } };
 
   if (JSON.stringify(r).length > MAX_RECORD_BYTES) return { problem: 'too_large' };
@@ -178,10 +195,10 @@ export async function pushRecords(env, auth, body) {
   // The versions stored now, for `superseded`. One bound parameter for the list.
   const keys = JSON.stringify(records.map((r) => `${r.tbl}/${r.id}`));
   const { results: stored } = await env.DB.prepare(
-    `SELECT tbl, id, seq FROM sync_records
+    `SELECT tbl, id, seq, device_id FROM sync_records
       WHERE program_id = ? AND tbl || '/' || id IN (SELECT value FROM json_each(?))`,
   ).bind(auth.programId, keys).all();
-  const storedSeq = new Map(stored.map((s) => [`${s.tbl}/${s.id}`, s.seq]));
+  const storedSeq = new Map(stored.map((s) => [`${s.tbl}/${s.id}`, s]));
 
   // One batch: bump the counter by N, then record i takes (new counter) - (N-1-i),
   // read inside the same transaction. Single-row statements (D1's parameter cap).
@@ -192,16 +209,17 @@ export async function pushRecords(env, auth, body) {
   ];
   records.forEach((r, i) => {
     statements.push(env.DB.prepare(
-      `INSERT INTO sync_records (program_id, tbl, id, seq, deleted, cloud_json, sealed, key_id, file_sha256, device_id, received_at)
-       SELECT ?, ?, ?, sync_seq - ?, ?, ?, ?, ?, ?, ?, ? FROM programs WHERE id = ? AND sync_enabled_at IS NOT NULL
+      `INSERT INTO sync_records (program_id, tbl, id, seq, deleted, cloud_json, sealed, key_id, file_sha256, device_id, received_at, base_seq)
+       SELECT ?, ?, ?, sync_seq - ?, ?, ?, ?, ?, ?, ?, ?, ? FROM programs WHERE id = ? AND sync_enabled_at IS NOT NULL
        ON CONFLICT (program_id, tbl, id) DO UPDATE SET seq = excluded.seq, deleted = excluded.deleted,
          cloud_json = excluded.cloud_json, sealed = excluded.sealed, key_id = excluded.key_id,
-         file_sha256 = excluded.file_sha256, device_id = excluded.device_id, received_at = excluded.received_at`,
+         file_sha256 = excluded.file_sha256, device_id = excluded.device_id, received_at = excluded.received_at,
+         base_seq = excluded.base_seq`,
     ).bind(
       auth.programId, r.tbl, r.id, n - 1 - i, r.op === 'delete' ? 1 : 0,
       r.op === 'put' && r.cloud ? JSON.stringify(r.cloud) : null,
       r.op === 'put' ? r.sealed : null, r.op === 'put' ? r.keyId : null, r.op === 'put' ? r.file : null,
-      auth.deviceId, at, auth.programId,
+      auth.deviceId, at, r.baseSeq, auth.programId,
     ));
   });
   statements.push(env.DB.prepare('SELECT sync_seq FROM programs WHERE id = ?').bind(auth.programId));
@@ -215,7 +233,9 @@ export async function pushRecords(env, auth, body) {
     const mine = seq - (n - 1 - i);
     accepted.push({ tbl: r.tbl, id: r.id, seq: mine });
     const before = storedSeq.get(`${r.tbl}/${r.id}`);
-    if (before !== undefined && before > r.baseSeq) superseded.push({ tbl: r.tbl, id: r.id, seq: mine, overwrote: before });
+    if (before !== undefined && before.seq > r.baseSeq) {
+      superseded.push({ tbl: r.tbl, id: r.id, seq: mine, overwrote: before.seq, overwrote_device: before.device_id ?? null });
+    }
   });
   return { seq, accepted, superseded, dropped };
 }
@@ -239,7 +259,7 @@ export async function pullRecords(env, auth, url) {
   if (since > 0 && since < program.sync_purged_seq) fail(410, 'resync_required', { seq: program.sync_seq });
 
   const { results } = await env.DB.prepare(
-    `SELECT tbl, id, seq, deleted, sealed, key_id, device_id, received_at FROM sync_records
+    `SELECT tbl, id, seq, deleted, sealed, key_id, device_id, received_at, base_seq FROM sync_records
       WHERE program_id = ? AND seq > ? ${since === 0 ? 'AND deleted = 0' : ''} ORDER BY seq LIMIT ?`,
   ).bind(auth.programId, since, limit + 1).all();
   const records = [];
@@ -247,9 +267,8 @@ export async function pullRecords(env, auth, url) {
   for (const r of results.slice(0, limit)) {
     bytes += (r.sealed?.length ?? 0) + 200;
     if (records.length && bytes > MAX_PULL_BYTES) break;
-    records.push(r.deleted
-      ? { tbl: r.tbl, id: r.id, seq: r.seq, op: 'delete', device_id: r.device_id, received_at: r.received_at }
-      : { tbl: r.tbl, id: r.id, seq: r.seq, op: 'put', sealed: r.sealed, key_id: r.key_id, device_id: r.device_id, received_at: r.received_at });
+    const common = { tbl: r.tbl, id: r.id, seq: r.seq, device_id: r.device_id, received_at: r.received_at, base_seq: r.base_seq ?? null };
+    records.push(r.deleted ? { ...common, op: 'delete' } : { ...common, op: 'put', sealed: r.sealed, key_id: r.key_id });
   }
   const more = records.length < results.length;
   return { records, seq: program.sync_seq, more, through: records.length ? records[records.length - 1].seq : since };
