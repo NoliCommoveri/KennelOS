@@ -4928,3 +4928,9 @@ tick box per template; buyers get an emailed link.
 - **Service worker:** no app file added or renamed.
 - `CACHE_NAME` bumped to `kennelos-shell-v144` (owner asked), covering this session's batches:
   the K13 policy and deploy gate, Waitlist Fixes step 5 and the back-out flow, and fix step 4.
+
+## 2026-11-15: K5-3 decided (plan only)
+
+- **Decided (owner):** the licence wall offers **export only**: a "Download a backup of this
+  device" control on every wall, no read-only access to her records behind it. Recorded in
+  `docs/review/FIX_PRIORITIES.md` §4 for step 5 (K05), which is next. Nothing built.
