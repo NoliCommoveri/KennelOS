@@ -5181,3 +5181,4 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Tests:** `contractAddOns` (+1 assert); `priceTable` field count 88 → 89. `node --test` 2068 pass.
 - **Docs:** End-State guide (the extra agreement's fields).
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v148` (owner asked), covering the `priceWithExtra` contract field.
