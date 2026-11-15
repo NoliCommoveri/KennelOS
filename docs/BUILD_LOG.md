@@ -4934,3 +4934,6 @@ tick box per template; buyers get an emailed link.
 - **Decided (owner):** the licence wall offers **export only**: a "Download a backup of this
   device" control on every wall, no read-only access to her records behind it. Recorded in
   `docs/review/FIX_PRIORITIES.md` §4 for step 5 (K05), which is next. Nothing built.
+- **Then (owner):** `FIX_PRIORITIES.md` §1 and §2 brought up to date: what steps 1–4 and the
+  Waitlist Fixes step 5 built, and what's still open in K13 (K13-4 to -6, -9 to -11, -13),
+  K02 (K2-7 to K2-14), K01 (K1-2, -4, -5, -7 to -10) and the Waitlist Fixes plan.
