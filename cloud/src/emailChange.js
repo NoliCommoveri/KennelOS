@@ -23,14 +23,19 @@ export const EMAIL_CHANGE_WAIT_MS = 24 * 60 * 60 * 1000;
 
 const nowIso = () => new Date().toISOString();
 
-// Applies a change whose wait is over. The new hash may have been taken in the
-// meantime (someone signed up with it): then the change is dropped.
-async function applyChange(env, userId, newHash, at = nowIso()) {
+// Applies a change. The new hash may have been taken in the meantime (someone
+// signed up with it): then nothing changes, and a change that was waiting is kept,
+// marked failed, so her devices can say so (review K4-8). `waited`: it's the
+// waiting row being applied (not a proven change made on the spot).
+async function applyChange(env, userId, newHash, at = nowIso(), { waited = false } = {}) {
   const user = await env.DB.prepare('SELECT email_hash FROM users WHERE id = ?').bind(userId).first();
   if (!user) return false;
   const taken = await env.DB.prepare('SELECT id FROM users WHERE email_hash = ? AND id <> ?').bind(newHash, userId).first();
   if (taken) {
-    await env.DB.prepare('DELETE FROM email_changes WHERE user_id = ?').bind(userId).run();
+    if (waited) {
+      await env.DB.prepare("UPDATE email_changes SET failed_at = ?, failed_reason = 'taken' WHERE user_id = ? AND failed_at IS NULL")
+        .bind(at, userId).run();
+    }
     return false;
   }
   await env.DB.batch([
@@ -46,16 +51,16 @@ async function applyChange(env, userId, newHash, at = nowIso()) {
 // The account's own change, if its wait is over. Called before any read, so a
 // device sees the outcome even if the hourly run hasn't happened yet.
 export async function applyDueEmailChange(env, userId) {
-  const due = await env.DB.prepare('SELECT new_email_hash FROM email_changes WHERE user_id = ? AND effective_at <= ?')
+  const due = await env.DB.prepare('SELECT new_email_hash FROM email_changes WHERE user_id = ? AND effective_at <= ? AND failed_at IS NULL')
     .bind(userId, nowIso()).first();
-  if (due) await applyChange(env, userId, due.new_email_hash);
+  if (due) await applyChange(env, userId, due.new_email_hash, nowIso(), { waited: true });
 }
 
 // The hourly run (index.js): every change whose wait is over.
 export async function applyDueEmailChanges(env) {
-  const { results } = await env.DB.prepare('SELECT user_id, new_email_hash FROM email_changes WHERE effective_at <= ?').bind(nowIso()).all();
+  const { results } = await env.DB.prepare('SELECT user_id, new_email_hash FROM email_changes WHERE effective_at <= ? AND failed_at IS NULL').bind(nowIso()).all();
   let applied = 0;
-  for (const r of results) if (await applyChange(env, r.user_id, r.new_email_hash)) applied++;
+  for (const r of results) if (await applyChange(env, r.user_id, r.new_email_hash, nowIso(), { waited: true })) applied++;
   return { applied, dropped: results.length - applied };
 }
 
@@ -63,12 +68,17 @@ export async function applyDueEmailChanges(env) {
 export async function emailChangeState(env, auth) {
   await applyDueEmailChange(env, auth.userId);
   const row = await env.DB.prepare(
-    `SELECT u.email_changed_at, c.requested_at, c.effective_at, c.device_label, c.via
+    `SELECT u.email_changed_at, c.requested_at, c.effective_at, c.device_label, c.via, c.failed_at, c.failed_reason
        FROM users u LEFT JOIN email_changes c ON c.user_id = u.id WHERE u.id = ?`,
   ).bind(auth.userId).first();
   return {
-    pending: row?.requested_at
+    pending: row?.requested_at && !row.failed_at
       ? { requestedAt: row.requested_at, effectiveAt: row.effective_at, deviceLabel: row.device_label, via: row.via ?? 'device' }
+      : null,
+    // A change that couldn't happen (its address was taken while it waited), until
+    // she dismisses it or retention clears it.
+    failed: row?.failed_at
+      ? { requestedAt: row.requested_at, failedAt: row.failed_at, reason: row.failed_reason || 'taken', deviceLabel: row.device_label, via: row.via ?? 'device' }
       : null,
     changedAt: row?.email_changed_at ?? null,
   };
@@ -118,12 +128,12 @@ export async function requestEmailChange(env, auth, body) {
      VALUES (?, ?, ?, ?, ?, ?, 'device')
      ON CONFLICT (user_id) DO UPDATE SET new_email_hash = excluded.new_email_hash, device_id = excluded.device_id,
        device_label = excluded.device_label, requested_at = excluded.requested_at, effective_at = excluded.effective_at,
-       via = excluded.via`,
+       via = excluded.via, failed_at = NULL, failed_reason = NULL`,
   ).bind(auth.userId, newHash, auth.deviceId, auth.deviceLabel, at, effectiveAt).run();
   return { status: 'pending', effectiveAt };
 }
 
-// DELETE /account/email: from any signed-in device.
+// DELETE /account/email: from any signed-in device. Also dismisses a failed one.
 export async function cancelEmailChange(env, auth) {
   await env.DB.prepare('DELETE FROM email_changes WHERE user_id = ?').bind(auth.userId).run();
   return { ok: true };

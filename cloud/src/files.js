@@ -1,7 +1,9 @@
 // Document files, content-addressed by sha256 (plan §4.1, §6.1, §6.3).
 //
-// D1's `files` table is the index: HEAD and the snapshot reference check read
-// it, never R2. A PUT streams straight into R2 with the expected sha256, so R2
+// D1's `files` table is the index: the snapshot reference check reads it. HEAD and
+// PUT also ask R2, so a row whose object is gone (an R2 loss, D1 restored over the
+// bucket) reads as missing, and the app's next upload puts the bytes back (review
+// K4-5). A PUT streams straight into R2 with the expected sha256, so R2
 // itself rejects a body that doesn't match; the Worker never buffers or hashes
 // the file (25 MB would blow the CPU and memory limits).
 import { contentLength, fail } from './lib/http.js';
@@ -18,17 +20,22 @@ export async function fileExists(env, programId, sha) {
   return Boolean(await env.DB.prepare('SELECT 1 FROM files WHERE program_id = ? AND sha256 = ?').bind(programId, sha).first());
 }
 
+// The row and its object both there.
+async function fileStored(env, programId, sha) {
+  return (await fileExists(env, programId, sha)) && Boolean(await env.FILES.head(fileKey(programId, sha)));
+}
+
 // HEAD /files/:sha256 → true if present.
 export async function headFile(env, auth, sha) {
   checkSha(sha);
-  return fileExists(env, auth.programId, sha);
+  return fileStored(env, auth.programId, sha);
 }
 
 // PUT /files/:sha256. Uploading a file that's already there is a no-op.
 export async function putFile(env, auth, sha, request) {
   checkSha(sha);
   const size = contentLength(request, MAX_FILE_BYTES);
-  if (await fileExists(env, auth.programId, sha)) return { ok: true, existed: true };
+  if (await fileStored(env, auth.programId, sha)) return { ok: true, existed: true };
 
   const contentType = (request.headers.get('content-type') ?? 'application/octet-stream').slice(0, 100);
   try {

@@ -220,3 +220,29 @@ test('snapshots: a stranger device is refused at the describe step, before any b
   assert.equal(res.status, 409);
   assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM snapshots WHERE status = 'pending'").get().n, 0);
 });
+
+// --- Review K4-5 (fix step 9c): a row whose R2 object is gone can be repaired -------
+
+test('K4-5: a file whose object is gone reads as missing, and a PUT stores it again', async () => {
+  const env = await makeEnv();
+  const s = await signIn(env);
+  const f = bytes('a document');
+  await call(env, 'PUT', `/files/${sha(f)}`, { token: s.token, body: f });
+  env.FILES.store.clear(); // the bucket lost it; D1 still has the row
+  assert.equal((await call(env, 'HEAD', `/files/${sha(f)}`, { token: s.token })).status, 404);
+  const put = await call(env, 'PUT', `/files/${sha(f)}`, { token: s.token, body: f });
+  assert.deepEqual(await put.json(), { ok: true, existed: false });
+  assert.equal((await call(env, 'GET', `/files/${sha(f)}`, { token: s.token })).status, 200);
+});
+
+test('K4-5: a backup whose body is gone isn\'t offered for restore', async () => {
+  const env = await makeEnv();
+  const s = await signIn(env);
+  await call(env, 'POST', '/program/backing-device', { token: s.token });
+  assert.equal((await push(env, s)).status, 200);
+  const before = await (await call(env, 'GET', '/snapshots', { token: s.token })).json();
+  assert.equal(before.snapshots.length, 1);
+  env.FILES.store.clear();
+  const after = await (await call(env, 'GET', '/snapshots', { token: s.token })).json();
+  assert.equal(after.snapshots.length, 0);
+});

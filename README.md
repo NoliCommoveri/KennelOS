@@ -68,8 +68,8 @@ backup, carries a program from Lite to Pro.
     buyers (D33) are built, to be proven on the same run.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
-    through `0025` applied. Staging isn't in use, so deploys there
-    aren't tracked.
+    through `0025` applied; `0026` (review fix step 9) needs the Worker deployed, then Apply
+    pending on /ops. Staging isn't in use, so deploys there aren't tracked.
   - Notifications (app alerts and the email digest): live.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
     training stays, pickup and backing out are live, and Kels's Review my waitlist works through them.

@@ -2126,7 +2126,8 @@ restored into Lite keeps its waitlist rows, dormant.
   and extras plan steps "after approval" / "before pickup" (`planSteps`, `stepDueDate`).
   The projection's kennel carries `open_days` and the live `closed_dates` so a turn the
   server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
-  on the open day before. Dates already set (an offer made, a fee asked for) keep theirs.
+  on the open day before (or, if that day's runs were all missed, any day up to the due
+  date; the default subject names the date, `[Pay by]`). Dates already set (an offer made, a fee asked for) keep theirs.
   A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
   dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
   Demo).
@@ -2966,7 +2967,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `auto_offer_on`, the server closes expired turns and offers the next family from her
   published `turn_queue`, and sends reminders (with `email_reminders`). Each move is an event
   her device applies next sync (`planServerEvent`). A publish that hasn't seen them is
-  refused (`409 events_pending`).
+  refused (`409 events_pending`). A run's events and its projection write land together or
+  not at all (one batch, conditional on the version it read), so a second run, or her
+  publish in between, writes nothing and emails nobody; emails go once the batch lands.
 - **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
   non-answerers under `remove_after`, Today lists them under `keep_paused`.
 - **Before picks open:** `show_upcoming` switches publish pairings and early litters
@@ -3028,6 +3031,14 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **One backup device** per program: another device gets a 409 and chooses to restore that
   backup or replace it. A **shrink guard** refuses an upload that looks half-empty. Reset
   App turns backup off.
+- **Files and backups R2 lost:** the server's HEAD and PUT for a file check R2 as well as
+  its `files` row, so a document whose bytes are gone reads as missing and the next push
+  uploads it again; Restore doesn't list a backup whose body is gone.
+- **Changing the account's email** (`cloudAuth.changeAccountEmail`): at once with the old
+  inbox, else after a day, shown on every device (`emailChange`) with Cancel. A change whose
+  address was taken while it waited didn't happen: the server keeps it marked failed, and
+  every device shows "Your email change didn't happen" (`emailChangeFailed`, the Account
+  card and Today) until she taps OK (`cancelAccountEmailChange`) or 30 days pass.
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
@@ -3069,7 +3080,9 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
   as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
-  everything that changes her account itself, adding a passkey wrap included.
+  everything that changes her account itself, adding a passkey wrap included. A helper may
+  take over backing up (to push her first backup); its label already reads "KennelOS support
+  (…)", and the server marks it `helper: true` in `backingDevice` and the device list.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it

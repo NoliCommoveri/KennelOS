@@ -79,7 +79,7 @@ export function makeDb() {
   return new D1();
 }
 
-// An R2-shaped stand-in: put (with R2's sha256 check), get, list by prefix with
+// An R2-shaped stand-in: put (with R2's sha256 check), get, head, list by prefix with
 // a key cursor, and delete of up to 1000 keys. Bodies are drained, because the
 // Worker hands R2 a stream.
 import { createHash } from 'node:crypto';
@@ -108,6 +108,10 @@ export function makeBucket() {
     async get(key) {
       const entry = store.get(key);
       return entry ? object(key, entry) : null;
+    },
+    async head(key) {
+      const entry = store.get(key);
+      return entry ? { key, size: entry.bytes.length, httpMetadata: entry.httpMetadata, uploaded: entry.uploaded } : null;
     },
     async list({ prefix = '', cursor, limit = 1000 } = {}) {
       const all = [...store.keys()].filter((k) => k.startsWith(prefix)).sort();

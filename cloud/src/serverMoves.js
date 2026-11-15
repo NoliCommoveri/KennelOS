@@ -189,21 +189,35 @@ export function giveTurn(projection, entryId, turn) {
 
 const autoOn = (projection, trigger) => (projection.kennel?.auto_offer_on || []).includes(trigger);
 
-async function insertEvent(env, row, { entryId, kind, payload }, at, projection = null) {
-  const res = await env.DB.prepare(
+// --- One run's writes land together, or not at all (review K4-1) ------------------
+// A run works its moves out in memory and queues every write. They go in one
+// db.batch (a transaction), each conditional on the projection still being at the
+// version the run read, with the projection's own write last. So a second run on
+// the same version, or her device publishing in between, makes every statement a
+// no-op: nothing lands, no email goes, and the next run starts from what's there.
+// Emails and her notifications go only after the batch lands.
+const AT_VERSION = 'EXISTS (SELECT 1 FROM wl_projection WHERE public_id = ? AND version = ?)';
+
+function queueEvent(run, { entryId, kind, payload, causeFromLastEvent = false }) {
+  const { row, at } = run;
+  // An offer the run's own close caused names that close's seq, which is the last
+  // event this batch wrote for the kennel.
+  const payloadSql = causeFromLastEvent
+    ? "json_set(?, '$.cause_seq', (SELECT MAX(seq) FROM wl_events WHERE public_id = ?))"
+    : '?';
+  const payloadBinds = causeFromLastEvent ? [JSON.stringify(payload), row.public_id] : [JSON.stringify(payload)];
+  run.writes.push(run.env.DB.prepare(
     `INSERT INTO wl_events (program_id, public_id, entry_id, kind, payload, based_on_version, made_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'server', ?)`,
-  ).bind(row.program_id, row.public_id, entryId, kind, JSON.stringify(payload), row.version, at).run();
+     SELECT ?, ?, ?, ?, ${payloadSql}, ?, 'server', ? WHERE ${AT_VERSION}`,
+  ).bind(row.program_id, row.public_id, entryId, kind, ...payloadBinds, row.version, at, row.public_id, row.version));
   // A move she must follow up (contact the family offered; Notifications plan §1).
-  if (projection) {
-    await notifyEvent(env, { programId: row.program_id, kind: 'server_move', what: kind, name: projection.entries?.[entryId]?.name, kennel: projection.kennel?.name, entryId });
-  }
-  return res.meta?.last_row_id ?? null;
+  run.after.push(() => notifyEvent(run.env, { programId: row.program_id, kind: 'server_move', what: kind, name: run.projection.entries?.[entryId]?.name, kennel: run.projection.kennel?.name, entryId }));
 }
 
 // One email from her published template, once (`id` decides "once"). Skipped
 // quietly when email isn't set up, the family has no address, or she published
-// no template for it.
+// no template for it. A send that throws is logged and recorded as failed, so it
+// never takes the rest of the run with it.
 async function emailOnce(env, row, projection, { id, entryId, kind, facts, origin }, now) {
   if (!mailMode(env)) return 'off';
   const e = projection.entries?.[entryId];
@@ -215,32 +229,49 @@ async function emailOnce(env, row, projection, { id, entryId, kind, facts, origi
   const kennelName = projection.kennel?.name || '';
   const { subject, body } = fillTemplate(template, { kennelName, family: e.name, ...facts });
   if (!subject || !body) return 'skipped';
-  const token = await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(row.public_id, entryId).first();
-  const link = token ? `${origin}/s/${token.token}` : `${origin}/list/${row.public_id}`;
-  return sendFamilyMessage(env, {
-    id, programId: row.program_id, publicId: row.public_id, entryId, kind, to, subject, text: body,
-    from: await familySender(env, { programId: row.program_id, publicId: row.public_id, kennelName }, now),
-    footer: familyFooter(link, kennelName || 'the kennel'),
-  }, now);
+  try {
+    const token = await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(row.public_id, entryId).first();
+    const link = token ? `${origin}/s/${token.token}` : `${origin}/list/${row.public_id}`;
+    return await sendFamilyMessage(env, {
+      id, programId: row.program_id, publicId: row.public_id, entryId, kind, to, subject, text: body,
+      from: await familySender(env, { programId: row.program_id, publicId: row.public_id, kennelName }, now),
+      footer: familyFooter(link, kennelName || 'the kennel'),
+    }, now);
+  } catch (err) {
+    console.error('waitlist email failed', kind, String(err?.message ?? err));
+    const at = now.toISOString();
+    await env.DB.prepare(
+      `INSERT INTO wl_messages (id, program_id, public_id, entry_id, kind, to_email, subject, body, send_after, status, sent_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'failed', NULL, ?) ON CONFLICT (id) DO UPDATE SET status = 'failed'`,
+    ).bind(id, row.program_id, row.public_id, entryId, kind, to, subject, body, at, at).run().catch(() => {});
+    return 'failed';
+  }
 }
 
 const litterLabels = (projection, litterIds) => litterIds.map((id) => projection.litters?.[id]?.label || '').filter(Boolean);
 
-// Offer the next family a turn, if one can be. → the event seq, or null.
-async function offerNext(env, row, projection, { today, skip, held, cause, causeSeq, origin, at, now }) {
-  const next = nextFromQueue(projection, { skip, held });
-  if (!next) return null;
+// Offer the next family a turn, if one can be: the event is queued and the email
+// waits for the batch. → true when a turn was given.
+function offerNext(run, { skip, cause, causeSeq = null }) {
+  const { projection, today } = run;
+  const next = nextFromQueue(projection, { skip, held: run.held });
+  if (!next) return false;
   const turn = {
     turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: addOpenDays(today, next.respondDays, projection.kennel?.open_days, projection.kennel?.closed_dates),
     rows: next.rows.map((r) => ({ offer_id: crypto.randomUUID(), ...r })),
   };
-  const seq = await insertEvent(env, row, { entryId: next.entryId, kind: 'server_offer', payload: { ...turn, cause, cause_seq: causeSeq } }, at, projection);
+  queueEvent(run, {
+    entryId: next.entryId, kind: 'server_offer',
+    payload: { ...turn, cause, ...(causeSeq != null ? { cause_seq: causeSeq } : {}) },
+    causeFromLastEvent: causeSeq == null,
+  });
   giveTurn(projection, next.entryId, turn);
-  await emailOnce(env, row, projection, {
-    id: `srv-offer-${turn.turn_id}`, entryId: next.entryId, kind: 'offer', origin,
+  // The offer's email is keyed on its turn: only the run whose batch landed sends it.
+  run.emails.push({
+    id: `srv-offer-${turn.turn_id}`, entryId: next.entryId, kind: 'offer',
     facts: { litters: litterLabels(projection, turn.rows.map((r) => r.litter_id)), respondBy: turn.respond_by_date },
-  }, now);
-  return seq;
+  });
+  return true;
 }
 
 // Everything due for one published kennel now. → { closed, offered, reminders }
@@ -260,7 +291,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
   // Families waiting on her device for something they did: never moved around by the server.
   const busy = new Set(pending.filter((p) => ['pick', 'pass', 'leave'].includes(p.kind)).map((p) => p.entry_id));
   const held = new Set((await env.DB.prepare('SELECT dog_id FROM wl_holds WHERE public_id = ?').bind(row.public_id).all()).results.map((r) => r.dog_id));
-  let changed = false;
+  const run = { env, row, projection, today, at, held, writes: [], after: [], emails: [] };
 
   // 1. A family passed or left on their page, and she ticked that moment.
   for (const p of pending) {
@@ -272,9 +303,9 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     const closing = p.kind === 'pass' ? mine.filter((t) => t.turnId === payload.turn_id || t.offers.some((o) => o.id === payload.offer_id)) : mine;
     if (!closing.length) continue; // nothing of theirs is open: nothing moves on
     for (const t of closing) closeTurn(projection, p.entry_id, t.turnId);
-    changed = true;
-    const seq = await offerNext(env, row, projection, { today, skip: new Set([...busy]), held, cause: p.kind === 'pass' ? 'passed' : 'left', causeSeq: p.seq, origin, at, now });
-    if (seq) counts.offered++;
+    if (offerNext(run, { skip: new Set([...busy]), cause: p.kind === 'pass' ? 'passed' : 'left', causeSeq: p.seq })) counts.offered++;
+    // A pass with nobody to offer still changed the projection (the turn closed).
+    run.changed = true;
   }
 
   // 2. Deadlines she lets the server close.
@@ -282,29 +313,49 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
     const trigger = t.picked ? 'no_deposit' : 'no_response';
     if (!autoOn(projection, trigger)) continue;
-    const seq = await insertEvent(env, row, {
+    queueEvent(run, {
       entryId: t.entryId, kind: 'server_close',
       payload: { turn_id: t.turnId, offer_ids: t.offers.map((o) => o.id), litter_ids: t.offers.map((o) => o.litter_id), respond_by_date: t.respondBy, trigger, picked_dog_id: t.picked },
-    }, at, projection);
-    await env.DB.prepare('DELETE FROM wl_holds WHERE public_id = ? AND entry_id = ?').bind(row.public_id, t.entryId).run();
+    });
+    run.writes.push(env.DB.prepare(`DELETE FROM wl_holds WHERE public_id = ? AND entry_id = ? AND ${AT_VERSION}`)
+      .bind(row.public_id, t.entryId, row.public_id, row.version));
     if (t.picked) held.delete(t.picked);
     closeTurn(projection, t.entryId, t.turnId);
-    changed = true;
+    run.changed = true;
     counts.closed++;
-    await emailOnce(env, row, projection, {
-      id: `srv-closed-${t.turnId}`, entryId: t.entryId, kind: 'deadline_passed', origin,
+    run.emails.push({
+      id: `srv-closed-${t.turnId}`, entryId: t.entryId, kind: 'deadline_passed',
       facts: { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy },
-    }, now);
-    const offered = await offerNext(env, row, projection, { today, skip: new Set([...busy, t.entryId]), held, cause: 'deadline', causeSeq: seq, origin, at, now });
-    if (offered) counts.offered++;
+    });
+    // The offer's cause is this close, the batch's last event so far.
+    if (offerNext(run, { skip: new Set([...busy, t.entryId]), cause: 'deadline' })) counts.offered++;
   }
 
-  // 3. Reminders, each once.
+  if (run.changed) {
+    // The projection's write is last, so every statement before it still sees the
+    // version this run read.
+    run.writes.push(env.DB.prepare('UPDATE wl_projection SET body = ?, version = version + 1 WHERE public_id = ? AND version = ?')
+      .bind(JSON.stringify(projection), row.public_id, row.version));
+    const results = await env.DB.batch(run.writes);
+    if (!(results.at(-1)?.meta?.changes > 0)) {
+      // Another run, or her device, moved the kennel since this run read it.
+      console.log('waitlist moves: kennel moved on meanwhile, nothing written');
+      return { closed: 0, offered: 0, reminders: 0, lost: true };
+    }
+    for (const notify of run.after) {
+      try { await notify(); } catch (err) { console.error('waitlist notify failed', String(err?.message ?? err)); }
+    }
+    for (const m of run.emails) await emailOnce(env, row, projection, { ...m, origin }, now);
+  }
+
+  // 3. Reminders, each once (its id). They write nothing but the message.
   if (projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
     for (const t of openTurns(projection, { includeDirect: true })) {
       if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy || turnIsEmpty(projection, t)) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);
       const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy };
+      // The halfway one catches up on any later day; the last-day one is only true
+      // on its day (a turn past its last day has ended).
       const when = today === t.respondBy ? 'last' : (span >= 2 && today >= addDays(t.offeredDate, Math.floor(span / 2)) ? 'half' : null);
       if (!when) continue;
       const r = await emailOnce(env, row, projection, { id: `srv-remind-${t.turnId}-${when}`, entryId: t.entryId, kind: 'offer_reminder', facts, origin }, now);
@@ -313,8 +364,9 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     for (const [entryId, e] of Object.entries(projection.entries || {})) {
       if (!OPEN.includes(e.status)) continue;
       const due = e.fee_due?.due_date;
-      // The open day before it's due (her closed days skipped).
-      if (due && today === addOpenDays(due, -1, projection.kennel?.open_days, projection.kennel?.closed_dates)) {
+      // From the open day before it's due (her closed days skipped) through the due
+      // day itself, so a day whose runs were all missed doesn't lose it (K4-7).
+      if (due && today >= addOpenDays(due, -1, projection.kennel?.open_days, projection.kennel?.closed_dates) && today <= due) {
         const r = await emailOnce(env, row, projection, { id: `srv-fee-${entryId}-${due}`, entryId, kind: 'fee_reminder', facts: { payBy: due }, origin }, now);
         if (r === 'sent') counts.reminders++;
       }
@@ -324,12 +376,6 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
         if (r === 'sent') counts.reminders++;
       }
     }
-  }
-
-  if (changed) {
-    // Only if her device hasn't published since this run read the row.
-    await env.DB.prepare('UPDATE wl_projection SET body = ?, version = version + 1 WHERE public_id = ? AND version = ?')
-      .bind(JSON.stringify(projection), row.public_id, row.version).run();
   }
   return counts;
 }
@@ -347,13 +393,26 @@ export async function runKennelNow(env, publicId, { now = new Date(), origin } =
 }
 
 // The hourly run: every published kennel. → totals.
+const MOVES_PAGE = 500;
+
 export async function runWaitlistMoves(env, { now = new Date() } = {}) {
   const origin = env.FAMILY_PAGES_ORIGIN || '';
   const totals = { kennels: 0, closed: 0, offered: 0, reminders: 0, failed: 0 };
-  const { results } = await env.DB.prepare('SELECT public_id, program_id, version, body FROM wl_projection').all();
-  for (const row of results) {
+  // The ids first, a page at a time, then one kennel's body at a time: a projection
+  // is up to 1.5 MB, so reading them all at once fails as the kennels grow (K4-3).
+  const ids = [];
+  for (let after = ''; ;) {
+    const { results } = await env.DB.prepare('SELECT public_id FROM wl_projection WHERE public_id > ? ORDER BY public_id LIMIT ?')
+      .bind(after, MOVES_PAGE).all();
+    ids.push(...results.map((r) => r.public_id));
+    if (results.length < MOVES_PAGE) break;
+    after = results.at(-1).public_id;
+  }
+  for (const publicId of ids) {
     totals.kennels++;
     try {
+      const row = await env.DB.prepare('SELECT public_id, program_id, version, body FROM wl_projection WHERE public_id = ?').bind(publicId).first();
+      if (!row) continue; // unpublished since the ids were read
       const c = await runKennel(env, row, { now, origin });
       totals.closed += c.closed;
       totals.offered += c.offered;

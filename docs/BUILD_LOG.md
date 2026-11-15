@@ -5121,3 +5121,52 @@ chose a final build, and Mississippi law.
 - **Docs:** End-State guide §0, §0.3, §3; Editions Plan "Licensing"; Cloud Accounts Proposal
   (Modified note); `build/README.md`; `tests/README.md`.
 - **Service worker:** no app file added or renamed (the site isn't a PWA). `CACHE_NAME` not bumped.
+
+## 2026-11-15: Fix step 9, K04 (Worker resilience)
+
+Owner's decisions: an orphaned migration doesn't gate (9-A); support's helper device may take
+over backing up, named as support (9-B); K5-13 rides this branch's migration (9-C).
+- **K4-3:** `scheduled` runs each job (retention; waitlist moves, email changes, digests, both
+  e-sign jobs) in its own `try`, logging `<job> failed`. `runWaitlistMoves` reads the kennels'
+  ids a page at a time (`MOVES_PAGE`), then one projection body at a time.
+- **K4-4:** `runRetention` runs its D1 purge first; the R2 sweep runs last in its own `try`
+  (`r2SweepError`), and R2 deletes after their rows went are caught (`r2DeleteError`). /ops's
+  Retention done line says either.
+- **K4-12:** `fetch` is one `try` around a `route()`; CORS is filled in as soon as it's known.
+- **K4-1:** `runKennel` queues its events, hold deletes and projection write and sends them in
+  one `db.batch`, each conditional on the version it read (`AT_VERSION`), the projection last;
+  a deadline's offer takes the close's seq inside the batch (`json_set … MAX(seq)`). A lost
+  race writes nothing, sends nothing and returns `lost: true`. Notifications and emails go only
+  after the batch lands; a send that throws is recorded `failed` (`emailOnce`). The offer email
+  keeps its `turn_id` id: with the batch only the run that landed sends it.
+- **K4-7:** the fee reminder goes from the open day before through the due day; the default
+  `fee_reminder` subject names the date (`[Pay by]`). The turn's last-day reminder stays on its
+  day (after it the turn has ended); the halfway one already caught up.
+- **K4-2:** `schemaIsCurrent` counts an orphan as current; /ops says what an orphan means and
+  that the API still serves; a drift still gates.
+- **K4-5:** `headFile` / `putFile` ask R2 (`FILES.head`) as well as the `files` row, so a row
+  whose object is gone reads 404 and a PUT stores the bytes again; `GET /snapshots` leaves out
+  a backup whose body R2 doesn't have. `latestSnapshot` is left as the push base.
+- **K4-8:** migration `0026` adds `email_changes.failed_at` / `failed_reason`. A waiting change
+  whose address was taken is kept, marked failed, never retried; `emailChangeState` returns
+  `failed`; a new request clears it; retention clears it after 30 days. The app keeps it as
+  `emailChangeFailed` and the Account card and Today say "Your email change didn't happen" with
+  OK (which dismisses it on the server).
+- **K5-13:** `0026` adds `manager_sessions`. A manager sign-in is a random id, signed with
+  `OPS_TOKEN` and stored as a hash; Log out deletes it; /ops's **Sign every manager app out**
+  ends them all; retention clears expired ones. Existing manager cookies stop working (sign in
+  again).
+- **K4-10:** /ops pages send a CSP that allows no script (`default-src 'none'`, inline style,
+  `form-action 'self'`, `frame-ancestors 'none'`), with `nosniff` and `no-referrer`.
+- **K4-13 (9-B):** left open on purpose and said beside `OWNER_ONLY`; `backingInfo` and the
+  device list mark a helper device `helper: true` (its label already reads "KennelOS support").
+- **Tests:** cloud: new `cronResilience.test.js` (5); `serverMoves` (+4), `backup-api` (+2),
+  `migrate` (+1), `emailChange` (+1), `assist` (+2), `ops` (+1); the R2 stand-in has `head`.
+  App: `cloudClient` (+1). `cd cloud && npm test` 365 pass; `node --test` 2068 pass;
+  `node build/assemble.mjs` green.
+- **Docs:** `cloud/README.md`; End-State guide §29 (the fee reminder, server moves), §30
+  (files, the email change, the helper backing); Cloud Phase 1 plan, Assisted Setup plan, W2
+  plan (Modified notes); README Status (`0026` to apply); `FIX_PRIORITIES.md`.
+- **Deploy:** the Worker, then Apply pending on /ops for `0026`, before the app (its Account
+  card reads the new `failed` field, and ignores it when absent).
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.

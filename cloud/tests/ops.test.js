@@ -62,3 +62,12 @@ test('signed in: the dashboard shows 0001 pending, Apply pending applies it, and
   const health = await worker.fetch(req('/health'), env);
   assert.equal((await health.json()).ok, true);
 });
+
+test('K4-10: every /ops page carries a Content-Security-Policy that allows no script', async () => {
+  const env = { DB: makeDb(), FILES: makeBucket(), OPS_TOKEN: TOKEN };
+  const res = await worker.fetch(req('/ops'), env);
+  const csp = res.headers.get('content-security-policy');
+  assert.match(csp, /default-src 'none'/);
+  assert.doesNotMatch(csp, /script-src/);
+  assert.match(csp, /frame-ancestors 'none'/);
+});

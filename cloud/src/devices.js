@@ -45,7 +45,7 @@ export async function checkIn(env, auth, body) {
 export async function listDevices(env, auth) {
   const [{ results: sessions }, { results: erasures }, program, synced] = await Promise.all([
     env.DB.prepare(
-      `SELECT device_id, device_label, last_seen_at, expires_at, revoked_at, revoked_reason, license_instance_id
+      `SELECT device_id, device_label, last_seen_at, expires_at, revoked_at, revoked_reason, license_instance_id, role
          FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC`,
     ).bind(auth.userId).all(),
     env.DB.prepare('SELECT device_id, device_label, requested_at, confirmed_at FROM device_erasures WHERE user_id = ?').bind(auth.userId).all(),
@@ -64,6 +64,8 @@ export async function listDevices(env, auth) {
         id: s.device_id, label: s.device_label, lastSeenAt: s.last_seen_at,
         status: s.revoked_reason === 'self' ? 'signed-out-here' : 'signed-out',
         licenseInstanceId: s.license_instance_id ?? null, erase: null,
+        // Support's helper device (assisted setup): her list names it.
+        ...(s.role === 'helper' ? { helper: true } : {}),
       };
       byId.set(s.device_id, d);
     }

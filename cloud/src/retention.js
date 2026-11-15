@@ -92,8 +92,10 @@ export async function runRetention(env, now = new Date()) {
     ]);
     // Body and vault part per snapshot; R2 deletes at most 1000 keys a call.
     // Deleting a vault key that was never written is a no-op.
+    // Their rows are gone, so an R2 failure here only leaves objects the sweep
+    // deletes on a later run; it mustn't stop the purge below (K4-4).
     const keys = gone.flatMap((s) => [s.r2_key, vaultKeyFor(s.r2_key)]);
-    for (let i = 0; i < keys.length; i += MAX_PER_RUN) await env.FILES.delete(keys.slice(i, i + MAX_PER_RUN));
+    await r2Delete(env, keys, summary);
     summary.snapshotsDropped = drops.length;
     summary.pendingDropped = stalePart.length;
     summary.r2Deleted += gone.length;
@@ -113,16 +115,17 @@ export async function runRetention(env, now = new Date()) {
     const keys = orphans.map((o) => `${o.program_id}/${o.sha256}`);
     await env.DB.prepare(`DELETE FROM files WHERE program_id || '/' || sha256 IN (SELECT value FROM json_each(?))`)
       .bind(JSON.stringify(keys)).run();
-    await env.FILES.delete(keys.map((k) => `files/${k}`));
+    await r2Delete(env, keys.map((k) => `files/${k}`), summary);
     summary.filesDropped = orphans.length;
     summary.r2Deleted += orphans.length;
   }
 
-  Object.assign(summary, await sweepR2Orphans(env, nowMs));
-
   await env.DB.batch([
     ...notifyRetentionStatements(env, nowMs),
     env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM manager_sessions WHERE expires_at < ?').bind(iso(nowMs)),
+    // An email change that couldn't happen, once every device has had a month to say so.
+    env.DB.prepare('DELETE FROM email_changes WHERE failed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(iso(nowMs - DAY)),
     env.DB.prepare('DELETE FROM dev_outbox WHERE created_at < ?').bind(iso(nowMs - HOUR)),
     // A device with an erase still pending keeps its sessions, however old, so
@@ -165,7 +168,27 @@ export async function runRetention(env, now = new Date()) {
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
 
+  // The R2 sweep last, on its own: it's the least of what retention does, so an R2
+  // failure skips only it, and the summary says so for /ops (K4-4).
+  try {
+    Object.assign(summary, await sweepR2Orphans(env, nowMs));
+  } catch (err) {
+    console.error('r2 sweep failed', String(err?.message ?? err));
+    summary.r2SweepError = true;
+  }
+
   return summary;
+}
+
+// Delete R2 objects whose D1 rows are already gone, a call per 1000 keys. A failure
+// is logged and noted in the summary, never thrown (the sweep catches the objects).
+async function r2Delete(env, keys, summary) {
+  try {
+    for (let i = 0; i < keys.length; i += MAX_PER_RUN) await env.FILES.delete(keys.slice(i, i + MAX_PER_RUN));
+  } catch (err) {
+    console.error('r2 delete failed', String(err?.message ?? err));
+    summary.r2DeleteError = true;
+  }
 }
 
 // --- The R2 orphan sweep ----------------------------------------------------------

@@ -113,3 +113,22 @@ test('deleting the account removes a pending change', async () => {
   assert.equal((await call(env, 'DELETE', '/account', { token: fresh.token, body: { confirm: 'DELETE' } })).status, 200);
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM email_changes').get().n, 0);
 });
+
+test('K4-8: a change whose address was taken while it waited is kept as failed, said on every device, and dismissable', async () => {
+  const env = await makeEnv();
+  const s = await signIn(env, OLD, { deviceId: PHONE });
+  ageSessions(env);
+  await change(env, s, { email: NEW, code: await sendCode(env, NEW) });
+  await signIn(env, NEW); // someone else takes it during the wait
+  env.DB.raw.prepare("UPDATE email_changes SET effective_at = '2020-01-01T00:00:00.000Z'").run();
+  assert.deepEqual(await applyDueEmailChanges(env), { applied: 0, dropped: 1 });
+  const st = await state(env, s);
+  assert.equal(st.pending, null);
+  assert.equal(st.failed.reason, 'taken');
+  assert.ok(st.failed.failedAt);
+  // Not tried again on the next run.
+  assert.deepEqual(await applyDueEmailChanges(env), { applied: 0, dropped: 0 });
+  // A new request replaces it; dismissing clears it.
+  assert.equal((await call(env, 'DELETE', '/account/email', { token: s.token })).status, 200);
+  assert.equal((await state(env, s)).failed, null);
+});

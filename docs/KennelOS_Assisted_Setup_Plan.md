@@ -59,7 +59,9 @@ the setup too: support makes no new link until she presses Get help.
 
 An installable page served by the cloud Worker, for support only. Signed in with the ops
 token (a 60-day cookie, `Path=/manager`), installable to a phone's home screen, with web
-push through the same VAPID key as app alerts.
+push through the same VAPID key as app alerts. Each sign-in is kept server-side
+(`manager_sessions`, migration `0026`): Log out ends that cookie for good, and /ops's **Sign
+every manager app out** ends them all without rotating `OPS_TOKEN`.
 
 - **Waiting for you:** users who pressed Get help.
 - **Start an assisted setup:** name + email → account and link.

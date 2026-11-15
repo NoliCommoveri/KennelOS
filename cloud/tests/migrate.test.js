@@ -44,6 +44,15 @@ test('an applied migration with no file reads as orphaned', async () => {
   assert.deepEqual(status.map((s) => [s.id, s.state]), [['0001', 'orphaned']]);
 });
 
+test('K4-2: after a rollback past a migration the schema is still current; a pending one still gates', async () => {
+  const db = makeDb();
+  const both = [{ id: '0001', name: 'one', sql: 'CREATE TABLE a (x TEXT);' }, { id: '0002', name: 'two', sql: 'CREATE TABLE b (x TEXT);' }];
+  await applyPending(db, both);
+  assert.equal(await schemaIsCurrent(db, both.slice(0, 1)), true, 'the rolled-back build still serves');
+  const three = [...both, { id: '0003', name: 'three', sql: 'CREATE TABLE c (x TEXT);' }];
+  assert.equal(await schemaIsCurrent(db, three), false, 'a pending migration still gates');
+});
+
 test('a failing migration lands nothing and halts the ones after it', async () => {
   const db = makeDb();
   const list = [
