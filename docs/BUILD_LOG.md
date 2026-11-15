@@ -5054,3 +5054,4 @@ From `docs/review/findings/K10-money.md` and `K12-integrations-notifications.md`
 - **Docs:** End-State guide §21 (Financials, per litter, §21.1, §21.2), the reports, §32 Stripe;
   `KennelOS_Payment_Schedule_Plan.md` (Modified note); `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v146` (owner asked), covering fix step 7.
