@@ -374,8 +374,9 @@ and Email Routing.
   `firma: relabelled <name> (PATCH)` (or `PUT`) for each fact still on its old label; a sync
   carries at most 40, so a second Place fields may finish the rest. Every field in the editor
   should read with its group (`Buyer ·`, `Pup ·`, `Sale ·`, `Payment ·` …). Preview a contract
-  from a template already in use and check its placed fields still fill. Then the preview check
-  (plan §8.2 step 2, D37) before any per-template fields.
+  from a template and check its placed fields still fill. Then the preview check (plan §8.2
+  step 2, D38): after Preview, **On your template** should list every detail field you placed,
+  by the label you know from the editor, with the value sent; check each against the contract.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
   days (the privacy policy promises it; Firma has no API to delete one).
 

@@ -635,7 +635,7 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   const restore = async () => {
     for (const e of [entry, other]) {
       await waitlistEntryRepo.update(e.id, { status: e.status, placed_sale_id: e.placed_sale_id || null, position_anchor_date: e.position_anchor_date || null,
-        carried_payment: e.carried_payment || null, withdrawn_date: e.withdrawn_date || null, back_out_request: null });
+        carried_payment: e.carried_payment || null, received_credits: e.received_credits || [], withdrawn_date: e.withdrawn_date || null, back_out_request: null });
     }
   };
   await contactRepo.update(entry.contact_id, { email: 'backout@example.com' });
@@ -676,7 +676,7 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   assert.deepEqual(after.extra_charges.map((c) => [c.id, c.kept_after_cancel]), [['tr', true]], 'Photos off, the part-paid training kept and owed');
   assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
   const moved = await waitlistEntryRepo.getById(entry.id);
-  assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.carried_payment.amount, moved.back_out_request.outcome],
+  assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.received_credits?.[0]?.amount, moved.back_out_request.outcome],
     ['active', null, later(0), 500, 'move'], 'back on the list at the end, the same entry, the deposit carried');
   await cw.syncWaitlistOnline();
   assert.equal((await view()).family.status, 'active', 'their status page and sign-in still work');

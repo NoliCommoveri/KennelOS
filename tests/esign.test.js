@@ -637,6 +637,13 @@ test('previewNotes: each empty prefilled field with why', () => {
   assert.match(n.empty[1].why, /doesn't fill this detail on a template marked "Pet home contract"/);
   assert.match(n.empty[2].why, /^Not one of KennelOS's details/);
   assert.match(n.empty[3].why, /Firma left it empty/);
+  assert.deepEqual(n.rows, [
+    { label: 'Buyer · Name', value: 'Ann Lee', filled: true },
+    { label: 'Buyer · Address', value: null, filled: false },
+    { label: 'Stud · Fee', value: null, filled: false },
+    { label: 'A field', value: null, filled: false },
+    { label: 'Buyer · Name (2)', value: 'Ann Lee', filled: false }
+  ], 'every field on the template, with the value sent to it');
   assert.equal(esign.previewNotes(form, facts, null), null, 'an older Worker sends no list');
 });
 

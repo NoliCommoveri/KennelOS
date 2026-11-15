@@ -155,6 +155,25 @@ optional, read as "not set" from older backups.
   stays readable (backups); new carries no longer write it.
 - Waitlist (Pro) only, like the lost-pup flow and credits.
 
+**Built (2026-11-15):** as above, with these as built (owner: money becomes a credit only when
+she puts the family back on the list; a straight refund writes none):
+- Both carries write the credit: a lost pup's **Carry it to their next pup** and a back-out's
+  Move the deposit (`receivedCredits.carriedCredit`, dated by the lost sale's `deposit_date`,
+  else that day). Refunds write nothing.
+- The pick (and a side sale) still places the family at once, but only when their credits
+  leave nothing of the deposit to send; the deposit is received on the pick's (side sale's)
+  date. Short of that, the rest of the deposit is asked for and the pick waits like any other.
+- An older `carried_payment` reads as one credit (`creditsWithCarried`) and moves into
+  `received_credits` on the next write of the entry's credits, or when they're placed.
+- `from_sale_id` is in `referenceRegistry.js` (`SALE_REFERENCES`, a scan).
+- Tests: `tests/waitlistLostPup.test.js` (carry equal to, above and below the deposit, a
+  refund, a side sale, an older `carried_payment`, a second lost pup).
+- **Modified (owner, 2026-11-15):** a cancelled sale whose deposit was moved (a back-out's
+  Move the deposit) no longer counts it as earned: it's the family's credit, held, and income
+  only on the sale it pays (D21). Before, both sales counted it. `incomeView.carriedOutBySale`
+  (from the credits' `from_sale_id`) is taken off the released sale's earned lines, the
+  deposit first; what she kept (extras paid and kept) still counts.
+
 ### 3.3 Extras on their own dates
 
 - **`own_due_dates: true`** on a price-list extra (`Kennel.extra_charge_list[]`) and on a
@@ -385,8 +404,21 @@ Plan:
 existing fields the device names (`cloudEsign.RELABEL_FIELDS`: every fact) through
 `PATCH …/custom-fields/{id}`, else `PUT`, never fatal. The owner proved it on `buyerEmail`
 first: it read **Buyer · Email** in the editor and still filled on a preview. Step 2 uses a
-preview, not the test API key (D37). Steps 2–5 (the preview check, per-template fields,
-moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
+preview, not the test API key (D37).
+**Modified (owner, 2026-11-15, D38):** per-template fields are dropped: the grouped workspace
+labels are enough, so the editor keeps every workspace field. With them go step 2's two
+questions (they were about template fields) and step 4 (not needed: no template was in use,
+and the workspace was made fresh). Step 2 is instead the preview's list: after **Preview**, the
+Send dialog lists every detail field on the template by its label, with the value KennelOS
+sent it and whether Firma filled it (`cloudEsign.previewNotes` `rows`), since Firma's
+read-only preview shows a field's box, not its value. Step 5: on a phone the
+template editor opens at 100% (zoomed in), and fields can't be placed. Seen in Firma's script:
+its fit measures the page area beside a fixed 320 px field sidebar, which a phone leaves at
+about 70 px, so it skips the fit; `autoFit` is already on and doesn't help. Placing a field is
+a desktop drag from the sidebar or a right-click on the page, with no touch path.
+**Modified (owner, 2026-11-15):** Place fields is computer only: on a device with no mouse it
+says so instead of opening the editor (`esignUI`, `(any-pointer: fine)`). Sending works from
+a phone.
 
 ---
 
@@ -403,7 +435,7 @@ moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
 
 ---
 
-## 10. Decisions (all decided with the owner, 2026-11-13)
+## 10. Decisions (all decided with the owner, 2026-11-13; D38 on 2026-11-15)
 
 | # | Decision |
 |---|---|
@@ -444,14 +476,14 @@ moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
 | D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
 | D36 | Step 7: Today's payment nudges cover every open sale (no schedule = its one due date). Pups are going home's Balance item becomes **Payments**, done when nothing is owed. Review my waitlist takes payments due: Received / Not yet / Open the sale. Pups are going home offers a pickup message (the day, what's owed by then, final-payment methods). |
 | D37 | §8.2 step 2 is checked with a preview of a real send (the Send dialog's Preview and its notes on filled and empty fields), not with her Firma test API key. |
+| D38 | No per-template Firma fields (§8.2 steps 3–4 dropped): the grouped workspace labels stay. §8.2 step 2 is the preview's list of every placed field by label, with the value sent. |
 
 ---
 
 ## 11. Build order
 
 **Modified:** §3.2a (D20: carried money becomes a credit; deposit dates never from a credit's
-date) belongs to no step below; it's still to build. Until then a credited deposit's income
-is dated by `deposit_date`, which those three places can still set from a credit's date.
+date) belonged to no step below; it's built (§3.2a, Built).
 
 1. **`data/paymentSchedule.js` + the combination test** (§6.3), tests first. Credits move onto
    the shared allocator.
@@ -463,8 +495,9 @@ is dated by `deposit_date`, which those three places can still set from a credit
    two regression tests.
 5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
    **Built:** the prefills (§8.1) and the relabel (§8.2 step 1: proven on one field, then
-   every field). Open: the preview check (§8.2 step 2, D37); per-template fields; moving
-   templates; `autoFit`.
+   every field), the preview's list of every placed field with the value sent (§8.2 step 2,
+   D37, D38). **Modified (D38):** per-template fields dropped, moving templates not needed.
+   **Modified (owner, 2026-11-15):** Place fields is computer only (§8.2 step 5).
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
    **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,

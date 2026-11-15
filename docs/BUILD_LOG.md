@@ -4599,3 +4599,79 @@ tick box per template; buyers get an emailed link.
   facts). `node --test` 1957 pass.
 - **Docs:** End-State guide (the sale's payment table).
 - No new files, no schema change. `CACHE_NAME` bumped to `kennelos-shell-v141` (owner asked).
+
+## 2026-11-15: Payment schedules step 5 (D38): the preview lists every field and its value
+
+- **Decided (owner, D38):** no per-template Firma fields (plan §8.2 step 3 dropped); the grouped
+  workspace labels stay. Step 4 (moving templates) isn't needed: no template was in use and the
+  workspace is new. Step 2 is the preview's list of every placed field with the value sent.
+- **Seen (owner), traced in Firma's script (reachable this session):** on a phone the template
+  editor opens zoomed in and fields can't be placed. Its fit (`autoFit`, already on by default)
+  measures the page area beside a fixed 320 px field sidebar, about 70 px on a phone, so it
+  skips the fit and stays at 100%. Placing a field is an HTML drag from the sidebar or a
+  right-click on the page, with no touch path. Still open (plan §8.2 step 5).
+- **Change (app):** `cloudEsign.previewNotes` returns `rows`: every prefilled field on the
+  template in Firma's order, `{ label, value, filled }`, the value from this device
+  (`prefillValues`, matched case aside), never from the Worker. After Preview the Send dialog
+  shows **On your template (N)**: each field by its label with what was sent, "(Firma left it
+  blank)" when sent but empty, "Nothing sent: left blank" when KennelOS had nothing for it. The
+  blank-with-why warning stays above it.
+- **Tests:** `tests/esign.test.js` (the previewNotes test checks `rows`). `node --test` 1957 pass.
+- **Docs:** Payment Schedule plan §8.2 (Modified, D38), D38, build order step 5; End-State guide
+  §32 (the preview); launch checklist (the preview check); README Status.
+- No new files, no Worker change. Cache not bumped yet.
+
+## 2026-11-15: Place fields is computer only (Payment Schedule plan §8.2 step 5)
+
+- **Decided (owner):** Place fields stays on a computer for now (Firma's editor can't place a
+  field by touch and opens zoomed in on a phone; see the entry above).
+- **Change (app):** `esignUI`: on a device with no mouse (`(any-pointer: fine)` false), Place
+  fields says placing fields needs a computer and doesn't open the editor; sending still works.
+  The Contract templates hint says "on a computer".
+- **Docs:** plan §8.2 (Modified), build order step 5; End-State guide §32; README Status.
+
+## 2026-11-15: Money carried from a lost pup is a credit (Payment Schedule plan §3.2a, D20)
+
+- **Asked (owner):** build §3.2a, keeping the money right. Money becomes a credit only when she
+  puts the family back on the list; a straight refund writes nothing.
+- **Change (data):** a carry (a lost pup's **Carry it to their next pup**, a back-out's Move the
+  deposit) adds a credit for funds received to the entry (`receivedCredits.carriedCredit`:
+  every use ticked, dated by the lost sale's `deposit_date` else that day, "Carried over from
+  *pup*'s sale", `from_sale_id`), never `carried_payment`. The next sale keeps its own price and
+  deposit (no more inflated or short deposit). `recordPick` / `recordSideSale` still place the
+  family at once when their credits leave nothing of the deposit to send (the sale's
+  statement), the deposit received on the pick's / side sale's date, never the credit's;
+  otherwise the rest is asked for. Placement no longer clears the carried money (that would
+  have dropped the credit). An older `carried_payment` reads as one credit
+  (`creditsWithCarried`) and moves into `received_credits` on the next credit write or
+  placement. `from_sale_id` added to `referenceRegistry.js` (`SALE_REFERENCES`, scans).
+- **Change (app):** the pick dialog, deposit dialog, family page status line and "deposit is
+  already in" prompt, side-sale message, status-page pick note and lost-pup dialog say the
+  carried money is a credit. Deposit received prefills the sale's `deposit_date`, else today:
+  never a credit's date (the credit-covered `paidDate` split is gone).
+- **Tests:** `tests/waitlistLostPup.test.js` (rewritten for the credit; +5: above, below, refund,
+  side sale, a second lost pup), `tests/cloudWaitlist.test.js` (the back-out's moved deposit is
+  a credit). `node --test` 1962 pass.
+- **Found:** a back-out's Move the deposit counted that deposit twice in Financials: the
+  cancelled sale kept it as earned and the next sale earned it again through the credit (the
+  same before this change). Fixed in the next entry.
+- **Docs:** plan §3.2a (Built), §11; End-State guide (credits, picks, lost pup, back-out,
+  reference scans); Waitlist Spec §16.11 step 5 (Modified); Family Requests plan §7; README.
+- No new files, no schema change (new fields sit inside `received_credits`, already private).
+
+## 2026-11-15: A moved deposit isn't income on the cancelled sale
+
+- **Decided (owner):** credits are funds held for the buyer to pay a future charge, not income
+  until that charge is satisfied, so a deposit moved off a cancelled sale isn't income there.
+- **Change (data):** `incomeView.ledgerComponents` takes `carriedOut`: on a released (not lost)
+  sale, that much of what was paid is taken off its earned lines, the deposit first, then the
+  rest in order. `carriedOutBySale(entries)` sums every entry's credits naming the sale
+  (`from_sale_id`, an older `carried_payment` too), archived entries included;
+  `getIncomeRows` loads archived entries for it (fee income and credits still skip them).
+  It's earned on the sale the credit pays, once. Extras she kept and was paid for still count.
+- **Tests:** `tests/waitlistLostPup.test.js` +3 (a moved deposit: 0 on the cancelled sale, 500 on
+  the next, kept training still earned; Keep the deposit still earns it; an older
+  carried_payment). `node --test` 1965 pass.
+- **Docs:** End-State guide (sale income); plan §3.2a (Modified); Family Requests plan §7; README.
+- `CACHE_NAME` bumped to `kennelos-shell-v142` (owner asked), covering this session's batch: the
+  preview's field list, Place fields computer only, the lost-pup credit and this.
