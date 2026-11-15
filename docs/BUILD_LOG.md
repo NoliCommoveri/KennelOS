@@ -4926,3 +4926,5 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide §9, §10 (backup, merge rules, duplicates), dog identity, Dog Cards;
   `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed.
+- `CACHE_NAME` bumped to `kennelos-shell-v144` (owner asked), covering this session's batches:
+  the K13 policy and deploy gate, Waitlist Fixes step 5 and the back-out flow, and fix step 4.
