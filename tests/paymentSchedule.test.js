@@ -542,3 +542,44 @@ test('finalDueDate: the last due date\'s', () => {
   assert.equal(finalDueDate(paymentStatement(sale({ balance_due_date: '2026-12-10' }), opts())), '2026-12-10');
   assert.equal(finalDueDate(null), null);
 });
+
+// Fees charged back (Account.fee_charge_back) ride on the LAST payment, whatever the
+// earlier due dates cover: the owner charges them back, and collects them at the end.
+test('a fee charged back is owed only on the final due date, never an earlier one that covers everything', async () => {
+  const { feeChargeBackOffers, chargesWithPaymentFee, paymentFeeChargeBack } = await import('../shared/data/extraCharges.js');
+  const paypal = { id: 'pp', name: 'PayPal', account_type: 'payment_service', fee_percent: 3.49, fee_fixed: 0.49, fee_charge_back: true };
+  const zelle = { id: 'z', name: 'Zelle', account_type: 'payment_service', fee_charge_back: false };
+  const accountsById = new Map([[paypal.id, paypal], [zelle.id, zelle]]);
+  const half = { id: 'half', due: 'at_weeks', n: 7, covers: ['all'], percent: 50, basis: 'total' };
+  const base = sale({ deposit_paid_via_account_id: 'pp', payment_schedule: [half, final],
+    payments: [{ id: 'p1', amount: 1000, date: '2026-11-10', account_id: 'pp' }, { id: 'p2', amount: 100, date: '2026-11-11', account_id: 'z' }] });
+
+  // What there is to charge back: the deposit's fee and payment 1's (PayPal), not Zelle's.
+  const before = paymentStatement(base, opts());
+  const offers = feeChargeBackOffers(base, accountsById, { depositPaid: true, remaining: before.remaining });
+  assert.deepEqual(offers.map((o) => o.fee_for), ['deposit', 'payment:p1']);
+  assert.equal(offers[1].amount, paymentFeeChargeBack(base.payments[0], paypal).amount);
+  assert.match(offers[1].label, /^PayPal fee \(payment of 2026-11-10\)$/);
+
+  const withFees = { ...base, extra_charges: offers.map((o, i) => ({ id: `f${i}`, ...o })) };
+  const st = paymentStatement(withFees, opts());
+  const fees = sum(offers, (o) => o.amount);
+  const [first, last] = st.dueDates;
+  assert.equal(first.coveredTotal, 2500, 'the 50% date covers the sale without the fees');
+  assert.equal(first.threshold, 1250);
+  assert.equal(last.coveredTotal, sum([2500, fees]));
+  assert.equal(last.owed, sum([2500 - 500 - 1100, fees]), 'the fees are on the final payment');
+  assert.equal(feeChargeBackOffers(withFees, accountsById, { depositPaid: true, remaining: st.remaining }).length, 0, 'offered once');
+
+  // An edit follows the payment; removing the payment takes its fee off.
+  const moved = chargesWithPaymentFee(withFees, 'p1', { ...base.payments[0], account_id: 'z' }, zelle);
+  assert.deepEqual(moved.map((x) => x.fee_for), ['deposit']);
+  const bigger = chargesWithPaymentFee(withFees, 'p1', { ...base.payments[0], amount: 2000 }, paypal);
+  assert.ok(bigger[1].amount > offers[1].amount);
+  assert.deepEqual(chargesWithPaymentFee(withFees, 'p1', null).map((x) => x.fee_for), ['deposit']);
+
+  // A sale whose price already carries the fee is never charged it again.
+  assert.deepEqual(feeChargeBackOffers({ ...base, fee_passed_to_buyer: true }, accountsById, { depositPaid: true, remaining: before.remaining }), []);
+  // A payment that paid the last of it has no later payment for its fee to ride on.
+  assert.deepEqual(feeChargeBackOffers({ ...base, deposit_paid_via_account_id: null }, accountsById, { depositPaid: true, remaining: 0 }), []);
+});

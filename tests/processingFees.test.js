@@ -105,12 +105,35 @@ test('a sale paid in full nets exactly price − fee, whatever the rounding', as
   assert.equal(row.anticipated, 0);
 });
 
-test('a cancelled sale keeps only the paid share of the fee; a lost sale has none', async () => {
+test('a cancelled sale keeps the fee of what was paid; a lost sale keeps it as a cost', async () => {
   const s = await makeSale({ status: 'cancelled' });
   let row = await saleRow();
-  assert.deepEqual(feeLines(row).map((c) => [c.amount, c.state]), [[-50, 'earned']], 'the deposit stays, and so does its share of the fee');
+  assert.deepEqual(feeLines(row).map((c) => [c.amount, c.state]), [[-50, 'earned']], 'the deposit stays, and so does its fee');
   await saleRepo.update(s.id, { status: 'voided', end_reason: 'pup_died' });
-  assert.equal(await saleRow(), undefined, 'a voided sale counts nothing, fee included');
+  row = await saleRow();
+  // Review K10-4: the processor keeps its fee on a refund, so it stays in her books.
+  assert.deepEqual(row.components.map((c) => [c.component, c.amount, c.state]), [['processing_fee', -50, 'earned']]);
+});
+
+// Review K10-4: a Stripe deposit and a Zelle balance. The fee was taken from the deposit.
+test('each payment carries its own fee: a Stripe deposit\'s fee is on the deposit, not spread over the balance', async () => {
+  const stripe = await accountRepo.create({ name: 'Stripe', account_type: 'payment_service', fee_percent: 2.9, fee_fixed: 0.3 });
+  const zelle = await accountRepo.create({ name: 'Zelle', account_type: 'payment_service' });
+  const s = await makeSale({ price: 3000, deposit_amount: 500, transport_fee: 300, sales_channel_account_id: null, deposit_paid_via_account_id: stripe.id,
+    balance_paid_via_account_id: zelle.id, processing_fee_amount: 14.8 });
+  let row = await saleRow();
+  assert.deepEqual(feeLines(row).map((c) => [c.amount, c.state]), [[-14.8, 'earned']], 'all of it on the deposit she received');
+  assert.equal(row.earned, 485.2, 'what she actually got for the deposit');
+
+  // Stripe's own report wins over the estimate.
+  await saleRepo.update(s.id, { processing_fee_reports: [{ ref: 'pi_1', fee: 15.1, date: '2026-09-01', component: 'deposit' }], processing_fee_amount: 15.1 });
+  assert.deepEqual(feeLines(await saleRow()).map((c) => c.amount), [-15.1]);
+
+  // The family backs out, deposit kept: the whole fee stays; refunded (voided): it stays as a cost.
+  await saleRepo.update(s.id, { status: 'cancelled' });
+  assert.equal((await saleRow()).earned, 484.9);
+  await saleRepo.update(s.id, { status: 'voided', end_reason: 'pup_died' });
+  assert.equal((await saleRow()).earned, -15.1);
 });
 
 test('the invoice and what the buyer has paid never show the fee', async () => {
