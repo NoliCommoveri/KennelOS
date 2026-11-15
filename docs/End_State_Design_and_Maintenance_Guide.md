@@ -438,7 +438,8 @@ and it is blocked while anything points at the record.
   counted by reading every row (`countReferences`), e.g. a training stay's
   `events.details.sale_id` in `SALE_REFERENCES`. A path `list[].key` matches any item of
   the list whose `key` is the id: a sale's `payments[].account_id` (§21.3) in the Account
-  references.
+  references, and a family's `received_credits[].from_sale_id` (money carried from a lost
+  pup's sale; `carried_payment.from_sale_id` on older entries) in `SALE_REFERENCES`.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
@@ -2058,10 +2059,20 @@ restored into Lite keeps its waitlist rows, dormant.
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
   of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
-  of the deposit. When the credit covers the whole deposit, Deposit received prefills the
-  credit's date as the sale's `deposit_date` (`paidDate`) while the offer, placement and
-  next turn are dated today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
+  of the deposit. A credit never dates a deposit: Deposit received prefills the sale's
+  `deposit_date`, else today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
   deposit carry only what was paid beyond the credit, which stays on the entry.
+  - **Money carried from a lost pup** (Payment Schedule plan §3.2a, D20) is a credit like
+    any other, written only when she puts the family back on the list with it (a lost pup's
+    **Carry it to their next pup**, a back-out's Move the deposit; a refund writes none):
+    `receivedCredits.carriedCredit`, every use ticked, dated when it was paid (the lost
+    sale's `deposit_date`, else that day), note "Carried over from *pup*'s sale",
+    `from_sale_id` the lost sale (`carriedCreditsOf` finds them). The next sale keeps its own
+    price and deposit; the credit pays deposit, price, boarding, extras, transport last.
+    An older entry's `carried_payment` (`{ amount, date, from_sale_id }`) reads as one such
+    credit (`creditsOf`, through `creditsWithCarried`), and the next write of the entry's
+    credits or placement moves it into `received_credits` and clears the field; nothing
+    writes it any more.
   Tests: `tests/receivedCredits.test.js`.
 - **`invoice_number` / `invoice_notes`** (private): a typed document number and notes the
   invoice generator keeps on the entry while the family has no sale (§24, D14).
@@ -2376,13 +2387,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
   pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
-  moves on (`paidDate` sets the sale's `deposit_date` when the money came in earlier). A
-  family with `carried_payment` (a lost pup's money) has its deposit in already: `recordPick`
-  gives the Sale that amount as its deposit and goes straight on to `confirmDeposit` (paid on
-  `carried_payment.date`, the turn ending on the pick date), returning its result with
-  `depositDone: true` (`false` otherwise). Every path takes it: the pick dialog (which then
-  has no "deposit is already in" box), `recordOutcome('accepted')`, and a family's pick on
-  their status page. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
+  moves on (`paidDate` sets the sale's `deposit_date` when she enters an earlier date). A
+  family carrying money from a lost pup (a credit with `from_sale_id`, §29's credits) gets a
+  Sale with its own price and deposit; when their credits leave nothing of the deposit to
+  send (the sale's statement), `recordPick` goes straight on to `confirmDeposit`, the deposit
+  received on the pick's date, never the credit's (`depositDone: true`; `false` otherwise,
+  and the rest of the deposit is asked for). Every path takes it: the pick dialog (which then
+  has no "deposit is already in" box), `recordOutcome('accepted')`, a family's pick on
+  their status page, and a side sale (`recordSideSale`, on the side sale's date). `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
   `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
@@ -2397,7 +2409,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
   refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
-  pick (`carried_payment`, paid as that pick's deposit when it's recorded). Never automatic: the Sale page (and the family page's **End the
+  pick, as a credit for funds received (`carriedCredit`, above); none = she refunds it and
+  no credit is written. Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
   `assets/salePrompts.js`.
 - **Family pages without the list** (Waitlist Fixes Plan E3): a family who bought before she
@@ -2791,7 +2804,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `approveBackOut`: ticked extras off, the rest `kept_after_cancel` (still owed: income
   keeps their parts on a cancelled or voided sale), ticked events archived; keep → sale
   `cancelled`, entry `withdrawn`; move → sale `cancelled`, entry reopened `active` at the
-  end of the line (`position_anchor_date` today) with `carried_payment` for a paid deposit;
+  end of the line (`position_anchor_date` today) with a carried credit for a paid deposit;
   refund → sale `voided` with end reason `buyer_backed_out` (never `restoresFamily`), entry
   `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
   health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
@@ -3241,7 +3254,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
   - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
     `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).
-    The tab is opened before the await and has no `opener`.
+    The tab is opened before the await and has no `opener`. Computer only: Firma's editor
+    places a field with a mouse (a drag from its field list, or a right-click on the page)
+    and opens zoomed in beside its 320 px field list on a phone, so on a device with no
+    mouse (`(any-pointer: fine)` false) Place fields says so instead of opening it.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
     `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`

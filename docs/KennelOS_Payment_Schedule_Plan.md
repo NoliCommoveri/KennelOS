@@ -155,6 +155,20 @@ optional, read as "not set" from older backups.
   stays readable (backups); new carries no longer write it.
 - Waitlist (Pro) only, like the lost-pup flow and credits.
 
+**Built (2026-11-15):** as above, with these as built (owner: money becomes a credit only when
+she puts the family back on the list; a straight refund writes none):
+- Both carries write the credit: a lost pup's **Carry it to their next pup** and a back-out's
+  Move the deposit (`receivedCredits.carriedCredit`, dated by the lost sale's `deposit_date`,
+  else that day). Refunds write nothing.
+- The pick (and a side sale) still places the family at once, but only when their credits
+  leave nothing of the deposit to send; the deposit is received on the pick's (side sale's)
+  date. Short of that, the rest of the deposit is asked for and the pick waits like any other.
+- An older `carried_payment` reads as one credit (`creditsWithCarried`) and moves into
+  `received_credits` on the next write of the entry's credits, or when they're placed.
+- `from_sale_id` is in `referenceRegistry.js` (`SALE_REFERENCES`, a scan).
+- Tests: `tests/waitlistLostPup.test.js` (carry equal to, above and below the deposit, a
+  refund, a side sale, an older `carried_payment`, a second lost pup).
+
 ### 3.3 Extras on their own dates
 
 - **`own_due_dates: true`** on a price-list extra (`Kennel.extra_charge_list[]`) and on a
@@ -392,11 +406,14 @@ questions (they were about template fields) and step 4 (not needed: no template 
 and the workspace was made fresh). Step 2 is instead the preview's list: after **Preview**, the
 Send dialog lists every detail field on the template by its label, with the value KennelOS
 sent it and whether Firma filled it (`cloudEsign.previewNotes` `rows`), since Firma's
-read-only preview shows a field's box, not its value. Step 5 is still open: on a phone the
+read-only preview shows a field's box, not its value. Step 5: on a phone the
 template editor opens at 100% (zoomed in), and fields can't be placed. Seen in Firma's script:
 its fit measures the page area beside a fixed 320 px field sidebar, which a phone leaves at
 about 70 px, so it skips the fit; `autoFit` is already on and doesn't help. Placing a field is
 a desktop drag from the sidebar or a right-click on the page, with no touch path.
+**Modified (owner, 2026-11-15):** Place fields is computer only: on a device with no mouse it
+says so instead of opening the editor (`esignUI`, `(any-pointer: fine)`). Sending works from
+a phone.
 
 ---
 
@@ -461,8 +478,7 @@ a desktop drag from the sidebar or a right-click on the page, with no touch path
 ## 11. Build order
 
 **Modified:** §3.2a (D20: carried money becomes a credit; deposit dates never from a credit's
-date) belongs to no step below; it's still to build. Until then a credited deposit's income
-is dated by `deposit_date`, which those three places can still set from a credit's date.
+date) belonged to no step below; it's built (§3.2a, Built).
 
 1. **`data/paymentSchedule.js` + the combination test** (§6.3), tests first. Credits move onto
    the shared allocator.
@@ -476,7 +492,7 @@ is dated by `deposit_date`, which those three places can still set from a credit
    **Built:** the prefills (§8.1) and the relabel (§8.2 step 1: proven on one field, then
    every field), the preview's list of every placed field with the value sent (§8.2 step 2,
    D37, D38). **Modified (D38):** per-template fields dropped, moving templates not needed.
-   Open: the editor on a phone (§8.2 step 5: zoomed in, fields can't be placed).
+   **Modified (owner, 2026-11-15):** Place fields is computer only (§8.2 step 5).
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
    **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,

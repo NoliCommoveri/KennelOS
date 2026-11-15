@@ -1665,6 +1665,10 @@ get their place back and be offered the next pup.
    application fee stays credited toward their next pup either way.
    **Modified:** a carried deposit is recorded as paid when the next pick is recorded (the
    pick places them and the turn moves on); she no longer taps Deposit received for it.
+   **Modified (Payment Schedule plan §3.2a, D20):** carried money is a credit for funds
+   received on their entry, not the next pick's deposit: that sale keeps its own deposit and
+   price, and the pick places them only when the credit covers the deposit (received on the
+   pick's date). `carried_payment` is no longer written; an older one reads as that credit.
 6. **No new offer by itself unless she turned it on:** a new automatic-offer moment,
    `restored`, off by default. With it on and nobody holding a turn, the next turn is offered
    at once (to them, when they're next). A family holding a turn keeps it; the restored family

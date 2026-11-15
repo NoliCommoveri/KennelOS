@@ -4620,3 +4620,41 @@ tick box per template; buyers get an emailed link.
 - **Docs:** Payment Schedule plan §8.2 (Modified, D38), D38, build order step 5; End-State guide
   §32 (the preview); launch checklist (the preview check); README Status.
 - No new files, no Worker change. Cache not bumped yet.
+
+## 2026-11-15: Place fields is computer only (Payment Schedule plan §8.2 step 5)
+
+- **Decided (owner):** Place fields stays on a computer for now (Firma's editor can't place a
+  field by touch and opens zoomed in on a phone; see the entry above).
+- **Change (app):** `esignUI`: on a device with no mouse (`(any-pointer: fine)` false), Place
+  fields says placing fields needs a computer and doesn't open the editor; sending still works.
+  The Contract templates hint says "on a computer".
+- **Docs:** plan §8.2 (Modified), build order step 5; End-State guide §32; README Status.
+
+## 2026-11-15: Money carried from a lost pup is a credit (Payment Schedule plan §3.2a, D20)
+
+- **Asked (owner):** build §3.2a, keeping the money right. Money becomes a credit only when she
+  puts the family back on the list; a straight refund writes nothing.
+- **Change (data):** a carry (a lost pup's **Carry it to their next pup**, a back-out's Move the
+  deposit) adds a credit for funds received to the entry (`receivedCredits.carriedCredit`:
+  every use ticked, dated by the lost sale's `deposit_date` else that day, "Carried over from
+  *pup*'s sale", `from_sale_id`), never `carried_payment`. The next sale keeps its own price and
+  deposit (no more inflated or short deposit). `recordPick` / `recordSideSale` still place the
+  family at once when their credits leave nothing of the deposit to send (the sale's
+  statement), the deposit received on the pick's / side sale's date, never the credit's;
+  otherwise the rest is asked for. Placement no longer clears the carried money (that would
+  have dropped the credit). An older `carried_payment` reads as one credit
+  (`creditsWithCarried`) and moves into `received_credits` on the next credit write or
+  placement. `from_sale_id` added to `referenceRegistry.js` (`SALE_REFERENCES`, scans).
+- **Change (app):** the pick dialog, deposit dialog, family page status line and "deposit is
+  already in" prompt, side-sale message, status-page pick note and lost-pup dialog say the
+  carried money is a credit. Deposit received prefills the sale's `deposit_date`, else today:
+  never a credit's date (the credit-covered `paidDate` split is gone).
+- **Tests:** `tests/waitlistLostPup.test.js` (rewritten for the credit; +5: above, below, refund,
+  side sale, a second lost pup), `tests/cloudWaitlist.test.js` (the back-out's moved deposit is
+  a credit). `node --test` 1962 pass.
+- **Found, not changed (owner to decide):** a back-out's Move the deposit counts that deposit
+  twice in Financials: the cancelled sale keeps it as earned (a cancelled sale keeps what was
+  paid) and the next sale earns it again through the credit. Same before this change.
+- **Docs:** plan §3.2a (Built), §11; End-State guide (credits, picks, lost pup, back-out,
+  reference scans); Waitlist Spec §16.11 step 5 (Modified); Family Requests plan §7; README.
+- No new files, no schema change (new fields sit inside `received_credits`, already private).

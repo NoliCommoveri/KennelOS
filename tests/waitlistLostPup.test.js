@@ -2,8 +2,9 @@
 // through the real actions and repos on the in-memory database: a sale VOIDED (the
 // pup died or failed a health check before going home) or RETURNED for a health
 // problem puts the family back in line in their original place, with that litter
-// theirs to be offered again; what they'd paid can be carried to their next pup's
-// deposit; the next turn follows automatic offers ('restored'); a cancelled sale or
+// theirs to be offered again; what they'd paid can be carried to their next pup as a
+// credit for funds received (Payment Schedule plan §3.2a, D20), never as that sale's
+// deposit, and never dating a deposit; the next turn follows automatic offers ('restored'); a cancelled sale or
 // a buyer's-choice return never restores anyone. Plus the Sale's end reason and the
 // Health hold disposition.
 import { test, before, beforeEach } from 'node:test';
@@ -103,7 +104,12 @@ test('the pup died after the deposit: the family is back in their original place
   assert.equal(lee.status, 'active');
   assert.equal(lee.placed_sale_id, null);
   assert.equal(lee.fee_received_date, '2026-01-01', 'their own fee date: their original place');
-  assert.deepEqual(lee.carried_payment, { amount: 500, date: LATER, from_sale_id: sale.id });
+  assert.equal(lee.carried_payment ?? null, null, 'no carried_payment: carried money is a credit');
+  assert.equal(lee.received_credits.length, 1);
+  const [cr] = lee.received_credits;
+  assert.deepEqual([cr.amount, cr.date, cr.from_sale_id, cr.note], [500, DAY, sale.id, 'Carried over from Pip\'s sale'],
+    'a credit for what they paid, dated when they paid it (the lost sale\'s deposit date)');
+  assert.deepEqual(cr.applies_to, ['fee', 'deposit', 'price', 'extras'], 'it pays toward anything, like any new credit');
   assert.equal(await position(ids.lee), 1);
   assert.equal((await contactRepo.getById(lee.contact_id)).waitlist_status, 'active');
 
@@ -125,18 +131,25 @@ test('the pup died after the deposit: the family is back in their original place
   const turn = await actions.offerNext(A.id, { today: LATER });
   assert.equal(turn.entry_id, ids.lee);
   assert.deepEqual(turn.offers[0].eligible_dog_ids, [ids.max]);
-  // Their carried payment is their deposit, already in: the pick places them.
+  // Their credit covers Max's deposit: the pick places them.
   const picked = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
-  const next = picked.sale;
+  const next = await saleRepo.getById(picked.sale.id);
   assert.equal(picked.depositDone, true, 'no "Deposit received" tap needed');
   assert.equal(picked.offer.outcome, 'accepted');
-  assert.equal(next.deposit_amount, 500, 'what they paid on Pip is their deposit on Max');
+  assert.equal(next.deposit_amount, 500, 'Max\'s own deposit');
+  assert.equal(next.price, 2000, 'and his own price');
   assert.equal(next.status, 'deposit_paid');
-  assert.equal(next.deposit_date, LATER, 'paid on the date they paid it (carried_payment.date)');
+  assert.equal(next.deposit_date, LATER, 'received on the pick\'s date, never the credit\'s');
   const placed = await waitlistEntryRepo.getById(ids.lee);
   assert.equal(placed.status, 'placed');
   assert.equal(placed.placed_sale_id, next.id);
-  assert.equal(placed.carried_payment, null, 'used up');
+  assert.equal(placed.received_credits.length, 1, 'the credit stays: it is what paid the deposit');
+
+  // Max's statement: the deposit paid by the credit, 1500 still owed; nothing counted twice.
+  const { statement } = await income.getSaleStatement(next.id);
+  assert.deepEqual([statement.deposit.owed, statement.remaining], [0, 1500]);
+  assert.equal(income.paidOnSale(next, { received: (await income.getSaleCredits(next.id)).credit.received }), 500);
+  assert.equal(income.paidBesidesCredits(next, placed), 0, 'nothing was paid on Max beyond their credit: lose him too and there is nothing more to carry');
 
   // The voided sale counts nothing; the deposit counts once, on Max's sale.
   const rows = await income.getIncomeRows();
@@ -229,11 +242,14 @@ test('a sale\'s end reason must fit its status, and leaves with it', async () =>
   assert.equal(ret.end_reason ?? null, null, 'the repo allows a return without one (the form asks)');
 });
 
-test('a carried deposit is paid at the pick, whichever way the pick is recorded, on the date they paid it', async () => {
+test('an older entry\'s carried_payment reads as a credit: the pick, however it is recorded, takes the deposit from it on the pick\'s date', async () => {
   const sale = await placeLee();
   await saleRepo.update(sale.id, { status: 'voided', end_reason: 'pup_died' });
-  await actions.restoreAfterLostSale(sale.id, { date: LATER, carry: { amount: 500 } });
+  await actions.restoreAfterLostSale(sale.id, { date: LATER });
+  // As an older build left it (and a backup restores it).
   await waitlistEntryRepo.update(ids.lee, { carried_payment: { amount: 500, date: DAY, from_sale_id: sale.id } });
+  const credit = (await income.getEntryCredit(ids.lee)).credit;
+  assert.deepEqual([credit.total, credit.remaining], [500, 500], 'one credit of 500');
   const turn = await actions.offerNext(A.id, { today: LATER });
   // "Accepted" at once (the pick dialog's other path) goes through the same place.
   const res = await actions.recordOutcome(turn.offers[0].id, 'accepted', { chosenDogId: ids.max, date: LATER });
@@ -241,9 +257,81 @@ test('a carried deposit is paid at the pick, whichever way the pick is recorded,
   assert.equal(res.offer.outcome, 'accepted');
   assert.equal(res.offer.outcome_date, LATER, 'the turn ends today');
   const next = await saleRepo.getById(res.sale.id);
-  assert.deepEqual([next.status, next.deposit_amount, next.deposit_date], ['deposit_paid', 500, DAY]);
+  assert.deepEqual([next.status, next.deposit_amount, next.deposit_date], ['deposit_paid', 500, LATER], 'never the carried date');
   assert.equal((await dogRepo.getById(ids.max)).disposition, 'placed');
-  assert.equal((await waitlistEntryRepo.getById(ids.lee)).carried_payment, null);
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.equal(lee.carried_payment, null, 'moved into their credits, not lost');
+  assert.deepEqual(lee.received_credits.map((c) => [c.amount, c.date, c.from_sale_id]), [[500, DAY, sale.id]]);
+  assert.equal((await income.getSaleStatement(next.id)).statement.remaining, 1500);
+});
+
+// Lee placed with Pip and voided; `paid` recorded on Pip, then carried. → Pip's sale.
+async function loseAndCarry(carry) {
+  const sale = await placeLee();
+  await saleRepo.update(sale.id, { status: 'voided', end_reason: 'pup_died' });
+  await dogRepo.update(ids.pip, { status: 'deceased', date_of_death: LATER });
+  await actions.restoreAfterLostSale(sale.id, { date: LATER, carry: carry ? { amount: carry } : null });
+  return sale;
+}
+
+test('carried money above the deposit: the deposit is its usual amount, and the rest comes off the price', async () => {
+  await loseAndCarry(800);
+  const turn = await actions.offerNext(A.id, { today: LATER });
+  const picked = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
+  assert.equal(picked.depositDone, true);
+  const next = await saleRepo.getById(picked.sale.id);
+  assert.deepEqual([next.deposit_amount, next.deposit_date, next.status], [500, LATER, 'deposit_paid'], 'no inflated deposit');
+  const { statement } = await income.getSaleStatement(next.id);
+  assert.equal(statement.remaining, 1200, '2000 less the 800 they carried');
+  const rows = (await income.getIncomeRows()).filter((r) => r.source_id === next.id);
+  const sum = (k) => Math.round(rows.reduce((n, r) => n + r[k], 0) * 100) / 100;
+  // Credited income is earned on each charge's due date (D21): the deposit when received,
+  // the 300 toward the price on its due date, the pickup (eight weeks from 2026-08-01, gone by).
+  assert.equal(sum('earned'), 800);
+  assert.equal(sum('earned') + sum('anticipated'), 2000, 'the sale counts its own price once');
+});
+
+test('carried money below the deposit: the rest of the deposit is asked for, and the pick doesn\'t place them', async () => {
+  await loseAndCarry(300);
+  const turn = await actions.offerNext(A.id, { today: LATER });
+  const picked = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
+  assert.equal(picked.depositDone, false);
+  const next = await saleRepo.getById(picked.sale.id);
+  assert.deepEqual([next.deposit_amount, next.deposit_date ?? null, next.status], [500, null, 'deposit_pending']);
+  const { statement } = await income.getSaleStatement(next.id);
+  assert.deepEqual([statement.deposit.paid, statement.deposit.owed], [300, 200], 'they send 200');
+  assert.equal((await waitlistEntryRepo.getById(ids.lee)).status, 'active');
+});
+
+test('a refund carries nothing: no credit is written', async () => {
+  await loseAndCarry(0);
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual([lee.received_credits ?? [], lee.carried_payment ?? null], [[], null]);
+  assert.equal((await income.getEntryCredit(ids.lee)).credit, null);
+});
+
+test('a side sale for a family carrying money: the deposit is received on the side sale\'s date when the credit covers it', async () => {
+  await loseAndCarry(500);
+  const res = await actions.recordSideSale(ids.lee, { dogId: ids.max, registration: 'limited', date: '2026-10-25' });
+  assert.equal(res.depositDone, true);
+  const s = await saleRepo.getById(res.sale.id);
+  assert.deepEqual([s.deposit_amount, s.deposit_date, s.status], [500, '2026-10-25', 'deposit_paid']);
+  assert.equal((await income.getSaleStatement(s.id)).statement.remaining, 1500);
+});
+
+test('a second lost pup: only what they paid beyond their credit is carried again', async () => {
+  await loseAndCarry(500);
+  const turn = await actions.offerNext(A.id, { today: LATER });
+  const { sale } = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
+  // Max fails his health check too: the credit that paid his deposit is theirs again.
+  await saleRepo.update(sale.id, { status: 'voided', end_reason: 'failed_health_check' });
+  const entry = await waitlistEntryRepo.getById(ids.lee);
+  assert.equal(income.paidBesidesCredits(await saleRepo.getById(sale.id), entry, { asStatus: 'deposit_paid' }), 0, 'nothing paid beyond the credit');
+  await actions.restoreAfterLostSale(sale.id, { date: '2026-10-25' });
+  const credit = (await income.getEntryCredit(ids.lee)).credit;
+  assert.deepEqual([credit.total, credit.remaining], [500, 500], 'the one credit, held again');
+  const rows = await income.getIncomeRows();
+  assert.equal(rows.filter((r) => r.source_id === sale.id).reduce((n, r) => n + r.earned, 0), 0, 'a lost sale counts nothing');
 });
 
 test('a family with nothing carried still waits for the deposit at the pick', async () => {

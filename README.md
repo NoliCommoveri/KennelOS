@@ -90,10 +90,11 @@ backup, carries a program from Lite to Pro.
     are built with Payment schedules step 6). Five
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
-    payments received, the per-family invoice/receipt generator and Firma fields per template.
-    Steps 1–8 built (guide §21.3, §24 and the sections they name): every surface reads the
-    statement. Per-template Firma fields are dropped (D38). Open: Place fields on a phone
-    (plan §8.2 step 5), the owner's preview check (`docs/LAUNCH_CHECKLIST.md`), and §3.2a (lost-pup money as a credit, D20), in no step yet.
+    payments received and the per-family invoice/receipt generator. Steps 1–8 built (guide
+    §21.3, §24 and the sections they name): every surface reads the statement, and money
+    carried from a lost pup is a credit (§3.2a). Per-template Firma fields are dropped (D38);
+    Place fields is computer only. Open: the owner's preview check (`docs/LAUNCH_CHECKLIST.md`)
+    and how a back-out's moved deposit counts in Financials (BUILD_LOG 2026-11-15).
   - Dog titles as a field (`docs/KennelOS_Dog_Titles_Field_Plan.md`): built. Its
     `origin_country` website section waits on KennelPort merging its side.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
