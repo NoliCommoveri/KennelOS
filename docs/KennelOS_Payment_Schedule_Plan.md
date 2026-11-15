@@ -392,9 +392,11 @@ questions (they were about template fields) and step 4 (not needed: no template 
 and the workspace was made fresh). Step 2 is instead the preview's list: after **Preview**, the
 Send dialog lists every detail field on the template by its label, with the value KennelOS
 sent it and whether Firma filled it (`cloudEsign.previewNotes` `rows`), since Firma's
-read-only preview shows a field's box, not its value. Step 5 needs nothing: Firma's template
-editor fits the page by default (`autoFit` defaults to `true`; `initialZoom` overrides it),
-and its signing request editor (the preview) has neither option.
+read-only preview shows a field's box, not its value. Step 5 is still open: on a phone the
+template editor opens at 100% (zoomed in), and fields can't be placed. Seen in Firma's script:
+its fit measures the page area beside a fixed 320 px field sidebar, which a phone leaves at
+about 70 px, so it skips the fit; `autoFit` is already on and doesn't help. Placing a field is
+a desktop drag from the sidebar or a right-click on the page, with no touch path.
 
 ---
 
@@ -452,7 +454,7 @@ and its signing request editor (the preview) has neither option.
 | D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
 | D36 | Step 7: Today's payment nudges cover every open sale (no schedule = its one due date). Pups are going home's Balance item becomes **Payments**, done when nothing is owed. Review my waitlist takes payments due: Received / Not yet / Open the sale. Pups are going home offers a pickup message (the day, what's owed by then, final-payment methods). |
 | D37 | §8.2 step 2 is checked with a preview of a real send (the Send dialog's Preview and its notes on filled and empty fields), not with her Firma test API key. |
-| D38 | No per-template Firma fields (§8.2 steps 3–4 dropped): the grouped workspace labels stay. §8.2 step 2 is the preview's list of every placed field by label, with the value sent. `autoFit` is already Firma's default. |
+| D38 | No per-template Firma fields (§8.2 steps 3–4 dropped): the grouped workspace labels stay. §8.2 step 2 is the preview's list of every placed field by label, with the value sent. |
 
 ---
 
@@ -473,8 +475,8 @@ is dated by `deposit_date`, which those three places can still set from a credit
 5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
    **Built:** the prefills (§8.1) and the relabel (§8.2 step 1: proven on one field, then
    every field), the preview's list of every placed field with the value sent (§8.2 step 2,
-   D37, D38). **Modified (D38):** per-template fields dropped, moving templates not needed,
-   `autoFit` already Firma's default.
+   D37, D38). **Modified (D38):** per-template fields dropped, moving templates not needed.
+   Open: the editor on a phone (§8.2 step 5: zoomed in, fields can't be placed).
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
    **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,

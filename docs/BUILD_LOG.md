@@ -4600,14 +4600,16 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide (the sale's payment table).
 - No new files, no schema change. `CACHE_NAME` bumped to `kennelos-shell-v141` (owner asked).
 
-## 2026-11-15: Payment schedules step 5 closed (D38): the preview lists every field and its value
+## 2026-11-15: Payment schedules step 5 (D38): the preview lists every field and its value
 
 - **Decided (owner, D38):** no per-template Firma fields (plan §8.2 step 3 dropped); the grouped
   workspace labels stay. Step 4 (moving templates) isn't needed: no template was in use and the
   workspace is new. Step 2 is the preview's list of every placed field with the value sent.
-- **Checked against Firma's docs and script (reachable this session):** the template editor's
-  `autoFit` defaults to `true` (`initialZoom` overrides it), so it already opens fitted; the
-  signing request editor (the preview) has neither option. Step 5 needs no change.
+- **Seen (owner), traced in Firma's script (reachable this session):** on a phone the template
+  editor opens zoomed in and fields can't be placed. Its fit (`autoFit`, already on by default)
+  measures the page area beside a fixed 320 px field sidebar, about 70 px on a phone, so it
+  skips the fit and stays at 100%. Placing a field is an HTML drag from the sidebar or a
+  right-click on the page, with no touch path. Still open (plan §8.2 step 5).
 - **Change (app):** `cloudEsign.previewNotes` returns `rows`: every prefilled field on the
   template in Firma's order, `{ label, value, filled }`, the value from this device
   (`prefillValues`, matched case aside), never from the Worker. After Preview the Send dialog
