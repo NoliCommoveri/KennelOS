@@ -4854,3 +4854,4 @@ tick box per template; buyers get an emailed link.
   forfeit upon sale cancellation." (back in line with nothing credited too); the back-in-line
   email says any monies not credited are non-refundable and forfeit. Only the default
   templates change: a breeder's own reworded email stays hers.
+- **Then (owner):** the Keep email no longer ends "If you'd like to talk it over, send us a message from your status page."
