@@ -168,6 +168,11 @@ she puts the family back on the list; a straight refund writes none):
 - `from_sale_id` is in `referenceRegistry.js` (`SALE_REFERENCES`, a scan).
 - Tests: `tests/waitlistLostPup.test.js` (carry equal to, above and below the deposit, a
   refund, a side sale, an older `carried_payment`, a second lost pup).
+- **Modified (owner, 2026-11-15):** a cancelled sale whose deposit was moved (a back-out's
+  Move the deposit) no longer counts it as earned: it's the family's credit, held, and income
+  only on the sale it pays (D21). Before, both sales counted it. `incomeView.carriedOutBySale`
+  (from the credits' `from_sale_id`) is taken off the released sale's earned lines, the
+  deposit first; what she kept (extras paid and kept) still counts.
 
 ### 3.3 Extras on their own dates
 

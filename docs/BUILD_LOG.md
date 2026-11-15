@@ -4652,9 +4652,24 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/waitlistLostPup.test.js` (rewritten for the credit; +5: above, below, refund,
   side sale, a second lost pup), `tests/cloudWaitlist.test.js` (the back-out's moved deposit is
   a credit). `node --test` 1962 pass.
-- **Found, not changed (owner to decide):** a back-out's Move the deposit counts that deposit
-  twice in Financials: the cancelled sale keeps it as earned (a cancelled sale keeps what was
-  paid) and the next sale earns it again through the credit. Same before this change.
+- **Found:** a back-out's Move the deposit counted that deposit twice in Financials: the
+  cancelled sale kept it as earned and the next sale earned it again through the credit (the
+  same before this change). Fixed in the next entry.
 - **Docs:** plan §3.2a (Built), §11; End-State guide (credits, picks, lost pup, back-out,
   reference scans); Waitlist Spec §16.11 step 5 (Modified); Family Requests plan §7; README.
 - No new files, no schema change (new fields sit inside `received_credits`, already private).
+
+## 2026-11-15: A moved deposit isn't income on the cancelled sale
+
+- **Decided (owner):** credits are funds held for the buyer to pay a future charge, not income
+  until that charge is satisfied, so a deposit moved off a cancelled sale isn't income there.
+- **Change (data):** `incomeView.ledgerComponents` takes `carriedOut`: on a released (not lost)
+  sale, that much of what was paid is taken off its earned lines, the deposit first, then the
+  rest in order. `carriedOutBySale(entries)` sums every entry's credits naming the sale
+  (`from_sale_id`, an older `carried_payment` too), archived entries included;
+  `getIncomeRows` loads archived entries for it (fee income and credits still skip them).
+  It's earned on the sale the credit pays, once. Extras she kept and was paid for still count.
+- **Tests:** `tests/waitlistLostPup.test.js` +3 (a moved deposit: 0 on the cancelled sale, 500 on
+  the next, kept training still earned; Keep the deposit still earns it; an older
+  carried_payment). `node --test` 1965 pass.
+- **Docs:** End-State guide (sale income); plan §3.2a (Modified); Family Requests plan §7; README.

@@ -1363,7 +1363,11 @@ subject (`financials.js` `expenseInScope`).
   date (the deposit's date, each payment's, a step's paid date, the balance paid date for
   "paid in full"; each else the sale's date). What's still owed is **anticipated** on the
   due date that needs it, `due` that date ('' when it can't be known yet), `due_id` which
-  due date. Returned/cancelled keeps only what was paid (payments included). A **lost** sale
+  due date. Returned/cancelled keeps only what was paid (payments included), less any money
+  carried off it to the family's next pup as a credit (a back-out's Move the deposit:
+  `carriedOutBySale`, from every entry's credits naming it by `from_sale_id`, taken off the
+  deposit first). A credit is held money, never income until the charge it pays is (D21),
+  so it's earned on the sale the credit pays, once. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29). Extras
   kept after a family backed out stay owed on a released sale. `getIncomeRows` loads each
   sale's statement as `getSaleStatement` does (one shared `statementOpts`), with everything

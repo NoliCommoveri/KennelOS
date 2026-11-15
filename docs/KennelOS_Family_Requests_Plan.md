@@ -290,7 +290,8 @@ or "18 miles: under your 25, no charge".
   - **Keep the deposit:** sale `cancelled` (today's rule: deposit stays earned).
   - **Move the deposit:** sale `cancelled`, deposit carried (`carried_payment`, now allowed
     for a cancelled sale too; **Modified:** a credit for funds received since Payment
-    Schedule plan §3.2a) to their next pick; they go to **the end of the line** (D7,
+    Schedule plan §3.2a, and not income on the cancelled sale: it's earned once, on the sale
+    the credit pays) to their next pick; they go to **the end of the line** (D7,
     decided), on their existing entry (§7.1).
   - **Refund** (D13, decided): sale `voided`, end reason `buyer_backed_out` ("Buyer backed
     out, refunded"), so the deposit isn't income. She doesn't plan to refund, so it's built

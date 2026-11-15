@@ -341,3 +341,39 @@ test('a family with nothing carried still waits for the deposit at the pick', as
   assert.equal(res.sale.status, 'deposit_pending');
   assert.equal(res.offer.outcome, 'open');
 });
+
+// A back-out (Family Requests plan §7): Move the deposit makes it a credit for their next
+// pup. Credits are held money, never income until the charge they pay is (D21): the
+// cancelled sale no longer counts that deposit, the next sale does, once.
+const earnedOn = async (id) => Math.round((await income.getIncomeRows()).filter((r) => r.source_id === id).reduce((n, r) => n + r.earned, 0) * 100) / 100;
+
+test('a back-out that moves the deposit: not income on the cancelled sale, counted once on the next', async () => {
+  const sale = await placeLee();
+  await saleRepo.update(sale.id, { extra_charges: [{ id: 'tr', label: 'Puppy training', amount: 600, payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: DAY }, { id: 'b', percent: 50, due: 'with_balance' }] }] });
+  assert.equal(await earnedOn(sale.id), 800, 'the deposit and the training paid so far');
+  await actions.approveBackOut(ids.lee, { outcome: 'move', told: {}, date: LATER });
+  assert.equal((await saleRepo.getById(sale.id)).status, 'cancelled');
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual(lee.received_credits.map((c) => [c.amount, c.from_sale_id]), [[500, sale.id]]);
+  assert.equal(await earnedOn(sale.id), 300, 'the moved deposit is theirs, held: only the training they kept and paid for counts');
+
+  const res = await actions.recordSideSale(ids.lee, { dogId: ids.max, registration: 'limited', date: '2026-10-25' });
+  assert.equal(res.depositDone, true);
+  assert.equal(await earnedOn(res.sale.id), 500, 'earned where the credit pays the deposit');
+  assert.equal(await earnedOn(sale.id) + await earnedOn(res.sale.id), 800, 'the 500 they paid counts once');
+});
+
+test('a back-out that keeps the deposit: still income on the cancelled sale', async () => {
+  const sale = await placeLee();
+  await actions.approveBackOut(ids.lee, { outcome: 'keep', told: {}, date: LATER });
+  assert.equal(await earnedOn(sale.id), 500);
+  assert.deepEqual((await waitlistEntryRepo.getById(ids.lee)).received_credits ?? [], [], 'no credit');
+});
+
+test('an older entry\'s carried_payment from a cancelled sale is taken off that sale too', async () => {
+  const sale = await placeLee();
+  await saleRepo.update(sale.id, { status: 'cancelled' });
+  await waitlistEntryRepo.update(ids.lee, { status: 'active', placed_sale_id: null, carried_payment: { amount: 500, date: DAY, from_sale_id: sale.id } });
+  assert.equal(await earnedOn(sale.id), 0);
+  assert.equal(income.carriedOutBySale([{ received_credits: [{ id: 'c', amount: 200, date: DAY, from_sale_id: 's1' }], carried_payment: { amount: 50, from_sale_id: 's1' } }]).get('s1'), 250);
+});

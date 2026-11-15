@@ -93,8 +93,7 @@ backup, carries a program from Lite to Pro.
     payments received and the per-family invoice/receipt generator. Steps 1–8 built (guide
     §21.3, §24 and the sections they name): every surface reads the statement, and money
     carried from a lost pup is a credit (§3.2a). Per-template Firma fields are dropped (D38);
-    Place fields is computer only. Open: the owner's preview check (`docs/LAUNCH_CHECKLIST.md`)
-    and how a back-out's moved deposit counts in Financials (BUILD_LOG 2026-11-15).
+    Place fields is computer only. Open: the owner's preview check (`docs/LAUNCH_CHECKLIST.md`).
   - Dog titles as a field (`docs/KennelOS_Dog_Titles_Field_Plan.md`): built. Its
     `origin_country` website section waits on KennelPort merging its side.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
