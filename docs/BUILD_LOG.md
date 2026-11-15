@@ -4673,3 +4673,5 @@ tick box per template; buyers get an emailed link.
   the next, kept training still earned; Keep the deposit still earns it; an older
   carried_payment). `node --test` 1965 pass.
 - **Docs:** End-State guide (sale income); plan §3.2a (Modified); Family Requests plan §7; README.
+- `CACHE_NAME` bumped to `kennelos-shell-v142` (owner asked), covering this session's batch: the
+  preview's field list, Place fields computer only, the lost-pup credit and this.
