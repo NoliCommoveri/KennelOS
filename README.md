@@ -92,9 +92,8 @@ backup, carries a program from Lite to Pro.
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received, the per-family invoice/receipt generator and Firma fields per template.
     Steps 1–8 built (guide §21.3, §24 and the sections they name): every surface reads the
-    statement. Open in step 5: the preview check (plan §8.2 step 2, D37), then per-template
-    Firma fields, moving templates and `autoFit`. §3.2a (lost-pup
-    money as a credit, D20) is in no step yet.
+    statement. Per-template Firma fields are dropped (D38). Open: the owner's preview check
+    (`docs/LAUNCH_CHECKLIST.md`), and §3.2a (lost-pup money as a credit, D20), in no step yet.
   - Dog titles as a field (`docs/KennelOS_Dog_Titles_Field_Plan.md`): built. Its
     `origin_country` website section waits on KennelPort merging its side.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's

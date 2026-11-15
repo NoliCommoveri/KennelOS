@@ -3314,8 +3314,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
       `fields` (best effort, never fatal; absent when Firma didn't answer). The dialog shows
       how many are filled and each empty one with why (`cloudEsign.previewNotes`): blank on
       this contract (and where to add it), a detail KennelOS doesn't fill on a template of
-      this kind, not a KennelOS detail, or sent but left empty by Firma.
-      Fact names are compared case aside, as the Worker fills them.
+      this kind, not a KennelOS detail, or sent but left empty by Firma. Below that,
+      **On your template** lists every prefilled field on the template, by its label, with
+      the value KennelOS sent it from the device (or "Nothing sent") and whether Firma left it
+      blank (`previewNotes` `rows`). Fact names are compared case aside, as the Worker fills them.
     - **What goes in** (in the Send dialog, before any preview): every detail this send fills,
       by its label in Firma's editor, with its value from the device (`cloudEsign.sendDetails`;
       styles `.esign-detail*` in `app.css`).

@@ -4599,3 +4599,22 @@ tick box per template; buyers get an emailed link.
   facts). `node --test` 1957 pass.
 - **Docs:** End-State guide (the sale's payment table).
 - No new files, no schema change. `CACHE_NAME` bumped to `kennelos-shell-v141` (owner asked).
+
+## 2026-11-15: Payment schedules step 5 closed (D38): the preview lists every field and its value
+
+- **Decided (owner, D38):** no per-template Firma fields (plan §8.2 step 3 dropped); the grouped
+  workspace labels stay. Step 4 (moving templates) isn't needed: no template was in use and the
+  workspace is new. Step 2 is the preview's list of every placed field with the value sent.
+- **Checked against Firma's docs and script (reachable this session):** the template editor's
+  `autoFit` defaults to `true` (`initialZoom` overrides it), so it already opens fitted; the
+  signing request editor (the preview) has neither option. Step 5 needs no change.
+- **Change (app):** `cloudEsign.previewNotes` returns `rows`: every prefilled field on the
+  template in Firma's order, `{ label, value, filled }`, the value from this device
+  (`prefillValues`, matched case aside), never from the Worker. After Preview the Send dialog
+  shows **On your template (N)**: each field by its label with what was sent, "(Firma left it
+  blank)" when sent but empty, "Nothing sent: left blank" when KennelOS had nothing for it. The
+  blank-with-why warning stays above it.
+- **Tests:** `tests/esign.test.js` (the previewNotes test checks `rows`). `node --test` 1957 pass.
+- **Docs:** Payment Schedule plan §8.2 (Modified, D38), D38, build order step 5; End-State guide
+  §32 (the preview); launch checklist (the preview check); README Status.
+- No new files, no Worker change. Cache not bumped yet.

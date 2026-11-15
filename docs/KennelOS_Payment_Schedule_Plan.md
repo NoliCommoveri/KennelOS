@@ -385,8 +385,16 @@ Plan:
 existing fields the device names (`cloudEsign.RELABEL_FIELDS`: every fact) through
 `PATCH …/custom-fields/{id}`, else `PUT`, never fatal. The owner proved it on `buyerEmail`
 first: it read **Buyer · Email** in the editor and still filled on a preview. Step 2 uses a
-preview, not the test API key (D37). Steps 2–5 (the preview check, per-template fields,
-moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
+preview, not the test API key (D37).
+**Modified (owner, 2026-11-15, D38):** per-template fields are dropped: the grouped workspace
+labels are enough, so the editor keeps every workspace field. With them go step 2's two
+questions (they were about template fields) and step 4 (not needed: no template was in use,
+and the workspace was made fresh). Step 2 is instead the preview's list: after **Preview**, the
+Send dialog lists every detail field on the template by its label, with the value KennelOS
+sent it and whether Firma filled it (`cloudEsign.previewNotes` `rows`), since Firma's
+read-only preview shows a field's box, not its value. Step 5 needs nothing: Firma's template
+editor fits the page by default (`autoFit` defaults to `true`; `initialZoom` overrides it),
+and its signing request editor (the preview) has neither option.
 
 ---
 
@@ -403,7 +411,7 @@ moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
 
 ---
 
-## 10. Decisions (all decided with the owner, 2026-11-13)
+## 10. Decisions (all decided with the owner, 2026-11-13; D38 on 2026-11-15)
 
 | # | Decision |
 |---|---|
@@ -444,6 +452,7 @@ moving templates, `autoFit`) are not built: step 3 waits on what step 2 finds.
 | D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
 | D36 | Step 7: Today's payment nudges cover every open sale (no schedule = its one due date). Pups are going home's Balance item becomes **Payments**, done when nothing is owed. Review my waitlist takes payments due: Received / Not yet / Open the sale. Pups are going home offers a pickup message (the day, what's owed by then, final-payment methods). |
 | D37 | §8.2 step 2 is checked with a preview of a real send (the Send dialog's Preview and its notes on filled and empty fields), not with her Firma test API key. |
+| D38 | No per-template Firma fields (§8.2 steps 3–4 dropped): the grouped workspace labels stay. §8.2 step 2 is the preview's list of every placed field by label, with the value sent. `autoFit` is already Firma's default. |
 
 ---
 
@@ -463,8 +472,9 @@ is dated by `deposit_date`, which those three places can still set from a credit
    two regression tests.
 5. **Contract prefills;** the Firma relabel, then the test-key check, then per-template fields.
    **Built:** the prefills (§8.1) and the relabel (§8.2 step 1: proven on one field, then
-   every field). Open: the preview check (§8.2 step 2, D37); per-template fields; moving
-   templates; `autoFit`.
+   every field), the preview's list of every placed field with the value sent (§8.2 step 2,
+   D37, D38). **Modified (D38):** per-template fields dropped, moving templates not needed,
+   `autoFit` already Firma's default.
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
    **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,

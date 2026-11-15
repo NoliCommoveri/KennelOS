@@ -262,11 +262,18 @@ export function openContractTemplates() {
 // --- Send with Firma ------------------------------------------------------------------
 
 // What a preview found in the template's prefilled fields (cloudEsign.previewNotes).
+// Every field on the template, by its label in Firma's editor, with what KennelOS sent
+// it: Firma's read-only preview shows each field's box, not its value.
 function previewNotesHtml(notes) {
   if (!notes || !notes.total) return '';
-  if (!notes.empty.length) return `<p class="field-hint">All ${notes.total} of the template's detail fields are filled in.</p>`;
+  const list = `<details class="esign-details" open><summary>On your template (${notes.total})</summary>
+    <p class="field-hint">Each detail field you placed, and what KennelOS sent to fill it.</p>
+    <dl class="esign-detail-list">${notes.rows.map((r) => `<dt>${esc(r.label)}</dt><dd>${r.value != null && r.filled ? esc(r.value)
+      : r.value != null ? `${esc(r.value)} <span class="muted">(Firma left it blank)</span>` : '<span class="muted">Nothing sent: left blank</span>'}</dd>`).join('')}</dl>
+  </details>`;
+  if (!notes.empty.length) return `<p class="field-hint">All ${notes.total} of the template's detail fields are filled in.</p>${list}`;
   return `<div class="inline-warn"><strong>${notes.filled} of ${notes.total} detail fields filled in.</strong> Left blank:
-    <ul style="margin:6px 0 0; padding-left:18px;">${notes.empty.map((e) => `<li><strong>${esc(e.label)}</strong>: ${esc(e.why)}</li>`).join('')}</ul></div>`;
+    <ul style="margin:6px 0 0; padding-left:18px;">${notes.empty.map((e) => `<li><strong>${esc(e.label)}</strong>: ${esc(e.why)}</li>`).join('')}</ul></div>${list}`;
 }
 
 // One contract out through one of her Firma templates. `signer` is the contact
