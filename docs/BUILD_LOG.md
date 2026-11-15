@@ -4598,4 +4598,4 @@ tick box per template; buyers get an emailed link.
   a recorded payment, match the payment statement), `tests/esign.test.js` (a `deposit_paid` sale's
   facts). `node --test` 1957 pass.
 - **Docs:** End-State guide (the sale's payment table).
-- No new files, no schema change.
+- No new files, no schema change. `CACHE_NAME` bumped to `kennelos-shell-v141` (owner asked).
