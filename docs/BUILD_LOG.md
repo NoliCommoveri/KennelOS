@@ -4685,3 +4685,49 @@ tick box per template; buyers get an emailed link.
   tests). Gone with Jotform: K12-2 and the Jotform halves of K12-3/6.
 - **Order:** K03 (sync conflicts, untouched, released) first; K13's privacy policy and
   deploy gate alongside; then Waitlist Fixes step 5, K02+K01, K05, K09, K10's remainder.
+
+## 2026-11-15: Live sync's conflicts, stuck states and restore (K03 review fixes)
+
+- **From the review** (`docs/review/findings/K03-cloud-client.md`, all eleven). The rule is
+  unchanged (the version the server receives last wins, whole record, plan §12 decision 3);
+  what changed is that nothing is lost by timing and both devices are told.
+  - **K3-1:** each version keeps its `base_seq` (Worker migration `0025_sync_base_seq`); a
+    pull hands it on. `sync_meta` marks this device's own pushes (`mine`), so a pulled
+    version built without seeing one is noted `replaced_mine` (an edit or a delete). A push's
+    `superseded` names `overwrote_device`; a device's own version whose answer was lost is
+    no one's loss.
+  - **K3-2:** the 60-second poll (`pullIfBehind`) pushes before it pulls, as `syncNow` does.
+  - **K3-3:** a record for a table this build lacks is set aside (`waiting`, one activity
+    line, "some changes need an update" on the status line) and everything else still
+    arrives; once the table exists the pull goes back for it. `fromError` records any other
+    error as the stop `error` instead of throwing; the scheduler catches every run.
+  - **K3-4:** sign-out, and signing in to another account, clear the sync state and
+    `sync_meta`.
+  - **K3-5:** a file that came down without its bytes keeps `missing_file` on its
+    `sync_meta` row; `syncApply.retryMissingFiles` fetches it after each pull.
+  - **K3-6:** Restore as of…'s confirm says the roll back reaches every syncing device; the
+    activity list's advice says the same.
+  - **K3-7:** `previewRestore` plans the vault part too when unlocked (`counts`), so a change
+    to private fields alone can be rolled back.
+  - **K3-8:** a join compares `updated_at` as times, and a date more than a day in the future
+    never wins (`syncApply.joinKeepsLocal`), noted `clock`. A join that replaces a different
+    local version notes it.
+  - **K3-9:** Back up now on a syncing device that isn't in step says why; the status line
+    blames the paused sync, not the internet (`getBackupStatus().syncWaiting`).
+  - **K3-10:** every activity line says what happened, never that a version was "older".
+  - **K3-11:** the Worker drops an unknown table per record (`unknown_table`) instead of a
+    400 for the whole push; `GET /sync/head` carries a `fields` fingerprint, and a change
+    clears `rejected`. Deploy order (Worker first) written in `cloud/README.md` and guide §34.
+- **Not built (owner's call):** keeping a lost version on the device with "Put mine back",
+  and a per-record restore from a backup. A version pushed before `0025` is never reported.
+- **Release:** deploy the Worker, Apply pending (`0025`), then the app. Each half works with
+  the other's older version (an older app ignores `base_seq` and `fields`; a newer app with
+  an older Worker reports as before).
+- **Tests:** `tests/cloudSync.test.js` +13 (each finding, two devices against the real
+  Worker), `tests/syncActivity.test.js`, `cloud/tests/sync.test.js` +2. `node --test` 1980
+  pass, `cd cloud && npm test` 346 pass, `node build/assemble.mjs` succeeds; Import/Export
+  loads with no console errors in Pro and Lite.
+- **Docs:** guide §34 and the cloud screens; Phase 2 plan §2.3, §5.2 (Modified); settings.js's
+  sync state; `cloud/README.md`; README Status (`0025` to apply); `FIX_PRIORITIES.md`.
+- No new app files, no Dexie schema change (`mine` and `missing_file` are unindexed fields on
+  the device-only `sync_meta`), no syncRegistry change.

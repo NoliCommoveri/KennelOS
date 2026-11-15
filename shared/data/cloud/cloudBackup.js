@@ -18,7 +18,7 @@
 //
 // Data layer: reads through importExport.exportAll, never db directly. Network
 // only through cloudApi.
-import { exportAll, restoreBackup, planCloudMerge, VAULT_PAYLOAD_FORMAT, cloudSnapshotRows, planJoinMatches, mergeJoinMatches } from '../importExport.js';
+import { exportAll, restoreBackup, planCloudMerge, planVaultMerge, VAULT_PAYLOAD_FORMAT, cloudSnapshotRows, planJoinMatches, mergeJoinMatches } from '../importExport.js';
 import {
   getSampleDataManifest, getCloudDirtyAt, getCloudDirtySince, clearCloudDirty,
   getCloudBackupState, updateCloudBackupState, CLOUD_DATA_CHANGED_EVENT,
@@ -533,8 +533,16 @@ export function getBackupStatus() {
     // A pending change of the account's email (plan §2.6), from the last check-in.
     emailChange: state.emailChange || null,
     paused: isBackupBlocked(state),
-    dirty: !!getCloudDirtyAt()
+    dirty: !!getCloudDirtyAt(),
+    // Live sync is on here but can't be in step (paused, or joining): backups
+    // wait for it (snapshotSyncSeq), so the status line says so (K03 review, 9).
+    syncWaiting: syncKeepsBackupWaiting(getCloudSyncState())
   };
+}
+
+function syncKeepsBackupWaiting(s) {
+  if (!s.enabled) return false;
+  return !!s.joining || !!(s.lastError && !['offline', 'pro_required'].includes(s.lastError.code));
 }
 
 // True when a restore elsewhere would bring everything back (Lite → Pro bridge,
@@ -617,9 +625,42 @@ export async function downloadSnapshot(snapshotId) {
   return envelope;
 }
 
-// The confirmation screen's numbers, without writing (plan §4.3).
-export function previewRestore(envelope, { overwrite = false } = {}) {
-  return planCloudMerge(envelope, { overwrite });
+// The confirmation screen's numbers, without writing (plan §4.3): planCloudMerge's
+// plan, plus `vault` (the same snapshot's vault part planned too, when this
+// device is unlocked and the snapshot has one; else null) and `counts`, the
+// distinct records that would be { updated, inserted } by either part. So a
+// roll back that only changes private fields (a note, a price, a phone number)
+// isn't "Nothing to restore" (K03 review, 7).
+export async function previewRestore(envelope, { overwrite = false } = {}) {
+  const plan = await planCloudMerge(envelope, { overwrite });
+  const vaultPlan = await previewSnapshotVault(envelope, { overwrite });
+  const updated = new Set();
+  const inserted = new Set();
+  for (const writes of [plan.writes, vaultPlan?.writes]) {
+    for (const [table, list] of Object.entries(writes || {})) {
+      for (const w of list) (w.insert ? inserted : updated).add(`${table}:${w.row.id}`);
+    }
+  }
+  for (const key of inserted) updated.delete(key);
+  return { ...plan, vault: vaultPlan ? { summary: vaultPlan.summary } : null, counts: { updated: updated.size, inserted: inserted.size } };
+}
+
+// planVaultMerge of a downloaded snapshot's vault part, or null when there's
+// nothing this device can plan (not from downloadSnapshot, locked here, no
+// vault part, or one made under a replaced key).
+async function previewSnapshotVault(envelope, { overwrite }) {
+  const snapshotId = envelopeIds.get(envelope);
+  const vault = snapshotId ? await getVaultKey(currentAccount()?.programId) : null;
+  if (!vault) return null;
+  let bytes;
+  try {
+    bytes = new Uint8Array(await (await api.getSnapshotVault(requireToken(), snapshotId)).arrayBuffer());
+  } catch (err) {
+    if (err instanceof api.CloudRequestError && err.status === 404) return null;
+    throw err;
+  }
+  if (readVaultHeader(bytes)?.keyId !== vault.keyId) return null;
+  return planVaultMerge(await openVaultPayload(bytes, vault), { overwrite });
 }
 
 // Records entered both here and in the backup (the same dog typed on each

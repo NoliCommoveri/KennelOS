@@ -36,7 +36,7 @@ const EXEMPT = {
   'shared/data/stripeKeyStore.js': { sites: 2, why: 'her Stripe restricted key on this device only (device_secrets, Integrations plan §4): not kennel data, never in a snapshot' },
   'shared/data/jotformKeyStore.js': { sites: 1, why: 'deletes the Jotform API keys Connect Jotform once kept on this device (device_secrets, retired: Integrations plan D27): not kennel data, never in a snapshot' },
   'shared/data/kennelportLinkStore.js': { sites: 4, why: 'her KennelPort website link token on this device only (device_secrets, KennelPort plan 5.5), and what its puppy portal feed sent last: not kennel data, never in a snapshot' },
-  'shared/data/syncApply.js': { sites: 2, why: 'rows pulled by live sync (Cloud Phase 2 plan §5.3): they keep their own timestamps and must not go back up; an archive-instead does call markDataChanged' },
+  'shared/data/syncApply.js': { sites: 3, why: 'rows pulled by live sync (Cloud Phase 2 plan §5.3): they keep their own timestamps and must not go back up; an archive-instead does call markDataChanged. The third is a pulled file\'s bytes fetched again later (retryMissingFiles), also not a local edit' },
   'shared/data/cloud/syncState.js': { sites: 3, why: 'the device-only sync_meta table (Cloud Phase 2 plan §3.4): what this device has synced, not kennel data, never in a snapshot' }
 };
 

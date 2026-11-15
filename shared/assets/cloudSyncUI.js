@@ -56,6 +56,7 @@ export function pausedText(code, detail = null) {
     case 'resync_required': return ['This device was away too long to catch up change by change. Catching up brings everything down and deletes nothing.', ['rejoin', 'Catch up…']];
     case 'shrink': return [`This device would delete ${detail?.deletes ?? 'most'} of ${detail?.total ?? 'your'} synced records on every device, so it stopped.`, ['shrink', 'Decide…']];
     case 'signed_out': return ['Your cloud sign-in has expired.', ['signin', 'Sign in again']];
+    case 'error': return [`Something went wrong on this device${detail?.message ? ` (${detail.message})` : ''}. It tries again by itself; if this stays, reload the app.`, ['retry', 'Try now']];
     default: return [`Something stopped it (${code}). It tries again by itself.`, ['retry', 'Try now']];
   }
 }
@@ -65,6 +66,7 @@ export function onLine(s, now = Date.now()) {
   const parts = ['On'];
   if (s.devices >= 2) parts.push(`${s.devices} devices`);
   if (s.offline) parts.push('changes waiting: no internet');
+  else if (s.needsUpdate?.length) parts.push('some changes need an update of KennelOS here');
   else if (s.lastPullAt || s.lastCheckAt) {
     const at = [s.lastPullAt, s.lastCheckAt].filter(Boolean).sort().pop();
     parts.push(`synced ${relativeTime(at, now)}`);
@@ -371,7 +373,7 @@ async function activityModal() {
     const overlay = openModal(`
       <h2 style="margin-top:0;">Recent sync activity</h2>
       ${lines.length
-        ? `<p class="muted">What syncing decided by itself in the last 30 days. An older version is still in that day's backups (Restore as of…).</p>
+        ? `<p class="muted">What syncing decided by itself in the last 30 days. A version that was replaced may still be in that day's backups, but Restore as of… rolls back every record, on every device in step, so note what you need from it first.</p>
            <ul style="list-style:none;padding:0;margin:0;">${lines.map((l) => `<li style="padding:8px 0;border-top:1px solid var(--border);">
              ${esc(l.text)}<div class="field-hint">${esc(snapshotLabel(l.at))}</div></li>`).join('')}</ul>`
         : '<p class="muted">Nothing to report: syncing hasn\'t had to decide anything in the last 30 days.</p>'}

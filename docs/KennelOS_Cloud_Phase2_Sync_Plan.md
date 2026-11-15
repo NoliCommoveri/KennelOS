@@ -79,6 +79,13 @@ list on Import / Export notes "Kept the version from Jen's laptop for Birch (you
 older)" for the past 30 days. Deleting is softer still: a hard delete that arrives on a
 device where something now points at the record becomes an archive (§5.4).
 
+> **Modified (K03 review, 2026-11-15):** the rule is unchanged, but both devices are told:
+> the one whose sent version was replaced unseen (`replaced_mine`, from each version's
+> `base_seq`, migration `0025`) as well as the one that replaced it. The lines say what
+> happened, not that one version was "older" (receive order says nothing about when a
+> change was made). Restore as of… rolls back every record on every syncing device, and
+> its confirm says so; a per-record restore isn't built.
+
 ### 2.4 Turning it off
 **Turn off on this device** stops syncing here; the device keeps its records and goes back to
 being an ordinary backup device, which means the Phase 1 one-backup-device rule applies
@@ -221,6 +228,9 @@ One push at a time across tabs, through `navigator.locks` (`kennelos-cloud-sync`
 `pushIfDirty` already serializes.
 
 ### 5.2 Pull
+> **Modified (K03 review, 2026-11-15):** every pull goes through a push first, the
+> 60-second poll included, so an edit waiting here is sent before the pull can replace it.
+
 `GET /sync/pull?since=<cursor>&limit=500` until `more` is false. Each page is applied in one
 Dexie transaction (§5.3), then `cursor` moves to the page's last seq. A page that fails to
 apply leaves the cursor where it was, so the next pull retries it. When: on start-up,

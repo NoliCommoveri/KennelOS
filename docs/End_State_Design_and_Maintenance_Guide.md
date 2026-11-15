@@ -2949,7 +2949,11 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   localhost and `?cloud=staging`).
 - **Screens:** Import/Export's **Backup & restore** card has destinations **Cloud | This
   device | Dropbox** (Cloud first when available; Dropbox Pro only), with Back up now,
-  Restore as of…, and a Sensitive records dropdown (Off / Locked / On with its actions). The
+  Restore as of…, and a Sensitive records dropdown (Off / Locked / On with its actions).
+  Restore as of… counts what either part of the backup would change
+  (`cloudBackup.previewRestore` plans the vault part too when this device is unlocked, so a
+  change to private fields alone isn't "Nothing to restore"), and on a syncing device its
+  confirm says the roll back reaches every device. The
   **Settings** page's Account card has sign-in, Change email…, Pro on this account, Your
   devices, sign out, delete cloud data. Today shows turn-on, paused and "save your recovery
   code" nudges (none while sample data is loaded). The 409 and shrink dialogs need typed
@@ -4567,7 +4571,14 @@ The plan is the detailed design. This is the shape of what's built.
   missing first (`syncReadiness`); a backup paused as a second device doesn't count, since
   joining fixes it.
 - **The activity list** (Recent activity…): what sync decided by itself in the last 30 days,
-  one sentence each (`data/cloud/syncActivity.js`).
+  one sentence each (`data/cloud/syncActivity.js`), saying what happened, never why one
+  version was "older": `kept_theirs` (an edit here waiting to be sent lost to another
+  device's version or delete; in a join, `reason: 'older'`, by date), `replaced_mine` (this
+  device's sent version was replaced or deleted by one built without seeing it),
+  `replaced_theirs` (this device's push replaced one it hadn't seen, naming that device;
+  never its own version whose answer was lost), `clock` (a join met a date in the future),
+  `archived_instead`, `missing_file`, `needs_update`, `dropped`. Its advice warns that
+  Restore as of… rolls back every record on every device.
 - **An open page when records arrive** (`SYNC_APPLIED_EVENT`, relayed to other tabs by
   `BroadcastChannel`): a record page whose record changed shows "Updated on another device"
   with Reload; a list page or Today reloads itself unless she's typed there or a dialog is
@@ -4583,21 +4594,42 @@ The plan is the detailed design. This is the shape of what's built.
 - **Server order wins per record.** Records live in D1 (`cloud/src/sync.js`, migration
   `0014`). The server keeps only fields on its allow-list, `cloud/src/lib/cloudFields.js`,
   which is generated from `data/syncRegistry.js` (`node cloud/scripts/cloud-fields.mjs`).
+  Each version keeps the `base_seq` it was built on (migration `0025`), and a pull hands it
+  on; a `sync_meta` row marks this device's own pushes (`mine`), so a pulled version whose
+  `base_seq` is older than this device's own is reported as `replaced_mine`. A push answers
+  `superseded` with `overwrote_device`. A table the Worker doesn't know is dropped per record
+  (`unknown_table`), not a 400 for the whole push.
+- **Deploy the Worker before the app** whenever the cloud fields or tables change: an older
+  Worker drops what it doesn't know. `GET /sync/head` carries `fields` (a fingerprint of
+  `cloudFields.js`); when it changes, a device clears `rejected`, so what was dropped goes
+  again.
 - **`data/syncApply.js` is the second direct writer of every table**, beside
   `importExport.js`. Pulled rows skip the repos so they keep their own timestamps, and they
   don't call `markDataChanged()`, or they'd be pushed straight back. The one local change it
   makes, turning a delete into an archive, does mark dirty. Pages listen for
   `SYNC_APPLIED_EVENT` and never treat it as a local edit. 
 - **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
-  pauses. A lapsed license pauses sync. Joining a program: first every cloud record is read
-  and paired by content with this device's (§10's rules; the pair keeps the cloud's id;
-  `joinSync` answers `{ status: 'ask' }` while there's something to ask), then the newer
-  `updated_at` wins and nothing gets deleted.
+  pauses. **Every pull goes through a push first**, the 60-second poll included
+  (`pullIfBehind`: the head check, then push, then pull), so an edit waiting here is never
+  thrown away for an older one; a shrink or a pause stops both. An error it doesn't know is
+  recorded as the stop `error` (with its message), never thrown. A lapsed license pauses
+  sync. A record for a table this build lacks is left out: its first seq goes in the sync
+  state's `waiting` (the status line says an update is needed), every other record still
+  arrives, and once an update has the table the pull starts again from there. A file whose
+  bytes failed to come down lands without them, with `missing_file` on its `sync_meta` row,
+  and `syncApply.retryMissingFiles` tries again after each pull. Signing out, or into
+  another account, forgets this device's sync position (`cloudSyncState` and `sync_meta`),
+  as turning sync off does. Joining a program: first every cloud record is read and paired
+  by content with this device's (§10's rules; the pair keeps the cloud's id; `joinSync`
+  answers `{ status: 'ask' }` while there's something to ask), then the newer `updated_at`
+  wins (`syncApply.joinKeepsLocal`: compared as times; a date more than a day in the future
+  never wins) and nothing gets deleted.
 - **A new device on a syncing program** (Sign in and restore, first-run's "I already use
   KennelOS") joins instead of restoring the latest backup, once Sensitive records are
   unlocked there (`cloudBackup.prepareDirectJoin`); not unlocked, it restores as before.
 - **Backups on a syncing program:** a snapshot states the `sync_seq` it has applied and goes
-  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). Any
+  only while the device is caught up (else it's skipped as `sync_behind`, still dirty; Back
+  up now says so, and the status line blames the paused sync, not the internet). Any
   caught-up device may make the latest one, so a refusal that shows this device is caught up
   but its base is older takes the server's latest as its base and tries once more. While
   Pro has lapsed (sync paused `pro_required`) backups follow the Phase 1 backing-device rule.

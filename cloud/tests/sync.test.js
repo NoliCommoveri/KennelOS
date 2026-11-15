@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { makeEnv, call, signIn, push, sha, bytes } from './helpers/env.js';
 
 const { runRetention } = await import('../src/retention.js');
-const { MAX_PUSH_RECORDS, MAX_RECORD_BYTES, TOMBSTONE_KEEP_DAYS, SYNC_OFF_KEEP_DAYS, cloudPartProblem } = await import('../src/sync.js');
+const { MAX_PUSH_RECORDS, MAX_RECORD_BYTES, TOMBSTONE_KEEP_DAYS, SYNC_OFF_KEEP_DAYS, FIELDS_VERSION, cloudPartProblem } = await import('../src/sync.js');
 const { exportAll } = await import('../src/backup.js');
 
 const PHONE = '11111111-1111-4111-8111-111111111111';
@@ -56,8 +56,8 @@ test('sync needs Pro, the vault, and to be turned on', async () => {
   await call(env, 'POST', '/vault', { token: s.token, body: { keyId: KEY_ID, recoveryWrap: WRAP } });
   assert.equal((await pushRecs(env, s, [put('dogs', 'd1')])).body.error, 'sync_off');
   const on = await (await call(env, 'POST', '/sync/enable', { token: s.token })).json();
-  assert.deepEqual(on, { enabled: true, seq: 0, keyId: KEY_ID, devices: 0 });
-  assert.deepEqual(await (await call(env, 'GET', '/sync/head', { token: s.token })).json(), { enabled: true, seq: 0, keyId: KEY_ID, devices: 0 });
+  assert.deepEqual(on, { enabled: true, seq: 0, keyId: KEY_ID, devices: 0, fields: FIELDS_VERSION });
+  assert.deepEqual(await (await call(env, 'GET', '/sync/head', { token: s.token })).json(), { enabled: true, seq: 0, keyId: KEY_ID, devices: 0, fields: FIELDS_VERSION });
 });
 
 test('a push numbers each record in order; a pull returns them in seq order, the other device included', async () => {
@@ -101,8 +101,31 @@ test('the last version received wins; an overwrite of an unseen version is repor
   await pushRecs(env, phone, [put('dogs', 'd1', { text: 'phone 1' })]);
   await pushRecs(env, phone, [put('dogs', 'd1', { base: 1, text: 'phone 2' })]);
   const late = await pushRecs(env, laptop, [put('dogs', 'd1', { base: 1, text: 'laptop' })]);
-  assert.deepEqual(late.body.superseded, [{ tbl: 'dogs', id: 'd1', seq: 3, overwrote: 2 }]);
+  assert.deepEqual(late.body.superseded, [{ tbl: 'dogs', id: 'd1', seq: 3, overwrote: 2, overwrote_device: PHONE }]);
   assert.equal((await pull(env, phone, 0)).body.records[0].sealed, sealed('laptop'));
+});
+
+test('a pull hands on each version\'s base_seq, so the device it replaced unseen can tell (K03, 1)', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await program(env);
+  await pushRecs(env, phone, [put('dogs', 'd1', { text: 'phone 1' })]);
+  await pushRecs(env, phone, [put('dogs', 'd1', { base: 1, text: 'phone 2' })]);
+  await pushRecs(env, laptop, [put('dogs', 'd1', { base: 1, text: 'laptop' })]);
+  await pushRecs(env, laptop, [del('dogs', 'd1', 3)]);
+  const recs = (await pull(env, phone, 2)).body.records;
+  assert.deepEqual(recs.map((r) => [r.seq, r.op, r.base_seq]), [[4, 'delete', 3]], 'the tombstone keeps its base too');
+  env.DB.raw.prepare("UPDATE sync_records SET base_seq = NULL WHERE id = 'd1'").run();
+  assert.equal((await pull(env, phone, 2)).body.records[0].base_seq, null, 'a version from before the column: null');
+});
+
+test('a table this Worker doesn\'t know is dropped per record; the rest of the push goes through (K03, 11)', async () => {
+  const env = await makeEnv();
+  const { phone } = await program(env);
+  const res = await pushRecs(env, phone, [put('dogs', 'd1'), put('new_table', 'n1')]);
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.accepted.map((a) => a.id), ['d1']);
+  assert.deepEqual(res.body.dropped, [{ tbl: 'new_table', id: 'n1', reason: 'unknown_table' }]);
+  assert.equal((await pushRecs(env, phone, [{ ...put('dogs', 'd2'), tbl: 7 }])).body.error, 'bad_table');
 });
 
 test('deletes are tombstones: a full pull leaves them out, a cursor pull carries them', async () => {
@@ -112,7 +135,7 @@ test('deletes are tombstones: a full pull leaves them out, a cursor pull carries
   await pushRecs(env, laptop, [del('dogs', 'd1', 1)]);
   assert.deepEqual((await pull(env, phone, 0)).body.records.map((r) => r.id), ['d2']);
   const since = (await pull(env, phone, 2)).body.records;
-  assert.deepEqual(since, [{ tbl: 'dogs', id: 'd1', seq: 3, op: 'delete', device_id: LAPTOP, received_at: since[0].received_at }]);
+  assert.deepEqual(since, [{ tbl: 'dogs', id: 'd1', seq: 3, op: 'delete', device_id: LAPTOP, received_at: since[0].received_at, base_seq: 1 }]);
   const row = env.DB.raw.prepare("SELECT sealed, cloud_json FROM sync_records WHERE id = 'd1'").get();
   assert.deepEqual([row.sealed, row.cloud_json], [null, null], 'the payload is gone');
 });
@@ -155,7 +178,7 @@ test('refusals: a stale vault key, a bad table, too many records, an oversized r
   const env = await makeEnv();
   const { phone } = await program(env);
   assert.equal((await pushRecs(env, phone, [put('dogs', 'd1', { extra: { key_id: 'b'.repeat(32) } })])).body.error, 'vault_key_stale');
-  assert.equal((await pushRecs(env, phone, [put('sync_meta', 'x')])).body.error, 'bad_table');
+  assert.deepEqual((await pushRecs(env, phone, [put('sync_meta', 'x')])).body.dropped, [{ tbl: 'sync_meta', id: 'x', reason: 'unknown_table' }]);
   assert.equal((await pushRecs(env, phone, [put('dogs', 'd1'), put('dogs', 'd1')])).body.error, 'duplicate_record');
   const many = Array.from({ length: MAX_PUSH_RECORDS + 1 }, (_, i) => put('dogs', `d${i}`));
   assert.equal((await pushRecs(env, phone, many)).body.error, 'bad_records');

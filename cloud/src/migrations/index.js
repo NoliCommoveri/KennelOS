@@ -35,6 +35,7 @@ import mailDaily from './0021_mail_daily.sql';
 import esign from './0022_esign.sql';
 import esignCopies from './0023_esign_copies.sql';
 import esignSignFirst from './0024_esign_sign_first.sql';
+import syncBaseSeq from './0025_sync_base_seq.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -61,4 +62,5 @@ export const MIGRATIONS = [
   { id: '0022', name: 'esign', sql: esign },
   { id: '0023', name: 'esign_copies', sql: esignCopies },
   { id: '0024', name: 'esign_sign_first', sql: esignSignFirst },
+  { id: '0025', name: 'sync_base_seq', sql: syncBaseSeq },
 ];

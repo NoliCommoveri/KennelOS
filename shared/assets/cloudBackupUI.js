@@ -93,6 +93,8 @@ export function statusLine(status, now = Date.now()) {
   const age = now - Date.parse(status.lastPushedAt);
   if (status.dirty && age > DAY) {
     const days = Math.max(1, Math.round(age / DAY));
+    // Not the internet: a syncing device backs up only once it's in step (K03, 9).
+    if (status.syncWaiting) return `Not backed up for ${days} day${days === 1 ? '' : 's'}: backups wait until keeping devices in step can carry on (see Keep my devices in step).`;
     return `Not backed up for ${days} day${days === 1 ? '' : 's'}: no internet?`;
   }
   return `Backed up ${relativeTime(status.lastPushedAt, now)}.`;
@@ -490,9 +492,20 @@ export async function turnOnFlow({ email = '' } = {}) {
 // --- Push results → the user (plan §3.4, §3.5) ------------------------------------
 export async function handlePushResult(result) {
   switch (result?.status) {
+    case 'skipped':
+      // Back up now on a syncing device that isn't in step: say so, don't just
+      // flash a progress bar (K03 review, 9).
+      if (result.reason === 'sync_behind') {
+        await alertModal({
+          title: 'Backup is waiting',
+          message: getCloudSyncState().lastError && getCloudSyncState().lastError.code !== 'offline'
+            ? 'This device keeps your devices in step, and that is paused (see Keep my devices in step on the Cloud pane). Backups carry on once it\'s fixed.'
+            : 'This device keeps your devices in step and has changes still to send or bring down. It backs up as soon as it\'s in step, usually within a minute.'
+        });
+      }
+      return;
     case 'pushed':
     case 'unchanged':
-    case 'skipped':
       return;
     case 'offline':
       await alertModal({ title: 'Backup is on', message: "There's no internet connection right now, so it will back up automatically when you're back online." });
@@ -672,10 +685,11 @@ async function rollBackTo(id, snapshots) {
     return alertModal({ title: "Couldn't load that backup", message: errorText(e) });
   }
   pg.close();
-  const sum = (k) => Object.values(preview.summary).reduce((n, s) => n + (s[k] || 0), 0);
-  const updated = sum('updated');
-  const inserted = sum('inserted');
+  // Distinct records either part of the backup would change: the sensitive
+  // part counts too, when this device can open it (K03 review, 7).
+  const { updated, inserted } = preview.counts;
   if (!updated && !inserted) return alertModal({ title: 'Nothing to restore', message: `Your records already match the backup from ${snapshotLabel(chosen.createdAt)}.` });
+  const syncing = getCloudSyncState().enabled;
 
   const ok = await confirmModal({
     title: `Roll back to ${snapshotLabel(chosen.createdAt)}?`,
@@ -685,6 +699,10 @@ async function rollBackTo(id, snapshots) {
       chosen.vaultKeyId && getBackupStatus().vault === 'on'
         ? 'Their sensitive records (phone numbers, prices, notes…) roll back too, from the encrypted backup.'
         : 'Their sensitive records (phone numbers, prices, notes…) keep their current values: those aren\'t in this backup, so they can\'t roll back.',
+      // A syncing device sends the rolled-back records to every device (K03, 6).
+      syncing
+        ? 'This device keeps your devices in step, so the roll back reaches all of them: a change made on any device since then is undone everywhere.'
+        : '',
       'Records added since then stay. Archive them by hand if you don\'t want them.'
     ].filter(Boolean).join('\n\n'),
     confirmLabel: 'Roll back',
@@ -809,7 +827,7 @@ function renderPane(el, mode, rerender) {
   if (signedIn && !status.enabled && status.movedToEdition === 'pro') aside = 'Your records moved to KennelOS Pro.';
   else if (signedIn && status.enabled && !paused) {
     const line = statusLine(status);
-    if (/no internet/.test(line)) aside = line;
+    if (/no internet|in step/.test(line)) aside = line;
     else if (status.dirty) aside = 'Recent changes will back up shortly.';
   }
   const lastBackup = `<p class="muted">Last backup: <strong>${esc(backupStamp(status.lastPushedAt))}</strong>${aside ? ` <span class="faint">${esc(aside)}</span>` : ''}</p>`;
