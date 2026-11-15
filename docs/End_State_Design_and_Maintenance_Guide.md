@@ -21,6 +21,7 @@ at the shared path, drops files the edition doesn't ship, and generates its `sw.
 (`build/README.md`). It then fails if any file it ships statically imports one the edition
 dropped (`build/checkImports.mjs`). The deploy publishes only after `node --test` passes.
 Each edition deploys to its own origin, so their IndexedDBs never mix.
+`--final` builds the end-of-life version the terms promise (§0.3, `build/finalRelease.mjs`).
 The shared core never checks which edition it is: it reads the two injection points.
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
@@ -137,6 +138,18 @@ kept (`StepConversation.demoEnd`), and no draft is stored (§33).
   because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
   used only for that label — no fingerprinting, no system data — and, like the license
   record, it sits outside `KEYS` so Reset App leaves it alone.
+- **The final build has no gate.** If KennelOS ends, the terms (`site/terms.html` §14, "If
+  KennelOS ends", and §9's "What lifetime means") promise a final version of Lite and Pro that
+  needs no key and no server of ours. `node build/assemble.mjs --final` builds it:
+  `build/finalRelease.mjs` rewrites each edition's assembled `editionConfig.js` so
+  `cloudUrl`, `devCloudUrl`, `kennelportUrl`, `devKennelportUrl`, `upgradeUrl` and `demoUrl`
+  are `null` and Pro's `licenseGate` is `false` (every other flag unchanged, so Pro opens for
+  anyone with every on-device feature), and suffixes the edition's `CACHE_NAME` with `-final`
+  so installed apps take it on their next online open. It throws if an anchor is missing, so a
+  moved config fails the build instead of shipping a final Pro that walls. The deploy builds it
+  while the repository variable `KENNELOS_FINAL_RELEASE` is `true`. The order of a shutdown
+  (notice, final build, then the store and the Worker) is in `build/README.md`.
+  `tests/finalRelease.test.js` pins it.
 
 **Details:** Editions Plan "Licensing", `docs/KennelOS_License_Link_Plan.md`.
 
@@ -197,6 +210,7 @@ CLAUDE.md, README.md         Session brief; summary + doc map
 docs/                        Plans, specs, BUILD_LOG.md, this guide
 build/assemble.mjs           Edition builds → dist/<edition>/ (§0)
 build/checkImports.mjs       Every build: each shipped static import resolves (§0)
+build/finalRelease.mjs       --final: the end-of-life build, no server, no license gate (§0.3)
 lite/ pro/ demo/             Each edition's editionConfig.js (+ Lite's editionTour.js) (§0)
 cloud/                       Cloud backup / sync Worker (§30, §34; cloud/README.md)
 furever/, site/              Family app; marketing site (separate, not editions)

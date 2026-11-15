@@ -78,6 +78,9 @@ cloud is an add-on, never a dependency. Concretely:
   notice that the app shows in-app, prompting a JSON backup download. It's in-app only: the
   server keeps no readable account emails (§4), so there's no shutdown email. Then a final release ships
   with `cloudUrl: null`.
+  **Modified:** the final release is `node build/assemble.mjs --final` (`build/finalRelease.mjs`).
+  It also switches Pro's license gate off, so Pro keeps working without Lemon Squeezy, as the
+  terms (§14) now promise.
 
 ## 3. The Cloudflare shape
 

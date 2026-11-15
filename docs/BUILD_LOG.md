@@ -5093,3 +5093,31 @@ refused all or nothing (K13-5).
 - **Docs:** End-State guide §0, §0.1, §0.2, the restore section, §33 (Kels's voice, the menu,
   the litter save); cap spec §1 and §9 (Modified notes); `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+
+## 2026-11-15: What "lifetime" means, and the end-of-life build
+
+The owner asked whether "lifetime" commits KennelOS to hosting forever. Nothing promised that,
+but nothing defined "lifetime" either, the Pro page said lifetime keys need "no re-validation,
+works offline indefinitely" (they check in every 90 days), and a shutdown would have walled
+every lifetime owner within four months, because the key's check needs Lemon Squeezy. The owner
+chose a final build, and Mississippi law.
+- **Build:** `build/finalRelease.mjs` + `node build/assemble.mjs --final`: each edition's
+  config nulls `cloudUrl`, `devCloudUrl`, `kennelportUrl`, `devKennelportUrl`, `upgradeUrl` and
+  `demoUrl`; Pro's `licenseGate` is `false`; `CACHE_NAME` gets `-final`. Throws on a missing
+  anchor. The deploy passes `--final` while the repository variable `KENNELOS_FINAL_RELEASE` is
+  `true`. The shutdown order (notice, final build, then the Worker and the store) is in
+  `build/README.md`.
+- **Terms:** §9 defines lifetime (the life of KennelOS Pro, not the buyer's; no promise to run
+  anything for a set time) and says the final version makes no checks; §14 adds "If KennelOS
+  ends" (90 days' notice in the app, a final Lite and Pro with no key and no server, kept online
+  at least 12 months, no updates promised after); §18 is Mississippi law and courts. Privacy
+  §18 says 90 days and that the final version sends nothing.
+- **Site:** the Pro page's lifetime card says "for as long as Pro is offered" and "3 months
+  offline between check-ins", with a "What lifetime means" link (also on the upgrade page, the
+  home page and the editions page); a new FAQ, "What does lifetime mean?".
+- **Tests:** new `finalRelease.test.js` (6). `node --test` 2039 pass. In Chromium, the final Pro
+  opens to Today with no key, Dogs, Waitlist, Settings and Reports render, and no request leaves
+  the origin; the normal Pro build still walls.
+- **Docs:** End-State guide §0, §0.3, §3; Editions Plan "Licensing"; Cloud Accounts Proposal
+  (Modified note); `build/README.md`; `tests/README.md`.
+- **Service worker:** no app file added or renamed (the site isn't a PWA). `CACHE_NAME` not bumped.

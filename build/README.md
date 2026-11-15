@@ -12,6 +12,7 @@ node build/assemble.mjs lite       # just one
 node build/assemble.mjs furever    # the standalone Furever app (see below)
 node build/assemble.mjs site       # the marketing website (see below)
 node build/assemble.mjs --release  # + fail on any unresolved launch placeholder
+node build/assemble.mjs --final    # the end-of-life build (see "The final build" below)
 ```
 
 **Standalone apps (Furever).** `furever` is **not** an edition of the shared core —
@@ -112,6 +113,37 @@ domain + DNS configured** — otherwise its deploy job fails while the editions 
 
 To deploy manually instead of waiting for CI: run `node build/assemble.mjs`, then push
 `dist/<edition>/` as the `main` branch of the matching publish repo.
+
+## The final build (if KennelOS ends)
+
+The terms promise that if KennelOS ends, Lite and Pro get a final version that needs no
+license key and no server of ours (`site/terms.html` §14, "If KennelOS ends"; §9, "What
+lifetime means"). `--final` builds it. After the normal assembly, `finalRelease.mjs`:
+
+- sets `cloudUrl`, `devCloudUrl`, `kennelportUrl`, `devKennelportUrl`, `upgradeUrl` and
+  `demoUrl` to `null` in each edition's `editionConfig.js` (no request to any server of ours,
+  no link to buy anything), and switches Pro's `licenseGate` to `false`, so Pro opens for
+  anyone, with or without a key, with every on-device feature;
+- adds `-final` to the edition's `CACHE_NAME`, so every installed app takes the final files the
+  next time it opens online, with no manual cache bump.
+
+It throws if a line it rewrites isn't where it expects, so a moved config fails the build.
+Furever and the site are built as usual. `tests/finalRelease.test.js` pins it.
+
+**Shutting down, in this order.** The order matters: once Lemon Squeezy stops answering, a
+normal Pro build walls on its next check.
+
+1. **Tell users.** Add a `shutdown` notice on `/ops` with the date the online service stops,
+   at least **90 days** ahead (terms §14). Stop selling Pro in Lemon Squeezy. Keep the store's
+   existing keys working.
+2. **Ship the final build before the service stops.** Set the repository variable
+   `KENNELOS_FINAL_RELEASE` to `true` (Settings → Secrets and variables → Actions → Variables)
+   and run the deploy workflow. Every deploy from then on is final, so a later push can't put
+   the license wall back. Check `pro.kennelos.app` opens with no key.
+3. **Then the servers.** Only after the final build is live: stop the Worker, cancel what's
+   left in Lemon Squeezy, close the store.
+4. **Keep the final version online for at least 12 months** (terms §14). GitHub Pages costs
+   nothing to leave up. A device that already has it keeps working offline after that.
 
 ## Two source-of-truth files — keep them true
 
