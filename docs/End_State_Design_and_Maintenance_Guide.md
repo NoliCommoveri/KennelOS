@@ -18,7 +18,9 @@ gate where there is one.
 One codebase, three builds. `node build/assemble.mjs` copies `shared/` to
 `dist/<edition>/`, overlays that edition's `editionConfig.js` (and Lite's `editionTour.js`)
 at the shared path, drops files the edition doesn't ship, and generates its `sw.js`
-(`build/README.md`). Each edition deploys to its own origin, so their IndexedDBs never mix.
+(`build/README.md`). It then fails if any file it ships statically imports one the edition
+dropped (`build/checkImports.mjs`). The deploy publishes only after `node --test` passes.
+Each edition deploys to its own origin, so their IndexedDBs never mix.
 The shared core never checks which edition it is: it reads the two injection points.
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
@@ -164,6 +166,7 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 CLAUDE.md, README.md         Session brief; summary + doc map
 docs/                        Plans, specs, BUILD_LOG.md, this guide
 build/assemble.mjs           Edition builds → dist/<edition>/ (§0)
+build/checkImports.mjs       Every build: each shipped static import resolves (§0)
 lite/ pro/ demo/             Each edition's editionConfig.js (+ Lite's editionTour.js) (§0)
 cloud/                       Cloud backup / sync Worker (§30, §34; cloud/README.md)
 furever/, site/              Family app; marketing site (separate, not editions)
@@ -542,6 +545,16 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
   never auto-matched or silently created.
 - Names match case-insensitively and trimmed; dates exactly. A present but unrecognised
   enum or date is flagged.
+- **Day or month first** (`detectDateOrder`): the file's own slashed dates decide (a first
+  number over 12 is day-first, a second over 12 month-first); none tells, month-first, and
+  where some could be read either way the preview says so and offers **They're month first /
+  day first** (`buildPlan(entity, rows, { dateOrder })`, re-planned). A file using both
+  orders leaves an either-way date for review. Every preview row shows its dates as read.
+- **One record per file** (`markRepeatedRows`, a mapping's `batchKeys`: dogs by name and
+  birthday, registration number or the dog matched; contacts by name): a later row with an
+  earlier row's key waits for review, naming that row, never a second record.
+- **An update says what it changes:** the preview's Notes list each field `old → new`
+  (more than three behind a count; ids just "changed"), or "nothing changes".
 - Relationship columns resolve against **existing** records only. An unresolved name is
   flagged, never invented. Two deliberate exceptions create a Contact at commit: Sale
   `buyer_name` and StudService `partner_contact_name` (each mapping's `prepareRecord`).
@@ -605,10 +618,16 @@ UTF-8 (no BOM).
 
 The cross-device data path, and one of the two modules that write tables directly.
 
-- `exportAll()` iterates every data table (no hardcoded list) → `{ schema_version,
-  format_version, exported_at, collections }`. `downloadBackup()` saves it and stamps
+- `exportAll()` iterates every data table (no hardcoded list) → `{ app: 'kennelos',
+  schema_version, format_version, exported_at, collections }` (`app`, `BACKUP_APP`, names
+  the app that made it; older files carry none). `downloadBackup()` saves it and stamps
   `lastBackupDate`. `{ encodeBlobs: false }` keeps Blobs for the cloud snapshot builder.
-- `inspectBackup(obj)` validates shape and reports counts and unknown tables before writing.
+- `inspectBackup(obj)` validates shape and reports counts, unknown tables and `records` (rows
+  in tables this app knows) before writing. It refuses another app's file (`app` set and not
+  `kennelos`: Furever's names itself, and shares three table names) and a file with no
+  KennelOS records, since Replace would otherwise empty her program for nothing. Replace's
+  confirm states both numbers ("Replace the 412 records on this device with the file's 16?";
+  `countRecords()`).
 - `restoreBackup(obj, mode)` sees only `db.dataTables()`:
   - `'replace'` clears every table first, so the result is exactly the file.
   - `'merge'` upserts by id. With `opts.keepNewer`, a row whose local `updated_at` is later
@@ -664,11 +683,12 @@ writes nothing; called with no `ask`, it makes only the certain pairs.
   - *Contact*: Same on name plus a shared email or phone (last 10 digits). Ask on a shared
     email or phone with a different name, or the same name with nothing to compare. Never
     when the emails and the phones both differ.
-  - *Dog*: Same on a registered name in common (`dogSearch.nameKey`: titles, case,
-    punctuation and spacing ignored), a registration number in common (`normReg`) — any
-    either holds, additional registrations included (`sameRegisteredName`,
-    `sameRegistration`) — or microchip; or a pup of a paired litter with the same call name
-    and sex. Ask on the same call name, breed and sex (two pups pair only through their
+  - *Dog*: Same on one Dog Card id (`public_id`, before anything else); on a registered name
+    in common (`dogSearch.nameKey`: titles, case, punctuation and spacing ignored, a short
+    bare number kept), a registration number in common (`normReg`) — any either holds,
+    additional registrations included (`sameRegisteredName`, `sameRegistration`) — or
+    microchip; or a pup of a paired litter with the same call name and sex. Two of one
+    litter by a registered name alone are asked about, never paired by themselves. Ask on the same call name, breed and sex (two pups pair only through their
     litters, never by name alone). Never, whatever else agrees: known sexes differ;
     registration numbers conflict (`registrationsConflict`); both have a microchip or
     birthday and it differs; one is the other's parent.
@@ -722,7 +742,10 @@ tidy-up's duplicate dogs and contacts (§33), so anything either would call the 
   and expenses. Live records only. Demo has no Import/Export page.
 - **Nothing merges by itself.** A rule's *Same* is "These look like the same…", its *Ask*
   "These might be the same…", with what the two have in common; she decides each pair. Two
-  pups of one litter by call name are only ever *Ask*. Foreign keys compare as stored, so the
+  pups of one litter by call name are only ever *Ask*, and by registered name only
+  *possible*. Two dogs holding one Dog Card id are *certain* ("KennelOS ID"), whatever their
+  names. A merge never copies a Dog Card id (`recordMerge` `NEVER_COPY`): the kept dog takes
+  the dropped one's once it's gone, when it has none. Foreign keys compare as stored, so the
   card scans again after every merge: merging two records for one dam makes her two litters a
   pair. Records are bucketed by what a rule compares first, so a scan never compares every
   pair.
@@ -1365,9 +1388,9 @@ subject (`financials.js` `expenseInScope`).
   "paid in full"; each else the sale's date). What's still owed is **anticipated** on the
   due date that needs it, `due` that date ('' when it can't be known yet), `due_id` which
   due date. Returned/cancelled keeps only what was paid (payments included), less any money
-  carried off it to the family's next pup as a credit (a back-out's Move the deposit:
-  `carriedOutBySale`, from every entry's credits naming it by `from_sale_id`, taken off the
-  deposit first). A credit is held money, never income until the charge it pays is (D21),
+  carried off it to the family's next pup as a credit (a back-out's credit, any amount up to
+  what they paid: `carriedOutBySale`, from every entry's credits naming it by
+  `from_sale_id`, taken off the deposit first, then the rest in order). A credit is held money, never income until the charge it pays is (D21),
   so it's earned on the sale the credit pays, once. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29). Extras
   kept after a family backed out stay owed on a released sale. `getIncomeRows` loads each
@@ -1475,7 +1498,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
   `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
   `cleanSteps` works each amount out from its percent (the last takes the rounding), so a
-  changed amount rescales them. Income: one `extra` component per step, keyed
+  changed amount changes them, except a step already paid (`paid_date`, with an amount
+  stored), which keeps its amount: what's left is spread over the unpaid steps by their
+  percents. `readExtraCharges` refuses an amount below what's paid (`chargePaid`), or any
+  change to one paid in full. Income: one `extra` component per step, keyed
   `extra:<id>:<step id>`, labelled "Name, 50%" (`stepLabel`), earned on its `paid_date` or
   else with the balance, filed on its paid date or due date; the invoice gets a line per step
   with its own Due by. The Sale page lists each step with a **Paid on** date.
@@ -2065,11 +2091,12 @@ restored into Lite keeps its waitlist rows, dormant.
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
   of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
   of the deposit. A credit never dates a deposit: Deposit received prefills the sale's
-  `deposit_date`, else today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
-  deposit carry only what was paid beyond the credit, which stays on the entry.
+  `deposit_date`, else today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's
+  credit carry at most what was paid beyond the credit, which stays on the entry.
   - **Money carried from a lost pup** (Payment Schedule plan §3.2a, D20) is a credit like
     any other, written only when she puts the family back on the list with it (a lost pup's
-    **Carry it to their next pup**, a back-out's Move the deposit; a refund writes none):
+    **Carry it to their next pup**, a back-out's **Put them back in line** with a credit; a refund
+    or a credit of 0 writes none):
     `receivedCredits.carriedCredit`, every use ticked, dated when it was paid (the lost
     sale's `deposit_date`, else that day), note "Carried over from *pup*'s sale",
     `from_sale_id` the lost sale (`carriedCreditsOf` finds them). The next sale keeps its own
@@ -2372,8 +2399,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Undo windows (7 days, `REMOVAL_UNDO_DAYS`), for a mistap:** a removal, automatic or hers
   (`canUndoRemoval`; only a second pass forgives a pass), a withdrawal she entered (`withdraw`
   with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
-  back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
-  fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
+  back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved, or
+  on the list from the day they paid when they paid online meanwhile: `fee_paid_online`
+  applied as `approve` applies it) and a
+  fee she marked received (`undoFeeReceived`: `fee_received_manual`, which a fee recorded
+  from her payment service (`checkFeePayments`, `feeReceived` with `manual: false`) or
+  applied from `fee_paid_online` never sets, counted from
   `fee_received_at`, back to approved, and only until they're offered a turn or have a side
   sale; `canUndoFeeReceived` needs the sales). Each keeps the
   family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
@@ -2409,7 +2440,24 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
   'closed'`, `closed_by: 'back_out'`): no email is offered for them, their page doesn't list
   them, and `slotBookings` no longer counts the time (it also skips any record with no open
-  sale, its `live` test). A family page only can't Move the deposit (refused).
+  sale, its `live` test). Nothing is refunded (D9): `outcome` is `keep` or `move`, and a
+  `refund` is refused (a decided one from before still reads). `move` takes `credit`, her
+  choice from 0 to what they paid beyond their credits (`backOutMoney`: `parts` paid line by
+  line from `incomeView.paidOnSaleByPart`, `paid`, and `suggested`, all of `paid`, the
+  dialogs' prefill and what a missing `credit` means); it's stored on the decided request. A family page only
+  gets Keep only (move refused).
+  **Every way it's recorded goes through one confirm**, `waitlistUI.backOutDialog({ entryId,
+  outcome?, note? })`: their request's **Keep what they paid** / **Put them back in line**
+  (the button's outcome), the family page's **End the sale…** → "They backed out
+  (Cancelled)", and **Cancelled** on the Sale page for a waitlist family's open sale
+  (`backOutEntryFor(saleId)`: the family the sale belongs to by `familySale`, not one that's
+  left the list). Without an outcome she chooses in the confirm, **The sale is cancelled and
+  they leave the list (keep what they paid)** first. Without a request it's `told` (reason
+  "They told you", End the sale's note as its text). The Sale page saves her other changes
+  with the old status, then opens the confirm; cancelling it leaves the sale open and says
+  so. So a family is never left Placed on a cancelled sale. The confirm offers the
+  outcome's email where the list is online. Her status card then reads "Backed out of
+  *pup* *date*; what they paid was kept" (not "Withdrew").
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -2437,7 +2485,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   funnel, Applications, Waitlist Today's pipeline, Offers & Removals, the year review
   (`listRecords`), Kels's Review my waitlist, `deriveContactWaitlistStatus` (the contact is
   never "on the waitlist"), and `lostSaleFamily` (D8: a lost pup never puts them in line; a
-  back-out is Keep or Refund). **Apply to the list…** starts an ordinary application.
+  back-out is Keep, since nothing is refunded, D9). **Apply to the list…** starts an ordinary application.
 
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
@@ -2465,7 +2513,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **Waitlist family**). The Buyer field warns when the chosen contact is on her do-not-sell
   list (K7-9), as the Side sale dialog does for the family; only a warning.
 - **A family's page** (`waitlist-entry`) for a family page only: "Family page only" in its
-  status, no public-list name row, no **Move the deposit** on a back-out request, **Apply to
+  status, no public-list name row, no **Put them back in line** on a back-out request, **Apply to
   the list…** in place of Re-apply. A placed family with an open sale gets **Keep off the list
   (family page only)…**; one that was on the list (fee received) can be **Put back on the list…**.
 - **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
@@ -2803,24 +2851,31 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   reasons, the policy rows (`back_out_policy`: reason or any, optional from / until weeks,
   keep or move) and the text. Today (`waitlist-back-out`) opens the entry, whose Waiting for
   you row shows the suggestion (`suggestOutcome` on the pup's age in weeks; none fits:
-  keep) with **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed
-  REFUND) / **Decline**. Each opens a confirm listing `backOutItems` (extras ticked to
-  remove unless part-paid or Done; stays not started; pickups to come) and a summary line.
+  keep) with **Keep what they paid** / **Put them back in line** / **Decline**. Nothing
+  is refunded on a back-out (D9). Each opens a confirm that says what they paid, line by line
+  (`backOutPaidText`); putting them back in line asks **Credit what they paid toward their
+  next pup?** Yes (the amount, prefilled with all they paid beyond their credits, hers to
+  lower) / No, keep what they paid; then it lists `backOutItems` (extras ticked to remove
+  unless part-paid or Done; a kept one says "paid" or "still owed"; stays not started;
+  pickups to come) and a summary line (`backOutSummary`: the credit and what's kept).
   `approveBackOut`: ticked extras off, the rest `kept_after_cancel` (still owed: income
   keeps their parts on a cancelled or voided sale), ticked events archived; keep → sale
   `cancelled`, entry `withdrawn`; move → sale `cancelled`, entry reopened `active` at the
-  end of the line (`position_anchor_date` today) with a carried credit for a paid deposit;
-  refund → sale `voided` with end reason `buyer_backed_out` (never `restoresFamily`), entry
-  `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
+  end of the line (`position_anchor_date` today) with a carried credit of the amount she
+  chose (none at 0). A back-out decided as a refund before D9 (sale `voided`, end reason
+  `buyer_backed_out`, never `restoresFamily`) still reads that way. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
   health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
   litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
   extras have a **Done** tick (`completed_date`). **After she decides:** an approved back-out
   stays on the family's page for the days a decided request does (`requestView`), with or
   without a sale: `entry.back_out` is `{ available: false, request }` once the sale has ended
-  (no form, no reasons), and the page says what happened to the deposit (kept, moving to
-  their next pup, refunded). The email she's offered is the outcome's own
-  (`backed_out_keep` / `backed_out_move` / `backed_out_refund`, each a template she can
-  reword), not `request_approved`.
+  (no form, no reasons), and the page says what happened to what they paid: kept, in the
+  owner's words ("Per your contract terms, all monies paid related to this sale are
+  non-refundable and are forfeit upon sale cancellation."), or back on the waitlist with the
+  credit their published `credits` hold (those words again when nothing was credited); an
+  older refund still says refunded. The two emails' default words say the same. The email she's offered is the outcome's own (`backed_out_keep` /
+  `backed_out_move`, each a template she can reword; `backed_out_refund` is kept only for
+  one queued before D9), not `request_approved`.
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family
   with an open sale, and an address request), never the server; placeholders `[Distance]`
   (" You're about N miles from us.", from their latest measured address) and
@@ -3483,7 +3538,9 @@ different dog, never offered; a clearly different number only lowers it to `poss
 **A dog's identity, one rule everywhere** (`dogSearch.js`): `dogRegistrationNumbers` /
 `dogRegKeys` (every number a dog holds, main first, then its `additional_registrations`;
 keys by `normReg`), `dogRegisteredNames` / `dogNameKeys` (its registered name and any an
-additional registration gives; keys by `nameKey`), `sameRegistration` and
+additional registration gives; keys by `nameKey`, which drops titles, case, punctuation and
+a registration-like run of digits but keeps a short bare number: "Thornfield Blue 1" and
+"Thornfield Blue 2" are two dogs), `sameRegistration` and
 `sameRegisteredName` (any one in common), and `registrationsConflict` (both have numbers,
 none shared, and two of them could be one registry's: the same registry, or one not given;
 an AKC number on one and a UKC number on the other never rule a pair out). The duplicate
@@ -4372,8 +4429,9 @@ unpaid fees), else 26.
      per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
      her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
-     **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
-     **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]
+     **Keep what they paid** / **Put them back in line** (not for a family page only) /
+     **Decline**; a form with what they paid, Credit it? Yes (the amount, all of it
+     prefilled) / No, `backOutItems` ticked as the entry page ticks them, **Put [pup]
      back to** Available / Health hold, and `backOutSummary` → `approveBackOut`. A pup back
      to Available → "Offer [pup] to the next family?". Then, every time, "Do you need to
      cancel or void any other sales?": her open and gone-home sales → the family backed out
@@ -4935,8 +4993,16 @@ updates the same dogs.
   (`dogChanges` plus how many tests and titles are new or changed), `unchanged` or `adopt` (she
   has it as a pedigree-only ancestor from an earlier card); look-alikes she may link to (same
   registration number, else registered name, else call name, sex and breed; only dogs with no
-  public id); ancestors as a count.
-- **Apply** (`applyDogCard`): every choice is checked before anything is written. The sending
+  public id); ancestors as a count. Each dog's `problem` (`cardDogProblem`: a birthday in the
+  future, a death before birth, what the dog repo would refuse) and, on an update,
+  `mineNewer` (`mineIsNewer`: her copy changed after the card's `issuedAt`). Two of her dogs
+  holding one of the card's ids refuses the card, naming them, until she merges them.
+- **Apply** (`applyDogCard`): every choice is checked before anything is written, and every
+  write is one `db.transaction` over the data tables, so a failure part-way leaves nothing (an
+  `async` callback that awaits: a bare promise ends it early in a browser). A dog with a
+  `problem` is left out and named (`leftOut`); the rest goes in. A new contact reuses one of
+  the same name (an earlier card's), never a second. `skip` leaves out a new dog or an update
+  (Keep mine: `kept`). The sending
   kennel through `applyKennelCard` (or linked to one she picks); breeder kennels by public id,
   else `findOrCreateOutside`. New dogs are **co-owned** with a contact (picked, or a new one
   affiliated with the sending kennel) in one of her own kennels, **Lives with** them or her, or
@@ -4950,7 +5016,9 @@ updates the same dogs.
 - **Screens:** Sharing → **Dog cards** (`pages/dog-cards.html`): Send (from kennel, a
   co-owner filter, ticks, Make the card → link, code, Save as a file, What's on the card) and
   Add dogs from a card (paste or open a file → the preview, with How do you hold the new dogs,
-  per-dog Add as new / Same as my … / Leave out and Lives with). **Send a dog card** on a dog's
+  per-dog Add as new / Same as my … / Leave out and Lives with; an update lists each change
+  `from → to`, with Update from the card / Keep mine, Keep mine first when `mineNewer`; a dog
+  left out says why; the footer says which fields an update sets). **Send a dog card** on a dog's
   page (`dog-cards.html?dog=<id>`: that dog ticked, its card made) and **Add dogs from a card**
   on the Dogs page (`#receive`), both behind the flag.
 - **Registries:** `dogs.public_id` and `events.shared_ref` are cloud fields (random ids);

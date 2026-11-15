@@ -92,3 +92,15 @@ test('refuses two contacts who both hold a live place on the same waitlist', asy
   put('waitlist_entries', { id: 'w2', contact_id: 'c2', kennel_id: 'K', status: 'applied' });
   await assert.rejects(M.mergeRecords('contact', 'c1', 'c2'), /waitlist/);
 });
+
+// K1-3: the typed-in dog kept, the card's copy dropped: the merge goes through and the
+// kept dog takes the Dog Card id, so the next card from that kennel finds her.
+test('K1-3: merging a dog with a Dog Card id into one without keeps the link', async () => {
+  const card = 'kosd1_11111111-2222-3333-4444-555555555555';
+  put('dogs', { id: 'typed', call_name: 'Zara', registered_name: 'Thornfield Zara', registration_number: 'ZR1', date_of_birth: '2022-01-01', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: 'K', color_markings: 'Brindle', notes: 'mine' });
+  put('dogs', { id: 'fromCard', call_name: 'Zara', sex: 'female', breed: 'Boston Terrier', ownership_type: 'co_owned', status: 'active_breeding', kennel_id: 'K', public_id: card });
+  assert.equal('public_id' in M.mergedChanges('dog', row('dogs', 'typed'), row('dogs', 'fromCard')), false, 'never copied while the duplicate holds it');
+  await M.mergeDuplicate('dogs', 'typed', 'fromCard');
+  assert.equal(row('dogs', 'fromCard'), undefined);
+  assert.equal(row('dogs', 'typed').public_id, card);
+});

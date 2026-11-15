@@ -79,7 +79,7 @@ same time in two sessions.
      K3-7, K3-9).
    - **Note:** K3-1 has a Worker half (`cloud/src/sync.js`), so `cd cloud && npm test` is in
      scope. A new cloud migration is unlikely, but CLAUDE.md allows at most one per branch.
-2. **K13 quick batch: the privacy policy and the deploy gate.**
+2. **K13 quick batch: the privacy policy and the deploy gate.** *Built 2026-11-15 (owner: fix the policy's words for all three).*
    - **Batch:** K13-1, K13-2 and K13-3 (the policy says three things that aren't true:
      KennelPort sends without cloud sign-in, backups hold more than §6 lists, and Furever
      publishes to Google Drive), plus K13-15 (the deploy runs `node --test` and the build
@@ -88,7 +88,7 @@ same time in two sessions.
    - **Owner decision first:** for each statement, does the policy change, or does the app
      change to match the policy? K13-2 in particular is a `syncRegistry` cloud/private
      question, which CLAUDE.md says to surface.
-3. **Waitlist Fixes plan, step 5 (money a family is shown).** K8-2 (S1), K8-3, K6b-5,
+3. **Waitlist Fixes plan, step 5 (money a family is shown).** *Built 2026-11-15 (D9: nothing is refunded on a back-out; she chooses the credit).* K8-2 (S1), K8-3, K6b-5,
    K6b-8, and K8-4 and K8-13 if the *recheck* shows they're still open.
    - **Why:** families see the wrong money, the plan for it already exists, and it sits on
      the statement that Payment Schedules just built.
@@ -98,13 +98,13 @@ same time in two sessions.
 
 ### Tier 2: next
 
-4. **K02 + K01 together: restore, import and identity matching.** K2-1 (S1: a non-KennelOS
+4. **K02 + K01 together: restore, import and identity matching.** *Built 2026-11-15.* K2-1 (S1: a non-KennelOS
    JSON empties her program on Replace), K1-1 (S1: "Blue 1" and "Blue 2" merge as one dog),
    K2-5 and K2-6 (Dog Cards: no transaction, and her corrections reverted), K2-2, K2-3 and
    K2-4 (CSV duplicates, ambiguous dates, a preview that never says what changes), K1-3,
    and K1-6. Both docs share `restoreMatch` and `dogSearch`, so one batch avoids fixing the
    matching twice. Leave K1-4 and K2-7 (performance) for their own batch.
-5. **K05: assisted setup, the licence wall, the vault.** K5-1 and K5-2 (S1), then K5-3 (the
+5. **K05: assisted setup, the licence wall, the vault.** *Next. K5-3 decided: export only (§4).* K5-1 and K5-2 (S1), then K5-3 (the
    licence wall has no export, though the editions plan promises one), K5-4 to K5-7, and
    K5-9 (a lifetime key treated as monthly). **Move this to Tier 1 if support is already
    running assisted setups for real breeders:** K5-1 carries a whole kennel into the next
@@ -153,7 +153,7 @@ same time in two sessions.
 |---|---|
 | 2 | K13-1/2/3: change the policy's words, or change what is sent? (K13-2 is a `syncRegistry` privacy call.) |
 | 3 | Waitlist Fixes D9: what a back-out after paying more than the deposit carries over or refunds. |
-| 5 | K5-3: what the licence wall offers (read-only access to her records, or export only). |
+| 5 | K5-3: what the licence wall offers. **Decided 2026-11-15: export only** (a "Download a backup of this device" control on every licence wall; no read-only access behind it). |
 | 7 | K10-4: which payment carries the processing fee. K10-13: is currency in scope at all? |
 | 8 | K13-6: Demo's Companion and Furever saves: block them, or say they won't keep. |
 | 12 | Waitlist Fixes D10, D11, D12. |

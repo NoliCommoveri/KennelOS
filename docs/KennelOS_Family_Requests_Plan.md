@@ -299,6 +299,16 @@ or "18 miles: under your 25, no charge".
     options…**, and it opens a confirm that says what it does ("Their $500 deposit won't
     count as income. Record that you refunded it?") with the Refund button off until she
     types **REFUND**. Her deposit policy (above) can't make it the suggested outcome.
+  **Modified (2026-11-15, Waitlist Fixes Plan D9):** nothing is refunded on a back-out,
+  since breeders' contracts make every payment non-refundable when a family backs out:
+  Refund is gone, and a new one is refused (one decided before still reads). The two
+  outcomes are **Keep what they paid** and **Put them back in line**, which asks whether
+  to credit what they paid toward their next pup: Yes, with the amount prefilled as all
+  they paid (any part, deposit, balance and extras alike, hers to change), or No. The confirm says what
+  they paid, line by line (K8-2).
+  **Modified (2026-11-15):** a back-out she hears about some other way (End the sale… → They
+  backed out, Cancelled on the Sale page, Kels) goes through the same confirm, with **they
+  leave the list, keeping what they paid** chosen first: the common case.
 - The family sees the result on their page and gets an email (her template).
   **Modified (2026-11-11, Waitlist Fixes Plan K8-7):** the decided back-out stays on their
   page for 30 days after the sale has ended (what happened to the deposit), and each outcome
@@ -307,7 +317,7 @@ or "18 miles: under your 25, no charge".
   **Modified (2026-11-11, Waitlist Fixes Plan K8-8, E3):** approving closes the family's
   waiting pickup and extras requests (`decided: 'closed'`), so no decline email goes to a
   family who's gone and the pickup time is free. A family page only (no place on the list)
-  is Keep or Refund only, never Move.
+  is Keep only (D9: no refund), never Move.
 
 ### 7.2 Approving a back-out: she ticks what goes
 
@@ -380,7 +390,7 @@ new fee, the usual path) when she'd rather start over.
   (§7.2), since some extras are already done and still owed.
 - **D13. A refund on the books. Decided (2026-11-01):** the sale is voided ("Buyer backed out,
   refunded"), behind **More options…** and a typed confirm, since she doesn't plan to use it
-  (§7).
+  (§7). **Modified (2026-11-15, Waitlist Fixes Plan D9):** no refund on a back-out at all.
 
 - **D3. Age windows. Decided (2026-11-01):** both: a group default she sets once, and an extra
   with its own window overrides it (§3).

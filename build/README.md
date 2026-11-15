@@ -39,6 +39,16 @@ workflow (`.github/workflows/deploy.yml`) passes `--release`, so a merge to `mai
 ship a dead upgrade/checkout link. Swap the placeholders (see
 `docs/LAUNCH_CHECKLIST.md`) to make a release build pass.
 
+**Import check (every build).** After a target is assembled, `checkImports.mjs` reads
+every `.js` file and every `.html` file in its `dist/` folder (vendor aside) and fails the
+build if a relative static import, or a relative `<script src>`, names a file that
+build doesn't have. That's how a shared page that still imports a Pro-only file shows up
+before Lite ships it. Dynamic `import()`s are left out: an edition flag gates them.
+
+**Tests before publish.** The deploy workflow's `test` job runs `node --test` (the app's
+and the cloud's suites, Node 22) first; the publish matrix `needs` it, so a red test
+publishes nothing.
+
 ## What it does (per edition)
 
 1. **Copy** `shared/` → `dist/<edition>/`. The artifact is shaped exactly like the app
@@ -89,7 +99,7 @@ repo holds **only build output** — never hand-edit a file in one of them; it's
 overwritten on the next deploy.
 
 `.github/workflows/deploy.yml` in *this* repo (`nolicommoveri/kennelos`) is the deploy
-mechanism: on every push to `main`, it runs `node build/assemble.mjs <target>` for all
+mechanism: on every push to `main`, once `node --test` passes, it runs `node build/assemble.mjs <target> --release` for all
 three editions plus Furever and force-publishes `dist/<target>/` (plus a generated
 `CNAME` file) to `main` on the matching publish repo, via
 [`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages) authenticated

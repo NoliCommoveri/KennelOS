@@ -87,10 +87,9 @@ backup, carries a program from Lite to Pro.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
     phase 2, live updates through the cloud, after owner decisions.
   - Waitlist fixes and three enhancements (`docs/KennelOS_Waitlist_Fixes_Plan.md`): steps
-    1–4 are built (Pup selected, Already Reserved, family pages without the list, the puppy
-    portal says only what's true); next is step 5 (money a family is shown; K8-1 and K8-10
-    are built with Payment schedules step 6). Five
-    decisions about the fixes are open (its §2).
+    1–5 are built (Pup selected, Already Reserved, family pages without the list, the puppy
+    portal says only what's true, money a family is shown); next is step 6 (one turn rule
+    each). Four decisions about the fixes are open (its §2: D3, D10, D11, D12).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received and the per-family invoice/receipt generator. Steps 1–8 built (guide
     §21.3, §24 and the sections they name): every surface reads the statement, and money

@@ -335,7 +335,8 @@ test('the vault key is never in a backup, and Reset App clears it', async () => 
   assert.ok(await keyStore.getVaultKey(programId));
   const backup = await ie.exportAll({ encodeBlobs: false });
   assert.ok(!('device_secrets' in backup.collections));
-  await ie.restoreBackup({ collections: { device_secrets: [{ id: 'vault-key', program_id: programId, key_id: 'x' }] } }, 'replace');
+  assert.equal(backup.app, 'kennelos', 'a backup names its app (K2-1)');
+  await ie.restoreBackup({ collections: { breed_feeding_schedules: [{ id: 'bfs1', breed: 'Labrador Retriever' }], device_secrets: [{ id: 'vault-key', program_id: programId, key_id: 'x' }] } }, 'replace');
   assert.ok((await keyStore.getVaultKey(programId)).key, 'a file restore neither imports nor clears it');
 
   await appReset.resetApp();

@@ -617,7 +617,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
     [25, 'Day', 7, true, null], 'replaced and removed once she chose to');
 });
 
-test('backing out (Family Requests plan §7): a placed family asks, her policy suggests, she moves their deposit with what she ticked; a refund voids the sale', async () => {
+test('backing out (Family Requests plan §7): a placed family asks, her policy suggests, she puts them back in line with their deposit as a credit and what she ticked; nothing is refunded (D9)', async () => {
   const { contactRepo } = await import('../shared/data/contactRepo.js');
   const { saleRepo } = await import('../shared/data/saleRepo.js');
   const { dogRepo } = await import('../shared/data/dogRepo.js');
@@ -677,16 +677,20 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
   const moved = await waitlistEntryRepo.getById(entry.id);
   assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.received_credits?.[0]?.amount, moved.back_out_request.outcome],
-    ['active', null, later(0), 500, 'move'], 'back on the list at the end, the same entry, the deposit carried');
+    ['active', null, later(0), 800, 'move'], 'back on the list at the end, the same entry, all they paid credited (none named: all of it)');
   await cw.syncWaitlistOnline();
-  assert.equal((await view()).family.status, 'active', 'their status page and sign-in still work');
+  const back = await view();
+  assert.equal(back.family.status, 'active', 'their status page and sign-in still work');
+  assert.equal(back.family.credits?.received, 800, 'K8-4: their credit is published, so their next deposit is asked for less it');
 
-  // A refund: the sale is voided, never offered back in line, and they leave the list.
+  // D9: nothing is refunded on a back-out. Keep: the sale is cancelled and they leave the list.
   const sale2 = await saleRepo.create({ kennel_id: k.id, dog_id: pups[1].id, buyer_contact_id: other.contact_id, registration_type: 'limited', status: 'deposit_paid', price: 3000, deposit_amount: 500, deposit_date: later(-5) });
   await waitlistEntryRepo.update(other.id, { status: 'placed', placed_sale_id: sale2.id, back_out_request: { requested_date: later(0), reason: { id: 'timing', label: 'The timing', text: '' }, note: '' } });
-  await actions.approveBackOut(other.id, { outcome: 'refund', remove: [] });
-  const refunded = await saleRepo.getById(sale2.id);
-  assert.deepEqual([refunded.status, refunded.end_reason], ['voided', 'buyer_backed_out']);
+  await assert.rejects(actions.approveBackOut(other.id, { outcome: 'refund', remove: [] }), /Nothing is refunded/);
+  assert.equal((await saleRepo.getById(sale2.id)).status, 'deposit_paid', 'a refused refund changes nothing');
+  await actions.approveBackOut(other.id, { outcome: 'keep', remove: [] });
+  const kept = await saleRepo.getById(sale2.id);
+  assert.equal(kept.status, 'cancelled');
   assert.equal(await actions.lostSaleFamilyFor(sale2.id), null, 'not a lost pup: no "put them back in line"');
   assert.equal((await waitlistEntryRepo.getById(other.id)).status, 'withdrawn');
   await restore();

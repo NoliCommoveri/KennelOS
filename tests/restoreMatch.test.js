@@ -87,3 +87,20 @@ test('rekey: whole values, ids inside strings and keys, nested; untouched values
   const untouched = { id: 'z', n: { a: 1 } };
   assert.equal(rekey(untouched, remap), untouched);
 });
+
+// K1-6 and K1-1 in a merge of a backup.
+test('K1-6: a backup\'s dog pairs with hers on their Dog Card id, renamed or not', () => {
+  const id = 'kosd1_11111111-2222-3333-4444-555555555555';
+  const r = plan({ dogs: [{ id: 'L', call_name: 'Ranger', sex: 'male', breed: 'Lab', public_id: id }] },
+    { dogs: [{ id: 'F', call_name: 'Rangey', sex: 'male', breed: 'Lab', public_id: id }] });
+  assert.deepEqual(r.pairs.map((p) => [p.localId, p.fileId, p.asked]), [['L', 'F', false]]);
+});
+
+test('K1-1: "Blue 1" and "Blue 2" never pair; two of one litter by an identical name are asked about', () => {
+  const pup = (id, call, reg) => ({ id, call_name: call, registered_name: reg, sex: 'male', breed: 'Lab', litter_id: 'L1', date_of_birth: '2026-08-01' });
+  const apart = plan({ dogs: [pup('A', 'Blue', 'Thornfield Blue 1')] }, { dogs: [pup('B', 'Ozzy', 'Thornfield Blue 2')] });
+  assert.deepEqual([apart.pairs.length, apart.asks.length], [0, 0]);
+  const same = plan({ dogs: [pup('A', 'Blue', 'Thornfield Blue')] }, { dogs: [pup('B', 'Ozzy', 'Thornfield Blue')] });
+  assert.equal(same.pairs.filter((p) => !p.asked).length, 0, 'never paired by itself');
+  assert.equal(same.asks.length, 1);
+});

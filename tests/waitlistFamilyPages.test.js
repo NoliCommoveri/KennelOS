@@ -225,10 +225,11 @@ test('E3: "Keep off the list" on a placed family: the families behind move up; u
 
 // --- Backing out, a lost pup (D8) and their requests (K8-8) ---------------------------
 
-test('D8: a family page only backs out with Keep or Refund, never Move; it stays off every list', async () => {
+test('D8, D9: a family page only backs out with Keep (nothing is refunded), never back in line; it stays off every list', async () => {
   const e = await actions.addFamilyPage(ids.rexSale, { date: DAY });
   await waitlistEntryRepo.update(e.id, { back_out_request: { requested_date: DAY, reason: { id: 'other', label: 'Other' } } });
-  await assert.rejects(actions.approveBackOut(e.id, { outcome: 'move', date: DAY }), /keep or refund/);
+  await assert.rejects(actions.approveBackOut(e.id, { outcome: 'move', date: DAY }), /what they paid is kept/);
+  await assert.rejects(actions.approveBackOut(e.id, { outcome: 'refund', date: DAY }), /Nothing is refunded/);
   const res = await actions.approveBackOut(e.id, { outcome: 'keep', date: DAY });
   assert.equal(res.entry.status, 'withdrawn');
   assert.equal(res.entry.off_list, true);
@@ -254,7 +255,7 @@ test('K8-8: a back-out closes their waiting pickup and extras requests; a time t
   });
   const before = await waitlistEntryRepo.getById(e.id);
   assert.equal(slots.slotBookings([], [before]).get('slot1'), 1);
-  await actions.approveBackOut(e.id, { outcome: 'refund', date: DAY });
+  await actions.approveBackOut(e.id, { outcome: 'keep', date: DAY });
   const after = await waitlistEntryRepo.getById(e.id);
   assert.equal(after.pickup_requests.find((r) => r.id === 'pr1').decided, 'closed');
   assert.equal(after.pickup_requests.find((r) => r.id === 'pr0').decided, 'approved', 'decided ones are kept as they were');

@@ -130,3 +130,27 @@ test('an approval that put them straight on the list (no fee) has no fee undo', 
   assert.equal(e.status, 'active', 'no fee: straight on the list');
   assert.equal(rules.canUndoFeeReceived(e, [], new Date().toISOString().slice(0, 10), []), false);
 });
+
+// K6b-8: a fee they paid online after the application closed is applied when she
+// reopens it, as approving applies it.
+test('K6b-8: Reopen application puts a family who paid online meanwhile on the list from the day they paid', async () => {
+  await actions.markFeeExpired(approvedId, { date: '2026-11-02' });
+  await waitlistEntryRepo.update(approvedId, { fee_paid_online: { date: '2026-11-03', amount: 100, method: 'Credit/debit card', reference: 'cs_test_1' } });
+  const back = await actions.undoExpire(approvedId, { today: '2026-11-04' });
+  assert.deepEqual([back.status, back.fee_received_date, back.fee_payment_reference, back.expired_date], ['active', '2026-11-03', 'cs_test_1', null]);
+  assert.equal(rules.canUndoFeeReceived(back, [], '2026-11-04', []), false, 'she didn\'t mark it: no "marked by mistake" undo');
+  const { planFeePayment } = await import('../shared/data/waitlistFeePay.js');
+  assert.equal(planFeePayment(back, { date: '2026-11-03', reference: 'cs_test_1' }, 'acct').reason, 'already', 'the next check skips that payment');
+});
+
+// K6b-5: a fee recorded from her payment service has no undo: the next check would
+// find the same payment and put them back.
+test('K6b-5: a fee recorded from Stripe offers no undo; one she marked does', async () => {
+  const fromStripe = await actions.feeReceived(approvedId, { date: '2026-11-03', reference: 'cs_test_2', creditAmount: 0, manual: false });
+  assert.equal(fromStripe.fee_received_manual, null);
+  assert.equal(rules.canUndoFeeReceived(fromStripe, [], '2026-11-04', []), false);
+  await assert.rejects(actions.undoFeeReceived(approvedId, { today: '2026-11-04' }), /can no longer be marked not received/);
+  await waitlistEntryRepo.update(approvedId, { status: 'approved', fee_received_date: null, fee_received_at: null, fee_payment_reference: '' });
+  const byHand = await actions.feeReceived(approvedId, { date: '2026-11-03', amount: 100, method: 'Cash' });
+  assert.equal(rules.canUndoFeeReceived(byHand, [], '2026-11-04', []), true);
+});

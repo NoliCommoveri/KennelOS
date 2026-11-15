@@ -4763,3 +4763,174 @@ tick box per template; buyers get an emailed link.
   (Modified); `FIX_PRIORITIES.md`.
 - **Service worker:** `data/cloud/syncLost.js` in `PRECACHE_URLS`. `CACHE_NAME` bumped to
   `kennelos-shell-v143` (owner asked), covering this entry and the K03 batch above.
+
+## 2026-11-15: The privacy policy says what's sent, and nothing deploys untested (K13 review fixes)
+
+- **Asked (owner):** step 2 of `docs/review/FIX_PRIORITIES.md`. For K13-1, K13-2 and K13-3
+  the owner chose to change the policy's words, not what the app sends. No `syncRegistry`
+  change.
+- **K13-1:** `site/privacy.html` §2 and §4 no longer say nothing reaches us without cloud
+  backup: a linked KennelPort website sends what §9a lists either way.
+- **K13-2:** §6 "What we keep" adds a sale's open Stripe payment link (and that opening it
+  shows its amount), the business accounts table (name, type, website, referral
+  link/code/instructions, the published fee rate, contract forms' labels and links, her
+  payment link and instructions; never logins, her notes or the fee charge-back), vet
+  summaries in Documents, and the waitlist preferences the form asks (sex, breed, colours,
+  purposes, ready timing). "What we can never read" now excepts those.
+- **K13-3:** §4 gets a Google Drive bullet (Furever content packs to her own Drive,
+  `drive.file`, readable by anyone with the folder's link, unticked files trashed on the
+  next publish) and §12 a Google Drive row. Terms §12 names Google Drive too. Both pages
+  last updated 15 November 2026.
+- **K13-12:** the upgrade dialog on `site/editions.html` leads with the backup file, and
+  says cloud backup alone doesn't carry the private details without private backup (the
+  caveat `site/upgrade/` already had).
+- **K13-15:** new `build/checkImports.mjs`: `assemble.mjs` fails any target (every build,
+  not only `--release`) whose `dist/` has a relative static import, inline-module import or
+  `<script src>` naming a file it doesn't ship. `deploy.yml` gets a `test` job (Node 22,
+  `node --test`, which covers `cloud/tests` too) that the publish matrix `needs`, and the
+  build legs move from Node 20 to 22.
+- **Tests:** new `tests/checkImports.test.js` (a complete build passes; dropped imports,
+  `export … from`, inline modules and a `?v=` script src are reported; dynamic `import()`
+  and absolute URLs are skipped). `node --test` passes; all five targets build with the
+  check on. Deleting a file from `dist/lite/` made the check list its 62 importers.
+- **Docs:** guide §0 and §3, `build/README.md`, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or changed; no bump needed.
+
+## 2026-11-15: Money a family is shown (Waitlist Fixes plan step 5; D9 decided)
+
+- **Decided (owner), D9:** nothing is refunded when a family backs out (breeders' contracts
+  make every payment non-refundable on a back-out); she chooses how much of what they paid
+  to apply as a credit. D8 follows: a family page only is Keep only.
+- **K8-2 (S1):** `approveBackOut` takes `outcome` `keep` or `move` and, for `move`, `credit`
+  (0 up to what they paid beyond their credits; left out, the deposit they paid). `refund`
+  is refused; a refund decided before still reads. The amount is stored on the decided
+  `back_out_request` (private) and written as the usual carried credit (none at 0), so
+  Financials keeps only the rest as income. New `backOutMoney(entry, sale)` (`parts`, `paid`,
+  `suggested`) and `incomeView.paidOnSaleByPart` (what was paid, line by line, from the
+  statement; `paidOnSale` now sums it). The family page's back-out buttons are **Keep what
+  they paid** / **Back in line with a credit** / **Decline** (More options… and its REFUND
+  confirm are gone); the confirm says "They've paid $X on this sale: deposit …, balance …,
+  transport …", "Nothing is refunded", and asks the credit's amount. Kels's Review my
+  waitlist and its "the family backed out" path do the same (and Kels no longer offers a
+  credit to a family page only; its policy suggestion read the wrong field and always said
+  keep). Policy labels, the Kennel page hint, the timeline line, both emails' default words
+  and the family page's line ("You have a $X credit toward your next puppy", from their
+  published credits) follow. The refund email is no longer one she edits or is offered.
+- **K8-3:** `cleanSteps` keeps a paid step's stored amount and spreads the rest over the
+  unpaid steps; `readExtraCharges` refuses an amount below what's paid, or any change to an
+  extra paid in full. New `chargePaid`. The Sale page's hint says so. `backOutItems` reads
+  amounts, not percents.
+- **K8-4:** already true since the lost-pup credit (the carried amount is a published
+  credit); now a test (the family's view after a back-out has `credits.received` 500).
+- **K8-13:** "a pup they lost" → "an earlier sale" in the pick dialog, the picks panel's
+  message, the pick's activity line and an older carried payment's note; a kept, paid extra
+  says "paid", not "still owed"; "to back out of your puppy's sale"; "driving miles aren't
+  available right now" (entry page and Kels).
+- **K6b-5:** a fee recorded from her Stripe link (`checkFeePayments` → `feeReceived` with
+  `manual: false`) no longer sets `fee_received_manual`, so it offers no undo that the next
+  check would reverse.
+- **K6b-8:** `undoExpire` applies a fee they paid online meanwhile (`fee_paid_online`) as
+  `approve` does (shared `onlineFeeReceived`): on the list from the day they paid.
+- **Tests:** `backOut.test.js` (summary with credit and kept money, paid by part, "paid"
+  extras), `waitlistLostPup.test.js` +2 (a credit above the deposit, capped at what they
+  paid, the rest income; back in line with no credit), `cloudWaitlist.test.js` (refund
+  refused, keep; K8-4's published credit), `waitlistFamilyPages.test.js` (D8 with D9),
+  `waitlistPupSelected.test.js` (emails), `extraCharges.test.js` +2 (K8-3),
+  `waitlistUndo.test.js` +2 (K6b-5, K6b-8). `node --test` passes; editions build. In
+  Chromium the waitlist, family, kennel, sale and Kels pages load with no console errors;
+  the back-out dialog itself wasn't driven with data.
+- **Docs:** Waitlist Fixes plan (D9 decided, D8 modified, step 5 built), Family Requests
+  plan §7 and D13 (Modified), End-State guide (income, extra steps, credits, undo windows,
+  backing out, family pages, Kels), README, `FIX_PRIORITIES.md`.
+- **Service worker:** no file added or renamed.
+- **Then (owner):** putting a family back in line asks first. **Put them back in line**
+  (was "Back in line with a credit") → "Credit what they paid toward their next pup?"
+  **Yes**, with the amount prefilled as all they paid beyond their credits and editable, or
+  **No, keep what they paid**. `backOutMoney.suggested` and a missing `credit` are now all
+  they paid, not the deposit. Kels asks the same. Tests follow (`waitlistLostPup`,
+  `cloudWaitlist`: the back-out without a named credit credits the 800 paid).
+- **Then (owner):** the family-facing words. Their status page and the Keep email now say
+  "Per your contract terms, all monies paid related to this sale are non-refundable and are
+  forfeit upon sale cancellation." (back in line with nothing credited too); the back-in-line
+  email says any monies not credited are non-refundable and forfeit. Only the default
+  templates change: a breeder's own reworded email stays hers.
+- **Then (owner):** the Keep email no longer ends "If you'd like to talk it over, send us a message from your status page."
+
+## 2026-11-15: Every back-out she records goes through the back-out confirm
+
+- **Asked (owner):** a walkthrough of a back-out found End the sale… → "They backed out
+  (Cancelled)" and Cancelled on the Sale page only cancelled the sale: the family stayed
+  Placed on a cancelled sale, nothing recorded the back-out, and they never left the list.
+  Only Kels's path was right. The owner: most back-outs forfeit everything and leave the list.
+- **Change:** new `waitlistUI.backOutDialog({ entryId, outcome?, note? })`, the one confirm
+  (moved out of the family's page): what they paid, then, without an outcome, "What happens
+  to *family*?" with **The sale is cancelled and they leave the list (keep what they paid)**
+  first and **Put them back in line** (not for a family page only), the credit question for
+  back in line, what comes off, the pup back to Available, the summary, Approve →
+  `approveBackOut` (their request, else `told` with End the sale's note), then the outcome's
+  email. New `waitlistActions.backOutEntryFor(saleId)`. End the sale… → They backed out opens
+  it (no bare status change); the Sale page saves her other changes with the old status, then
+  opens it, and if she cancels it says the sale wasn't cancelled. The family's page buttons
+  open it with their outcome.
+- **Also:** the Today nudge says "cancel the sale and keep what they paid, or put them back
+  in line"; her status card says "Backed out of *pup* *date*; what they paid was kept", not
+  "Withdrew".
+- **Tests:** `waitlistLostPup.test.js` +1 (`backOutEntryFor`: the family, nobody for a
+  walk-in buyer, nobody once cancelled; told recorded as hers). `node --test` passes. In
+  Chromium, against the real pages: their request → Keep; End the sale… → They backed out →
+  Keep; Sale page → Cancelled → Keep: each leaves the family Withdrawn, the sale Cancelled,
+  the pup Available. Sale page → Cancelled → Cancel leaves the sale Deposit paid and the
+  family Placed, with the "Not cancelled" note. No console errors.
+- **Docs:** End-State guide (backing out), Waitlist Spec §16.11 and Family Requests plan §7
+  (Modified).
+
+## 2026-11-15: Restore, import and identity matching (review K02 + K01, fix priorities step 4)
+
+- **K2-1 (S1):** backups now carry `app: 'kennelos'` (`BACKUP_APP`; optional, no format bump:
+  older builds ignore it). `inspectBackup` refuses another app's file (Furever's says so by
+  name) and a file with no KennelOS records, before Merge or Replace can run; it returns
+  `records`. The unknown-tables line says what it is ("this version of KennelOS doesn't
+  have… If you didn't make this backup with KennelOS, don't restore it"), and Replace's
+  confirm names both counts (`countRecords()`).
+- **K1-1 (S1):** `dogSearch.nameKey` keeps a short bare number ("Thornfield Blue 1" ≠ "Blue 2");
+  a registration-like run of digits is still dropped. Littermates by registered name alone
+  are only `possible` in the tidy-up and Scan for duplicates, and asked about (never paired
+  by themselves) in a backup merge.
+- **K1-6:** one Dog Card id is one dog: `RULES.dogs` pairs on `public_id` first;
+  `compareDogs` makes it `certain` ("KennelOS ID"); both scanners bucket on it and
+  Scan for duplicates shows it as shared. A card whose dog two of hers hold is refused,
+  naming both, until she merges them.
+- **K1-3:** a dog merge never copies `public_id` (it was refused as taken by the duplicate
+  still holding it); the kept dog takes the dropped one's id after the delete.
+- **K2-5:** `applyDogCard` writes in one transaction (an `async` callback: a bare promise
+  ended it early in Chromium, PrematureCommitError, caught by the browser check), leaves out a
+  dog the repo would refuse (`cardDogProblem`, named in the preview and the result), and
+  reuses a contact of the same name rather than adding one per retry.
+- **K2-6:** an update row lists each change `from → to`, has Update from the card / Keep mine
+  (`skip` honoured for updates: `kept`), and starts on Keep mine when her copy changed after
+  the card was made (`mineIsNewer`). The footer says which fields an update sets.
+- **K2-2:** `markRepeatedRows` with dog and contact `batchKeys`: the same record on several
+  rows of one CSV is one; later rows wait for review naming the first.
+- **K2-3:** `detectDateOrder`; `normDate` reads the file's order; `buildPlan` takes
+  `{ dateOrder }` and returns `dates`; the preview offers month/day first when unsure and shows
+  each row's dates as read.
+- **K2-4:** the CSV preview's update rows list `field: old → new`.
+- **Tests:** `importExport.test.js` (+1 K2-1), `cloudVault.test.js` (the `app` stamp),
+  `tidyRules.test.js` (+2), `restoreMatch.test.js` (+2), `recordMerge.test.js` (+1),
+  `dogCard.test.js` (+3), new `csvImportPlan.test.js` (3). `node --test` 2007 pass. In
+  Chromium: a Furever backup at Restore is refused; a CSV with Juno twice and an either-way
+  date previews as one update (status and colour from → to), one review naming row 2, and
+  Wren's date flipping to 5 January on "day first"; a Dog Card with Duke's 2047 birthday adds
+  Star and names Duke left out; the same card resent after her edit starts on Keep mine with
+  both changes from → to. No console errors.
+- **Docs:** End-State guide §9, §10 (backup, merge rules, duplicates), dog identity, Dog Cards;
+  `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed.
+- `CACHE_NAME` bumped to `kennelos-shell-v144` (owner asked), covering this session's batches:
+  the K13 policy and deploy gate, Waitlist Fixes step 5 and the back-out flow, and fix step 4.
+
+## 2026-11-15: K5-3 decided (plan only)
+
+- **Decided (owner):** the licence wall offers **export only**: a "Download a backup of this
+  device" control on every wall, no read-only access to her records behind it. Recorded in
+  `docs/review/FIX_PRIORITIES.md` §4 for step 5 (K05), which is next. Nothing built.

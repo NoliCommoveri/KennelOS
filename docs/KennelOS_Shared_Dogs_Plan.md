@@ -84,6 +84,12 @@ and every row id.
 
 Paste the link or code, or open the file. **Nothing is saved until the preview is accepted.**
 
+**Modified (2026-11-15, review K2-5, K2-6):** accepting is all or nothing (one transaction);
+a dog the app would refuse (a birthday in the future) is left out and named, and the rest goes
+in. An update shows each change from → to and can be declined (**Keep mine**), which is where
+it starts when she changed the dog after the card was made: "each breeder keeps her own say"
+(§5, decision 2) on the fields a card carries too. Phase 2 must keep that rule.
+
 The preview:
 
 - **The kennel it's from,** matched by public ID or added as an outside kennel, with the Kennel
