@@ -4849,3 +4849,8 @@ tick box per template; buyers get an emailed link.
   **No, keep what they paid**. `backOutMoney.suggested` and a missing `credit` are now all
   they paid, not the deposit. Kels asks the same. Tests follow (`waitlistLostPup`,
   `cloudWaitlist`: the back-out without a named credit credits the 800 paid).
+- **Then (owner):** the family-facing words. Their status page and the Keep email now say
+  "Per your contract terms, all monies paid related to this sale are non-refundable and are
+  forfeit upon sale cancellation." (back in line with nothing credited too); the back-in-line
+  email says any monies not credited are non-refundable and forfeit. Only the default
+  templates change: a breeder's own reworded email stays hers.

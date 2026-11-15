@@ -2837,9 +2837,11 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   extras have a **Done** tick (`completed_date`). **After she decides:** an approved back-out
   stays on the family's page for the days a decided request does (`requestView`), with or
   without a sale: `entry.back_out` is `{ available: false, request }` once the sale has ended
-  (no form, no reasons), and the page says what happened to what they paid (kept, or back
-  on the waitlist with the credit their published `credits` hold; an older refund still
-  says refunded). The email she's offered is the outcome's own (`backed_out_keep` /
+  (no form, no reasons), and the page says what happened to what they paid: kept, in the
+  owner's words ("Per your contract terms, all monies paid related to this sale are
+  non-refundable and are forfeit upon sale cancellation."), or back on the waitlist with the
+  credit their published `credits` hold (those words again when nothing was credited); an
+  older refund still says refunded. The two emails' default words say the same. The email she's offered is the outcome's own (`backed_out_keep` /
   `backed_out_move`, each a template she can reword; `backed_out_refund` is kept only for
   one queued before D9), not `request_approved`.
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family

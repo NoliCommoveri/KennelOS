@@ -932,10 +932,12 @@ function backOutHtml(f) {
   }
   if (req?.decided === 'approved') {
     // Back in line: the credit they now hold, from their published credits (D9).
+    // Nothing credited: the contract's terms, in the owner's words.
     const held = f.credits?.received > 0 ? f.credits.received : 0;
+    const terms = 'Per your contract terms, all monies paid related to this sale are non-refundable and are forfeit upon sale cancellation.';
     const what = {
-      keep: 'Your puppy\'s sale is cancelled. What you paid is kept and isn\'t refunded.',
-      move: `Your puppy's sale is cancelled and you're back on the waitlist. ${held ? `You have a ${price(held)} credit toward your next puppy.` : 'What you paid isn\'t refunded.'}`,
+      keep: `Your puppy's sale is cancelled. ${terms}`,
+      move: `Your puppy's sale is cancelled and you're back on the waitlist. ${held ? `You have a ${price(held)} credit toward your next puppy.` : terms}`,
       refund: 'Your puppy\'s sale is cancelled and your deposit is being refunded.'
     }[req.outcome] || 'Confirmed.';
     return openCard('Backing out', `<p class="mt0">${esc(kennel)} confirmed on ${esc(fmtDate(req.decided_date))}. ${esc(what)}</p>`);

@@ -109,11 +109,11 @@ export const DEFAULT_EMAIL_TEMPLATES = Object.freeze({
   },
   backed_out_keep: {
     subject: 'Your puppy sale with [Kennel Name] is cancelled',
-    body: 'Hi [Family],\n\nAs you asked, we\'ve cancelled your puppy\'s sale. What you\'ve paid is kept and isn\'t refunded. Your status page shows the change. If you\'d like to talk it over, send us a message from your status page.\n\n[Kennel Name]'
+    body: 'Hi [Family],\n\nAs you asked, we\'ve cancelled your puppy\'s sale. Per your contract terms, all monies paid related to this sale are non-refundable and are forfeit upon sale cancellation. Your status page shows the change. If you\'d like to talk it over, send us a message from your status page.\n\n[Kennel Name]'
   },
   backed_out_move: {
     subject: 'Your puppy sale with [Kennel Name] is cancelled',
-    body: 'Hi [Family],\n\nAs you asked, we\'ve cancelled your puppy\'s sale, and you\'re back on our waitlist. What you\'ve paid isn\'t refunded. Your status page shows your place and any credit toward your next puppy.\n\n[Kennel Name]'
+    body: 'Hi [Family],\n\nAs you asked, we\'ve cancelled your puppy\'s sale, and you\'re back on our waitlist. Your status page shows your place and any credit we\'ve applied toward your next puppy. Per your contract terms, any monies paid related to this sale that aren\'t credited are non-refundable and are forfeit upon sale cancellation.\n\n[Kennel Name]'
   },
   backed_out_refund: {
     subject: 'Your puppy sale with [Kennel Name] is cancelled',
