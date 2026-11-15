@@ -3440,7 +3440,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     shared): a button on Contract templates, and offered again once Place fields has opened
     the editor. It opens where it stays up beside Firma's tab: a Picture-in-Picture window
     (`documentPictureInPicture`, Chrome and Edge), else a pop-up window, else (pop-ups
-    blocked) a panel on the page in its own shadow root; one at a time. Two tabs:
+    blocked) a panel on the page in its own shadow root; one at a time. Three tabs, in this
+    order (`openFieldGuide({ tab })`, `help` by default; Place fields offers it on Fields):
+    - **Using Firma's editor**: see below.
     - **Fields**: every fact by its `FIRMA_LABELS` label, with a Copy button, which
       contracts fill it (`GUIDE_GROUPS`, as `fieldGroupsFor` reads), how its value is worked
       out (`prefillGuide` `HOW`, else the `PREFILL_FIELDS` words) and an example. By type
@@ -3449,7 +3451,19 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
       (an Extra agreement on an example sale with a schedule, transport, boarding and a
       training package; a stud service; a lease: `EXAMPLE_STORY`), so they're what a real
       send would put there, and add up as the contracts do.
-    - **Using Firma's editor**: a computer only; a Text field per detail with its Prefilled
+    - **Sample sales** (`data/prefillSamples.js`, shared): six made-up sales set up
+      different ways (deposit only; deposit pending with the application fee credited
+      toward it; transport with a payment in and a balance due date; money carried over from
+      a lost pup; a plan with a package; boarding with two payments before pickup). Each
+      shows its Sale page's parts (`saleRows`) beside a sample contract's price section
+      (`sections`: the price, what's added to it, everything on the sale, the payment plan):
+      per line the detail to place, the value it fills (or why it's blank) and how it's
+      worked out, with an "adds up" line per section. A line hovered, focused or tapped (a
+      tap pins it) outlines in red the sale parts it comes from (`sources`); the sale card
+      sticks under the header. Values are `prefillValues` on facts gathered as
+      `gatherContractFacts` does (`saleFacts`: statement with its credits, price table,
+      balance due), so they're what a send fills.
+    - **Using Firma's editor** (the content): a computer only; a Text field per detail with its Prefilled
       Data set to the label (Text for dates and money too: KennelOS sends text); one signer
       per field; a second signer for I sign first / last; what a detail can't do (tick a
       box, choose between packages); saving, then checking with the Send preview.

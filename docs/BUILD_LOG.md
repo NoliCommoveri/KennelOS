@@ -5213,3 +5213,18 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Docs:** End-State guide (Contract templates: the Field guide).
 - **Service worker:** `assets/fieldGuideUI.js` and `data/prefillGuide.js` added to
   `PRECACHE_URLS`; `fieldGuideUI.js` in `proPages`. Rides `kennelos-shell-v148`.
+
+## 2026-11-15: Field guide: Sample sales tab, tabs reordered
+- **Why (owner):** show, on sample sales set up different ways (with and without a plan;
+  transport, boarding, an extra; credits or money already in, and none), which money detail
+  to place on each line of a contract to get each figure, with red boxes on where it comes
+  from; and put the Firma help first.
+- **Built:** `data/prefillSamples.js` (pure: `SAMPLE_SALES`, `sampleSale`, `saleFacts`): six
+  samples, each the sale's parts and a sample contract's price section (lines with the
+  detail, value or why it's blank, how it's worked out, and the sale parts it comes from;
+  an "adds up" check per section). `fieldGuideUI`: tabs Using Firma's editor (first, the
+  default), Fields, Sample sales (picker; a line outlines its sources in red; the sale card
+  sticks). The Contract templates button opens the first tab; after Place fields, Fields.
+- **Tests:** new `prefillSamples.test.js` (3). `node --test` 2075 pass.
+- **Docs:** End-State guide (Field guide).
+- **Service worker:** `data/prefillSamples.js` added to `PRECACHE_URLS`. Rides `kennelos-shell-v148`.

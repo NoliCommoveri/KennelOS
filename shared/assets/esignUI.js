@@ -167,7 +167,7 @@ export function openContractTemplates() {
         <button type="button" class="btn btn-sm" data-edit="${esc(t.id)}">Place fields</button>
       </div>`;
     frame(`<p class="field-hint" style="margin-top:0;">${usageLine(status.usage)} A contract's <strong>Send for signature</strong> offers the templates of its kind, beside your own contract forms.</p>
-      <p class="field-hint"><button type="button" class="btn btn-sm" data-guide="fields">Field guide</button> Every detail KennelOS fills in, by its label in Firma's editor, how it's worked out and an example, plus how to use the editor (the Text type, a second signer). It stays open beside Firma's editor.</p>
+      <p class="field-hint"><button type="button" class="btn btn-sm" data-guide="help">Field guide</button> How to use Firma's editor (the Text type, a second signer), every detail KennelOS fills in by its label there, and sample sales showing which detail to place on each contract line. It stays open beside Firma's editor.</p>
       ${rows.length ? rows.map(row).join('') : '<p class="muted">No templates yet. Upload your first contract below.</p>'}
       ${signers.length ? `<div class="form-grid" style="margin-top:12px;">${signers.map(signerRow).join('')}</div>` : ''}
       <h3 style="font-size:15px; margin:16px 0 4px;">Add a template</h3>

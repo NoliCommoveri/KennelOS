@@ -5,13 +5,18 @@
 //      Firma's tab included;
 //   2. else a small pop-up window she puts beside the editor;
 //   3. else (pop-ups blocked) a panel on this page.
-// Two tabs: Fields (every detail by its label in Firma's editor, how it's worked out and
-// an example, by type or A–Z, with a filter; data/prefillGuide.js) and Using Firma's
-// editor (how to place a detail field, the Text type, a second signer, checking a send).
+// Three tabs: Using Firma's editor (how to place a detail field, the Text type, a second
+// signer, checking a send), Fields (every detail by its label in Firma's editor, how it's
+// worked out and an example, by type or A–Z, with a filter; data/prefillGuide.js) and
+// Sample sales (made-up sales set up different ways, each beside a sample contract's price
+// section: the detail for each line, its value and how it's worked out; a line outlines
+// in red the parts of the sale it comes from; data/prefillSamples.js).
 //
-//   openFieldGuide({ tab })  → 'pip' | 'window' | 'panel'. Called from a click: a
+//   openFieldGuide({ tab })  'help' (first, the default) | 'fields' | 'samples'
+//                              → 'pip' | 'window' | 'panel'. Called from a click: a
 //                              Picture-in-Picture window or a pop-up needs the tap.
 import { guideRows, GUIDE_GROUPS, EXAMPLE_STORY } from '../data/prefillGuide.js';
+import { SAMPLE_SALES, sampleSale } from '../data/prefillSamples.js';
 import { esc } from './ui.js';
 
 const TITLE = 'KennelOS field guide';
@@ -65,7 +70,31 @@ html, body { margin: 0; background: var(--fg-bg); }
 .fg-help p, .fg-help li { margin: 4px 0; }
 .fg-help ul, .fg-help ol { padding-left: 20px; margin: 4px 0; }
 .fg-help .fg-tip { background: var(--fg-soft); border: 1px solid var(--fg-line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
-button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--fg-accent); outline-offset: 2px; }
+.fg-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fg-pick select { font: inherit; flex: 1 1 240px; min-width: 0; padding: 6px 8px; border: 1px solid var(--fg-line); border-radius: 7px; background: var(--fg-bg); color: var(--fg-text); }
+.fg-blurb { margin: 8px 0; color: var(--fg-muted); font-size: 13px; }
+.fg-card { border: 1px solid var(--fg-line); border-radius: 10px; background: var(--fg-bg); }
+.fg-card h4 { margin: 0; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--fg-line); background: var(--fg-soft); border-radius: 10px 10px 0 0; }
+.fg-sale { position: sticky; top: var(--fg-head-h, 84px); z-index: 1; max-height: 40vh; overflow: auto; box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); }
+.fg-srow { display: grid; grid-template-columns: minmax(0, 40%) minmax(0, 1fr); gap: 2px 10px; padding: 5px 12px; margin: 3px 6px; border: 2px solid transparent; border-radius: 7px; font-size: 13px; }
+.fg-srow span:first-child { color: var(--fg-muted); }
+.fg-srow.fg-hot { border-color: var(--fg-hot); background: var(--fg-hot-bg); }
+.fg-contract { margin-top: 12px; }
+.fg-sec { padding: 4px 12px 10px; border-top: 1px solid var(--fg-line); }
+.fg-sec:first-of-type { border-top: 0; }
+.fg-sec h5 { margin: 10px 0 2px; font-size: 13px; }
+.fg-sec .fg-secnote { margin: 0 0 6px; color: var(--fg-muted); font-size: 12px; }
+.fg-line { scroll-margin-top: calc(var(--fg-head-h, 84px) + 40vh + 12px); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 7px 8px; margin: 0 -8px; border: 2px solid transparent; border-radius: 8px; cursor: pointer; }
+.fg-line:hover, .fg-line.fg-hot { border-color: var(--fg-hot); }
+.fg-ltext { font-weight: 600; }
+.fg-lval { text-align: right; font-variant-numeric: tabular-nums; }
+.fg-lfield { grid-column: 1 / -1; font-size: 12.5px; }
+.fg-lfield b { font-weight: 600; }
+.fg-lmath { grid-column: 1 / -1; font-size: 12.5px; color: var(--fg-muted); }
+.fg-check { margin: 6px 0 0; font-size: 12.5px; color: var(--fg-ok); }
+:root, :host { --fg-hot: #d93025; --fg-hot-bg: rgba(217,48,37,.07); --fg-ok: #2f6f4f; }
+@media (prefers-color-scheme: dark) { :root, :host { --fg-hot: #ff6b5e; --fg-hot-bg: rgba(255,107,94,.12); --fg-ok: #5fb98a; } }
+button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-visible, .fg-line:focus-visible { outline: 2px solid var(--fg-accent); outline-offset: 2px; }
 `;
 
 // Using Firma's editor, in her words. What it says about the editor is what KennelOS
@@ -146,13 +175,31 @@ export function fieldsListHtml(order, find = '') {
   }).join('');
 }
 
+// One sample sale: its Sale page's parts, and the sample contract's price section.
+export function sampleHtml(id) {
+  const x = sampleSale(id);
+  const rows = x.saleRows.map((r) => `<div class="fg-srow" data-row="${esc(r.key)}"><span>${esc(r.label)}</span><span>${esc(r.value)}</span></div>`).join('');
+  const line = (l) => `<div class="fg-line" tabindex="0" data-src="${esc(l.sources.join(' '))}">
+      <span class="fg-ltext">${esc(l.text)}</span>
+      <span class="fg-lval">${l.value ? `<code>${esc(l.value)}</code>` : '<span class="fg-blank">Blank on this sale</span>'}</span>
+      <span class="fg-lfield">Place <b>${esc(l.label)}</b><button type="button" class="fg-copy" data-copy="${esc(l.label)}" aria-label="Copy ${esc(l.label)}">Copy</button></span>
+      <span class="fg-lmath">${esc(l.value ? l.math : l.why || '')}</span>
+    </div>`;
+  const sections = x.sections.map((s) => `<div class="fg-sec"><h5>${esc(s.title)}</h5>${s.note ? `<p class="fg-secnote">${esc(s.note)}</p>` : ''}
+      ${s.lines.map(line).join('')}${s.check ? `<p class="fg-check">Adds up: ${esc(s.check)}</p>` : ''}</div>`).join('');
+  return `<p class="fg-blurb">${esc(x.blurb)}</p>
+    <div class="fg-card fg-sale" aria-label="The sale"><h4>The sale, as its page shows it</h4>${rows}</div>
+    <div class="fg-card fg-contract"><h4>A sample contract's price section: what to place on each line</h4>${sections}</div>`;
+}
+
 function shellHtml({ closable }) {
   return `<div class="fg">
     <div class="fg-head">
       <div class="fg-title"><span>Field guide</span>${closable ? '<button type="button" class="fg-x" data-fg-close>Close</button>' : ''}</div>
       <div class="fg-tabs" role="tablist">
-        <button type="button" role="tab" id="fg-tab-fields" aria-controls="fg-fields" data-tab="fields">Fields</button>
         <button type="button" role="tab" id="fg-tab-help" aria-controls="fg-help" data-tab="help">Using Firma's editor</button>
+        <button type="button" role="tab" id="fg-tab-fields" aria-controls="fg-fields" data-tab="fields">Fields</button>
+        <button type="button" role="tab" id="fg-tab-samples" aria-controls="fg-samples" data-tab="samples">Sample sales</button>
       </div>
     </div>
     <div class="fg-body" id="fg-fields" role="tabpanel" aria-labelledby="fg-tab-fields">
@@ -167,6 +214,12 @@ function shellHtml({ closable }) {
       <div class="fg-list" aria-live="polite"></div>
     </div>
     <div class="fg-body fg-help" id="fg-help" role="tabpanel" aria-labelledby="fg-tab-help" hidden>${HELP}</div>
+    <div class="fg-body" id="fg-samples" role="tabpanel" aria-labelledby="fg-tab-samples" hidden>
+      <div class="fg-pick"><label for="fg-sample">Sample sale</label>
+        <select id="fg-sample">${SAMPLE_SALES.map((x) => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('')}</select></div>
+      <p class="fg-note">Tap a contract line to outline in red the parts of the sale it's worked out from. Every value is what KennelOS would fill on that sale.</p>
+      <div class="fg-sample"></div>
+    </div>
   </div>`;
 }
 
@@ -182,18 +235,50 @@ function wire(root, { clip, onClose }) {
   };
   const show = (tab) => {
     root.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-    root.querySelector('#fg-fields').hidden = tab !== 'fields';
-    root.querySelector('#fg-help').hidden = tab !== 'help';
+    for (const t of ['help', 'fields', 'samples']) root.querySelector(`#fg-${t}`).hidden = tab !== t;
+    // The sale card sticks under the header, however tall the header wraps.
+    const head = root.querySelector('.fg-head');
+    root.querySelector('.fg')?.style.setProperty('--fg-head-h', `${head.offsetHeight}px`);
   };
+  // Sample sales: pick one; a line (hovered, focused or tapped) outlines its sources.
+  const sampleBox = root.querySelector('.fg-sample');
+  const pick = root.querySelector('#fg-sample');
+  const drawSample = () => { sampleBox.innerHTML = sampleHtml(pick.value); };
+  let pinned = null;
+  const outline = (lineEl) => {
+    sampleBox.querySelectorAll('.fg-hot').forEach((el) => el.classList.remove('fg-hot'));
+    if (!lineEl) return;
+    lineEl.classList.add('fg-hot');
+    const keys = new Set(lineEl.dataset.src.split(' ').filter(Boolean));
+    let first = null;
+    sampleBox.querySelectorAll('[data-row]').forEach((r) => { if (keys.has(r.dataset.row)) { r.classList.add('fg-hot'); first ||= r; } });
+    first?.scrollIntoView({ block: 'nearest' });
+  };
+  pick.addEventListener('change', () => { pinned = null; drawSample(); });
+  sampleBox.addEventListener('mouseover', (e) => { const l = e.target.closest('.fg-line'); if (l) outline(l); });
+  sampleBox.addEventListener('mouseleave', () => outline(pinned));
+  sampleBox.addEventListener('focusin', (e) => { const l = e.target.closest('.fg-line'); if (l) outline(l); });
+  sampleBox.addEventListener('click', (e) => {
+    if (e.target.closest('[data-copy]')) return;
+    const l = e.target.closest('.fg-line');
+    if (!l) return;
+    pinned = pinned === l ? null : l;
+    outline(pinned || l);
+    l.scrollIntoView({ block: 'nearest' });
+  });
+  sampleBox.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.fg-line')) { e.preventDefault(); e.target.click(); } });
+  drawSample();
   root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.tab)));
   root.querySelectorAll('[data-order]').forEach((b) => b.addEventListener('click', () => { order = b.dataset.order; draw(); }));
   find.addEventListener('input', draw);
-  list.addEventListener('click', async (e) => {
+  const copy = async (e) => {
     const btn = e.target.closest('[data-copy]');
     if (!btn) return;
     try { await clip.writeText(btn.dataset.copy); btn.textContent = 'Copied'; } catch { btn.textContent = 'Select it'; }
     setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-  });
+  };
+  list.addEventListener('click', copy);
+  sampleBox.addEventListener('click', copy);
   root.querySelector('[data-fg-close]')?.addEventListener('click', onClose);
   draw();
   return show;
@@ -229,7 +314,7 @@ function intoPanel(tab) {
   return 'panel';
 }
 
-export async function openFieldGuide({ tab = 'fields' } = {}) {
+export async function openFieldGuide({ tab = 'help' } = {}) {
   if (open && !open.win.closed) { open.show(tab); open.win.focus?.(); return open.kind; }
   const pip = window.documentPictureInPicture;
   if (pip?.requestWindow) {

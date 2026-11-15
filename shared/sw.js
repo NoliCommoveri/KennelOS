@@ -146,6 +146,7 @@ const PRECACHE_URLS = [
   'data/contractSend.js',
   'data/esignTemplates.js',
   'data/prefillGuide.js',
+  'data/prefillSamples.js',
   'data/csvImport.js',
   'data/csvImportHelp.js',
   'data/csvBatch.js',
