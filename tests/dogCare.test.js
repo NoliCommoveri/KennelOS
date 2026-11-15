@@ -2,7 +2,7 @@
 // single heat, else her average interval) and this month's preventatives.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDogs, homeDogs, heatBasisText, monthName, otherEventTypes, dogEvents, dogEventProblem, checkinDogs, ownDogs } from '../shared/data/dogCare.js';
+import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, livesHere, damIsBusy, breedingDogs, homeDogs, heatBasisText, monthName, otherEventTypes, dogEvents, dogEventProblem, checkinDogs, ownDogs } from '../shared/data/dogCare.js';
 
 const heat = (id, d, extra = {}) => ({ subject_type: 'dog', subject_id: id, event_type: 'heat_cycle', event_date: d, ...extra });
 const prev = (id, d) => ({ subject_type: 'dog', subject_id: id, event_type: 'preventative', event_date: d });
@@ -120,4 +120,37 @@ test('dogEvents: a picked vet is the related contact and replaces the typed name
   const [plain] = dogEvents({ eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: { vet: 'Dr Old' } });
   assert.equal(plain.details.vet, 'Dr Old', 'kept when no contact is picked');
   assert.ok(!('related_contact_id' in plain) && !('reminder_date' in plain) && !('notes' in plain));
+});
+
+// Review K09-6: a nudge she can't honestly clear came back every month.
+test('routine care leaves out a leased-out dog and a co-owned dog living with its co-owner', () => {
+  const today = '2026-11-03';
+  const dogs = [dog('home'), dog('coHere', { ownership_type: 'co_owned' }), dog('atPats', { ownership_type: 'co_owned', lives_with_contact_id: 'pat' }),
+    dog('leased', { ownership_type: 'leased_out' }), dog('leasedIn', { ownership_type: 'leased_in' })];
+  assert.deepEqual(dogs.map((d) => livesHere(d)), [true, true, false, false, true]);
+  assert.deepEqual(preventativeGaps(dogs, [], today).map((d) => d.id), ['coHere', 'home', 'leasedIn']);
+  const events = dogs.map((d) => heat(d.id, '2026-05-20'));
+  assert.deepEqual(heatForecast(dogs, events, today).map((h) => h.dog.id).sort(), ['coHere', 'home', 'leasedIn']);
+});
+
+// Review K09-5: a pregnant or nursing dam was told her heat was coming.
+test('the heat watch leaves out a dam who is bred, expecting, or nursing a litter under 8 weeks', () => {
+  const today = '2026-11-03';
+  const dogs = [dog('bred'), dog('expecting'), dog('nursing'), dog('weaned'), dog('staleBred'), dog('free')];
+  const events = dogs.map((d) => heat(d.id, '2026-05-20'));
+  const breeding = {
+    pairings: [
+      { dam_id: 'bred', status: 'confirmed_pregnant', expected_due_date: '2026-12-01' },
+      { dam_id: 'staleBred', status: 'bred', expected_due_date: '2025-02-01' }, // left Bred long ago
+      { dam_id: 'free', status: 'planned', expected_due_date: '2026-12-01' } // only planned
+    ],
+    litters: [
+      { dam_id: 'expecting', status: 'expected', whelp_date: '2026-11-20' },
+      { dam_id: 'nursing', status: 'whelped', whelp_date: '2026-10-01' },
+      { dam_id: 'weaned', status: 'ready', whelp_date: '2026-08-01' }
+    ]
+  };
+  assert.equal(damIsBusy('bred', breeding, today), true);
+  assert.deepEqual(heatForecast(dogs, events, today, breeding).map((h) => h.dog.id).sort(), ['free', 'staleBred', 'weaned']);
+  assert.equal(heatForecast(dogs, events, today).length, 6, 'without the context, every dam as before');
 });

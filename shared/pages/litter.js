@@ -1053,6 +1053,10 @@ async function main() {
       ctx.draft.sire_id = p.sire_id || '';
       // Sensible default status: a just-created pairing→litter is usually expected.
       ctx.draft.status = 'expected';
+      // Its date is the pairing's due date (else 63 days after the first date),
+      // never the day it was typed in, and the ready date follows (review K09-3).
+      ctx.draft.whelp_date = p.expected_due_date || (p.planned_date ? addDaysToYMD(p.planned_date, 63) : '');
+      ctx.draft.estimated_ready_date = ctx.draft.whelp_date ? addDaysToYMD(ctx.draft.whelp_date, READY_DAYS_AFTER_WHELP) : '';
     }
     // "Show this on the website?" pre-ticked from its pairing, else when the dam is
     // on the website (KennelPort plan 5.3).

@@ -4982,3 +4982,31 @@ From `docs/review/findings/K05-vault-licence.md`, with K04-6 (the `/ops` delete)
 - **Docs:** End-State guide §0.3 and the cloud section (deleted accounts, assisted setup,
   Pro on the server); `KennelOS_Assisted_Setup_Plan.md` §1–§3; `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+
+## 2026-11-15: Fix step 6, K09 (breeding reminders)
+
+From `docs/review/findings/K09-dogs-litters-nudges.md`. K9-4 (an open heat counts as over
+after `HEAT_OPEN_DAYS`) was already on `main`.
+- **K9-1 (S1):** an Expected litter no longer silences the due-date nudges. `pairingduesoon`
+  and `pairingoverdue` count only litters past Expected; with an Expected one on file they say
+  "get ready for the pups" / "has she whelped?" and offer **Record the birth** (Kels's
+  `record-litter` on it). New `litteroverdue`: an Expected litter past its date (its pairing's
+  due date, else its whelp date) that no pairing nudge covers.
+- **K9-2:** the Pairing page's due date follows a corrected first date while it's still the
+  63-day prefill.
+- **K9-3 (root):** a litter made from its pairing is dated the pairing's due date (else first
+  date + 63, else blank), with the ready date 56 days on, not today.
+- **K9-5:** `dogCare.damIsBusy`; `heatForecast(…, { pairings, litters })` leaves out a dam
+  bred, expecting or nursing (litter under 56 days). Today and Kels's check-in count pass them.
+- **K9-6:** `dogCare.livesHere`: the heat watch and this month's preventatives leave out a
+  leased-out dog and a co-owned dog living with its co-owner.
+- **K9-10:** `promote` ages a kept pup from her litter's whelp date when her DOB is blank.
+- **K9-13 (folded in):** `linkedStatusNudges.test.js` builds local dates, not UTC.
+- **Tests:** `linkedStatusNudges.test.js` (+3, one changed), `dogCare.test.js` (+2).
+  `node --test` 2021 pass; the two files also under `TZ=Pacific/Pago_Pago` and
+  `Pacific/Kiritimati`. In Chromium: the pairing's due date moves 05-03 → 05-24 with the first
+  date and keeps a typed 05-30; a litter from a pairing due 12-01 opens Expected, 12-01, ready
+  2027-01-26. No console errors.
+- **Docs:** End-State guide (Pairing and Litter fields, the dogs she looks after, §19's table).
+- **Service worker:** no app file added or renamed.
+- `CACHE_NAME` bumped to `kennelos-shell-v145` (owner asked), covering fix steps 5 (K05) and 6 (K09).

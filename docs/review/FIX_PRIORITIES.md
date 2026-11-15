@@ -19,7 +19,7 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ## 1. Where each document stands
 
-*Updated 2026-11-15 after steps 1–5 and step 3 (Waitlist Fixes step 5) were built. Rows not
+*Updated 2026-11-15 after steps 1–6 and step 3 (Waitlist Fixes step 5) were built. Rows not
 touched by those steps are as first written.*
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
@@ -30,7 +30,7 @@ touched by those steps are as first written.*
 | **K01** | Schema, repos, identity matching | 1/3/3/3 | **Step 4 (11-15):** K1-1, K1-3, K1-6 | 0 · 2 | Open: K1-2 (Furever's `blocked` handler, step 10's Furever half), K1-4 (the duplicate scan's speed, step 13), K1-5, K1-7 (S3) and K1-8 to K1-10 (S4). |
 | **K05** | Vault, licence, assisted setup | 2/5/3/4 | **Step 5 (11-15):** K5-1 to K5-10, K5-12, K5-14 | 0 · 0 | Open: K5-11 and K5-13 (S4; K5-13 needs a migration). Not yet in a step. |
 | **Waitlist Fixes plan** (K6, K6b, K7, K8) | Waitlist engine, online, family requests | 3/12/30/7 | Steps 1–4, K8-1, K8-10, K6-5, K8-5 (Kels part). **Its step 5 (11-15):** K8-2 (D9: nothing refunded on a back-out, her credit), K8-3, K8-4, K8-13, K6b-5, K6b-8; and every back-out she records goes through one confirm | 0 · 2 | Open S2: K6-3 (the clock, its step 7), K6-6 (its step 6). Its steps 6–10 remain. |
-| **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part) | **1 · 2** | `pairingIdsWithLitter` still counts an Expected litter, so both due-date nudges stay off (`nudges.js:288`). `pairing.js` and `litter.js` are untouched. |
+| **K09** | Dogs, litters, pairings, nudges | 1/2/7/3 | K9-4, K9-12, K9-3 (Kels part). **Step 6 (11-15):** K9-1, K9-2, K9-3, K9-5, K9-6, K9-10, K9-13 | 0 · 0 | Open: K9-7, K9-8, K9-9 (S3) and K9-11 (S4). Not yet in a step. |
 | **K10** | Money: sales, invoices, reports | 2/3/9/0 | K10-1, K10-2, K10-12: Payment Schedules rebuilt receipts, Companion and contract prefills (*recheck* with a test) | **0 · 3** | `incomeView` changed 12 times, but the fee is still spread across components (`feeComponents`). `litter.js` is untouched. |
 | **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved). **Step 5 (11-15):** K4-6 | **0 · 5** | The hourly cron is still one unguarded sequence, and is now **five** jobs: e-sign copies and previews were added behind it. |
 | **K12** | Integrations, notifications | 0/4/9/1 | K12-10. Jotform is retired, so K12-2 and the Jotform halves of K12-3 and K12-6 are gone | **0 · 3** | `makeSaleLink` still deactivates the open link without asking whether it was paid (`stripeLinks.js:69`). |
@@ -56,7 +56,7 @@ theme as well as by document. Bold marks an S1.
 | **H. Half-applied writes and stale drafts** | K2-8, K11-2, K11-3, K11-6, K6-13, K14-6, K14-7 *(built: K2-5, K1-3)* | A retry duplicates records, or a draft resumes over newer work. |
 | **I. Slow at scale** | K1-4, K2-7, K4-3, K4-11 | 49 s of frozen page for the duplicate scan at 4,000 dogs, and a 10k-row import preview that never renders. |
 | **J. Phone, wording, layout** | K1-7, K10-9, K12-11, K6b-9, K14-16, and most S3s *(built: K3-10)* | Overlaps K15. Fold these in when K15 is redone, unless one is a one-liner beside a fix you're already making. |
-| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18, K9-13, K5-14 *(built: K13-15, the deploy runs the tests)* | Small, and best folded into the batch that touches the same files. |
+| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18 *(built: K13-15, the deploy runs the tests; K5-14 and K9-13, steps 5 and 6)* | Small, and best folded into the batch that touches the same files. |
 
 Rechecked and built (11-15): K8-4 was already covered by the lost-pup credit (now held by a
 test); K8-13's wording and K8-2 (D9) are built with Waitlist Fixes step 5.
@@ -111,11 +111,11 @@ same time in two sessions.
    K5-9 (a lifetime key treated as monthly). **Move this to Tier 1 if support is already
    running assisted setups for real breeders:** K5-1 carries a whole kennel into the next
    user's account. K4-6 (/ops "Delete an account") belongs in this batch.
-6. **K09: breeding reminders.** *Next.* K9-1 (S1: an Expected litter silences both due-date
+6. **K09: breeding reminders.** *Built 2026-11-15.* K9-1 (S1: an Expected litter silences both due-date
    nudges), K9-2, K9-3's root (`litter.js` dates a litter made from its pairing today), K9-5,
    K9-6, K9-10. Small, contained fixes in `nudges.js`, `dogCare.js`, `pairing.js` and
    `litter.js`. A missed whelping is the cost of waiting.
-7. **K10 remainder + K12's Stripe items: money in her own books.**
+7. **K10 remainder + K12's Stripe items: money in her own books.** *Next.*
    - First turn K10-1, K10-2 and K10-12 into tests to confirm Payment Schedules fixed them.
    - Then K10-3 (voided and returned sales in the litter total), K10-4 (the processing fee
      belongs on the payment that paid it), K10-5 (undated income missing from reports),

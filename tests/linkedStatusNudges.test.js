@@ -26,7 +26,8 @@ before(async () => {
   ({ editionFlags } = await import('../shared/data/editionConfig.js'));
 });
 
-const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+// Local dates, as the app's own today is (review K09-13: UTC dates failed west of UTC in the evening).
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const nudgesFor = async (prefix) => (await computeNudges()).filter((n) => n.key.startsWith(prefix));
 
 let K; let dam; let sire;
@@ -271,14 +272,47 @@ test('a bred pairing due within 3 days with no litter → create the litter', as
   }
 });
 
-test('not too early, not once overdue (that rule takes over), not Planned, not with a litter', async () => {
+test('not too early, not once overdue (that rule takes over), not Planned, not with a born litter', async () => {
   await pairing({ expected_due_date: daysAhead(4) });
   const overdue = await pairing({ expected_due_date: daysAgo(1) });
   await pairing({ status: 'planned', expected_due_date: daysAhead(2) });
   const withLitter = await pairing({ expected_due_date: daysAhead(2) });
-  await litter(withLitter, { status: 'expected', whelp_date: null });
+  await litter(withLitter, { status: 'whelped', whelp_date: daysAgo(0) });
   assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
   assert.deepEqual((await nudgesFor('pairingoverdue:')).map((n) => n.key), [`pairingoverdue:${overdue.id}`]);
+});
+
+// Review K09-1: recording the litter as Expected early used to switch both off.
+test('an Expected litter on file keeps the due-date nudges, which then ask to record the birth', async () => {
+  const p = await pairing({ status: 'confirmed_pregnant', expected_due_date: daysAhead(2) });
+  const l = await litter(p, { status: 'expected', whelp_date: daysAhead(2) });
+  const [soon, ...rest] = await nudgesFor('pairingduesoon:');
+  assert.equal(rest.length, 0);
+  assert.match(soon.title, /is due in 2 days — get ready for the pups$/);
+  assert.equal(soon.actions[0].label, 'Record the birth');
+  assert.equal(soon.subjectHref, `litter.html?id=${l.id}`);
+
+  await pairingRepo.update(p.id, { expected_due_date: daysAgo(20) });
+  assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
+  const [late] = await nudgesFor('pairingoverdue:');
+  assert.match(late.title, /past its expected due date — has she whelped\?$/);
+  assert.deepEqual(late.actions.map((a) => a.label), ['Record the birth']);
+  assert.equal((await nudgesFor('litteroverdue:')).length, 0, 'one nudge, not two');
+
+  await litterRepo.update(l.id, { status: 'whelped', whelp_date: daysAgo(18) });
+  assert.equal((await nudgesFor('pairingoverdue:')).length, 0, 'gone once the birth is recorded');
+});
+
+test('an Expected litter with no pairing date, past its own date, asks whether she whelped', async () => {
+  const noPairing = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'expected', whelp_date: daysAgo(60) });
+  const whelpedPairing = await pairing({ status: 'whelped', expected_due_date: null });
+  const linked = await litter(whelpedPairing, { status: 'expected', whelp_date: daysAgo(2) });
+  await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'expected', whelp_date: daysAhead(10) });
+  const ended = await pairing({ status: 'not_pregnant', expected_due_date: daysAgo(5) });
+  await litter(ended, { status: 'expected', whelp_date: daysAgo(5) });
+  const keys = (await nudgesFor('litteroverdue:')).map((n) => n.key).sort();
+  assert.deepEqual(keys, [`litteroverdue:${noPairing.id}:${daysAgo(60)}`, `litteroverdue:${linked.id}:${daysAgo(2)}`].sort());
+  assert.equal((await nudgesFor('pairingended:')).length, 1, 'a pairing that didn\'t take keeps its own rule');
 });
 
 test('go home: schedule the pickup, log the boarding a sale charges for, and "did they go home?" once the pickup passes', async () => {
@@ -386,4 +420,13 @@ test('a heat logged with no end date asks "record a pairing?" three weeks after 
   assert.match(n.detail, /no end date/);
   await pairing({ status: 'planned', expected_due_date: null, first_breeding_date: ago(30) });
   assert.equal((await nudgesFor('heatpair:')).length, 0, 'gone once a pairing follows it');
+});
+
+// Review K09-10: clearing a kept pup's date of birth silently ended her promote nudge.
+test('promote reads a kept pup’s litter whelp date when her own date of birth is blank', async () => {
+  await kennelRepo.update(K.id, { promote_nudge_enabled: true, promote_age_male_months: 10 });
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'closed', whelp_date: daysAgo(14 * 31) });
+  const pup = await dogRepo.create({ call_name: 'Juno', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', disposition: 'keeping', kennel_id: K.id, litter_id: l.id, date_of_birth: null });
+  const [n] = await nudgesFor('promote:');
+  assert.equal(n?.key, `promote:${pup.id}`);
 });
