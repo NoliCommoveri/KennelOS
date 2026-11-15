@@ -6,7 +6,24 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Nothing publishes unless every test passes (review K13-15). `node --test` from the
+  # root runs tests/ and cloud/tests; it needs Node >= 22 and no installed dependencies.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests (app and cloud)
+        run: node --test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       # The four editions are independent deploy targets (different repos, different
@@ -51,7 +68,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Build ${{ matrix.edition }}
         # --release makes the launch-placeholder guard FAIL the build instead of just
@@ -60,6 +77,8 @@ jobs:
         # the gate on, that guard protects the only way into the app, so a dead
         # checkout link is no longer a cosmetic problem. Note it scans editionConfig
         # ONLY — site/'s per-tier checkout links are not covered (LAUNCH_CHECKLIST §1).
+        # Every build (release or not) also fails if a file it ships statically imports
+        # one the edition dropped (build/checkImports.mjs).
         run: node build/assemble.mjs ${{ matrix.edition }} --release
 
       - name: Add CNAME

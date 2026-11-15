@@ -4763,3 +4763,35 @@ tick box per template; buyers get an emailed link.
   (Modified); `FIX_PRIORITIES.md`.
 - **Service worker:** `data/cloud/syncLost.js` in `PRECACHE_URLS`. `CACHE_NAME` bumped to
   `kennelos-shell-v143` (owner asked), covering this entry and the K03 batch above.
+
+## 2026-11-15: The privacy policy says what's sent, and nothing deploys untested (K13 review fixes)
+
+- **Asked (owner):** step 2 of `docs/review/FIX_PRIORITIES.md`. For K13-1, K13-2 and K13-3
+  the owner chose to change the policy's words, not what the app sends. No `syncRegistry`
+  change.
+- **K13-1:** `site/privacy.html` §2 and §4 no longer say nothing reaches us without cloud
+  backup: a linked KennelPort website sends what §9a lists either way.
+- **K13-2:** §6 "What we keep" adds a sale's open Stripe payment link (and that opening it
+  shows its amount), the business accounts table (name, type, website, referral
+  link/code/instructions, the published fee rate, contract forms' labels and links, her
+  payment link and instructions; never logins, her notes or the fee charge-back), vet
+  summaries in Documents, and the waitlist preferences the form asks (sex, breed, colours,
+  purposes, ready timing). "What we can never read" now excepts those.
+- **K13-3:** §4 gets a Google Drive bullet (Furever content packs to her own Drive,
+  `drive.file`, readable by anyone with the folder's link, unticked files trashed on the
+  next publish) and §12 a Google Drive row. Terms §12 names Google Drive too. Both pages
+  last updated 15 November 2026.
+- **K13-12:** the upgrade dialog on `site/editions.html` leads with the backup file, and
+  says cloud backup alone doesn't carry the private details without private backup (the
+  caveat `site/upgrade/` already had).
+- **K13-15:** new `build/checkImports.mjs`: `assemble.mjs` fails any target (every build,
+  not only `--release`) whose `dist/` has a relative static import, inline-module import or
+  `<script src>` naming a file it doesn't ship. `deploy.yml` gets a `test` job (Node 22,
+  `node --test`, which covers `cloud/tests` too) that the publish matrix `needs`, and the
+  build legs move from Node 20 to 22.
+- **Tests:** new `tests/checkImports.test.js` (a complete build passes; dropped imports,
+  `export … from`, inline modules and a `?v=` script src are reported; dynamic `import()`
+  and absolute URLs are skipped). `node --test` passes; all five targets build with the
+  check on. Deleting a file from `dist/lite/` made the check list its 62 importers.
+- **Docs:** guide §0 and §3, `build/README.md`, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or changed; no bump needed.

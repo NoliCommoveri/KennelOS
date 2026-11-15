@@ -21,6 +21,7 @@ import { existsSync, rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE, DEMO_EXCLUDED_PAGES } from '../shared/data/proPages.js';
+import { assertImportsResolve } from './checkImports.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
@@ -180,6 +181,9 @@ function assemble(edition, release) {
   rewriteIndexTitle(dest, edition);
 
   const sw = rewriteServiceWorker(dest, edition);
+  // Every build, not only --release: a dropped file a kept page still imports is a
+  // dead page in that edition (K13-7, K13-15).
+  assertImportsResolve(dest, edition);
   console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
@@ -198,6 +202,7 @@ function assembleStandalone(app) {
   const vendorDir = join(dest, 'vendor');
   mkdirSync(vendorDir, { recursive: true });
   cpSync(join(ROOT, 'shared', 'vendor', 'dexie.min.mjs'), join(vendorDir, 'dexie.min.mjs'));
+  assertImportsResolve(dest, app);
   console.log(`✅ ${app}: dist/${app}/  (standalone app; vendored dexie)`);
 }
 
@@ -215,6 +220,7 @@ function assembleStaticSite(name) {
   // The folder's README is internal (it lists the unswapped launch placeholders);
   // the publish repo is world-readable, so it doesn't ship.
   rmSync(join(dest, 'README.md'), { force: true });
+  assertImportsResolve(dest, name);
   console.log(`✅ ${name}: dist/${name}/  (static site; copied as-is)`);
 }
 

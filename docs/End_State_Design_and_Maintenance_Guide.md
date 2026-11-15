@@ -18,7 +18,9 @@ gate where there is one.
 One codebase, three builds. `node build/assemble.mjs` copies `shared/` to
 `dist/<edition>/`, overlays that edition's `editionConfig.js` (and Lite's `editionTour.js`)
 at the shared path, drops files the edition doesn't ship, and generates its `sw.js`
-(`build/README.md`). Each edition deploys to its own origin, so their IndexedDBs never mix.
+(`build/README.md`). It then fails if any file it ships statically imports one the edition
+dropped (`build/checkImports.mjs`). The deploy publishes only after `node --test` passes.
+Each edition deploys to its own origin, so their IndexedDBs never mix.
 The shared core never checks which edition it is: it reads the two injection points.
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
@@ -164,6 +166,7 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 CLAUDE.md, README.md         Session brief; summary + doc map
 docs/                        Plans, specs, BUILD_LOG.md, this guide
 build/assemble.mjs           Edition builds → dist/<edition>/ (§0)
+build/checkImports.mjs       Every build: each shipped static import resolves (§0)
 lite/ pro/ demo/             Each edition's editionConfig.js (+ Lite's editionTour.js) (§0)
 cloud/                       Cloud backup / sync Worker (§30, §34; cloud/README.md)
 furever/, site/              Family app; marketing site (separate, not editions)

@@ -79,7 +79,7 @@ same time in two sessions.
      K3-7, K3-9).
    - **Note:** K3-1 has a Worker half (`cloud/src/sync.js`), so `cd cloud && npm test` is in
      scope. A new cloud migration is unlikely, but CLAUDE.md allows at most one per branch.
-2. **K13 quick batch: the privacy policy and the deploy gate.**
+2. **K13 quick batch: the privacy policy and the deploy gate.** *Built 2026-11-15 (owner: fix the policy's words for all three).*
    - **Batch:** K13-1, K13-2 and K13-3 (the policy says three things that aren't true:
      KennelPort sends without cloud sign-in, backups hold more than §6 lists, and Furever
      publishes to Google Drive), plus K13-15 (the deploy runs `node --test` and the build

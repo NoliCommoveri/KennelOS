@@ -40,7 +40,7 @@
     <div class="wrap">
       <p class="eyebrow">Privacy policy</p>
       <h1>What we hold, what we never receive, and how to delete it</h1>
-      <p>Effective 10 October 2026. Last updated 12 November 2026.</p>
+      <p>Effective 10 October 2026. Last updated 15 November 2026.</p>
     </div>
   </section>
 
@@ -100,7 +100,7 @@
 
       <h2 id="short">2. The short version</h2>
       <ul class="checks">
-        <li>The apps keep your records in your own browser, on your own device. If you never sign in to cloud backup, we receive none of them.</li>
+        <li>The apps keep your records in your own browser, on your own device. If you never sign in to cloud backup or link a KennelPort website, we receive none of them.</li>
         <li>Cloud backup is optional, free, and off until you turn it on. It copies your <strong>kennel records</strong> so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, Financials, contracts and private notes are never sent readable. With <strong>private backup</strong> on, they're encrypted on your device first, with a key we don't have.</li>
         <li>We don't keep your email address, only a scrambled (keyed-hash) form of it, so we can recognise you when you sign in. The one exception is Pro's email digest: if you turn it on, we keep the address you choose, only to send it, and delete it when you turn the digest off.</li>
         <li>The online waitlist, if a breeder turns it on, shows families their own place and offers. We can read each family's name and email so we can email them; their application answers and messages are encrypted to the breeder.</li>
@@ -121,7 +121,9 @@
 
       <h2 id="local">4. Using the apps without cloud backup</h2>
       <p>Everything you type is stored in your browser's own storage on that device. It is not sent
-        to us. The apps contact other services only when you use a feature that needs them:</p>
+        to us, unless you link a KennelPort website (<a href="#website-link">section 9a</a>), which
+        sends what that section lists even without cloud backup. The apps contact other services
+        only when you use a feature that needs them:</p>
       <ul>
         <li><strong>Pro's license key</strong> is checked with <strong>Lemon Squeezy</strong>, our
           payment provider. The app sends them your key and the name of this device (the name you
@@ -135,6 +137,12 @@
           the key, the payments or your buyers' card details.</li>
         <li><strong>Companion</strong> and <strong>Furever</strong> links (Pro) carry what you chose
           to share in the link itself. They don't pass through our servers.</li>
+        <li><strong>Google Drive</strong> (Pro), if you connect it to publish a Furever content pack:
+          the documents and files you tick go to a folder in your own Google Drive, under Google's
+          own terms. KennelOS can see only the files it made there. The folder is shared so that
+          <strong>anyone with its link can read it</strong>, which is how the families you give the
+          link to open it. Unticking a file, or removing it, moves it to your Drive's trash on the
+          next publish. We never see any of it.</li>
         <li><strong>Dog Cards</strong> (Pro) carry the dogs you choose to send (names, registration,
           birthday, colour, microchip, parents, health tests and titles) in the link, code or file
           itself. They don't pass through our servers.</li>
@@ -156,14 +164,17 @@
       <ul>
         <li><strong>Your account:</strong> a keyed hash of your email address (not the address), when you joined, and for each device you sign in on: the name you gave it, when it was last used, and on Pro, the id of that device's license activation (so you can free it if the device is lost; it's useless without your license key, which we never receive).</li>
         <li><strong>Your kennel records:</strong> dogs (names, registrations, pedigree links, dates, microchip numbers, health-test plans), your kennels (including location, website and logo), pairings, litters, puppies, health and history events (without free-text notes), sales and stud services without their money, contract dates and types, feeding schedules, and your contacts' <strong>names</strong> and types.</li>
-        <li><strong>Documents:</strong> health-test results, pedigrees and registration papers you've attached to dogs. Receipts, contracts and other documents stay on your device unless private backup is on.</li>
-        <li><strong>Pro's waitlist:</strong> your waitlist settings (including the fee you charge and your payment instructions), the list's order and status, each family's status-page link, and each applicant's <strong>name and email</strong>. Nothing else from an application, and no family's payments.</li>
+        <li><strong>A sale's open payment link</strong> (Pro), if you made one through Stripe: the link itself, so any of your devices can tell when it's paid. Anyone who opens it sees its amount and your business name; we never receive the amount separately.</li>
+        <li><strong>Your business accounts</strong> (the services, shops and payment methods you list): each one's name, type and website; your referral link, code and instructions; the service's published fee rate; your contract forms' labels and share links; and your own payment link and payment instructions. Never their logins, your own notes on them, or whether you bill a fee back.</li>
+        <li><strong>Documents:</strong> health-test results, vet summaries, pedigrees and registration papers you've attached to dogs. Receipts, contracts and other documents stay on your device unless private backup is on.</li>
+        <li><strong>Pro's waitlist:</strong> your waitlist settings (including the fee you charge and your payment instructions), the list's order and status, each family's status-page link, each applicant's <strong>name and email</strong>, and the preferences your form asks about (the sex, breed, colours and purposes they'd like, and when they'd be ready). No other application answers, and no family's payments.</li>
       </ul>
       <h3>What we can never read</h3>
       <p>Your contacts' phone numbers, email addresses and postal addresses; the prices, deposits,
         fees and payments on your sales, stud services and litters, and each waitlist family's
-        payments; your Financials (income and expenses) and receipts; contracts and their terms;
-        application answers other than name and email; and every free-text note, on any record.
+        payments (apart from an open payment link, above); your Financials (income and expenses)
+        and receipts; contracts and their terms; application answers other than those listed
+        above; and every free-text note, on any record.
         Without private backup they never leave your device. With it, they reach us only
         encrypted (<a href="#vault">section 7</a>).</p>
       <h3>What we use it for</h3>
@@ -338,6 +349,7 @@
             <tr><th scope="row">Lemon Squeezy</th><td>Sells Pro and checks license keys</td><td>Your billing details, purchase email, license key and device names</td></tr>
             <tr><th scope="row">GitHub</th><td>Hosts this website and the apps</td><td>The network address of each visit</td></tr>
             <tr><th scope="row">Dropbox</th><td>Pro's Dropbox backup, only if you connect it</td><td>Your backup file, in your own account</td></tr>
+            <tr><th scope="row">Google Drive</th><td>Publishing Pro's Furever content packs, only if you connect it</td><td>The documents and files you publish, in your own Drive, readable by anyone with the folder's link; contacted from your browser, never by us</td></tr>
             <tr><th scope="row">Stripe</th><td>Pro's payment links, only if you connect it</td><td>Your restricted key and your payments, in your own account; contacted from your browser, never by us</td></tr>
             <tr><th scope="row">Mapbox</th><td>Driving miles for a puppy pickup or drop-off away from the kennel</td><td>The two addresses being measured (a family's meetup place or home city, and the kennel's public pickup place), each time; we keep only the miles</td></tr>
             <tr><th scope="row">Apple, Google and Mozilla</th><td>Delivering Pro's alerts, only if you turn them on</td><td>Your device's push address; each alert carries no content</td></tr>
