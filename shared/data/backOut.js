@@ -24,7 +24,7 @@ export const BACK_OUT_REASONS_DEFAULT = Object.freeze([
 export const BACK_OUT_OTHER = Object.freeze({ id: 'other', label: 'Something else' });
 export const BACK_OUT_OUTCOMES = Object.freeze([
   { value: 'keep', label: 'Keep what they paid' },
-  { value: 'move', label: 'Back in line with a credit' }
+  { value: 'move', label: 'Put them back in line' }
 ]);
 // The owner's wording (2026-11-01).
 export const BACK_OUT_POLICY_TEXT_DEFAULT = 'Please note that all paid deposits are non-refundable and by backing out, you are forfeiting your deposit. We do understand that sometimes, life happens; [Kennel Name] will review your reason for backing out and will reach out if we determine you are eligible to apply any portion of your paid deposit to a future litter. If not eligible, you will be required to re-apply and place a new deposit should you decide to purchase one of our pups in the future.';
@@ -71,7 +71,7 @@ export function suggestOutcome(config, reasonId, weeks) {
   return { outcome: 'keep', row: null };
 }
 
-// "We changed our mind, under 6 weeks → back in line with a credit".
+// "We changed our mind, under 6 weeks → put them back in line".
 export function policyRowText(row, reasons) {
   const reason = row.reason_id === 'any' ? 'Any reason' : (reasons.find((r) => r.id === row.reason_id)?.label || 'A reason');
   const age = row.from_weeks != null && row.until_weeks != null ? `, ${row.from_weeks} to ${row.until_weeks} weeks`
@@ -121,7 +121,7 @@ export function backOutPaidText(parts, money = (n) => `$${n}`) {
 export function backOutSummary(outcome, { paid = 0, credit = 0, items = [], money = (n) => `$${n}` }) {
   const rest = Math.round((paid - credit) * 100) / 100;
   const first = outcome === 'move'
-    ? `Cancel the sale and put them back at the end of the line ${credit > 0 ? `with a ${money(credit)} credit toward their next pup` : 'with no credit'}${paid > 0 && rest > 0 ? `; the other ${money(rest)} they paid is kept` : ''}`
+    ? `Cancel the sale and put them back at the end of the line ${credit > 0 ? `with a ${money(credit)} credit toward their next pup` : 'with no credit'}${paid > 0 && rest > 0 ? `; the ${credit > 0 ? 'other ' : ''}${money(rest)} they paid is kept` : ''}`
     : `Cancel the sale${paid > 0 ? ` and keep the ${money(paid)} they paid` : ''}`;
   const extras = items.filter((i) => !i.remove && i.kind === 'charge').map((i) => `keep ${i.label} (${i.owed === false ? 'paid' : 'still owed'})`);
   const gone = items.filter((i) => i.remove).map((i) => `remove ${i.label}${i.kind === 'pickup' || i.kind === 'stay' ? ` on ${i.detail.split(' ')[0]}` : ''}`);

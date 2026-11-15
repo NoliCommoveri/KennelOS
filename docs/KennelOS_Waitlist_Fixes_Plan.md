@@ -45,7 +45,7 @@ in the same step, so the new features are built on one rule each, not on a fourt
 | D6 | E3: where does she find these families? | **Their own section on the Waitlist page**, with the other sections, not inside Closed. |
 | D7 | E3: do the two new fields sync between her devices? | **Yes: `cloud`** for `WaitlistEntry.off_list` and `Litter.waitlist_off`. |
 | D8 | E3: a family page family backs out, or loses its pup | **Keep or Refund only**, never "Move the deposit", and no "put them back in line". To join the list they apply. (Read from the owner's last answer, "Yes".) **Modified by D9:** a back-out is Keep only. |
-| D9 | K8-2: a family backs out after paying more than the deposit. Today Move carries only the deposit and Refund erases everything. | **Decided 2026-11-15: nothing is refunded; she chooses how much to apply as a credit.** Breeders' contracts make all money non-refundable on a back-out. Keep what they paid, or back in line with a credit of her choosing (0 up to all they paid; the deposit to start). Refund is gone from the back-out. |
+| D9 | K8-2: a family backs out after paying more than the deposit. Today Move carries only the deposit and Refund erases everything. | **Decided 2026-11-15: nothing is refunded; she chooses how much to apply as a credit.** Breeders' contracts make all money non-refundable on a back-out. Keep what they paid, or put them back in line, asked whether to credit what they paid toward their next pup: the amount prefilled with all they paid, hers to change (owner, the same day). Refund is gone from the back-out. |
 
 **Still open** (each is assumed as recommended until the owner says otherwise):
 

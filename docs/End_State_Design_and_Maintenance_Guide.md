@@ -2075,7 +2075,7 @@ restored into Lite keeps its waitlist rows, dormant.
   credit carry at most what was paid beyond the credit, which stays on the entry.
   - **Money carried from a lost pup** (Payment Schedule plan §3.2a, D20) is a credit like
     any other, written only when she puts the family back on the list with it (a lost pup's
-    **Carry it to their next pup**, a back-out's **Back in line with a credit**; a refund
+    **Carry it to their next pup**, a back-out's **Put them back in line** with a credit; a refund
     or a credit of 0 writes none):
     `receivedCredits.carriedCredit`, every use ticked, dated when it was paid (the lost
     sale's `deposit_date`, else that day), note "Carried over from *pup*'s sale",
@@ -2423,8 +2423,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   sale, its `live` test). Nothing is refunded (D9): `outcome` is `keep` or `move`, and a
   `refund` is refused (a decided one from before still reads). `move` takes `credit`, her
   choice from 0 to what they paid beyond their credits (`backOutMoney`: `parts` paid line by
-  line from `incomeView.paidOnSaleByPart`, `paid`, and `suggested`, the deposit they paid,
-  which a missing `credit` means); it's stored on the decided request. A family page only
+  line from `incomeView.paidOnSaleByPart`, `paid`, and `suggested`, all of `paid`, the
+  dialogs' prefill and what a missing `credit` means); it's stored on the decided request. A family page only
   gets Keep only (move refused).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
@@ -2481,7 +2481,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **Waitlist family**). The Buyer field warns when the chosen contact is on her do-not-sell
   list (K7-9), as the Side sale dialog does for the family; only a warning.
 - **A family's page** (`waitlist-entry`) for a family page only: "Family page only" in its
-  status, no public-list name row, no **Back in line with a credit** on a back-out request, **Apply to
+  status, no public-list name row, no **Put them back in line** on a back-out request, **Apply to
   the list…** in place of Re-apply. A placed family with an open sale gets **Keep off the list
   (family page only)…**; one that was on the list (fee received) can be **Put back on the list…**.
 - **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
@@ -2819,10 +2819,11 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   reasons, the policy rows (`back_out_policy`: reason or any, optional from / until weeks,
   keep or move) and the text. Today (`waitlist-back-out`) opens the entry, whose Waiting for
   you row shows the suggestion (`suggestOutcome` on the pup's age in weeks; none fits:
-  keep) with **Keep what they paid** / **Back in line with a credit** / **Decline**. Nothing
+  keep) with **Keep what they paid** / **Put them back in line** / **Decline**. Nothing
   is refunded on a back-out (D9). Each opens a confirm that says what they paid, line by line
-  (`backOutPaidText`), and for a credit asks how much (the deposit they paid to start, up to
-  all they paid beyond their credits), then lists `backOutItems` (extras ticked to remove
+  (`backOutPaidText`); putting them back in line asks **Credit what they paid toward their
+  next pup?** Yes (the amount, prefilled with all they paid beyond their credits, hers to
+  lower) / No, keep what they paid; then it lists `backOutItems` (extras ticked to remove
   unless part-paid or Done; a kept one says "paid" or "still owed"; stays not started;
   pickups to come) and a summary line (`backOutSummary`: the credit and what's kept).
   `approveBackOut`: ticked extras off, the rest `kept_after_cancel` (still owed: income
@@ -4392,8 +4393,9 @@ unpaid fees), else 26.
      per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
      her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
-     **Keep what they paid** / **Back in line with a credit** (not for a family page only) /
-     **Decline**; a form with what they paid, the credit's amount, `backOutItems` ticked as the entry page ticks them, **Put [pup]
+     **Keep what they paid** / **Put them back in line** (not for a family page only) /
+     **Decline**; a form with what they paid, Credit it? Yes (the amount, all of it
+     prefilled) / No, `backOutItems` ticked as the entry page ticks them, **Put [pup]
      back to** Available / Health hold, and `backOutSummary` → `approveBackOut`. A pup back
      to Available → "Offer [pup] to the next family?". Then, every time, "Do you need to
      cancel or void any other sales?": her open and gone-home sales → the family backed out

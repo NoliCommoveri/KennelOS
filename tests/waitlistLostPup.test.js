@@ -351,7 +351,7 @@ test('a back-out that moves the deposit: not income on the cancelled sale, count
   const sale = await placeLee();
   await saleRepo.update(sale.id, { extra_charges: [{ id: 'tr', label: 'Puppy training', amount: 600, payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: DAY }, { id: 'b', percent: 50, due: 'with_balance' }] }] });
   assert.equal(await earnedOn(sale.id), 800, 'the deposit and the training paid so far');
-  await actions.approveBackOut(ids.lee, { outcome: 'move', told: {}, date: LATER });
+  await actions.approveBackOut(ids.lee, { outcome: 'move', credit: 500, told: {}, date: LATER });
   assert.equal((await saleRepo.getById(sale.id)).status, 'cancelled');
   const lee = await waitlistEntryRepo.getById(ids.lee);
   assert.deepEqual(lee.received_credits.map((c) => [c.amount, c.from_sale_id]), [[500, sale.id]]);
@@ -369,7 +369,7 @@ test('D9: paid in full, she credits more than the deposit: the credit is hers to
   await saleRepo.update(sale.id, { status: 'paid_in_full', balance_paid_date: DAY, transport_fee: 200 });
   const money = await actions.backOutMoney(await waitlistEntryRepo.getById(ids.lee), await saleRepo.getById(sale.id));
   assert.deepEqual(money.parts.map((p) => [p.key, p.amount]), [['deposit', 500], ['balance', 1500], ['transport', 200]]);
-  assert.deepEqual([money.paid, money.suggested], [2200, 500], 'up to all they paid; the deposit to start');
+  assert.deepEqual([money.paid, money.suggested], [2200, 2200], 'up to all they paid, and all of it prefilled');
   await assert.rejects(actions.approveBackOut(ids.lee, { outcome: 'move', credit: 2200.01, told: {}, date: LATER }), /more than they paid/);
   await assert.rejects(actions.approveBackOut(ids.lee, { outcome: 'move', credit: -1, told: {}, date: LATER }), /amount/);
   assert.equal((await saleRepo.getById(sale.id)).status, 'paid_in_full', 'a refused credit changes nothing');

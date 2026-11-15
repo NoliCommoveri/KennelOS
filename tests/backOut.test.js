@@ -31,7 +31,7 @@ test('the first rule that fits the reason and the pup\'s age suggests; none fits
   assert.equal(suggestOutcome(config, 'changed_mind', 6).outcome, 'keep', '"until 6 weeks" means younger than 6');
   assert.equal(suggestOutcome(config, 'pup', 12).outcome, 'move', 'any age');
   assert.equal(suggestOutcome(config, 'changed_mind', null).row, null, 'an age rule with no age known: skipped');
-  assert.equal(policyRowText(config.back_out_policy[0], backOutReasons({})), 'We changed our mind, under 6 weeks → back in line with a credit');
+  assert.equal(policyRowText(config.back_out_policy[0], backOutReasons({})), 'We changed our mind, under 6 weeks → put them back in line');
 });
 
 test('the confirm ticks unpaid, unstarted things to remove and keeps what she is owed', () => {
@@ -57,7 +57,7 @@ test('the confirm ticks unpaid, unstarted things to remove and keeps what she is
   // D9: nothing is refunded; back in line carries the credit she chose, the rest is kept.
   assert.equal(backOutSummary('move', { paid: 800, credit: 500 }), 'Cancel the sale and put them back at the end of the line with a $500 credit toward their next pup; the other $300 they paid is kept');
   assert.equal(backOutSummary('move', { paid: 800, credit: 800 }), 'Cancel the sale and put them back at the end of the line with a $800 credit toward their next pup');
-  assert.equal(backOutSummary('move', { paid: 800, credit: 0 }), 'Cancel the sale and put them back at the end of the line with no credit; the other $800 they paid is kept');
+  assert.equal(backOutSummary('move', { paid: 800, credit: 0 }), 'Cancel the sale and put them back at the end of the line with no credit; the $800 they paid is kept');
   assert.equal(backOutSummary('keep', { paid: 0 }), 'Cancel the sale', 'nothing paid: no money named');
 });
 

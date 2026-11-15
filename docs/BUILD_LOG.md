@@ -4843,3 +4843,9 @@ tick box per template; buyers get an emailed link.
   plan §7 and D13 (Modified), End-State guide (income, extra steps, credits, undo windows,
   backing out, family pages, Kels), README, `FIX_PRIORITIES.md`.
 - **Service worker:** no file added or renamed.
+- **Then (owner):** putting a family back in line asks first. **Put them back in line**
+  (was "Back in line with a credit") → "Credit what they paid toward their next pup?"
+  **Yes**, with the amount prefilled as all they paid beyond their credits and editable, or
+  **No, keep what they paid**. `backOutMoney.suggested` and a missing `credit` are now all
+  they paid, not the deposit. Kels asks the same. Tests follow (`waitlistLostPup`,
+  `cloudWaitlist`: the back-out without a named credit credits the 800 paid).

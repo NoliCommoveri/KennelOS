@@ -29,7 +29,7 @@
 // by the deadline = no response: the Sale is cancelled and the pup is free again.
 import { kennelRepo } from './kennelRepo.js';
 import { creditsOf, feeCharge, allocateCredits, creditsWithCarried, carriedCredit, carriedCreditsOf } from './receivedCredits.js';
-import { familyCredit, getSaleStatement, paidBesidesCredits, paidOnSaleByPart, getSaleFeeCredit } from './incomeView.js';
+import { getSaleStatement, paidBesidesCredits, paidOnSaleByPart, getSaleFeeCredit } from './incomeView.js';
 import { contactRepo } from './contactRepo.js';
 import { waitlistEntryRepo, syncContactWaitlistStatus } from './waitlistEntryRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
@@ -1823,7 +1823,7 @@ export async function declinePickupRequest(entryId, requestId, { date = todayYMD
 // cancelled and what they paid is kept; they leave the list. `move`: the sale is
 // cancelled and they go back on the list at the end of the line, with `credit` of what
 // they paid (her choice, 0 up to what they paid beyond their credits) as a credit for
-// funds received toward their next pup. Without `credit`, the deposit they paid.
+// funds received toward their next pup. Without `credit`, all they paid.
 // A decided `refund` from before D9 still reads; a new one is refused.
 export async function approveBackOut(entryId, { outcome, credit = null, remove = [], pup = null, date = todayYMD(), told = null } = {}) {
   if (outcome === 'refund') throw new Error('Nothing is refunded when a family backs out: keep what they paid, or put them back in line with a credit for some of it.');
@@ -1902,15 +1902,13 @@ export async function approveBackOut(entryId, { outcome, credit = null, remove =
 // The money on a sale a family is backing out of (K8-2, D9): `parts` what they paid,
 // line by line (incomeView.paidOnSaleByPart); `paid` what they paid beyond their credit
 // for funds already received (that part stays on their entry as credit), the most she
-// can credit toward their next pup; `suggested` the deposit they paid, the credit a
-// "back in line" starts with.
+// can credit toward their next pup; `suggested` the credit a "put them back in line"
+// is prefilled with: all of it (she can lower it, or answer no credit).
 export async function backOutMoney(entry, sale) {
   const feeCredit = await getSaleFeeCredit(sale.id);
   const parts = paidOnSaleByPart(sale, { feeCredit });
   const paid = paidBesidesCredits(sale, entry, { feeCredit });
-  const depositIn = Boolean(sale.deposit_date) || ['deposit_paid', 'paid_in_full'].includes(sale.status);
-  const movedDeposit = Math.max(0, Number(sale.deposit_amount || 0) - (familyCredit(entry, sale)?.byKey.deposit || 0));
-  return { parts, paid, suggested: depositIn ? Math.min(paid, movedDeposit) : 0 };
+  return { parts, paid, suggested: paid };
 }
 
 // The family's waiting pickup and extras requests, closed by a back-out (K8-8):

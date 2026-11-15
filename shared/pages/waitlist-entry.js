@@ -441,7 +441,7 @@ function pendingRequests(e) {
       text: `Asked ${esc(fmtDate(r.requested_date))} to <strong>back out</strong>${ctx.backOut?.pupName ? ` of ${esc(ctx.backOut.pupName)}` : ''}. Their reason: ${esc(r.reason?.label || '')}${r.reason?.text ? `: "${esc(r.reason.text)}"` : ''}.`,
       hint: s ? `Your policy suggests: ${BACK_OUT_OUTCOMES.find((o) => o.value === s.outcome).label.toLowerCase()}${s.row ? ` (${policyRowText(s.row, backOutReasons(ctx.config))})` : ' (no rule fits)'}.` : '',
       buttons: `<button class="btn btn-sm${s?.outcome === 'keep' ? ' btn-primary' : ''}" data-req="backout:keep">Keep what they paid</button>
-        ${isFamilyPageOnly(e) ? '' : `<button class="btn btn-sm${s?.outcome === 'move' ? ' btn-primary' : ''}" data-req="backout:move">Back in line with a credit</button>`}
+        ${isFamilyPageOnly(e) ? '' : `<button class="btn btn-sm${s?.outcome === 'move' ? ' btn-primary' : ''}" data-req="backout:move">Put them back in line</button>`}
         <button class="btn btn-sm" data-req="backout:decline">Decline</button>` });
   }
   // Pickup (Family Requests plan §4): a time, a cancel, or their own address.
@@ -568,8 +568,9 @@ function wireRequests(root) {
 }
 
 // Backing out (Family Requests plan §7.2): the confirm says what they paid, line by
-// line (K8-2); nothing is refunded (D9). Back in line asks how much of it to credit
-// toward their next pup, the deposit they paid to start. It lists what comes off with
+// line (K8-2); nothing is refunded (D9). Putting them back in line asks whether to
+// credit what they paid toward their next pup and how much (all of it prefilled, hers to
+// change). It lists what comes off with
 // the sale, each ticked or not by default (paid or finished extras start kept: she's
 // owed them), and ends with the one-line summary.
 async function onBackOut(decision) {
@@ -589,14 +590,17 @@ async function onBackOut(decision) {
   const items = backOutItems({ sale, events, today: todayYMD() });
   const { parts, paid, suggested } = await actions.backOutMoney(e, sale);
   const asksCredit = outcome === 'move' && paid > 0;
-  const titles = { keep: 'Cancel the sale, keep what they paid', move: 'Cancel the sale, back in line with a credit' };
-  const readCredit = (o) => (asksCredit ? Number(o.querySelector('#bo-credit').value || 0) : 0);
+  const titles = { keep: 'Cancel the sale, keep what they paid', move: 'Cancel the sale, put them back in line' };
+  const readCredit = (o) => (asksCredit && o.querySelector('input[name="bo-credit-yn"]:checked')?.value === 'yes' ? Number(o.querySelector('#bo-credit').value || 0) : 0);
   const ok = await formModal({
     title: titles[outcome], confirmLabel: 'Approve',
     bodyHtml: `<p style="margin-top:0;">${esc(backOutPaidText(parts, fmtMoney))} Nothing is refunded when a family backs out.</p>
       ${outcome === 'move' ? `<p>They go back on your list at the end of the line, with their application, fee and history.</p>
-        ${asksCredit ? `<div class="field"><label for="bo-credit">Credit toward their next pup</label><input id="bo-credit" type="number" min="0" max="${esc(paid.toFixed(2))}" step="0.01" value="${esc(suggested.toFixed(2))}">
-          <p class="field-hint">Up to ${esc(fmtMoney(paid))}; 0 for none. It comes off what they owe for the pup they pick next, starting with that pup's deposit. The rest of what they paid is kept.</p></div>` : ''}` : ''}
+        ${asksCredit ? `<p style="margin-bottom:4px;"><strong>Credit what they paid toward their next pup?</strong></p>
+          <label class="check-inline" style="display:block;"><input type="radio" name="bo-credit-yn" value="yes" checked> Yes</label>
+          <div class="field" id="bo-credit-field" style="margin:4px 0 8px 24px;"><label for="bo-credit">Amount to credit</label><input id="bo-credit" type="number" min="0" max="${esc(paid.toFixed(2))}" step="0.01" value="${esc(suggested.toFixed(2))}">
+            <p class="field-hint">Up to ${esc(fmtMoney(paid))}. It comes off what they owe for the pup they pick next, starting with that pup's deposit. Whatever you don't credit is kept.</p></div>
+          <label class="check-inline" style="display:block;"><input type="radio" name="bo-credit-yn" value="no"> No, keep what they paid</label>` : ''}` : ''}
       ${items.length ? `<p class="field-hint" style="margin:0 0 4px;">Tick what comes off with the sale. Extras you leave unticked stay on it, still owed.</p>
         ${items.map((it, i) => `<label class="check-inline" style="display:block; margin:4px 0;"><input type="checkbox" class="bo-item" data-i="${i}"${it.remove ? ' checked' : ''}> <strong>${esc(it.label)}</strong> <span class="faint">${esc(it.kind === 'charge' ? `extra, ${it.detail}` : it.detail)}</span></label>`).join('')}` : ''}
       <label class="check-inline" style="display:block; margin:8px 0 4px;"><input type="checkbox" id="bo-pup" checked> Put ${esc(ctx.dogsById.get(sale.dog_id)?.call_name || 'the pup')} back to
@@ -618,6 +622,10 @@ async function onBackOut(decision) {
     };
     o.querySelectorAll('.bo-item').forEach((c) => c.addEventListener('change', summary));
     o.querySelector('#bo-credit')?.addEventListener('input', summary);
+    o.querySelectorAll('input[name="bo-credit-yn"]').forEach((r) => r.addEventListener('change', () => {
+      o.querySelector('#bo-credit-field').hidden = o.querySelector('input[name="bo-credit-yn"]:checked')?.value !== 'yes';
+      summary();
+    }));
     summary();
   });
   // Its own wording per outcome: what happened to their deposit.

@@ -677,11 +677,11 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
   const moved = await waitlistEntryRepo.getById(entry.id);
   assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.received_credits?.[0]?.amount, moved.back_out_request.outcome],
-    ['active', null, later(0), 500, 'move'], 'back on the list at the end, the same entry, the deposit carried');
+    ['active', null, later(0), 800, 'move'], 'back on the list at the end, the same entry, all they paid credited (none named: all of it)');
   await cw.syncWaitlistOnline();
   const back = await view();
   assert.equal(back.family.status, 'active', 'their status page and sign-in still work');
-  assert.equal(back.family.credits?.received, 500, 'K8-4: their credit is published, so their next deposit is asked for less it');
+  assert.equal(back.family.credits?.received, 800, 'K8-4: their credit is published, so their next deposit is asked for less it');
 
   // D9: nothing is refunded on a back-out. Keep: the sale is cancelled and they leave the list.
   const sale2 = await saleRepo.create({ kennel_id: k.id, dog_id: pups[1].id, buyer_contact_id: other.contact_id, registration_type: 'limited', status: 'deposit_paid', price: 3000, deposit_amount: 500, deposit_date: later(-5) });

@@ -302,9 +302,9 @@ or "18 miles: under your 25, no charge".
   **Modified (2026-11-15, Waitlist Fixes Plan D9):** nothing is refunded on a back-out,
   since breeders' contracts make every payment non-refundable when a family backs out:
   Refund is gone, and a new one is refused (one decided before still reads). The two
-  outcomes are **Keep what they paid** and **Back in line with a credit**, where she
-  chooses how much of what they paid (any part, deposit, balance and extras alike) is a
-  credit toward their next pup, the deposit they paid to start. The confirm says what
+  outcomes are **Keep what they paid** and **Put them back in line**, which asks whether
+  to credit what they paid toward their next pup: Yes, with the amount prefilled as all
+  they paid (any part, deposit, balance and extras alike, hers to change), or No. The confirm says what
   they paid, line by line (K8-2).
 - The family sees the result on their page and gets an email (her template).
   **Modified (2026-11-11, Waitlist Fixes Plan K8-7):** the decided back-out stays on their
