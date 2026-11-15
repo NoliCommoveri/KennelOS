@@ -5197,3 +5197,19 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
   boarding); `contractForms` (co-own and Other groups). `node --test` 2069 pass.
 - **Docs:** End-State guide (the field groups); Integrations plan (Modified note).
 - **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.
+
+## 2026-11-15: Field guide for placing fields in Firma's editor
+- **Why (owner):** a reference that helps people pick the right prefill, with every label,
+  how it's worked out and an example, A–Z or by type, that stays up while they're in Firma's
+  editor; and general help on the workspace (a second signer, Text type for every prefill).
+- **Built:** `data/prefillGuide.js` (pure: `guideRows`, `GUIDE_GROUPS`, `EXAMPLE_STORY`; the
+  examples are `prefillValues` on made-up records). `assets/fieldGuideUI.js`
+  (`openFieldGuide`): a Picture-in-Picture window, else a pop-up, else an on-page panel; tabs
+  Fields (by type / A–Z, filter, Copy) and Using Firma's editor. Contract templates gains a
+  **Field guide** button and offers it again after Place fields opens the editor; its hint
+  there now says a Text field with Prefilled Data set to the label.
+- **Tests:** new `prefillGuide.test.js` (3). `node --test` 2072 pass; `node build/assemble.mjs`
+  green (Lite drops `fieldGuideUI.js`).
+- **Docs:** End-State guide (Contract templates: the Field guide).
+- **Service worker:** `assets/fieldGuideUI.js` and `data/prefillGuide.js` added to
+  `PRECACHE_URLS`; `fieldGuideUI.js` in `proPages`. Rides `kennelos-shell-v148`.

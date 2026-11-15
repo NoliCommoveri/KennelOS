@@ -3436,6 +3436,23 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     places a field with a mouse (a drag from its field list, or a right-click on the page)
     and opens zoomed in beside its 320 px field list on a phone, so on a device with no
     mouse (`(any-pointer: fine)` false) Place fields says so instead of opening it.
+  - **Field guide** (`assets/fieldGuideUI.js`, Pro-only; its rows `data/prefillGuide.js`,
+    shared): a button on Contract templates, and offered again once Place fields has opened
+    the editor. It opens where it stays up beside Firma's tab: a Picture-in-Picture window
+    (`documentPictureInPicture`, Chrome and Edge), else a pop-up window, else (pop-ups
+    blocked) a panel on the page in its own shadow root; one at a time. Two tabs:
+    - **Fields**: every fact by its `FIRMA_LABELS` label, with a Copy button, which
+      contracts fill it (`GUIDE_GROUPS`, as `fieldGroupsFor` reads), how its value is worked
+      out (`prefillGuide` `HOW`, else the `PREFILL_FIELDS` words) and an example. By type
+      (one section per group; a fact in two groups shows in both, each with that group's
+      example) or A–Z, and a filter. The examples are `prefillValues` on made-up records
+      (an Extra agreement on an example sale with a schedule, transport, boarding and a
+      training package; a stud service; a lease: `EXAMPLE_STORY`), so they're what a real
+      send would put there, and add up as the contracts do.
+    - **Using Firma's editor**: a computer only; a Text field per detail with its Prefilled
+      Data set to the label (Text for dates and money too: KennelOS sends text); one signer
+      per field; a second signer for I sign first / last; what a detail can't do (tick a
+      box, choose between packages); saving, then checking with the Send preview.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
     `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`
