@@ -351,7 +351,7 @@ function extraChargesField(s) {
         }).join('')}
         <option value="custom">Something else…</option>
       </select>
-      <span class="field-hint">Each prints as its own line on the invoice, paid with the balance unless it has a payment plan (set on the Kennel page's Extra charges price list, where you keep your usual ones). Changing an amount rescales its payments.</span>
+      <span class="field-hint">Each prints as its own line on the invoice, paid with the balance unless it has a payment plan (set on the Kennel page's Extra charges price list, where you keep your usual ones). Changing an amount changes its payments still to come; a payment already made keeps its amount.</span>
     </div>`;
 }
 

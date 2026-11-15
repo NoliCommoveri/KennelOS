@@ -4,7 +4,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
-import { backOutReasons, suggestOutcome, policyRowText, ageWeeks, backOutItems, backOutSummary, backOutPolicyText, BACK_OUT_POLICY_TEXT_DEFAULT } from '../shared/data/backOut.js';
+import { backOutReasons, suggestOutcome, policyRowText, ageWeeks, backOutItems, backOutSummary, backOutPaidText, backOutPolicyText, BACK_OUT_POLICY_TEXT_DEFAULT } from '../shared/data/backOut.js';
 
 let income;
 before(async () => {
@@ -31,7 +31,7 @@ test('the first rule that fits the reason and the pup\'s age suggests; none fits
   assert.equal(suggestOutcome(config, 'changed_mind', 6).outcome, 'keep', '"until 6 weeks" means younger than 6');
   assert.equal(suggestOutcome(config, 'pup', 12).outcome, 'move', 'any age');
   assert.equal(suggestOutcome(config, 'changed_mind', null).row, null, 'an age rule with no age known: skipped');
-  assert.equal(policyRowText(config.back_out_policy[0], backOutReasons({})), 'We changed our mind, under 6 weeks → move the deposit to another pup');
+  assert.equal(policyRowText(config.back_out_policy[0], backOutReasons({})), 'We changed our mind, under 6 weeks → back in line with a credit');
 });
 
 test('the confirm ticks unpaid, unstarted things to remove and keeps what she is owed', () => {
@@ -52,9 +52,30 @@ test('the confirm ticks unpaid, unstarted things to remove and keeps what she is
     ['tr', false, '50% paid'], ['ph', true, 'nothing paid'], ['vid', false, 'done'],
     ['st1', true, '2026-11-10 to 2026-11-23'], ['st2', false, '2026-10-25, under way'], ['pk', true, '2026-11-24']
   ]);
-  assert.equal(backOutSummary('keep', { deposit: 500, items, money: (n) => `$${n}` }),
-    'Cancel the sale and keep their $500 deposit, keep Puppy training (still owed), keep Video (still owed), remove Photos, remove Puppy training on 2026-11-10, remove Puppy pickup on 2026-11-24');
-  assert.match(backOutSummary('move', { deposit: 500 }), /move their \$500 deposit to another pup \(they go to the end of the line\)/);
+  assert.equal(backOutSummary('keep', { paid: 800, items, money: (n) => `$${n}` }),
+    'Cancel the sale and keep the $800 they paid, keep Puppy training (still owed), keep Video (still owed), remove Photos, remove Puppy training on 2026-11-10, remove Puppy pickup on 2026-11-24');
+  // D9: nothing is refunded; back in line carries the credit she chose, the rest is kept.
+  assert.equal(backOutSummary('move', { paid: 800, credit: 500 }), 'Cancel the sale and put them back at the end of the line with a $500 credit toward their next pup; the other $300 they paid is kept');
+  assert.equal(backOutSummary('move', { paid: 800, credit: 800 }), 'Cancel the sale and put them back at the end of the line with a $800 credit toward their next pup');
+  assert.equal(backOutSummary('move', { paid: 800, credit: 0 }), 'Cancel the sale and put them back at the end of the line with no credit; the other $800 they paid is kept');
+  assert.equal(backOutSummary('keep', { paid: 0 }), 'Cancel the sale', 'nothing paid: no money named');
+});
+
+test('K8-13: an extra kept on the sale says "paid" once it is, never "still owed"', () => {
+  const sale = { id: 's1', dog_id: 'p1', extra_charges: [
+    { id: 'tr', label: 'Puppy training', amount: 600, completed_date: '2026-10-20', payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: '2026-10-01' }, { id: 'b', percent: 50, due: 'with_balance', paid_date: '2026-10-15' }] },
+    { id: 'ph', label: 'Photos', amount: 150, payments: [{ id: 'a', percent: 100, due: 'on_approval', paid_date: '2026-10-01' }] }
+  ] };
+  const items = backOutItems({ sale, events: [], today: '2026-11-01' });
+  assert.deepEqual(items.map((i) => [i.id, i.detail, i.owed, i.remove]), [['tr', 'done, paid', false, false], ['ph', 'paid', false, false]]);
+  assert.equal(backOutSummary('keep', { paid: 750, items, money: (n) => `$${n}` }), 'Cancel the sale and keep the $750 they paid, keep Puppy training (paid), keep Photos (paid)');
+});
+
+test('K8-2: what they paid, line by line', () => {
+  const money = (n) => `$${n}`;
+  assert.equal(backOutPaidText([{ label: 'Deposit', amount: 500 }, { label: 'Balance', amount: 2500 }, { label: 'Transport', amount: 200 }], money),
+    'They\'ve paid $3200 on this sale: deposit $500, balance $2500, transport $200.');
+  assert.equal(backOutPaidText([], money), 'Nothing has been paid on this sale yet: no deposit was received.');
 });
 
 test('an extra she kept stays owed on a cancelled or refunded sale: paid parts earned, the rest anticipated', () => {

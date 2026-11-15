@@ -88,7 +88,7 @@ same time in two sessions.
    - **Owner decision first:** for each statement, does the policy change, or does the app
      change to match the policy? K13-2 in particular is a `syncRegistry` cloud/private
      question, which CLAUDE.md says to surface.
-3. **Waitlist Fixes plan, step 5 (money a family is shown).** K8-2 (S1), K8-3, K6b-5,
+3. **Waitlist Fixes plan, step 5 (money a family is shown).** *Built 2026-11-15 (D9: nothing is refunded on a back-out; she chooses the credit).* K8-2 (S1), K8-3, K6b-5,
    K6b-8, and K8-4 and K8-13 if the *recheck* shows they're still open.
    - **Why:** families see the wrong money, the plan for it already exists, and it sits on
      the statement that Payment Schedules just built.

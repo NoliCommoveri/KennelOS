@@ -401,7 +401,7 @@ export async function pickDialog({ offer, name, pups, pupLabel }) {
   const carried = carriedCreditsOf(await waitlistEntryRepo.getById(offer.entry_id));
   const carriedAmount = carried.reduce((t, c) => t + c.amount, 0);
   const credit = (await getEntryCredit(offer.entry_id)).credit;
-  const carriedHint = carried.length ? `<p class="field-hint">${esc(fmtMoney(carriedAmount))} they paid on a pup they lost is a credit for funds received${credit?.remaining > carriedAmount ? ` (${esc(fmtMoney(credit.remaining))} credit in all)` : ''}. It comes off what they're asked to pay for this pup, starting with the deposit. If it covers the whole deposit, recording the pick marks the deposit received today, places ${esc(name)} and moves the turn on; if not, they're asked for the rest.</p>` : '';
+  const carriedHint = carried.length ? `<p class="field-hint">${esc(fmtMoney(carriedAmount))} they paid on an earlier sale is a credit for funds received${credit?.remaining > carriedAmount ? ` (${esc(fmtMoney(credit.remaining))} credit in all)` : ''}. It comes off what they're asked to pay for this pup, starting with the deposit. If it covers the whole deposit, recording the pick marks the deposit received today, places ${esc(name)} and moves the turn on; if not, they're asked for the rest.</p>` : '';
   const creditHint = !carried.length && credit?.remaining > 0 ? `<p class="field-hint">They have ${esc(fmtMoney(credit.remaining))} credit for funds already received. It comes off what they're asked to pay for this pup, starting with the deposit.</p>` : '';
   const ok = await formModal({
     title: `${name} picked a pup`,

@@ -352,13 +352,17 @@ test('K8-7: after a back-out, the family is shown what happened to their deposit
 
 test('K8-7: each back-out outcome has its own email', async () => {
   const { EMAIL_KINDS, EMAIL_TEMPLATE_KINDS, DEFAULT_EMAIL_TEMPLATES } = await import('../shared/data/waitlistEmails.js');
-  for (const kind of ['backed_out_keep', 'backed_out_move', 'backed_out_refund']) {
+  for (const kind of ['backed_out_keep', 'backed_out_move']) {
     assert.ok(EMAIL_KINDS.includes(kind));
     assert.ok(EMAIL_TEMPLATE_KINDS.some((k) => k.kind === kind));
     assert.ok(DEFAULT_EMAIL_TEMPLATES[kind].body.length);
   }
-  assert.match(DEFAULT_EMAIL_TEMPLATES.backed_out_keep.body, /deposit is kept/);
-  assert.match(DEFAULT_EMAIL_TEMPLATES.backed_out_move.body, /moves to your next puppy/);
+  assert.match(DEFAULT_EMAIL_TEMPLATES.backed_out_keep.body, /What you've paid is kept and isn't refunded/);
+  assert.match(DEFAULT_EMAIL_TEMPLATES.backed_out_move.body, /back on our waitlist\. What you've paid isn't refunded/);
+  // D9: nothing is refunded on a back-out, so she no longer edits or sends a refund
+  // email; one queued before still has its words.
+  assert.ok(EMAIL_KINDS.includes('backed_out_refund'));
+  assert.equal(EMAIL_TEMPLATE_KINDS.some((k) => k.kind === 'backed_out_refund'), false);
   assert.match(DEFAULT_EMAIL_TEMPLATES.backed_out_refund.body, /refunding your deposit/);
 });
 

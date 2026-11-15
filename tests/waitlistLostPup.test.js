@@ -363,6 +363,31 @@ test('a back-out that moves the deposit: not income on the cancelled sale, count
   assert.equal(await earnedOn(sale.id) + await earnedOn(res.sale.id), 800, 'the 500 they paid counts once');
 });
 
+// D9: nothing is refunded; she chooses how much of what they paid is a credit.
+test('D9: paid in full, she credits more than the deposit: the credit is hers to choose up to what they paid, and only the rest is income', async () => {
+  const sale = await placeLee();
+  await saleRepo.update(sale.id, { status: 'paid_in_full', balance_paid_date: DAY, transport_fee: 200 });
+  const money = await actions.backOutMoney(await waitlistEntryRepo.getById(ids.lee), await saleRepo.getById(sale.id));
+  assert.deepEqual(money.parts.map((p) => [p.key, p.amount]), [['deposit', 500], ['balance', 1500], ['transport', 200]]);
+  assert.deepEqual([money.paid, money.suggested], [2200, 500], 'up to all they paid; the deposit to start');
+  await assert.rejects(actions.approveBackOut(ids.lee, { outcome: 'move', credit: 2200.01, told: {}, date: LATER }), /more than they paid/);
+  await assert.rejects(actions.approveBackOut(ids.lee, { outcome: 'move', credit: -1, told: {}, date: LATER }), /amount/);
+  assert.equal((await saleRepo.getById(sale.id)).status, 'paid_in_full', 'a refused credit changes nothing');
+  await actions.approveBackOut(ids.lee, { outcome: 'move', credit: 1200, told: {}, date: LATER });
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual(lee.received_credits.map((c) => [c.amount, c.from_sale_id]), [[1200, sale.id]]);
+  assert.deepEqual([lee.status, lee.back_out_request.outcome, lee.back_out_request.credit], ['active', 'move', 1200]);
+  assert.equal(await earnedOn(sale.id), 1000, 'what they paid less the credit is kept as income');
+});
+
+test('D9: back in line with no credit: nothing carried, all they paid kept', async () => {
+  const sale = await placeLee();
+  await actions.approveBackOut(ids.lee, { outcome: 'move', credit: 0, told: {}, date: LATER });
+  const lee = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual([lee.status, lee.received_credits ?? [], lee.back_out_request.credit], ['active', [], 0]);
+  assert.equal(await earnedOn(sale.id), 500);
+});
+
 test('a back-out that keeps the deposit: still income on the cancelled sale', async () => {
   const sale = await placeLee();
   await actions.approveBackOut(ids.lee, { outcome: 'keep', told: {}, date: LATER });

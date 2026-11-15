@@ -345,3 +345,32 @@ test('each waitlist record acts on its own pup: a family back for a second pup n
   // The placed sale ending ends it: nothing falls through to another sale.
   assert.equal(id(familySale(old, [sale('s1', { status: 'cancelled' }), sale('s4')], [], [old])), null);
 });
+
+// K8-3: a payment received has a fixed amount. Changing the extra's amount moves only
+// the steps still to pay; the Sale page refuses an amount below what's paid, or any
+// change to one paid in full.
+test('K8-3: a paid step keeps its amount when the extra changes; the change goes on the unpaid steps', async () => {
+  const { cleanSteps, chargePaid } = await import('../shared/data/extraCharges.js');
+  const { incomeLineItems } = await import('../shared/data/incomeView.js');
+  const steps = cleanSteps([{ id: 'a', percent: 50, due: 'on_approval', paid_date: '2026-10-28' }, { id: 'b', percent: 50, due: 'with_balance' }], 1000);
+  assert.deepEqual(steps.map((st) => st.amount), [500, 500]);
+  const raised = cleanSteps(steps, 1200);
+  assert.deepEqual(raised.map((st) => [st.id, st.amount]), [['a', 500], ['b', 700]], 'she received 500; 700 is still owed');
+  const charge = { id: 'tr', label: 'Puppy training', amount: 1200, payments: raised };
+  assert.equal(chargePaid(charge), 500);
+  const sale = { id: 's1', status: 'deposit_paid', price: 3000, deposit_amount: 500, deposit_date: '2026-10-01', extra_charges: [charge] };
+  const lines = incomeLineItems('sale', sale).filter((c) => c.key.startsWith('extra:')).map((c) => [c.key, c.amount, c.state]);
+  assert.deepEqual(lines, [['extra:tr:a', 500, 'earned'], ['extra:tr:b', 700, 'anticipated']], 'October income stays 500');
+  assert.deepEqual(cleanSteps(raised, 1000).map((st) => st.amount), [500, 500], 'back down: still 500 paid');
+  // Three steps, one paid: the rest is shared by the unpaid steps' percents, to the cent.
+  const three = cleanSteps(cleanSteps([{ id: 'a', percent: 25, due: 'on_approval', paid_date: '2026-10-01' }, { id: 'b', percent: 25, due: 'on_approval' }, { id: 'c', percent: 50, due: 'with_balance' }], 400), 700);
+  assert.deepEqual(three.map((st) => st.amount), [100, 200, 400]);
+});
+
+test('K8-3: the Sale page refuses an extra below what is paid, and a change to one paid in full', () => {
+  const step = (id, percent, paid) => ({ id, percent, due: 'on_approval', amount: percent * 10, ...(paid ? { paid_date: '2026-10-01' } : {}) });
+  assert.match(readExtraCharges([{ label: 'Training', amount: '400', payments: [step('a', 50, true), step('b', 50, false)] }]).error, /\$500\.00 of "Training" is already paid/);
+  assert.equal(readExtraCharges([{ label: 'Training', amount: '1200', payments: [step('a', 50, true), step('b', 50, false)] }]).error, '');
+  assert.match(readExtraCharges([{ label: 'Training', amount: '1200', payments: [step('a', 50, true), step('b', 50, true)] }]).error, /paid in full \(\$1000\.00\)/);
+  assert.equal(readExtraCharges([{ label: 'Training', amount: '1000', payments: [step('a', 50, true), step('b', 50, true)] }]).error, '', 'unchanged is fine');
+});

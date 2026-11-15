@@ -1368,9 +1368,9 @@ subject (`financials.js` `expenseInScope`).
   "paid in full"; each else the sale's date). What's still owed is **anticipated** on the
   due date that needs it, `due` that date ('' when it can't be known yet), `due_id` which
   due date. Returned/cancelled keeps only what was paid (payments included), less any money
-  carried off it to the family's next pup as a credit (a back-out's Move the deposit:
-  `carriedOutBySale`, from every entry's credits naming it by `from_sale_id`, taken off the
-  deposit first). A credit is held money, never income until the charge it pays is (D21),
+  carried off it to the family's next pup as a credit (a back-out's credit, any amount up to
+  what they paid: `carriedOutBySale`, from every entry's credits naming it by
+  `from_sale_id`, taken off the deposit first, then the rest in order). A credit is held money, never income until the charge it pays is (D21),
   so it's earned on the sale the credit pays, once. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29). Extras
   kept after a family backed out stay owed on a released sale. `getIncomeRows` loads each
@@ -1478,7 +1478,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
   `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
   `cleanSteps` works each amount out from its percent (the last takes the rounding), so a
-  changed amount rescales them. Income: one `extra` component per step, keyed
+  changed amount changes them, except a step already paid (`paid_date`, with an amount
+  stored), which keeps its amount: what's left is spread over the unpaid steps by their
+  percents. `readExtraCharges` refuses an amount below what's paid (`chargePaid`), or any
+  change to one paid in full. Income: one `extra` component per step, keyed
   `extra:<id>:<step id>`, labelled "Name, 50%" (`stepLabel`), earned on its `paid_date` or
   else with the balance, filed on its paid date or due date; the invoice gets a line per step
   with its own Due by. The Sale page lists each step with a **Paid on** date.
@@ -2068,11 +2071,12 @@ restored into Lite keeps its waitlist rows, dormant.
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
   of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
   of the deposit. A credit never dates a deposit: Deposit received prefills the sale's
-  `deposit_date`, else today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
-  deposit carry only what was paid beyond the credit, which stays on the entry.
+  `deposit_date`, else today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's
+  credit carry at most what was paid beyond the credit, which stays on the entry.
   - **Money carried from a lost pup** (Payment Schedule plan §3.2a, D20) is a credit like
     any other, written only when she puts the family back on the list with it (a lost pup's
-    **Carry it to their next pup**, a back-out's Move the deposit; a refund writes none):
+    **Carry it to their next pup**, a back-out's **Back in line with a credit**; a refund
+    or a credit of 0 writes none):
     `receivedCredits.carriedCredit`, every use ticked, dated when it was paid (the lost
     sale's `deposit_date`, else that day), note "Carried over from *pup*'s sale",
     `from_sale_id` the lost sale (`carriedCreditsOf` finds them). The next sale keeps its own
@@ -2375,8 +2379,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Undo windows (7 days, `REMOVAL_UNDO_DAYS`), for a mistap:** a removal, automatic or hers
   (`canUndoRemoval`; only a second pass forgives a pass), a withdrawal she entered (`withdraw`
   with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
-  back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
-  fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
+  back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved, or
+  on the list from the day they paid when they paid online meanwhile: `fee_paid_online`
+  applied as `approve` applies it) and a
+  fee she marked received (`undoFeeReceived`: `fee_received_manual`, which a fee recorded
+  from her payment service (`checkFeePayments`, `feeReceived` with `manual: false`) or
+  applied from `fee_paid_online` never sets, counted from
   `fee_received_at`, back to approved, and only until they're offered a turn or have a side
   sale; `canUndoFeeReceived` needs the sales). Each keeps the
   family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
@@ -2412,7 +2420,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
   'closed'`, `closed_by: 'back_out'`): no email is offered for them, their page doesn't list
   them, and `slotBookings` no longer counts the time (it also skips any record with no open
-  sale, its `live` test). A family page only can't Move the deposit (refused).
+  sale, its `live` test). Nothing is refunded (D9): `outcome` is `keep` or `move`, and a
+  `refund` is refused (a decided one from before still reads). `move` takes `credit`, her
+  choice from 0 to what they paid beyond their credits (`backOutMoney`: `parts` paid line by
+  line from `incomeView.paidOnSaleByPart`, `paid`, and `suggested`, the deposit they paid,
+  which a missing `credit` means); it's stored on the decided request. A family page only
+  gets Keep only (move refused).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -2440,7 +2453,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   funnel, Applications, Waitlist Today's pipeline, Offers & Removals, the year review
   (`listRecords`), Kels's Review my waitlist, `deriveContactWaitlistStatus` (the contact is
   never "on the waitlist"), and `lostSaleFamily` (D8: a lost pup never puts them in line; a
-  back-out is Keep or Refund). **Apply to the list…** starts an ordinary application.
+  back-out is Keep, since nothing is refunded, D9). **Apply to the list…** starts an ordinary application.
 
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
@@ -2468,7 +2481,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **Waitlist family**). The Buyer field warns when the chosen contact is on her do-not-sell
   list (K7-9), as the Side sale dialog does for the family; only a warning.
 - **A family's page** (`waitlist-entry`) for a family page only: "Family page only" in its
-  status, no public-list name row, no **Move the deposit** on a back-out request, **Apply to
+  status, no public-list name row, no **Back in line with a credit** on a back-out request, **Apply to
   the list…** in place of Re-apply. A placed family with an open sale gets **Keep off the list
   (family page only)…**; one that was on the list (fee received) can be **Put back on the list…**.
 - **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
@@ -2806,24 +2819,28 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   reasons, the policy rows (`back_out_policy`: reason or any, optional from / until weeks,
   keep or move) and the text. Today (`waitlist-back-out`) opens the entry, whose Waiting for
   you row shows the suggestion (`suggestOutcome` on the pup's age in weeks; none fits:
-  keep) with **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed
-  REFUND) / **Decline**. Each opens a confirm listing `backOutItems` (extras ticked to
-  remove unless part-paid or Done; stays not started; pickups to come) and a summary line.
+  keep) with **Keep what they paid** / **Back in line with a credit** / **Decline**. Nothing
+  is refunded on a back-out (D9). Each opens a confirm that says what they paid, line by line
+  (`backOutPaidText`), and for a credit asks how much (the deposit they paid to start, up to
+  all they paid beyond their credits), then lists `backOutItems` (extras ticked to remove
+  unless part-paid or Done; a kept one says "paid" or "still owed"; stays not started;
+  pickups to come) and a summary line (`backOutSummary`: the credit and what's kept).
   `approveBackOut`: ticked extras off, the rest `kept_after_cancel` (still owed: income
   keeps their parts on a cancelled or voided sale), ticked events archived; keep → sale
   `cancelled`, entry `withdrawn`; move → sale `cancelled`, entry reopened `active` at the
-  end of the line (`position_anchor_date` today) with a carried credit for a paid deposit;
-  refund → sale `voided` with end reason `buyer_backed_out` (never `restoresFamily`), entry
-  `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
+  end of the line (`position_anchor_date` today) with a carried credit of the amount she
+  chose (none at 0). A back-out decided as a refund before D9 (sale `voided`, end reason
+  `buyer_backed_out`, never `restoresFamily`) still reads that way. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
   health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
   litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
   extras have a **Done** tick (`completed_date`). **After she decides:** an approved back-out
   stays on the family's page for the days a decided request does (`requestView`), with or
   without a sale: `entry.back_out` is `{ available: false, request }` once the sale has ended
-  (no form, no reasons), and the page says what happened to the deposit (kept, moving to
-  their next pup, refunded). The email she's offered is the outcome's own
-  (`backed_out_keep` / `backed_out_move` / `backed_out_refund`, each a template she can
-  reword), not `request_approved`.
+  (no form, no reasons), and the page says what happened to what they paid (kept, or back
+  on the waitlist with the credit their published `credits` hold; an older refund still
+  says refunded). The email she's offered is the outcome's own (`backed_out_keep` /
+  `backed_out_move`, each a template she can reword; `backed_out_refund` is kept only for
+  one queued before D9), not `request_approved`.
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family
   with an open sale, and an address request), never the server; placeholders `[Distance]`
   (" You're about N miles from us.", from their latest measured address) and
@@ -4375,8 +4392,8 @@ unpaid fees), else 26.
      per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
      her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
-     **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
-     **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]
+     **Keep what they paid** / **Back in line with a credit** (not for a family page only) /
+     **Decline**; a form with what they paid, the credit's amount, `backOutItems` ticked as the entry page ticks them, **Put [pup]
      back to** Available / Health hold, and `backOutSummary` → `approveBackOut`. A pup back
      to Available → "Offer [pup] to the next family?". Then, every time, "Do you need to
      cancel or void any other sales?": her open and gone-home sales → the family backed out

@@ -29,7 +29,7 @@ import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
 import { pendingExtraRequests, familySale, pupBirthDate } from '../data/familyExtras.js';
-import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, backOutItems, backOutSummary, BACK_OUT_OUTCOMES } from '../data/backOut.js';
+import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, backOutItems, backOutSummary, backOutPaidText, BACK_OUT_OUTCOMES } from '../data/backOut.js';
 import { pendingPickupRequests, requestText as pickupRequestText, ownPlaceAllowed } from '../data/familyPickup.js';
 import { standardLocation, timeRange } from '../data/pickupSlots.js';
 import { transportQuote, mapsLink } from '../data/transportFee.js';
@@ -440,9 +440,8 @@ function pendingRequests(e) {
     out.push({ kind: 'backout', note: r.note,
       text: `Asked ${esc(fmtDate(r.requested_date))} to <strong>back out</strong>${ctx.backOut?.pupName ? ` of ${esc(ctx.backOut.pupName)}` : ''}. Their reason: ${esc(r.reason?.label || '')}${r.reason?.text ? `: "${esc(r.reason.text)}"` : ''}.`,
       hint: s ? `Your policy suggests: ${BACK_OUT_OUTCOMES.find((o) => o.value === s.outcome).label.toLowerCase()}${s.row ? ` (${policyRowText(s.row, backOutReasons(ctx.config))})` : ' (no rule fits)'}.` : '',
-      buttons: `<button class="btn btn-sm${s?.outcome === 'keep' ? ' btn-primary' : ''}" data-req="backout:keep">Keep the deposit</button>
-        ${isFamilyPageOnly(e) ? '' : `<button class="btn btn-sm${s?.outcome === 'move' ? ' btn-primary' : ''}" data-req="backout:move">Move the deposit</button>`}
-        <button class="btn btn-sm" data-req="backout:more">More options…</button>
+      buttons: `<button class="btn btn-sm${s?.outcome === 'keep' ? ' btn-primary' : ''}" data-req="backout:keep">Keep what they paid</button>
+        ${isFamilyPageOnly(e) ? '' : `<button class="btn btn-sm${s?.outcome === 'move' ? ' btn-primary' : ''}" data-req="backout:move">Back in line with a credit</button>`}
         <button class="btn btn-sm" data-req="backout:decline">Decline</button>` });
   }
   // Pickup (Family Requests plan §4): a time, a cancel, or their own address.
@@ -568,10 +567,11 @@ function wireRequests(root) {
   }));
 }
 
-// Backing out (Family Requests plan §7.2): the confirm lists what comes off with the
-// sale, each ticked or not by default (paid or finished extras start kept: she's owed
-// them), and ends with the one-line summary. A refund (More options…) needs REFUND
-// typed, since she doesn't plan to use it.
+// Backing out (Family Requests plan §7.2): the confirm says what they paid, line by
+// line (K8-2); nothing is refunded (D9). Back in line asks how much of it to credit
+// toward their next pup, the deposit they paid to start. It lists what comes off with
+// the sale, each ticked or not by default (paid or finished extras start kept: she's
+// owed them), and ends with the one-line summary.
 async function onBackOut(decision) {
   const e = ctx.entry;
   const request = e.back_out_request;
@@ -581,42 +581,44 @@ async function onBackOut(decision) {
     await afterAction();
     return emailThem('request_declined', { request: { field: 'back_out_request', request } });
   }
-  let outcome = decision === 'more' ? 'refund' : decision;
+  const outcome = decision;
+  if (!['keep', 'move'].includes(outcome)) return;
   const sale = familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
   if (!sale) throw new Error('They have no open sale to back out of any more.');
   const events = sale.dog_id ? await eventRepo.getForSubject('dog', sale.dog_id) : [];
   const items = backOutItems({ sale, events, today: todayYMD() });
-  const deposit = Number(sale.deposit_amount) || 0;
-  const titles = { keep: 'Cancel the sale, keep the deposit', move: 'Cancel the sale, move the deposit', refund: 'Refund their deposit' };
+  const { parts, paid, suggested } = await actions.backOutMoney(e, sale);
+  const asksCredit = outcome === 'move' && paid > 0;
+  const titles = { keep: 'Cancel the sale, keep what they paid', move: 'Cancel the sale, back in line with a credit' };
+  const readCredit = (o) => (asksCredit ? Number(o.querySelector('#bo-credit').value || 0) : 0);
   const ok = await formModal({
-    title: titles[outcome], confirmLabel: outcome === 'refund' ? 'Refund' : 'Approve', danger: outcome === 'refund',
-    bodyHtml: `${outcome === 'refund' ? `<p style="margin-top:0;">The sale is voided ("Buyer backed out, refunded"), so ${deposit ? `their ${esc(fmtMoney(deposit))} deposit` : 'their deposit'} won't count as income. Record that you refunded it?</p>` : ''}
-      ${outcome === 'move' ? '<p style="margin-top:0;">They go back on your list at the end of the line, with their application, fee and history. What they paid as a deposit goes toward their next pup.</p>' : ''}
+    title: titles[outcome], confirmLabel: 'Approve',
+    bodyHtml: `<p style="margin-top:0;">${esc(backOutPaidText(parts, fmtMoney))} Nothing is refunded when a family backs out.</p>
+      ${outcome === 'move' ? `<p>They go back on your list at the end of the line, with their application, fee and history.</p>
+        ${asksCredit ? `<div class="field"><label for="bo-credit">Credit toward their next pup</label><input id="bo-credit" type="number" min="0" max="${esc(paid.toFixed(2))}" step="0.01" value="${esc(suggested.toFixed(2))}">
+          <p class="field-hint">Up to ${esc(fmtMoney(paid))}; 0 for none. It comes off what they owe for the pup they pick next, starting with that pup's deposit. The rest of what they paid is kept.</p></div>` : ''}` : ''}
       ${items.length ? `<p class="field-hint" style="margin:0 0 4px;">Tick what comes off with the sale. Extras you leave unticked stay on it, still owed.</p>
         ${items.map((it, i) => `<label class="check-inline" style="display:block; margin:4px 0;"><input type="checkbox" class="bo-item" data-i="${i}"${it.remove ? ' checked' : ''}> <strong>${esc(it.label)}</strong> <span class="faint">${esc(it.kind === 'charge' ? `extra, ${it.detail}` : it.detail)}</span></label>`).join('')}` : ''}
       <label class="check-inline" style="display:block; margin:8px 0 4px;"><input type="checkbox" id="bo-pup" checked> Put ${esc(ctx.dogsById.get(sale.dog_id)?.call_name || 'the pup')} back to
         <select id="bo-pup-to" style="width:auto;"><option value="available"${request.reason?.id === 'pup' ? '' : ' selected'}>Available</option><option value="health_hold"${request.reason?.id === 'pup' ? ' selected' : ''}>Health hold</option></select></label>
-      <p class="field-hint" id="bo-summary" style="margin-top:8px;"></p>
-      ${outcome === 'refund' ? '<div class="field"><label for="bo-type">Type REFUND to confirm</label><input id="bo-type" type="text" autocomplete="off"></div>' : ''}`,
+      <p class="field-hint" id="bo-summary" style="margin-top:8px;"></p>`,
     onConfirm: async (o) => {
+      const credit = readCredit(o);
+      if (!Number.isFinite(credit) || credit < 0 || credit > paid) throw new Error(`Enter a credit from 0 to ${fmtMoney(paid)}.`);
       const remove = [...o.querySelectorAll('.bo-item:checked')].map((c) => items[Number(c.dataset.i)].id);
       const pup = o.querySelector('#bo-pup').checked ? o.querySelector('#bo-pup-to').value : null;
-      await actions.approveBackOut(e.id, { outcome, remove, pup });
+      await actions.approveBackOut(e.id, { outcome, credit, remove, pup });
       await afterAction();
     }
   }, (o) => {
-    const confirm = o.querySelector('[data-fm-confirm]');
     const summary = () => {
       const picked = items.map((it, i) => ({ ...it, remove: o.querySelector(`.bo-item[data-i="${i}"]`).checked }));
-      o.querySelector('#bo-summary').textContent = `${backOutSummary(outcome, { deposit, items: picked, money: fmtMoney })}.`;
+      const credit = readCredit(o);
+      o.querySelector('#bo-summary').textContent = `${backOutSummary(outcome, { paid, credit: Number.isFinite(credit) ? credit : 0, items: picked, money: fmtMoney })}.`;
     };
     o.querySelectorAll('.bo-item').forEach((c) => c.addEventListener('change', summary));
+    o.querySelector('#bo-credit')?.addEventListener('input', summary);
     summary();
-    const typed = o.querySelector('#bo-type');
-    if (typed) {
-      confirm.disabled = true;
-      typed.addEventListener('input', () => { confirm.disabled = typed.value.trim() !== 'REFUND'; });
-    }
   });
   // Its own wording per outcome: what happened to their deposit.
   if (ok) await emailThem(`backed_out_${outcome}`, { request: { field: 'back_out_request', request } });
@@ -695,7 +697,7 @@ async function approveAddress(request) {
         o.querySelector('#pa-miles').value = d.miles;
         refresh();
       } catch (err) {
-        o.querySelector('#pa-working').textContent = `Couldn't measure: ${err.code === 'geo_off' ? 'miles aren\'t switched on for KennelOS yet' : err.code === 'not_found' ? 'the address wasn\'t found' : err.message}. Use Open in Maps and type the miles.`;
+        o.querySelector('#pa-working').textContent = `Couldn't measure: ${err.code === 'geo_off' ? 'driving miles aren\'t available right now' : err.code === 'not_found' ? 'the address wasn\'t found' : err.message}. Use Open in Maps and type the miles.`;
       }
       ev.target.disabled = false;
     });
@@ -1810,7 +1812,8 @@ function requestTimeline(e) {
   const out = [];
   const decision = (r, what) => {
     if (!r.decided || !r.decided_date) return;
-    const outcome = { keep: ' (kept the deposit)', move: ' (moved the deposit)', refund: ' (refunded)' }[r.outcome] || '';
+    const outcome = r.outcome === 'move' ? (Number(r.credit) > 0 ? ` (back in line with a ${fmtMoney(Number(r.credit))} credit)` : r.credit === 0 ? ' (back in line, no credit)' : ' (moved the deposit)')
+      : { keep: ' (kept what they paid)', refund: ' (refunded)' }[r.outcome] || '';
     out.push([r.decided_date, r.decided === 'sent' ? `You sent ${what}` : `You ${r.decided === 'declined' ? 'declined' : 'approved'} ${what}${outcome}`]);
   };
   const one = (r, asked, what) => { if (!r?.requested_date) return; out.push([r.requested_date, asked]); decision(r, what); };

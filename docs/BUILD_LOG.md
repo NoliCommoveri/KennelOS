@@ -4795,3 +4795,51 @@ tick box per template; buyers get an emailed link.
   check on. Deleting a file from `dist/lite/` made the check list its 62 importers.
 - **Docs:** guide §0 and §3, `build/README.md`, `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or changed; no bump needed.
+
+## 2026-11-15: Money a family is shown (Waitlist Fixes plan step 5; D9 decided)
+
+- **Decided (owner), D9:** nothing is refunded when a family backs out (breeders' contracts
+  make every payment non-refundable on a back-out); she chooses how much of what they paid
+  to apply as a credit. D8 follows: a family page only is Keep only.
+- **K8-2 (S1):** `approveBackOut` takes `outcome` `keep` or `move` and, for `move`, `credit`
+  (0 up to what they paid beyond their credits; left out, the deposit they paid). `refund`
+  is refused; a refund decided before still reads. The amount is stored on the decided
+  `back_out_request` (private) and written as the usual carried credit (none at 0), so
+  Financials keeps only the rest as income. New `backOutMoney(entry, sale)` (`parts`, `paid`,
+  `suggested`) and `incomeView.paidOnSaleByPart` (what was paid, line by line, from the
+  statement; `paidOnSale` now sums it). The family page's back-out buttons are **Keep what
+  they paid** / **Back in line with a credit** / **Decline** (More options… and its REFUND
+  confirm are gone); the confirm says "They've paid $X on this sale: deposit …, balance …,
+  transport …", "Nothing is refunded", and asks the credit's amount. Kels's Review my
+  waitlist and its "the family backed out" path do the same (and Kels no longer offers a
+  credit to a family page only; its policy suggestion read the wrong field and always said
+  keep). Policy labels, the Kennel page hint, the timeline line, both emails' default words
+  and the family page's line ("You have a $X credit toward your next puppy", from their
+  published credits) follow. The refund email is no longer one she edits or is offered.
+- **K8-3:** `cleanSteps` keeps a paid step's stored amount and spreads the rest over the
+  unpaid steps; `readExtraCharges` refuses an amount below what's paid, or any change to an
+  extra paid in full. New `chargePaid`. The Sale page's hint says so. `backOutItems` reads
+  amounts, not percents.
+- **K8-4:** already true since the lost-pup credit (the carried amount is a published
+  credit); now a test (the family's view after a back-out has `credits.received` 500).
+- **K8-13:** "a pup they lost" → "an earlier sale" in the pick dialog, the picks panel's
+  message, the pick's activity line and an older carried payment's note; a kept, paid extra
+  says "paid", not "still owed"; "to back out of your puppy's sale"; "driving miles aren't
+  available right now" (entry page and Kels).
+- **K6b-5:** a fee recorded from her Stripe link (`checkFeePayments` → `feeReceived` with
+  `manual: false`) no longer sets `fee_received_manual`, so it offers no undo that the next
+  check would reverse.
+- **K6b-8:** `undoExpire` applies a fee they paid online meanwhile (`fee_paid_online`) as
+  `approve` does (shared `onlineFeeReceived`): on the list from the day they paid.
+- **Tests:** `backOut.test.js` (summary with credit and kept money, paid by part, "paid"
+  extras), `waitlistLostPup.test.js` +2 (a credit above the deposit, capped at what they
+  paid, the rest income; back in line with no credit), `cloudWaitlist.test.js` (refund
+  refused, keep; K8-4's published credit), `waitlistFamilyPages.test.js` (D8 with D9),
+  `waitlistPupSelected.test.js` (emails), `extraCharges.test.js` +2 (K8-3),
+  `waitlistUndo.test.js` +2 (K6b-5, K6b-8). `node --test` passes; editions build. In
+  Chromium the waitlist, family, kennel, sale and Kels pages load with no console errors;
+  the back-out dialog itself wasn't driven with data.
+- **Docs:** Waitlist Fixes plan (D9 decided, D8 modified, step 5 built), Family Requests
+  plan §7 and D13 (Modified), End-State guide (income, extra steps, credits, undo windows,
+  backing out, family pages, Kels), README, `FIX_PRIORITIES.md`.
+- **Service worker:** no file added or renamed.
