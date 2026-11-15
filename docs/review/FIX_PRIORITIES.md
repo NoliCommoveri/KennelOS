@@ -24,7 +24,7 @@ touched by those steps are as first written.*
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
 |---|---|---|---|---|---|
-| **K03** | Cloud client: sync, conflicts | 2/6/2/1 | **All eleven built** (build log, 2026-11-15). Migration `0025` to apply | 0 · 0 | Follow-ups built too: Put mine back (30 days) and Choose records… in Restore as of…. |
+| **K03** | Cloud client: sync, conflicts | 2/6/2/1 | **All eleven built** (build log, 2026-11-15). | 0 · 0 | Follow-ups built too: Put mine back (30 days) and Choose records… in Restore as of…. |
 | **K13** | Editions, build, privacy policy | 3/4/7/1 | K13-7, -8, -14 (Kels batch, 11-12). **Step 2 (11-15):** K13-1, -2, -3 (the policy's words, owner's choice), K13-12, K13-15 | 0 · 3 | Open: K13-4, -5, -6 (S2) and K13-9, -10, -11, -13 (S3), all in step 8 (edition gates) or group J. |
 | **K02** | Backup, restore, CSV import | 1/5/6/2 | **Step 4 (11-15):** K2-1 to K2-6 | 0 · 0 | Open: K2-7 (S3, the 10k-row preview: step 13), K2-8 to K2-12 (S3) and K2-13, K2-14 (S4). Not yet in a step. |
 | **K01** | Schema, repos, identity matching | 1/3/3/3 | **Step 4 (11-15):** K1-1, K1-3, K1-6 | 0 · 2 | Open: K1-2 (Furever's `blocked` handler, step 10's Furever half), K1-4 (the duplicate scan's speed, step 13), K1-5, K1-7 (S3) and K1-8 to K1-10 (S4). |
