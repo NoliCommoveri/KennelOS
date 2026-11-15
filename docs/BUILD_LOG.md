@@ -5172,7 +5172,7 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
 - `CACHE_NAME` bumped to `kennelos-shell-v147` (owner asked), covering fix steps 8 and 9 and the lifetime / end-of-life build batch.
 
-## Contract field: the price plus one extra (`priceWithExtra`)
+## 2026-11-15: Contract field: the price plus one extra (`priceWithExtra`)
 - **Why:** an extra's own agreement (an extended-stay package) prints a "Combined Total": the
   pup's price plus that package's fee, nothing paid subtracted. No field held it
   (`totalCharges` is everything on the sale; `balanceDue` has payments taken off).
