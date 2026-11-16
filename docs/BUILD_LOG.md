@@ -5290,3 +5290,40 @@ service's kennel, else All kennels only (K14-11).
   `furever/README.md`; this review's `FIX_PRIORITIES.md`.
 - **Service worker:** `data/safeHref.js` and `data/fureverIdentity.js` added to
   `PRECACHE_URLS`. Rides `kennelos-shell-v148`.
+
+## 2026-11-16: Fix step 11, K11 (Kels and the guided tasks)
+
+No owner decisions needed; each fix follows the review's suggestion.
+- **K11-2:** `settings.clearGuidedDrafts` on Clear sample data (so the tour's end too) and a
+  Replace restore. Resuming a litter draft, `guidedLitter.goneDraftRefs` /
+  `clearGoneDraftRefs` clear an answer naming a record that's gone and ask it again; a record
+  the save had already made that's gone ends the draft, said.
+- **K11-3:** before Yes, build it, `litterRecordedSince` (same parents, made after the draft
+  began, born within 3 days) asks "Is this that litter?"; Yes builds nothing.
+- **K11-4:** `assistantSync.outboxStatus`: an entry already in is `already`, left as she has
+  it; one she deleted is `removed` (`settings.assistantImported`); only new and helper-changed
+  entries are written; the page pushes a fresh feed after an import.
+- **K11-6:** the check-in's writes go through `safely`: a refusal is said, the visit goes on.
+- **K11-7:** a form draft keeps `basis`; `formChangedSince` on resume and on save offers
+  Start from what's saved now / Keep my draft.
+- **K11-8:** `KELS_AS_YOU_GO_INTRO` for Tidy up, the litter check-in, Pups are going home,
+  Check account health and Set up my waitlist.
+- **K11-9:** Save for later says it kept a draft only when this run has one (`hasDraft`).
+- **K11-10:** Cancel and Save for later run the website check; a page's baseline is kept until
+  a check moves it on, and a page opened while one is owed takes none.
+- **K11-11, K11-12:** Getting Started says what the puppy records leave off
+  (`puppyRecordLeftOff`) with Keep it as it is first; it notes each part done
+  (`settings.kelsSetupDone`), offers Pick up at …, and drops to 15 once all are done.
+- **K11-13, K11-14, K11-15:** Buyer is tagged after the application is saved;
+  `kelsApplicant.approveTypedFamily` (moved from Add people) also approves the families typed
+  in from Set up my waitlist and Set up my application form; "No vet to add, don't ask again"
+  is one key (`tidy:novet`) for Tidy up and Add people, which now offers it too.
+- **K11-16:** `settings.retireDraft` lets go a draft an update can't carry on, with a notice
+  Kels says once on the menu (`takeKelsDraftNotice`); people and form drafts included.
+- **K11-18:** the tour keeps `wizardStepId` beside its index, read first.
+- **Tests:** new `kelsFixes.test.js` (12). `node --test` 2119 pass; `node build/assemble.mjs`
+  green. In Chromium: a litter draft whose mom and dad are gone resumes asking for them again.
+- **Docs:** End-State guide (§26 the outbox, §33: intros, Save for later / Cancel, drafts,
+  the litter draft on resume and before the save, the vet step, applicants, the form, Getting
+  Started, the website check, the tour); this review's `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.

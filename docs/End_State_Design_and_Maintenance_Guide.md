@@ -975,7 +975,8 @@ described in §30; none of it loads when `cloudUrl` is null.
 
 ### Guided tour
 A spotlight tour of the seeded packet. It reads records and never writes app data; its
-progress lives in settings (`wizardStatus`, `wizardStepIndex`).
+progress lives in settings (`wizardStatus`, `wizardStepIndex`, and `wizardStepId`, read first,
+so a release that adds or removes a stop doesn't move her place).
 - `data/wizardState.js` (state machine, `isTourAvailable()` = sample data present),
   `data/wizardSteps.js` (the full step catalog, data only), `assets/wizardUI.js` (overlay,
   cards, nav entry, Resume pill). `app.js` calls `runWizardStep()` on every page; no page
@@ -1948,9 +1949,13 @@ Keep this invariant; it's what makes the scheme conflict-free.
   money, kennels and contracts never reach the helper's device; that, not UI hiding, is
   the boundary. `pushAssistantFeed()` doesn't stamp `lastBackupDate` (the feed isn't a
   backup).
-- **Outbox import** previews `new` / `update` / `no_dog` (skipped) / `invalid`, then upserts
-  by id, so re-importing is a no-op. It writes `db` directly, so it calls `assertWritable()`
-  and `markDataChanged()` itself.
+- **Outbox import** previews each entry (`outboxStatus`): `new`; `update` (the helper's copy
+  is newer than hers); `already` (in already and not changed by the helper: left as she has
+  it, so her corrections, notes and archiving stay); `removed` (imported on this device before
+  and deleted since, by the device ledger `settings.assistantImported`); `no_dog` and
+  `invalid` (skipped). Only `new` and `update` are written, an update keeping her archive and
+  notes. After an import the page pushes a fresh feed, so the helper's phone clears them. It
+  writes `db` directly, so it calls `assertWritable()` and `markDataChanged()` itself.
 
 ### Owner console (`pages/assistant.*`)
 Connection, Your helper's copy (send the feed), Their entries (import the outbox), and what
@@ -3804,7 +3809,10 @@ records tidy!", account health "Good idea, let's make sure everything's safe and
 Started "Welcome aboard! Let's get KennelOS set up just the way you like it." Getting Started says
 `kelsSetup.SETUP_HOW` in place of `KELS_INTRO` ("I'll go through your kennel's settings with
 you one at a time and save each one as we go…"), since it keeps no draft and builds nothing
-to approve.
+to approve. The tasks that save each thing as she approves it (Tidy up, Check in on a litter,
+Pups are going home, Check account health, Set up my waitlist) say
+`kelsChat.KELS_AS_YOU_GO_INTRO` ("Each change is saved as soon as you say yes to it…"); the
+other save-as-you-go tasks have their own `HOW`.
 
 **The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
 personal KennelOS agent! I'm here to help you manage your kennel :) What do you need help
@@ -3830,11 +3838,19 @@ litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS w
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
 my waitlist (25, Pro), set up my application form (24, Pro), set up my accounts (22, Pro, not in the Demo), account health (20), Getting Started
-(95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
+(95 while she's new and hasn't been through every part on this device, else 15:
+`kelsSetup.setupPriority`, `settings.anyKelsSetupComplete`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
-runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
+runs, and says it kept the draft only when one exists for this run (`kels.js` `hasDraft`: a draft
+is written from the task's first question); before that it says there's nothing to keep yet. Its
+**Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
 drops the open question, discards a resumable task's draft (its `discard`) and returns to the
-menu (records already saved stay), and the floating button's dot shows while any draft is unfinished.
+menu (records already saved stay). Both run the website check first, as a task's end does. The
+floating button's dot shows while any draft is unfinished. A draft an update can't carry on (its
+`DRAFT_VERSION` changed) is let go with a word (`settings.retireDraft`): Kels says, once, on the next
+menu (`takeKelsDraftNotice`), which draft it was and, when its save had already made records, that
+they're in her program. Every draft is cleared when the records it names go wholesale: Clear
+sample data (and the tour's end, which uses it) and a Replace restore (`settings.clearGuidedDrafts`).
 In the Demo no draft is stored, Save for later says it can't keep one, and a drafted task's
 "Yes, build it" ends with "This is where I'd build it…" (`StepConversation.demoEnd`). `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
@@ -4025,7 +4041,10 @@ A new breeder's first run through her kennel's settings, after the first-run ken
 `tests/kelsSetup.test.js`). Every edition but the Demo (which saves nothing). It keeps no
 draft: each part saves through `kennelRepo` as she answers it, and every part can be
 skipped. **New** (`isNewProgram`): not one dog record on file, of any kind, archived ones
-included (pedigree-only ancestors don't count); then it sits at 95 in her menu, however often she has run it, else 15.
+included (pedigree-only ancestors don't count); then it sits at 95 in her menu until she has been
+through every part on this device, else 15. **Her place** (`settings.kelsSetupDone`, per kennel,
+device-only): each part is noted as she finishes it; a run left partway opens with "Pick up at
+<the next part>" (`resumeSetupAt`, `SETUP_PART_LABELS`) or **Start from the top**.
 
 With more than one own kennel she picks which (My kennel first); then the parts, in
 `setupParts(editionFlags, { kennelPage })` order, each only where the edition has what it
@@ -4037,7 +4056,7 @@ part alone, then her dogs.
 | `logo` | the Kennel page, and something prints it (`logoUses`: invoices, receipts, puppy records, printed reports) | Upload (a file box in the chat, scaled by `fileToLogoDataUrl`, previewed, saved on **Use this logo**); one on file is shown with **Keep it** / **Change it** |
 | `nudges` | the Kennel page | The Lifecycle nudges fields in one form, suggested on when never set (`promote_nudge_enabled`, the two promote ages) |
 | `tests` | the Kennel page | Her preferred tests listed (with their breed tags), then **Add tests** (one per line, optionally for some of her `preferred_breeds`: `addPreferredTest`), **Remove tests** (ticked: `removePreferredTest`), **Rename a test** (`renamePreferredTest`), round after round until **That's all**. Panel only: dogs on file keep their planned tests |
-| `puppy-record` | Pro (`puppyRecord`) | **Show everything** (clears `puppy_record_fields`) or **Let me choose** (the Puppy Record fields' boxes) |
+| `puppy-record` | Pro (`puppyRecord`) | Says what's left off now (`puppyRecordLeftOff`), then **Keep it as it is** (first), **Let me choose** (the Puppy Record fields' boxes), and with anything left off **Show everything** (clears `puppy_record_fields`) |
 | `extra-charges` | Pro (`extraCharges`) | Her extras price list (§21.2): one on file is listed with **Keep it** / **Change it**; else "Do you offer extras…?" → rows of name and price (`readExtraCharges`), saved as `extra_charge_list` |
 | `accounts` | Pro (`accounts`) | **Vendor and third-party accounts** (the Accounts page's records): hers listed (`kelsSetup.accountLine`), then **Add one** / **Add another** / **Change one**, round after round until **That's all**. Each: name, type (`ACCOUNT_TYPE`), website; for a marketplace or payment service (`FEE_ACCOUNT_TYPES`) its fee percentage and fixed fee; for a payment service its payment link and, with `extraCharges`, **Only some families pay this way, and I charge them the fee** (`fee_charge_back`). A new payment service named Stripe offers **Connect Stripe** (`waitlistFeeStep.offerStripe`). Logins and referral codes stay on the Accounts page |
 | `kennels` | Pro (`multiKennel`) | Another own kennel, for a separate side of the business (two breeds with their own waitlists, a pet side and a show side); with the waitlist she adds that a program per breed may be enough. Name (checked by `newKennelNameProblem`: required; one like a kennel on file asked about once), prefix, location; created with `is_own_kennel` and `settingsToCopy` (the nudge settings and Puppy Record fields, nothing else); then its logo (upload, the first kennel's, or not now). As many as she likes |
@@ -4079,6 +4098,12 @@ on the draft as it's made, so a retry never duplicates.
 
 **The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;
 `DRAFT_VERSION`). Device-only, cleared by Reset App, one at a time.
+**On resume** (`guidedLitter.goneDraftRefs` / `clearGoneDraftRefs`): an answer naming a record
+that's gone (the mom, dad, litter, breeding, kennel, an outside owner) is cleared and asked again,
+with the rest kept; a record the save had already made that's gone ends the draft, said.
+**Before the save** (`litterRecordedSince`): a litter of the same parents made after the draft
+began and born within 3 days asks "Is this that litter?". Yes ends the task without building
+(the litter's page to add the rest); No (`notThisLitter`) builds this one.
 
 **After the save** (Pro, `assets/guidedShareUI.js`, loaded only with `waitlist` or
 `companion` and an available pup): tell the waitlist (the litter page's notice) or share the
@@ -4200,8 +4225,9 @@ on the step engine, the way Add dogs takes dogs. `stepsFor(draft, { contacts })`
    (`ROSTER_TYPES`: `CONTACT_TYPE` but Handler, which a show event tags), **+ Another
    person** (up to `MAX_PEOPLE`, 20) and ✕. A name twice on the list is refused. The type
    picked here joins their types (`afterRoster`; changing it there replaces it).
-2. **Her vet** (`vet`, `asksVet`: nobody on the list is a vet and `contactSearch.hasVet` finds
-   none in her contacts; once answered it stays): "Do you have a vet you'd like to add?" with
+2. **Her vet** (`vet`, `asksVet`: nobody on the list is a vet, `contactSearch.hasVet` finds
+   none in her contacts and she hasn't said "No vet to add, don't ask again", here or in Tidy
+   up: one ledger key, `guidedPeople.NO_VET_KEY`, `tidy:novet`; once answered it stays): "Do you have a vet you'd like to add?" with
    `VET_WHY`. **Yes, add my vet** (a name, `VET_NAME_HINT`) puts the vet on the list, last,
    typed Vet, and they get a details step (`afterVet`); **They're in my contacts** picks one,
    tagged Vet on save; **Not now**.
@@ -4249,12 +4275,14 @@ their type; one person: ticked, **Yes, add them** / **No**).
   **Use the standard one for now** (the form task `within`: after its fee and link steps it
   hands back, with no "add a family" or "anything else?"), then back to the applicants.
 - The kennel, once, with several set up.
-- **Each ticked person in turn:** Buyer added to their `contact_type` (`ensureType`, never
-  replacing a type), then the applicant step ("Pat's application (1 of 2)"),
+- **Each ticked person in turn:** the applicant step ("Pat's application (1 of 2)"),
   `kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
   phone fill in the form's, and the application is saved **linked to the contact**
-  (`contact_id`). **Not now** leaves that person off. She added them herself, so it's then
-  **approved** (`waitlistActions.approve`). With a fee (`feeForEntry` > 0) Kels asks **Has Pat
+  (`contact_id`); then Buyer is added to their `contact_type` (`ensureType`, never
+  replacing a type). **Not now** leaves that person off, untyped. She added them herself, so
+  it's then **approved** (`kelsApplicant.approveTypedFamily`, the one rule for a family she
+  typed in: Set up my waitlist's families she already has and Set up my application form's
+  **Add a family** use it too; `waitlistActions.approve`, which makes the contact when there is none). With a fee (`feeForEntry` > 0) Kels asks **Has Pat
   already paid the $300.00 application fee?**:
   - **Yes, they paid:** when (not in the future) and how, then `feeReceived`: on the list from
     that day.
@@ -4394,7 +4422,9 @@ with no result, else 28. Each result is saved as she approves it.
    on my dogs' health-test step is this same loop, so it offers the certificate too.
 
 ### "Check in on a litter"
-Each thing she approves is saved at once; there is no draft.
+Each thing she approves is saved at once; there is no draft. Each write runs through
+`safely`: a refusal (the Demo, a repo's check) is said ("Hmm, that didn't save: …") and the
+visit carries on, never ending the chat.
 1. **Which litter:** `checkinLitters` — every litter not closed or archived, in kennel scope
    (pups at home first, newest born first; then Expected; then Sold). An Expected litter
    offers **Yes, record the birth** (hands off to the litter task).
@@ -4542,7 +4572,8 @@ checkboxes, never a question apiece:
 4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
    counted, pause allowed, a description), through `waitlistProgramRepo`.
 5. **Families she already has:** **Add one by hand** runs the applicant step
-   (`kelsApplicant.askApplicant`, under "Add people"); **Add another family** repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
+   (`kelsApplicant.askApplicant`, under "Add people") and approves them as Add people does
+   (`approveTypedFamily`); **Add another family** repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
@@ -4575,6 +4606,9 @@ own rules (`waitlistForm.formQuestions`, `validateQuestions`, `validateFaq`, `ne
 6. **Review:** the FAQ and the whole application as a family sees it (`applicationFields`,
    disabled), with buttons back to each part.
 
+**Her form changed meanwhile** (`formChangedSince`: the draft keeps the saved form it began
+from, `basis`): on resume and again on Yes, build it, Kels says so and offers **Start from what's
+saved now** (`restartFromSaved`, back to the questions) or **Keep my draft** (`keepDraftOverSaved`).
 **The save** (`saveGuidedForm`): one write of `form_questions` and `application_faq`, cleaned
 by the page's rule (`finalForm`), over the kennel's latest config. Nothing is written before
 it, so a half-made form never goes online. **The draft:** `settings.guidedFormDraft`
@@ -4604,7 +4638,8 @@ it, so a half-made form never goes online. **The draft:** `settings.guidedFormDr
   a box to copy from where the clipboard is refused), or what's stopping it
   (`onlineProblemText`).
 - **"Do you have a family to put on the list now?"**: the applicant step (under "Add
-  people"), asked with the new form; **Add a family** repeats.
+  people"), asked with the new form, and approved as Add people does (`approveTypedFamily`);
+  **Add a family** repeats.
 - Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.
 
 ### "Review my waitlist"
@@ -5069,7 +5104,10 @@ KennelPort Site Manager.
   litters, puppies, pairings and heats, a puppy's status as "Available → Spoken for").
   Kels asks only about what the task itself changed: as a task starts (kels.js
   `startTask`), `websiteUpdateUI.noteWebsiteBaseline` keeps what the website would be
-  sent then (`kennelportLink.websiteSnapshot`), and afterwards `pendingWebsiteChanges`
+  sent then (`kennelportLink.websiteSnapshot`). A kennel that already has a baseline on
+  the page keeps it until a check moves it on, and a page opened while a check is owed
+  (a task left by a link, `kennelOS.kelsWebsiteCheckOwed` in sessionStorage) takes none,
+  so a check that never ran isn't hidden by the next task's baseline; and afterwards `pendingWebsiteChanges`
   with `since` gives the task's changes (`fresh`). A task that changed nothing the
   website shows asks nothing, even with changes still waiting from before; one that did
   lists only its own, and says how many earlier ones an update would also send. Never

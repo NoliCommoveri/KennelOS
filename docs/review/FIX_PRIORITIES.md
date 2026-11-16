@@ -19,7 +19,7 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ## 1. Where each document stands
 
-*Updated 2026-11-16 after steps 1–10 and step 3 (Waitlist Fixes step 5) were built. Rows not
+*Updated 2026-11-16 after steps 1–11 and step 3 (Waitlist Fixes step 5) were built. Rows not
 touched by those steps are as first written.*
 
 | Doc | Area | Found (S1/S2/S3/S4) | Fixed or gone since | Open S1 · S2 | Since the review |
@@ -35,7 +35,7 @@ touched by those steps are as first written.*
 | **K04** | The cloud Worker | 0/6/3/5 | K4-9 (README drift, resolved). **Step 5 (11-15):** K4-6. **Step 9 (11-15):** K4-1, -2, -3, -4, -5, -7, -8, -10, -12, -13 | 0 · 0 | Open: K4-11 and K4-14 (S4), step 13. Production needs `0026` applied after the deploy. |
 | **K12** | Integrations, notifications | 0/4/9/1 | K12-10. Jotform is retired, so K12-2 and the Jotform halves of K12-3 and K12-6 are gone. **Step 7 (11-15):** K12-1, K12-3 | **0 · 1** | Open S2: K12-4 (an alert opens a page that can't show it). Not yet in a step. |
 | **K14** | Multi-kennel, shows, Companion, Furever | 1/7/8/2 | **Step 10 (11-16):** K14-1, -2, -4 to -18; K14-3 by its warning only (owner) | **0 · 1** | Open: K14-3's per-pup packs (each pup's documents in their own folder and manifest), wanted before Furever's origin goes live; until then a litter publish warns that every family in the litter can open each pup's files. |
-| **K11** | Kels and the guided tasks | 0/7/8/3 | Litter-cap half of K11-1 (via K13-14). **Step 8 (11-15):** K11-1 (dog-cap half), K11-5, K11-17 | **0 · 5** | Open S2: K11-2, -3, -4, -6, -7 (step 11). K11-6 is the one a Demo visitor can still hit (the check-in's Delivered write). |
+| **K11** | Kels and the guided tasks | 0/7/8/3 | Litter-cap half of K11-1 (via K13-14). **Step 8 (11-15):** K11-1 (dog-cap half), K11-5, K11-17. **Step 11 (11-16):** K11-2 to -4, K11-6 to -16, K11-18 | 0 · 0 | All eighteen built. K11-2's resume check covers the litter draft; the other drafts rely on being cleared with the records (Clear sample data, Replace restore). |
 
 ---
 
@@ -46,17 +46,17 @@ theme as well as by document. Bold marks an S1.
 
 | Kind | Open findings | Why it matters |
 |---|---|---|
-| **A. Her records silently lost or overwritten** | K2-11, K11-4, K11-7, K7-13 *(built: K3-1, -2, -3, -5, -8; K1-1; K2-1, -5, -6; K14-1, -5)* | The worst kind: nothing tells her, and by the time she notices, the backup holds the damage too. |
+| **A. Her records silently lost or overwritten** | K2-11, K7-13 *(built: K3-1, -2, -3, -5, -8; K1-1; K2-1, -5, -6; K14-1, -5; K11-4, -7)* | The worst kind: nothing tells her, and by the time she notices, the backup holds the damage too. |
 | **B. Money shown wrong** (to a family, in a report, or by Stripe) | K10-3, K10-4, K10-5, K10-6–8, K10-10, K10-11, K10-13, K10-14, K12-1, K12-3 (Stripe half) *(built: K8-2, -3, -4, -13; K6b-5, -8)* | Families are told the wrong amount, or her P&L and Year in Review disagree with her ledger. |
 | **C. Privacy and the policy's promises** | K14-3 (per-pup packs; warned meanwhile), K12-9, K7-10 *(built: K13-1, -2, -3; K14-13, -15, -17)* | The published privacy policy says things that aren't true. The fix is mostly text, but each one is a privacy decision. |
 | **D. Support, account and licence safety** | K5-11, K12-8 *(built: step 5, K5-1 to K5-10, K5-12, K4-6; step 9, K5-13, K4-13)* | A support device can carry one kennel into another account, a typo can erase a stranger, and the licence wall has no way out to her records. |
 | **E. Edition gates leak or dead-end** (Lite cap, Demo read-only) | none open *(built in step 8: K13-4, -5, -6, -9, -11; K11-1, -5, -17)* | Lite takes more than its cap through import, restore and Kels. Demo saves things it says it won't. |
 | **F. Server resilience** | K4-11, K4-14 *(built: K3-11; step 9: K4-1, -2, -3, -4, -5, -7, -12)* | These are rare events with large effects: a family emailed twice, a Worker rollback that leaves the API on 503 for good, a missed day of retention or digests. |
 | **G. Breeding dates and the clock** | **K9-1**, K9-2, K9-3 (root), K9-5, K9-6, K9-7, K9-10, K6-3, K8-9 | A missed whelping reminder, due dates that don't follow a corrected first date, and deadlines kept on the device's clock instead of the kennel's. |
-| **H. Half-applied writes and stale drafts** | K2-8, K11-2, K11-3, K11-6, K6-13 *(built: K2-5, K1-3; K14-6, -7)* | A retry duplicates records, or a draft resumes over newer work. |
+| **H. Half-applied writes and stale drafts** | K2-8, K6-13 *(built: K2-5, K1-3; K14-6, -7; K11-2, -3, -6)* | A retry duplicates records, or a draft resumes over newer work. |
 | **I. Slow at scale** | K1-4, K2-7, K4-3, K4-11 | 49 s of frozen page for the duplicate scan at 4,000 dogs, and a 10k-row import preview that never renders. |
 | **J. Phone, wording, layout** | K1-7, K10-9, K12-11, K6b-9, and most S3s *(built: K3-10, K14-16)* | Overlaps K15. Fold these in when K15 is redone, unless one is a one-liner beside a fix you're already making. |
-| **K. Latent** (build, tests, docs) | K13-10, K1-8–10, K11-16, K11-18 *(built: K13-15, the deploy runs the tests; K5-14 and K9-13, steps 5 and 6)* | Small, and best folded into the batch that touches the same files. |
+| **K. Latent** (build, tests, docs) | K13-10, K1-8–10 *(built: K11-16, K11-18; K13-15, the deploy runs the tests; K5-14 and K9-13, steps 5 and 6)* | Small, and best folded into the batch that touches the same files. |
 
 Rechecked and built (11-15): K8-4 was already covered by the lost-pup credit (now held by a
 test); K8-13's wording and K8-2 (D9) are built with Waitlist Fixes step 5.
@@ -227,7 +227,7 @@ file. Production needs `0026` applied after the deploy (README Status, `LAUNCH_C
     live.** K14-3 is a privacy problem: every pup's documents sit in one folder that every
     family in the litter can read. K14-13 (anyone can mint a Companion page on our domain)
     belongs here too. Put K1-2 (Furever's missing `blocked` handler) in the Furever half.
-11. **K11: Kels and the guided tasks.** K11-2, K11-3, K11-4 (KennelAssistant re-imports over
+11. **K11: Kels and the guided tasks.** *Built 2026-11-16 (K11-4: an entry already in is left as she has it, a deleted one isn't New again, and the feed is pushed after an import; K11-14: one approve step for a family she types in; no owner decisions needed). Next is step 12.* K11-2, K11-3, K11-4 (KennelAssistant re-imports over
     her corrections), K11-6, K11-7, then the S3s.
 12. **Waitlist Fixes plan, steps 6–10.** The turn rules (K6-6 S2), the clock (K6-3 S2 and
     K8-9: decision D11), applying and signing in (K7-4 to K7-13), pickup and queued emails,
