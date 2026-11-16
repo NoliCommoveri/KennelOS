@@ -74,6 +74,7 @@ export const CLOUD_FIELDS = {
       "keys": [
         "created_at",
         "esign_signer_name",
+        "furever_identity",
         "id",
         "is_archived",
         "is_own_kennel",

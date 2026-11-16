@@ -7,10 +7,13 @@
 // No service worker yet: Furever's PWA/offline layer is a later step (schema doc
 // §"Not built yet"). Pages import their own repos; this only wires the chrome.
 import { renderNav } from './nav.js';
-import { requestPersistentStorage } from './data/db.js';
+import {
+  requestPersistentStorage, isDbUpgradeBlocked,
+  DB_BLOCKED_EVENT, DB_READY_EVENT, DB_VERSIONCHANGE_EVENT
+} from './data/db.js';
 import { wasPersistRequested, markPersistRequested, setActivePetId } from './data/settings.js';
 import { consumeSeedLink, SeedLinkError } from './data/seedLink.js';
-import { fetchContentPackagesForPet } from './data/contentPackFetch.js';
+import { fetchContentPackagesForPet, retryIncompletePacks } from './data/contentPackFetch.js';
 import { petRepo } from './data/petRepo.js';
 import { ensureTrainingSkillsSeeded } from './data/trainingSkillRepo.js';
 import { showError } from './assets/ui.js';
@@ -63,8 +66,32 @@ async function runPendingContentPackFetch() {
   if (!petId) return;
   sessionStorage.removeItem(PENDING_FETCH_KEY);
   const pet = await petRepo.getById(petId);
-  if (pet) fetchContentPackagesForPet(pet);
+  if (pet) await fetchContentPackagesForPet(pet);
 }
+
+// Database upgrade hand-off (data/db.js, K1-2): while another open copy holds
+// the older database this page can't load, so say why and what to do instead of
+// leaving it blank. Clears itself once the upgrade goes through. A copy closed by
+// another's upgrade asks for a reload. Wired at module load, before boot().
+function renderDbNotice(id, html) {
+  if (document.getElementById(id)) return;
+  const bar = document.createElement('div');
+  bar.id = id;
+  bar.className = 'error-box';
+  bar.setAttribute('role', 'alert');
+  bar.style.margin = '0';
+  bar.innerHTML = html;
+  document.body.insertBefore(bar, document.body.firstChild);
+}
+function showDbBlockedNotice() {
+  renderDbNotice('db-blocked-notice', '<strong>Furever is updating its storage.</strong> Close every other Furever tab or window on this phone, including the app in your recent apps. This page carries on by itself once they are closed.');
+}
+window.addEventListener(DB_BLOCKED_EVENT, showDbBlockedNotice);
+if (isDbUpgradeBlocked()) showDbBlockedNotice();
+window.addEventListener(DB_READY_EVENT, () => document.getElementById('db-blocked-notice')?.remove());
+window.addEventListener(DB_VERSIONCHANGE_EVENT, () => {
+  renderDbNotice('db-closed-notice', '<strong>Furever was updated in another tab.</strong> <a href="">Reload this page</a> to keep working. Anything not yet saved here can no longer be saved.');
+});
 
 async function boot() {
   const redirecting = await consumeSeedLinkIfPresent();
@@ -72,7 +99,9 @@ async function boot() {
   await ensureTrainingSkillsSeeded();
   await renderNav();
   await firstRunPersistence();
-  runPendingContentPackFetch();
+  // Not awaited: the pending fetch for a just-opened link, then any pack a
+  // weak signal left incomplete before (K14-14).
+  runPendingContentPackFetch().then(retryIncompletePacks);
 }
 
 boot();

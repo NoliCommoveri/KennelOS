@@ -54,8 +54,9 @@ export function holdsSentence(holds) {
 // meant to be copied between apps. It also gives a future registry a cheap
 // format check and a version to migrate off.
 //
-// NOT the same thing as settings.js's Furever `breederKey`, and deliberately not
-// merged with it: breederKey identifies the INSTALLATION's breeder to Furever
+// NOT the same thing as the Furever `breederKey` (data/fureverIdentity.js, kept
+// in one own kennel's `furever_identity`), and deliberately not merged with it:
+// breederKey identifies the PROGRAM's breeder to Furever
 // (one key shared across all your own kennels, so every pup you place dedupes
 // into one `breeders` row in the family app), and re-keying it would break the
 // dedup of packets already sent. public_id identifies ONE kennel record. Two

@@ -5250,3 +5250,43 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
   Contact page); Family Requests plan §6 (Modified note).
 - **Service worker:** `assets/stayPickupUI.js` added to `PRECACHE_URLS` (shared). Rides
   `kennelos-shell-v148`.
+
+## 2026-11-16: Fix step 10, K14 (multi-kennel scope, Companion, Furever)
+
+Owner's decisions: the Furever identity rides on her own kennel, cloud tier (K14-5); a litter
+publish warns on every pup's document, per-pup packs later (K14-3); a Dog Card's microchip only
+for a sent dog still in her program (K14-15); an outside dog's expense goes under its stud
+service's kennel, else All kennels only (K14-11).
+- **K14-6:** `kennelRepo.update` refuses unticking an own kennel while owned or co-owned dogs,
+  pairings, litters, sales, stud services, contracts, documents or waitlist rows (archived too)
+  are filed under it (`ownKennelHolds`); the message counts them and points to archiving.
+- **K14-9, K14-10:** Reminders, Stud Services and Documents follow the active kennel, with the
+  scope chip (Documents opened for one dog stays unscoped).
+- **K14-11:** `scopePredicates.expenseInScopeOf` / `isUnplacedExpenseOf`, bound as
+  `kennelScope.expenseInScope`: Financials, `moneyReport.loadMoney` and the kennel hub use it;
+  a scoped Financials notes how many outside-dog expenses count only under All kennels.
+- **K14-2:** `buildProspectiveBundle(contact, { kennelId })`: the guided litter flow's kennel,
+  else the active one; refuses under All kennels with pups at two kennels.
+- **K14-8, K14-15:** `dogCard.canSendFrom` (her own dogs at the Send-from kennel; the list
+  follows the kennel picker; `buildDogCard` checks too) and `sendsMicrochip`.
+- **K14-12:** a major with no judge asks for "the judge on N majors" instead of more majors.
+- **K14-13:** every Companion page ends with KennelOS-didn't-check-this and confirm payment
+  with the kennel. **K14-17:** `data/safeHref.js` (re-exported by `ui.js`) on the dog page's
+  link; the shell has its own copy on every bundle link. **K14-16:** spec numbers out of five hints.
+- **K14-5:** `data/fureverIdentity.js` keeps `furever_identity` (cloud, `syncRegistry`;
+  `cloudFields.js` regenerated) on the first own kennel carrying it, else My kennel; the
+  console and `buildSeedPacket` load through it; this device's key moves onto the kennel once.
+- **K14-3:** a litter publish asks the public-by-link confirmation for every pup's own document.
+- **Furever:** K14-1 (`petRepo.seedIdentity`: a resend keeps the family's name, photo, breed,
+  sex and birthday edits and never blanks one); K14-4 / K14-14 (`content_packs.pets[petId]`,
+  a failed file keeps the old copy, `retryIncompletePacks` on each open); K14-7 (`planMerge`
+  by `pup_id`, `breeder_key`, `pack_key`; breeder documents deduped; a failure in a sentence);
+  K14-18 (`migrateCollections`, v1 contacts); K1-2 (the `blocked` / `versionchange` notices).
+- **Tests:** new `kennelScopeFixes.test.js` (14), `fureverData.test.js` (9),
+  `fureverIdentity.test.js` (4). `node --test` 2107 pass; `cd cloud && npm test` 365 pass;
+  `node build/assemble.mjs` green.
+- **Docs:** End-State guide (§4 scope, Kennel fields, shows, §20, §27, §27.1, §28.1, §36,
+  escaping); Multi-Kennel Scope spec, Furever schema doc, Shared Dogs plan (Modified notes);
+  `furever/README.md`; this review's `FIX_PRIORITIES.md`.
+- **Service worker:** `data/safeHref.js` and `data/fureverIdentity.js` added to
+  `PRECACHE_URLS`. Rides `kennelos-shell-v148`.

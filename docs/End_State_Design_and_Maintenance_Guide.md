@@ -264,7 +264,7 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `imported` (boolean, default false; cloud) and `import_country` (text; cloud; kept only while `imported` is ticked: the Dog form writes its one **Country of origin** box into it then and clears it on unticking; shown as Imported, "Yes", with the country on its own row; sent to her website, §35), `country_of_origin` (text; cloud; where the dog comes from, a fact on its own apart from `imported`: a Serbian ancestor still in Serbia has it with `imported` false; trimmed by `dogRepo` on every write that carries it; a dog's country reads as `country_of_origin`, else `import_country` when `imported`; the Dog form's **Country of origin** row is always shown next to Imported, opens with that reading, and is shown on the view as Country of origin), `titles[]` (cloud; the titles it holds, `{ abbr, organization, earned_on }` in her order, `''` for a blank part, `earned_on` only `YYYY-MM-DD`; stored through `dogTitles.normalizeTitles` by `dogRepo` on every write that carries it: abbreviation trimmed to 30 characters, organization to 60, blanks dropped, the same title merged; no index; in every edition. The titles shown and sent are `dogTitles.titlesOf(dog, events)`: this field, the dog's non-archived `title_earned` events and any titles still on the front of `registered_name`, merged at read time, see **Titles** below), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `furever_identity` (cloud; her Furever identity, on one own kennel for the whole program: `breederKey`, `kennelName`, `tagline`, `breederContact`, `breederVet`, `contentPack`, §27), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date`; follows a first-date change while still the prefill), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date` (a new litter: today; a litter made from its pairing, the pairing's `expected_due_date`, else 63 days after its first date, else blank; on an Expected litter it is the expected date), `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
@@ -343,6 +343,14 @@ read time. Every list, hub and report filters on it (`data/kennelScope.js`). Not
 each with a comment at its call site: pedigree/lineage walks, detail pages reached by id
 (an out-of-scope record shows a "belongs to <kennel>" banner), external/leased dogs, and
 the contact pool. `Event` and `Expense` take their subject's scope (`subjectInScope`).
+A money **total** uses `expenseInScope` (`scopePredicates.expenseInScopeOf`), the one rule for
+Financials, the money reports (`moneyReport.loadMoney`) and the kennel hub: an expense on a
+dog she doesn't own counts under the kennel of its stud service (`stud_service_id`), else only
+under All kennels, and a scoped Financials says how many (`isUnplacedExpenseOf`), so no cost
+is in two kennels' totals. Reminders, Stud Services and Documents (except Documents opened for
+one dog, `?dog=`) are scoped lists with the chip. An own kennel can't be unticked as one of
+hers while any owned or co-owned dog or scoped record (archived ones too) is filed under it
+(`kennelRepo.update`, `ownKennelHolds`): the message counts them and points to archiving.
 Choosing among several own kennels is Pro only (`editionFlags.multiKennel`). Spec:
 `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
 
@@ -531,7 +539,9 @@ completed. A required title held on `Dog.titles` with no date (a bought champion
 the track with every aimed win counting (`trackProgress`'s `requiredHeld`;
 `showRecordFrom(events, tracks, { held })`, each row's `heldTitle`); the Show Record card
 says "CH Held" or "CH earned <date>" for one. Saving odd results raises a soft confirm,
-never a block.
+never a block. A major with no judge typed may be under a new judge, so it isn't counted
+short: `missing` asks for "the judge on N majors, so they can be checked" instead, and the
+track isn't complete until they are.
 
 **Litter-wide logging** (`litter.js` → `openEventForm`'s `cascadeTargets`) writes one event
 per checked puppy with the same `details`, except fields in `eventForm.js`
@@ -1205,7 +1215,10 @@ Don't assume these exist:
    (`tests/syncRegistry.test.js`); a cloud field also regenerates
    `cloud/src/lib/cloudFields.js`. **New direct `db` write** → `markDataChanged()` or an
    exemption in `tests/cloudDirty.test.js`.
-4. **Escaping:** `esc()` every user value in hand-built HTML and `listView` cells.
+4. **Escaping:** `esc()` every user value in hand-built HTML and `listView` cells. A URL from
+   outside (a card, a bundle, a typed link) goes in an `href` through `safeHref`
+   (`data/safeHref.js`, re-exported by `ui.js`; `companion-view.html` has its own copy):
+   http(s) and mailto only, `#` otherwise, `https://` added to one typed with no scheme.
 5. **File set changed** → `PRECACHE_URLS` (and `proPages.js` if Pro-only); `CACHE_NAME`
    bumped once per batch after asking.
 6. **Schema:** additive `version(N)` blocks only; backups stay backward compatible (§5).
@@ -1349,7 +1362,10 @@ no-account, read-only link. Not sync, not a login, not a live view.
 ### Bundle types (all anchored on a Contact)
 - **`prospective`** (a contact with `waitlist_status === 'active'`): available pups, one card
   per litter, with parents' cards (`dogCard`: names, photos link, completed tests) and each
-  pup's per-sex list price and deposit. The same for every prospect: nothing private.
+  pup's per-sex list price and deposit. The same for every prospect: nothing private. The
+  pups are one kennel's, as the header names one (`buildProspectiveBundle(contact,
+  { kennelId })`: the guided litter flow's litter kennel, else the active kennel); under All
+  kennels with available pups at two or more own kennels it refuses, saying to pick the kennel.
 - **`family`** (a buyer with an open sale, `isOpenSale`): one card per pup on an open sale:
   names, parents, computed age (never the DOB), placement or ready date, their own sale's
   money with its remaining balance and `balanceDueDate` (the final due date) from the
@@ -1393,6 +1409,10 @@ the recipient's own.
   additively, and a shell fix must not break last month's links.
 - **No revocation or expiry.** Documents are never in the link, only `document_url` (her Drive
   sharing controls access). The "snapshot as of" date shows prominently.
+- **Not signed.** Anyone can make a link that opens the shell, so every page ends with a line
+  that the kennel made it from its own records, KennelOS doesn't check it, and payment details
+  are to be confirmed with the kennel directly (`renderNotChecked`). Every link from the bundle
+  goes through the shell's `safeHref`.
 
 ---
 
@@ -1991,9 +2011,14 @@ in `proPages.js`).
 **The console** (`pages/furever.*`, a Sharing tab beside Companion):
 - **Setup nudges** above it: no vet contact on file; breeds of current buyers' pups with no
   feeding schedule. Neither blocks sending.
-- **Kennel identity** in the `furever` setting: kennel name, tagline, breeder and vet
-  contacts, and a generated `breederKey`. Prefilled from her records (blanks only; any
-  `vet`-tagged contact can be picked); independent of `myKennelId`.
+- **Kennel identity**: kennel name, tagline, breeder and vet contacts, the kennel-wide pack's
+  pointer and a generated `breederKey`, one for the whole program. Kept on an own kennel's
+  `furever_identity` (`data/fureverIdentity.js`: the first own kennel carrying one, else My
+  kennel, else the first own kennel), so backups, cloud backup and live sync carry it and every
+  device sends the same key; the `furever` setting is the device's cache.
+  `loadFureverIdentity` takes the kennel's copy, or moves this device's onto the kennel when
+  none has one; `saveFureverIdentity` loads, then writes both. `driveConnected` stays on the
+  device. Prefilled from her records (blanks only; any `vet`-tagged contact can be picked).
 - **Recipients:** pups on an open sale (`isOpenSale`, as Companion's family bundle). A
   personal note and pickup photo persist as plain Sale fields (`furever_note`,
   `furever_pickup_photo_url`), so a resend starts from them. Furever shows the pickup plan as
@@ -2029,13 +2054,20 @@ does every Drive step.
   published before (`selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) → share the
   folder by link → write the manifest with a bumped `version`. Items removed since the last
   publish are trashed in Drive first (`removedKeys`).
-- **Pointers:** the kennel-wide pack is `settings.furever.contentPack`; a litter's pack is the
+- **Pointers:** the kennel-wide pack is the identity's `contentPack` (`furever_identity`); a litter's pack is the
   plain `Litter.furever_pack` field.
 - **Kennel-wide pack** = uploads only. **Litter packs** pick from the documents of the
   litter's pups and its sire and dam. Each manifest file carries its `dogId`, and the family
   app (`contentPackFetch.filesForThisPup`) keeps only its own pup's and the parents'.
   Documents not marked `furever_shareable` are disabled. `contract` documents
-  (`SENSITIVE_DOC_TYPES`) need an explicit "this becomes public" confirmation.
+  (`SENSITIVE_DOC_TYPES`) need an explicit "this becomes public" confirmation. The filter is
+  display only: a litter pack's folder and manifest are readable by every family in the
+  litter, so a litter publish asks the same confirmation for every pup's own document (one
+  not the sire's or dam's), whatever its type, saying so.
+- **The family app's fetch** (`furever/data/contentPackFetch.js`): the cache is per pet
+  (`content_packs.pets[petId] = { version, complete }`), so a second pup or a sibling on the
+  same pack fetches it too. A file that doesn't come down keeps that pet's earlier copy and
+  marks the fetch incomplete; `retryIncompletePacks` tries it again on every app open.
 - Not built: the manual (no-OAuth) fallback.
 
 ### 27.2 Feeding schedules
@@ -2074,7 +2106,7 @@ would claim the `public_id` they already have.)
 - **Write-once:** changing a set `public_id` throws; blanking it is ignored.
 - Unique by a repo guard (`assertPublicIdFree`), not a unique index.
 - Rides backups, the Lite→Pro bridge and sync with no code of its own.
-- Separate from Furever's `breederKey` (one per installation, §27) on purpose; don't merge.
+- Separate from Furever's `breederKey` (one per program, on `furever_identity`, §27) on purpose; don't merge.
 
 ### 28.2 The Kennel Card
 `data/kennelCard.js` (every edition) and `assets/kennelCardUI.js` (Pro, `PRO_ONLY_STANDALONE`).
@@ -5163,7 +5195,9 @@ updates the same dogs.
   `DOG_FIELDS` (call and registered name, sex, breed, birthday and whether estimated, date of
   death, colour, registry and number, other registrations, microchip, photos link, recorded
   COI, titles held (the `titles` field only, a `titles` kind compared through
-  `normalizeTitles`; earned events travel as events), country of origin) plus status, sire and dam by public id and breeder kennel; for the dogs sent (not
+  `normalizeTitles`; earned events travel as events), country of origin; the microchip only
+  for a dog sent that is still in her program, `sendsMicrochip`: never an ancestor's, nor a
+  pet-home, deceased or placed dog's) plus status, sire and dam by public id and breeder kennel; for the dogs sent (not
   ancestors), their `SHARED_EVENT_TYPES` events (genetic, OFA / PennHIP, breed-specific tests,
   titles earned) with date, title and the type's cloud detail keys (`cloudDetailKeys`). Up to
   `ANCESTOR_GENERATIONS` (4) above each dog. Never notes, contacts, money, litters, other events,
@@ -5193,8 +5227,11 @@ updates the same dogs.
   lives with, notes and everything else stay hers. Sire and dam are set only where hers are
   blank. Tests and titles match by `events.shared_ref` and are updated in place; one the sender
   deleted stays.
-- **Screens:** Sharing → **Dog cards** (`pages/dog-cards.html`): Send (from kennel, a
-  co-owner filter, ticks, Make the card → link, code, Save as a file, What's on the card) and
+- **What may be sent** (`canSendFrom`, checked by `buildDogCard` too): her own dogs (owned,
+  co-owned, leased out) filed under the "Send from" kennel, as the receiver files a new dog at
+  that kennel. Outside and leased-in dogs go only as ancestors.
+- **Screens:** Sharing → **Dog cards** (`pages/dog-cards.html`): Send (from kennel, which
+  narrows the list to its own dogs, a co-owner filter, ticks, Make the card → link, code, Save as a file, What's on the card) and
   Add dogs from a card (paste or open a file → the preview, with How do you hold the new dogs,
   per-dog Add as new / Same as my … / Leave out and Lives with; an update lists each change
   `from → to`, with Update from the card / Keep mine, Keep mine first when `mineNewer`; a dog

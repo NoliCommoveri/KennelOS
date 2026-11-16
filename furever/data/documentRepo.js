@@ -73,9 +73,12 @@ export const documentRepo = {
   // petRepo.upsertSeededPet's blind seed-side replace. `entries` are
   // `{ file_id, drive_file_id, title, doc_type, doc_date }`, file bytes already
   // landed in `files` by the caller (contentPackFetch.js).
-  async replaceBreederLayer(petId, packKey, entries) {
+  // `keepDocIds`: existing breeder documents to leave in place, for a file that
+  // didn't download this time (contentPackFetch, K14-14), so a weak signal never
+  // takes away a document the family already had.
+  async replaceBreederLayer(petId, packKey, entries, { keepDocIds = [] } = {}) {
     const existing = await documentRepo.getBreederDocsForPack(petId, packKey);
-    for (const doc of existing) await documentRepo.hardDelete(doc.id);
+    for (const doc of existing) if (!keepDocIds.includes(doc.id)) await documentRepo.hardDelete(doc.id);
     const created = [];
     for (const entry of entries) {
       created.push(await documentRepo.create({

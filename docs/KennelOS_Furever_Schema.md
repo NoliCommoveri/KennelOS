@@ -48,6 +48,11 @@ Consequences baked into the schema: **no `schedule_progress` table** and **no
 - **Seed layer** — breeder-provided, refreshable, upserted by `pup_id`. The family
   never edits it; a resend replaces it wholesale. Lives in `breeders` and in each
   seeded pet's unindexed `seed` object.
+  **Modified:** the pup's name, sex, breed, birthday and photo are copied from the seed
+  onto the pet, and the family's Profile edits those same fields. So a resend takes the
+  breeder's new value only where the family hasn't changed what the last packet set,
+  and never blanks a value the packet leaves out (`petRepo.seedIdentity`); `pet.seed`
+  still holds exactly what the breeder sent.
 - **Family layer** — everything the family adds. Theirs; the seed never touches it.
   Lives in `care_events`, `care_plans`, `contacts`, `documents`, `photos`, `files`.
 

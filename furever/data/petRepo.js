@@ -66,16 +66,24 @@ export const petRepo = {
   async upsertSeededPet(seed, breederId) {
     if (!seed || !seed.pupId) throw new Error('upsertSeededPet: seed.pupId is required.');
     const existing = await petRepo.getByPupId(seed.pupId);
+    // The pup's identity (name, sex, breed, birthday, photo) is the breeder's on
+    // the first packet, then the family's: their Edit form and Add picture write
+    // the same fields. So a resend (K14-1) takes the breeder's new value only
+    // where the family hasn't changed what the last packet set, and never blanks
+    // a value the new packet leaves out. `pet.seed` keeps what the breeder sent.
+    const identity = {
+      name: seedIdentity(existing, 'name', 'name', seed.name, 'Puppy'),
+      sex: seedIdentity(existing, 'sex', 'sex', seed.sex),
+      breed: seedIdentity(existing, 'breed', 'breed', seed.breed),
+      date_of_birth: seedIdentity(existing, 'date_of_birth', 'dob', seed.dob),
+      photo_url: seedIdentity(existing, 'photo_url', 'photoUrl', seed.photoUrl)
+    };
     const seedFields = {
       source: 'seeded',
       pup_id: seed.pupId,
       breeder_id: breederId || null,
-      name: seed.name || (existing && existing.name) || 'Puppy',
-      species: seed.species || 'dog',
-      sex: seed.sex || null,
-      breed: seed.breed || null,
-      date_of_birth: seed.dob || null,
-      photo_url: seed.photoUrl || null,
+      ...identity,
+      species: (existing && existing.species) || seed.species || 'dog',
       content_pack_key: seed.contentPackKey || null,
       // The full seed snapshot rides along unindexed, so "what did the breeder
       // send" (incl. pickupPlan + personal note) stays separable from any family edit.
@@ -89,5 +97,19 @@ export const petRepo = {
     return { pet, created: true };
   }
 };
+
+// One identity field on a resend: the family's value when they changed it from
+// what the last packet set, else the new packet's value, else what's there.
+// Pure; exported for the tests.
+// `fallback` is what a packet without the field set (the name's 'Puppy').
+export function seedIdentity(existing, field, seedKey, incoming, fallback = null) {
+  const next = incoming || null;
+  if (!existing) return next || fallback;
+  const current = existing[field] ?? null;
+  const lastSent = (existing.seed && existing.seed[seedKey]) || fallback;
+  const familyChanged = current !== null && current !== lastSent;
+  if (familyChanged) return current;
+  return next || current || fallback;
+}
 
 export { ReferenceBlockedError } from './repoBase.js';

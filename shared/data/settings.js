@@ -273,6 +273,11 @@ export function setCompanionSettings(type, values) {
 // to "My Kennel" (settings' myKennelId): Furever should work even if Kennel Setup
 // was skipped.
 //
+// This localStorage block is the device's CACHE. The program's copy rides on her
+// own kennel's record (`furever_identity`, data/fureverIdentity.js, K14-5), so
+// backups, cloud backup and live sync carry it and every device sends the same
+// key; the Furever console and the seed packet load through that module.
+//
 // Deliberately ONE shared block across all of a user's own kennels, even in
 // Pro's multi-kennel mode (Multi-Kennel Scope Spec §10) — same owner decision
 // as Companion above, kept global rather than keyed per kennel. Per-kennel

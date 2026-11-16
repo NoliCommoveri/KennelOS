@@ -179,6 +179,7 @@ const PRECACHE_URLS = [
   'data/fileRepo.js',
   'data/fureverContentPack.js',
   'data/fureverSeedExport.js',
+  'data/fureverIdentity.js',
   'data/googleDrive.js',
   'data/importExport.js',
   'data/restoreMatch.js',
