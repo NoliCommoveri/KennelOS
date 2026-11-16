@@ -53,7 +53,7 @@ import {
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
   PREF_FIELD_LABEL, prefValueText, prefChangeSummary, lostSaleFamily, listedName, privateName, publicName, prefPlaces,
-  sideSaleOf, pupClaims, isFamilyPageOnly, offerBlocker, nextOfferedTurn, turnRespondBy, isTurnOverdue, holdsTurn
+  sideSaleOf, pupClaims, isFamilyPageOnly, offerBlocker, nextOfferedTurn, turnRespondBy, isTurnOverdue, holdsTurn, isPrepassedRow
 } from '../data/waitlistRules.js';
 import { sideSaleDialog, sideDepositDialog, cancelSideSaleDialog } from '../assets/sideSaleUI.js';
 import {
@@ -73,7 +73,7 @@ import { creditsOf, carriedCreditsOf } from '../data/receivedCredits.js';
 import { CREDIT_USES } from '../data/vocab.js';
 import { applicationFields, answerField, prefField as prefFieldHtml, privateField, readAnswers, readPrefs } from '../assets/waitlistApplicationForm.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal, wireActionMenu } from '../assets/ui.js';
+import { esc, badge, fmtDate, fmtMoney, param, todayYMD, kennelToday, confirmModal, alertModal, wireActionMenu } from '../assets/ui.js';
 import {
   resolveWaitlistKennel, prefsSummary, entryFlags, readyHoldText, formModal,
   pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, endSaleDialog, backOutDialog, statusLinkFor, copyLink, creditDialog,
@@ -226,7 +226,7 @@ function lostLine(e) {
 }
 
 function statusLines(e) {
-  const today = todayYMD();
+  const today = kennelToday(ctx.kennel);
   const lines = [];
   const lost = lostLine(e);
   if (lost) lines.push(lost);
@@ -1067,7 +1067,7 @@ async function onApprove() {
     title: `Approve ${entryName(e, ctx.contact)}?`,
     confirmLabel: 'Approve',
     bodyHtml: `${dnsLine}<div class="form-grid">
-        <div class="field"><label>Approval date</label><input id="ap-date" type="date" value="${esc(todayYMD())}"></div>
+        <div class="field"><label>Approval date</label><input id="ap-date" type="date" value="${esc(kennelToday(ctx.kennel))}"></div>
         ${suggestLines}
         <div class="field"><label>Program</label><select id="ap-program">${programOptions(e.waitlist_program_id)}</select></div>
         ${contactChoices}
@@ -1082,7 +1082,7 @@ async function onApprove() {
       }
       await actions.approve(e.id, {
         ...(asksPrivate ? { privateListing: privateChoice.value === 'yes' } : {}),
-        date: o.querySelector('#ap-date').value || todayYMD(),
+        date: o.querySelector('#ap-date').value || kennelToday(ctx.kennel),
         programId: o.querySelector('#ap-program').value || null,
         contactId: picked ? picked.value || null : null
       });
@@ -1296,7 +1296,7 @@ function readySummary(e) {
   const from = readyFromDate(e);
   if (!from) return esc(t.label);
   const base = e.fee_received_date ? 'the fee date' : 'approval';
-  const today = todayYMD();
+  const today = kennelToday(ctx.kennel);
   const held = today < from;
   const base0 = `${esc(t.label)} <span class="faint">— ${held ? 'no offers until' : 'hold ended'} ${esc(fmtDate(from))} (${esc(t.hold_months)} month${t.hold_months === 1 ? '' : 's'} from ${base})</span>`;
   // "Ready now?" (Spec §16.7): their answer, or a button for when they told her.
@@ -1557,7 +1557,7 @@ const familyNameById = (entryId) => {
 // holds a turn at a time across the kennel (Spec §16.1), so while anyone holds one,
 // nothing can be offered.
 function litterChoices(e) {
-  const today = todayYMD();
+  const today = kennelToday(ctx.kennel);
   const opts = { today, config: ctx.config, programsById: ctx.programs };
   const pups = [...ctx.dogsById.values()];
   return ctx.litters
@@ -1628,7 +1628,7 @@ async function onOfferOutcome(offer, outcome) {
   const pups = litter ? kennelLitterPups(litter) : [];
 
   if (outcome === 'pick') {
-    const live = litter ? eligiblePupsFor(e, litter, pups, ctx.sales, { today: todayYMD(), config: ctx.config }) : [];
+    const live = litter ? eligiblePupsFor(e, litter, pups, ctx.sales, { today: kennelToday(ctx.kennel), config: ctx.config }) : [];
     if (!live.length) { await alertModal({ title: 'No pups available', message: 'None of the pups offered to them is still available.' }); return; }
     const carriedAtPick = carriedCreditsOf(e).length > 0;
     const out = await pickDialog({ offer, name, pups: live, pupLabel });
@@ -1697,6 +1697,21 @@ async function onOfferOutcome(offer, outcome) {
   if (outcome === 'change') {
     const options = litter ? switchablePups(e, litter, pups, ctx.sales, { currentDogId: offer.chosen_dog_id, config: ctx.config }) : [];
     if (await changePickDialog({ offer, name, currentName: dogName(offer.chosen_dog_id), pups: options, pupLabel })) await afterAction();
+    return;
+  }
+  if (outcome === 'unprepass') {
+    const lname = litter ? litterLabel(litter) : 'this litter';
+    if (!(await confirmModal({
+      title: `Open ${lname} to ${name} again?`,
+      message: `They said "Not this litter" to ${lname}, and it was recorded when their turn came. Taking it back makes ${lname} open to them again; it was never a pass. ${holdsTurn(ctx.kennelOffers, e.id) ? 'It joins the turn they hold now, if a pup in it still matches them.' : 'Nothing is offered now: they\'re in line for it by their place, or you can offer it from here.'}`,
+      confirmLabel: 'Open it to them again'
+    }))) return;
+    const res = await actions.undoPrepass(offer.id);
+    await afterAction();
+    if (res.joined) {
+      await alertModal({ title: 'Added to their turn', message: `${lname} is in ${name}'s turn now, with the same deadline (${fmtDate(res.joined.respond_by_date)}).${canEmail() ? '' : ' Let them know; nothing is sent automatically.'}` });
+      await emailFamilies([{ entryId: e.id, kind: 'offer', extra: { litterIds: res.joined.litter_ids, respondBy: res.joined.respond_by_date } }]);
+    }
     return;
   }
   if (outcome === 'undo') {
@@ -1771,6 +1786,9 @@ function offerButtons(o, today) {
       ...(canSendPlaced(o) ? [btn('send', 'Send contract & invoice…', true, 'Their deposit is in; the message thanks them for it')] : []),
       ...(canSwitchAcceptedPick(o, ctx.kennelOffers) ? [btn('change', 'Change pup…', false, 'Allowed until the next family is offered a turn')] : [])
     ];
+  } else if (isPrepassedRow(o)) {
+    // Closed by their own "Not this litter": only they can take it back.
+    if (ctx.entry.status === 'active' && !ctx.entry.is_archived) list = [btn('unprepass', 'Changed their mind…', false, 'They want this litter after all')];
   } else if (!undoPassBlocker(o, ctx.entry, today)) {
     list = [btn('undo', 'Undo…', false, 'Erase this and give them their turn back')];
   }
@@ -1792,7 +1810,7 @@ const litterLink = (id) => {
 // Offers she can still act on (Interact): an open turn, a pick awaiting its
 // deposit, a pick she can still switch, a pass she can still undo.
 function liveOffersHtml() {
-  const today = todayYMD();
+  const today = kennelToday(ctx.kennel);
   const live = [...ctx.offers].filter((o) => !o.is_archived && offerButtons(o, today))
     .sort((a, b) => (b.offered_date || '').localeCompare(a.offered_date || ''));
   if (!live.length) return '';
@@ -2002,7 +2020,7 @@ async function confirmNarrowing(changes) {
   const fx = prefChangeEffect(e, changes, {
     litters: waitlistLitters(ctx.kennel, ctx.litters),
     entries: ctx.kennelEntries, offers: ctx.kennelOffers, pups: [...ctx.dogsById.values()], sales: ctx.sales,
-    today: todayYMD(), config: ctx.config, programsById: ctx.programs
+    today: kennelToday(ctx.kennel), config: ctx.config, programsById: ctx.programs
   });
   if (!fx.openOffers.length && !fx.skippedLitters.length) return true;
   const lines = [`Narrower: ${fx.narrowed.map((f) => PREF_FIELD_LABEL[f]).join(', ')}.`];
@@ -2199,7 +2217,7 @@ function renderDetails() {
 function sideSaleHtml(e) {
   const sale = sideSaleOf(e, ctx.sales);
   if (!sale) return '';
-  const today = todayYMD();
+  const today = kennelToday(ctx.kennel);
   const overdue = sale.side_deposit_due && sale.side_deposit_due < today;
   const claims = pupClaims(sale.dog_id, { sales: ctx.sales, offers: ctx.kennelOffers });
   const dog = ctx.dogsById.get(sale.dog_id);
@@ -2287,12 +2305,12 @@ function interactButtons(e) {
     case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary')
       // A side sale (Side Sale Spec): outside the turn order; not while they hold the turn or already buy one.
       + (!holdsTurn(ctx.offers, e.id) && !sideSaleOf(e, ctx.sales) ? b('side', 'Record a side sale…') : '')
-      + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, todayYMD(), ctx.sales) ? b('undofee', 'Undo fee received…') : ''); break;
-    case 'declined': main = (canUndoDecline(e, todayYMD()) ? b('undo', 'Undo decline', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
-    case 'expired': main = (canUndoExpire(e, todayYMD()) ? b('undo', 'Reopen application', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
-    case 'removed': main = (canUndoRemoval(e, todayYMD()) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+      + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, kennelToday(ctx.kennel), ctx.sales) ? b('undofee', 'Undo fee received…') : ''); break;
+    case 'declined': main = (canUndoDecline(e, kennelToday(ctx.kennel)) ? b('undo', 'Undo decline', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+    case 'expired': main = (canUndoExpire(e, kennelToday(ctx.kennel)) ? b('undo', 'Reopen application', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+    case 'removed': main = (canUndoRemoval(e, kennelToday(ctx.kennel)) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'withdrawn': main = isFamilyPageOnly(e) ? b('reapply', 'Apply to the list…')
-      : (canUndoWithdrawal(e, todayYMD()) ? b('undo', 'Undo withdrawal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+      : (canUndoWithdrawal(e, kennelToday(ctx.kennel)) ? b('undo', 'Undo withdrawal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     default: main = isFamilyPageOnly(e) ? b('reapply', 'Apply to the list…') : b('reapply', 'Re-apply');
   }
   // E3: a placed family with an open sale can be kept off the list (a family page

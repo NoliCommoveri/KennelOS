@@ -59,7 +59,7 @@ import { PAYMENT_METHODS, PLACEMENT_METHODS, SEX, isOpenSale, descriptor } from 
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { field } from './litterCheckinUI.js';
 import { prefsSummary } from './waitlistUI.js';
-import { esc, fmtDate, fmtMoney, todayYMD } from './ui.js';
+import { esc, fmtDate, fmtMoney, todayYMD, kennelToday } from './ui.js';
 
 const HOW = 'I\'ll go through what\'s waiting on you, most urgent first: family requests and messages, anyone backing out, offers and picks, new applications, fees, and the list\'s upkeep. Skip anything you want to leave for later. Sound good?';
 const SKIP = { label: 'Skip for now', value: '__skip' };
@@ -105,6 +105,7 @@ class Review {
       kennel = setUp.find((k) => k.id === id);
     }
     this.kennel = kennel;
+    this.today = kennelToday(kennel);
     const ready = await this.readiness();
     if (ready === 'left') return null;
     return this.overview(true);
@@ -146,6 +147,8 @@ class Review {
 
   async load() {
     const k = this.kennel = await kennelRepo.getById(this.kennel.id);
+    // Her waitlist runs on the kennel's own date (D11).
+    this.today = kennelToday(k);
     const [entries, offers, contacts, litters, dogs, sales, programs, items] = await Promise.all([
       waitlistEntryRepo.getByKennel(k.id),
       waitlistOfferRepo.getByKennel(k.id),

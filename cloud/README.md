@@ -127,7 +127,8 @@ src/familyActions.js   what a signed-in family does on their status page (POST /
 src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the hourly cron
                        and a family's pass/leave close turns past their last day and offer the next
                        family, only for moments she ticked; reminders once each (the fee reminder
-                       catches up through its due day). A run's events, hold deletes and projection
+                       catches up through its due day). Dates are the kennel's (its time_zone); a
+                       kennel with none has no deadline closed or reminded here. A run's events, hold deletes and projection
                        write go in one batch, each conditional on the version it read, so a second
                        run or her publish in between writes nothing; emails go only after it lands.
                        Events made_by 'server'; a publish that hasn't seen them is refused (409

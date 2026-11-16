@@ -246,3 +246,67 @@ test('"Place them with" a family with no date refuses instead of clearing the ov
   await assert.rejects(actions.setPositionAnchor(ids.kim, { afterEntryId: undated }), /no date in line/);
   assert.equal((await waitlistEntryRepo.getById(ids.kim)).position_anchor_date, '2026-03-01');
 });
+
+// --- K6-4 follow-up: the family takes back a "Not this litter" ------------------------
+
+test('a family that changes their mind gets the litter back: it joins the turn they hold', async () => {
+  await waitlistEntryRepo.update(ids.kim, { prepasses: [{ litter_id: B.id, date: '2026-10-01' }] });
+  await litterRepo.update(B.id, { picks_opened_date: DAY });
+  const t = await actions.offerTo(A.id, ids.kim, { today: DAY, outOfOrder: true });
+  const rowB = (await waitlistOfferRepo.getByEntry(ids.kim)).find((o) => o.litter_id === B.id);
+  assert.equal(rules.isPrepassedRow(rowB), true);
+  const res = await actions.undoPrepass(rowB.id, { today: '2026-10-09' });
+  assert.equal(res.voided.outcome, 'voided');
+  assert.equal(res.voided.counts_as_pass, false);
+  assert.deepEqual([...res.joined.litter_ids].sort(), [A.id, B.id].sort());
+  assert.equal(res.joined.respond_by_date, t.respond_by_date, 'the turn\'s deadline is kept');
+  const open = (await openRows()).filter((o) => o.entry_id === ids.kim);
+  assert.equal(new Set(open.map((o) => o.turn_id)).size, 1);
+});
+
+test('a family that changes their mind with no turn open is back in line for the litter, with the pass forgiven', async () => {
+  await waitlistEntryRepo.update(ids.lee, { prepasses: [{ litter_id: A.id, date: '2026-10-01' }] });
+  await actions.openPicks(A.id, { date: DAY }); // the Lees' turn is passed at once; the Kims are offered
+  const leeRow = (await waitlistOfferRepo.getByEntry(ids.lee))[0];
+  assert.equal(leeRow.counts_as_pass, true);
+  for (const o of await openRows()) await actions.recordOutcome(o.id, 'voided', { date: DAY, moveOn: false });
+  const res = await actions.undoPrepass(leeRow.id, { today: DAY });
+  assert.equal(res.joined, null);
+  const rows = await waitlistOfferRepo.getByKennel(K.id);
+  assert.equal(rules.turnSpent(rows, A.id, ids.lee), false, 'A is theirs to be offered again');
+  assert.equal(rules.passesUsed(await waitlistEntryRepo.getById(ids.lee), rows), 0);
+  const next = await actions.offerNextTurn(K.id, { today: DAY });
+  assert.equal(next.entry_id, ids.lee);
+});
+
+// --- Step 7 (D11, K6-3): the waitlist's deadlines on the kennel's own date ---------------
+
+test('kennelToday: the kennel\'s zone, else the device\'s date', async () => {
+  const { kennelToday, dayInZone, todayYMD } = await import('../shared/data/dateUtils.js');
+  const now = new Date('2026-03-15T05:00:00Z');
+  assert.equal(dayInZone('Pacific/Kiritimati', now), '2026-03-15');
+  assert.equal(dayInZone('Pacific/Pago_Pago', now), '2026-03-14');
+  assert.equal(kennelToday({ time_zone: 'America/Chicago' }, now), '2026-03-15');
+  assert.equal(kennelToday({ time_zone: 'Not/AZone' }, new Date()), todayYMD());
+  assert.equal(kennelToday(null), todayYMD());
+});
+
+test('an action with no date given sets the deadline from the kennel\'s day', async () => {
+  const { kennelToday } = await import('../shared/data/dateUtils.js');
+  await kennelRepo.update(K.id, { time_zone: 'Pacific/Kiritimati', waitlist_config: { max_passes: 2, respond_days: 3 } });
+  const day = kennelToday(await kennelRepo.getById(K.id));
+  const t = await actions.openPicks(A.id);
+  assert.equal(t.offers[0].offered_date, day);
+  assert.equal((await litterRepo.getById(A.id)).picks_opened_date, day);
+});
+
+test('overdue turns and fees read each kennel\'s own day', () => {
+  const offers = [
+    { id: 'a', turn_id: 'ta', entry_id: 'e1', kennel_id: 'k1', outcome: 'open', respond_by_date: '2026-10-11' },
+    { id: 'b', turn_id: 'tb', entry_id: 'e2', kennel_id: 'k2', outcome: 'open', respond_by_date: '2026-10-11' }
+  ];
+  const dayOf = (kid) => (kid === 'k1' ? '2026-10-12' : '2026-10-11');
+  assert.deepEqual(rules.overdueTurns(offers, dayOf).map((t) => t.id), ['ta']);
+  const fees = [{ id: 'f1', kennel_id: 'k1', status: 'approved', fee_due_date: '2026-10-11' }, { id: 'f2', kennel_id: 'k2', status: 'approved', fee_due_date: '2026-10-11' }];
+  assert.deepEqual(rules.overdueFees(fees, dayOf).map((e) => e.id), ['f1']);
+});

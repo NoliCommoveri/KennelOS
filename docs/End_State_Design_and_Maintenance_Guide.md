@@ -245,7 +245,7 @@ modules they use. The core data-layer modules:
 | `kennelScope.js` / `scopePredicates.js` | Active-kennel scope: bound read predicates and write stamp / their pure half |
 | `editionConfig.js`, `editionTour.js`, `proPages.js`, `demoMode.js` | Edition injection points and gates (§0) |
 | `settings.js`, `nudgeState.js` | Device-local `localStorage` settings; nudge dismissals (§19) |
-| `dateUtils.js` | `todayYMD()`, the single "what is today" |
+| `dateUtils.js` | `todayYMD()`, the single "what is today"; `kennelToday(kennel)` / `dayInZone(tz)`, a kennel's own date for the waitlist's deadlines (§29) |
 | `appReset.js`, `sampleData.js` | Reset App / remote erase; the sample kennel seed (§11) |
 
 ---
@@ -1184,7 +1184,7 @@ second registrations when it has none.
 
 - `id` = `crypto.randomUUID()`. Soft delete only; never cascades.
 - Date-only fields are `YYYY-MM-DD`, compared lexicographically; "today" is local
-  (`todayYMD`). Only `created_at`/`updated_at` are full ISO.
+  (`todayYMD`), except the waitlist's deadlines, which use the kennel's date (`kennelToday`, §29). Only `created_at`/`updated_at` are full ISO.
 - Money is decimal, never cents.
 - Pickers exclude archived by default. Every dog picker (sire/dam on the Dog, Litter and
   Pairing forms; contract, sale, stud-service partner, heat-cycle dam, expense, document,
@@ -2176,6 +2176,19 @@ restored into Lite keeps its waitlist rows, dormant.
   server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
   on the open day before (or, if that day's runs were all missed, any day up to the due
   date; the default subject names the date, `[Pay by]`). Dates already set (an offer made, a fee asked for) keep theirs.
+- **Whose clock** (decision D11): the waitlist's deadlines (turns, fees, "Ready now?", the
+  undo windows, pickup cutoffs and extras' dates) run on the kennel's own date,
+  `dateUtils.kennelToday(kennel)` from `Kennel.time_zone` (set when the list goes online;
+  none, or one the browser doesn't know: the device's date). Every `waitlistActions` action
+  given no date takes it (`kennelDay`), as do the waitlist pages, the picks panel, Kels's
+  Review my waitlist, the pick and deposit dialogs' prefills, `sweepReadyChecks`, and
+  Today's waitlist nudges (`overdueTurns` / `overdueFees` take a date or `(kennelId) =>
+  date`; a kennel with no zone uses Today's date). Everything else in the app keeps the
+  device's date. The Worker reads the same day (`serverMoves.localNow`, `familyPages.localDay`
+  in `familyActions.checkAction`), and the family's page shows pickup, extras and pause
+  dates on it (`status.js` `kennelToday`). A projection with no valid `time_zone` has no
+  deadline closed or reminded by the server (`serverMoves.isTimeZone`); her device still
+  shows them on Today.
   A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
   dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
   Demo).
@@ -2579,7 +2592,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass: only the rows that pass closed, never a litter the family said "Not this litter" to
   (a row whose note begins "Passed ahead of time on"), and a turn passed in full ahead of time
-  has no turn to give back. `previewNextTurn(kennelId)` says who `nextTurn` would offer
+  has no turn to give back. **Changed their mind…** on a "Not this litter" row
+  (`isPrepassedRow`) is `undoPrepass(offerId)`: the row is voided (never a pass, a counted
+  pass forgiven), so the litter is theirs to be offered again; while they hold a turn it
+  joins it at its deadline when a pup in it still matches them. `previewNextTurn(kennelId)` says who `nextTurn` would offer
   without offering it; `extendTurn(turnId, { until })` gives an open turn a later respond-by
   date (after today), noted on each of its offers; a day she's closed (`open_days`,
   `closed_dates`) moves to her next open day (`onOpenDay`), returned as `moved_from`.

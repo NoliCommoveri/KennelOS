@@ -1238,6 +1238,12 @@ export function prepassFor(entry, litter) {
     || (p.pairing_id && litter.pairing_id && p.pairing_id === litter.pairing_id)) || null;
 }
 
+// A row written when a family's "Not this litter" was used up by their turn (the
+// actions' recordPrepassed): closed by their own instruction, not by a pass she
+// recorded. Read from its note, the only mark it has.
+export const PREPASSED_NOTE = 'Passed ahead of time on ';
+export const isPrepassedRow = (o) => Boolean(o) && o.outcome === 'passed' && String(o.notes || '').startsWith(PREPASSED_NOTE);
+
 // Split a turn's litters ([{ litter, eligibleDogs }]) into the ones to offer and
 // the ones the family already passed on ahead of time (each with its prepass).
 // Nothing counts until the turn comes (§16.2): the caller records the prepassed
@@ -1395,9 +1401,11 @@ export function joinsOpenTurn(turn, litter, entries, offers, pups, sales, { toda
   return [];
 }
 
-// Open turns whose respond-by date has passed: one per turn.
+// Open turns whose respond-by date has passed: one per turn. `today` is a date, or
+// (kennelId) => that kennel's date (each kennel's deadlines on its own clock, D11).
+const dayFor = (today, kennelId) => (typeof today === 'function' ? today(kennelId) : today);
 export function overdueTurns(offers, today) {
-  return openTurns(offers, null).filter((t) => isTurnOverdue(t, today));
+  return openTurns(offers, null).filter((t) => isTurnOverdue(t, dayFor(today, t.offers[0]?.kennel_id)));
 }
 
 // --- "Pups available soon" (Spec §15.5) -----------------------------------------
@@ -1657,7 +1665,7 @@ export function passToForgive(entry, offers) {
 
 // Approved entries whose pay-by date has passed — Today suggests "mark expired".
 export function overdueFees(entries, today) {
-  return entries.filter((e) => !e.is_archived && e.status === 'approved' && e.fee_due_date && e.fee_due_date < today);
+  return entries.filter((e) => !e.is_archived && e.status === 'approved' && e.fee_due_date && e.fee_due_date < dayFor(today, e.kennel_id));
 }
 
 // --- Contact.waitlist_status, kept in step (Spec §0, §4.1) ---------------------

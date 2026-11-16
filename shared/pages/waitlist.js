@@ -21,7 +21,7 @@ import {
   soonFamiliesForKennel, kennelBreeds, resolveBreed, whelpNotes, nextTurnPrepassNote, describeOfferChanges,
   numberedList, holdsPlace, isPupReserved, waitlistLitters, isFamilyPageOnly
 } from '../data/waitlistRules.js';
-import { esc, badge, fmtDate, fmtMoney, param, todayYMD, cardShell, alertModal, wireActionMenu } from '../assets/ui.js';
+import { esc, badge, fmtDate, fmtMoney, param, todayYMD, kennelToday, cardShell, alertModal, wireActionMenu } from '../assets/ui.js';
 import { resolveWaitlistKennel, mountKennelPicker, prefsSummary, entryFlags, openSoonNotice } from '../assets/waitlistUI.js';
 import { offerEmails } from '../assets/waitlistEmailUI.js';
 import { programIconHtml } from '../assets/programIcons.js';
@@ -113,7 +113,8 @@ async function main() {
   const breeds = kennelBreeds(kennel, dogs);
   const breedFlag = (e) => (e.pref_breed && resolveBreed(e.pref_breed, breeds) === null
     ? ' <span class="badge badge-red" title="No pup will match this breed. Open the family to pick one of your breeds.">Unknown breed</span>' : '');
-  const today = todayYMD();
+  // The waitlist's deadlines are on the kennel's own date (D11).
+  const today = kennelToday(kennel);
   const contactsById = new Map(contacts.map((c) => [c.id, c]));
   const nameOf = (e) => esc(entryName(e, contactsById.get(e.contact_id)));
   const programBadge = (e) => {

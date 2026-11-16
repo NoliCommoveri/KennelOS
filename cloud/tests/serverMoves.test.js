@@ -361,3 +361,13 @@ test('a turn\'s deadline is its latest row\'s, whichever row comes first (K6-12)
   ] } } };
   assert.equal(openTurns(p)[0].respondBy, '2026-10-09');
 });
+
+test('a kennel with no time zone has no deadline closed or reminded by the server (D11, K6-3)', async () => {
+  const { env } = await published();
+  const p = stored(env);
+  delete p.kennel.time_zone;
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  assert.deepEqual(await runKennel(env, row(env), { now: NOW, origin: 'o' }), { closed: 0, offered: 0, reminders: 0 });
+  assert.equal(count(env, 'wl_events'), 0);
+  assert.equal(mails(env).length, 0);
+});

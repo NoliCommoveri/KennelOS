@@ -5427,3 +5427,39 @@ No owner decisions needed; each fix follows the review's suggestion.
   Kels, the picks preview); Waitlist spec §6.1 and §16.1 rule 5 (Modified); Waitlist Fixes
   plan (status, step 6 Modified); FIX_PRIORITIES; README Status.
 - **Service worker:** no app file added or renamed; cache not bumped yet.
+- **Follow-up (owner's question, same day):** a family who takes back a "Not this litter"
+  after their turn used it up. **Changed their mind…** on that row (`undoPrepass`): the row
+  is voided (never a pass; a pass it counted is forgiven), so the litter is theirs to be
+  offered again; while they hold a turn it joins it at the turn's deadline. `isPrepassedRow`
+  and `PREPASSED_NOTE` moved to `waitlistRules`. Tests: `waitlistTurnRules.test.js` (+2).
+
+## 2026-11-16: Fix step 12, part 2: Waitlist Fixes plan step 7 (the clock, D11)
+
+- **Decided (owner):** D11, the kennel's time zone for the waitlist's deadlines only; D10, no
+  (nothing sealed into an application; K7-5 not built).
+- **Built:**
+  - `dateUtils.dayInZone(tz)` and `kennelToday(kennel)` (no zone, or an unknown one: the
+    device's date); `ui.js` re-exports it.
+  - **K6-3, her device:** every `waitlistActions` action given no date takes the kennel's
+    (`kennelDay`): offers, picks, deposits, outcomes, undos, side sales, approvals (the fee's
+    pay-by date), back-outs, requests. The Waitlist and family pages, the picks panel, Kels's
+    Review my waitlist and the pick and deposit dialogs' prefills use it; Today's waitlist
+    nudges read each kennel's date (`overdueTurns` / `overdueFees` take a date or a
+    `(kennelId) =>` function; a kennel with no zone keeps Today's date);
+    `sweepReadyChecks` per kennel.
+  - **K6-3, the Worker:** `serverMoves.isTimeZone`; a projection with no valid `time_zone`
+    has no deadline closed or reminded (logged without names). **Modified:** the plan said
+    "refuses"; nothing is refused, the server just leaves those to her device.
+  - **K8-9:** `familyActions.checkAction` reads the kennel's day (`familyPages.localDay`)
+    for extras, pickup and pause dates; the family page's `status.js` shows them on it
+    (and the pause picker's earliest day).
+- **Tests:** `tests/waitlistTurnRules.test.js` (+3); `cloud/tests/serverMoves.test.js` (+1),
+  `cloud/tests/familyActions.test.js` (+1). `node --test` 2149 pass; `cd cloud && npm test`
+  375 pass; `node build/assemble.mjs` succeeds; waitlist, family and litter pages load
+  without errors.
+- **Release:** Worker and family pages first (the server reads the same `time_zone` the
+  projection already carries), then the app. No migration.
+- **Docs:** End-State guide (dateUtils, data conventions, §29 Whose clock, Changed their
+  mind); Waitlist Fixes plan (D10, D11, step 7, K7-5); `cloud/README.md`; FIX_PRIORITIES;
+  README Status.
+- **Service worker:** no app file added or renamed; cache not bumped yet.

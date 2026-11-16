@@ -431,7 +431,8 @@ function placeActions(f) {
   else parts.push(decidedLine(pauseReq, 'your pause', kennel));
 
   if (state.open === 'pause') {
-    const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const [y, m, d] = kennelToday().split('-').map(Number);
+    const min = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
     parts.push(`<form data-form="pause" class="mt8">
         <label class="q">Pause my place until<input type="date" name="until" min="${min}" required></label>
         <label class="q mt8">Why? <span class="muted small">(optional; only ${esc(kennel)} sees this)</span><textarea name="note" maxlength="500"></textarea></label>
@@ -690,13 +691,24 @@ function recommendedHtml() {
 // prices (a new tab), then what they may ask for today under her group headings,
 // and what's on their sale with Cancel while they still can. Names only: prices
 // live on her page. Every request waits for her.
-const todayUtc = () => new Date().toISOString().slice(0, 10);
+// Her date, not UTC or the family's (D11, K8-9): her pickup days, cutoffs and
+// extras' dates end on her calendar, as the Worker checks them.
+function kennelToday() {
+  const tz = state.v?.kennel?.time_zone;
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
 function extrasHtml(f) {
   const x = f.extras;
   if (!x) return '';
   const k = state.v.kennel;
   const kennel = k.name;
-  const today = todayUtc();
+  const today = kennelToday();
   const sentAdd = (id) => pendingOf('extra_request', (p) => p.list_id === id).length;
   const sentCancel = (id) => pendingOf('extra_cancel', (p) => p.charge_id === id).length;
   const req = (kind, test) => (x.requests || []).find((r) => r.kind === kind && test(r) && !r.decided);
@@ -797,7 +809,7 @@ function pickupHtml(f) {
   const pk = f.pickup;
   if (!pk) return '';
   const kennel = state.v.kennel.name;
-  const today = todayUtc();
+  const today = kennelToday();
   const act = signedIn();
   const parts = [];
   const sentBook = pendingOf('pickup_book')[0];

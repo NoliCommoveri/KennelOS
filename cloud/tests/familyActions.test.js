@@ -343,3 +343,13 @@ test('backing out: only with an open sale, one of her reasons, one request at a 
   assert.throws(() => checkAction('back_out', { reason_id: 'changed_mind' }, { ...ctx(), pending: [{ kind: 'back_out', payload: {} }] }), /already_requested/);
   assert.throws(() => checkAction('back_out', { reason_id: 'changed_mind' }, ctx({ back_out: null })), /no_sale/);
 });
+
+test('her pickup cutoff ends on her calendar, not UTC: a Chicago evening is still the cutoff day (K8-9)', () => {
+  const pickup = { slots: [], booked: { date: '2026-11-05', change_until: '2026-11-03' }, requests: [], own_place: false };
+  const entry = { status: 'placed', companion: { available: true }, pickup };
+  // 20:00 on Nov 3 in Chicago is already Nov 4 in UTC.
+  const evening = { entry, projection: projection(), pending: [], now: new Date('2026-11-04T02:00:00Z') };
+  assert.deepEqual(checkAction('pickup_cancel', {}, evening), { note: '' });
+  const nextMorning = { ...evening, now: new Date('2026-11-04T14:00:00Z') };
+  assert.throws(() => checkAction('pickup_cancel', {}, nextMorning), /too_late/);
+});
