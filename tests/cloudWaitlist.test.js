@@ -510,6 +510,40 @@ test('extras (Family Requests plan §3): a family with a sale asks by name, her 
   assert.deepEqual((await saleRepo.getById(sale.id)).extra_charges, [], 'cancelled');
 });
 
+test('Add charges (owner, 2026-11-15): an extra from her price list or typed, transport and boarding go on the family\'s open sale', async () => {
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, { extra_charge_list: [{ id: 'stay', label: '12-week package', amount: 1200, boarding_days: 28 }] });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await assert.rejects(actions.addSaleCharge(entry.id, { kind: 'transport', fee: 100 }), /no open sale/);
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_pending', price: 2500 });
+
+  const a = await actions.addSaleCharge(entry.id, { kind: 'extra', listId: 'stay' });
+  assert.deepEqual([a.charge.label, a.charge.amount, a.charge.list_id, a.charge.boarding_days], ['12-week package', 1200, 'stay', 28]);
+  assert.equal(a.before.id, sale.id);
+  await assert.rejects(actions.addSaleCharge(entry.id, { kind: 'extra', listId: 'stay' }), /already on their sale/);
+  await assert.rejects(actions.addSaleCharge(entry.id, { kind: 'extra', label: 'Photos', amount: 0 }), /above \$0/);
+  await actions.addSaleCharge(entry.id, { kind: 'extra', label: 'Photos', amount: 75.5 });
+  await actions.addSaleCharge(entry.id, { kind: 'transport', fee: '340.255' });
+  await actions.addSaleCharge(entry.id, { kind: 'boarding', rate: 25, per: 'Day', count: 5 });
+  let s = await saleRepo.getById(sale.id);
+  assert.deepEqual(s.extra_charges.map((c) => [c.label, c.amount]), [['12-week package', 1200], ['Photos', 75.5]]);
+  assert.deepEqual([s.transport_fee, s.deferred_boarding_amount, s.deferred_boarding_frequency, s.deferred_boarding_duration_days, s.boarding_from_pickup], [340.26, 25, 'Day', '5', false]);
+  await actions.addSaleCharge(entry.id, { kind: 'transport', fee: 0 });
+  s = await saleRepo.getById(sale.id);
+  assert.equal(s.transport_fee, null, '$0 takes it off');
+  await assert.rejects(actions.addSaleCharge(entry.id, { kind: 'boarding', rate: 25, per: 'Fortnight', count: 2 }), /day, week or month/);
+  // Leave the data as the later tests expect it.
+  await saleRepo.hardDelete(sale.id);
+  await kennelRepo.update(k.id, { extra_charge_list: [] });
+});
+
 test('pickup (Family Requests plan §4): a family books a time and her Approve makes the pickup; their own address is measured, and her Approve sets the drop-off and fee', async () => {
   const { contactRepo } = await import('../shared/data/contactRepo.js');
   const { saleRepo } = await import('../shared/data/saleRepo.js');

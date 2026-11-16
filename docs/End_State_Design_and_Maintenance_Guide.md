@@ -1301,11 +1301,11 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
-| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
+| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup on the day after any stay still to end (`goHome.afterStays`), else the ready date or today; with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
 | `show-title` | a show track is complete with no `title_earned` event and its title not on the dog's Titles (`heldTitle`) | prefilled title event |
 | `int-review` | a vendor event wasn't applied, or a payment it recorded now covers everything on a sale not marked paid in full (`integrationApply.COVERS_ALL_REASON`, D34, §21.3) (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
-| `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
+| `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay and the pickup** / **Log the stay, move the pickup to …** (`stayPickupPlan`: the stay and the pickup the day after it, or the next pickup moved there; shown when there's a pickup to set) and **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid. On a sale with a payment schedule only an extra flagged `own_due_dates` (§21.3); any other is paid through the schedule (`payment-due`) | open the sale |
 | `payment-due` / `payment-missed` | all editions (`paymentDueNudges`, through `paymentDueItems`: `incomeView.getSaleStatements` for the scoped open sales): a due date on a sale's payment schedule (§21.3; a sale with none stored is its one due date, the balance due date else pickup) with money still owed, from `DUE_SOON_DAYS` (7) before its date through the day ("…'s Payment 1 for Maple is due Nov 20: $900.00", what's already paid of it in the detail) / its date gone by ("A scheduled payment was not marked received: *Family*, $X due *date*."; on the sale she records it, types a new date or cancels; no back-out suggestion, D4). Key `payment-due|payment-missed:<sale>:<due id>:<date>`, so a moved date asks again. Not the deposit (offers and side sales ask for it), not extras on their own dates (`extra-due`), not a due date with no date yet. Each nudge carries `owed` | open the sale |
 | `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup, backing out) | the matching waitlist action (§29) |
@@ -1571,9 +1571,20 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
 - **Training stays:** a price-list extra's `boarding_days` is copied onto the sale's charge.
   Its stay is a `boarding` event on the pup (reason Training, titled with the extra's name,
   `details.sale_id` + `details.extra_charge_id`; `goHome.trainingStayEvent`), the link stored
-  on the event only. Approving such an extra on the entry page offers **Log the stay**;
-  approving its cancel offers **Remove the stay**; Today covers every other path (the
-  `training-stay` nudges). The event form carries the two link keys through an edit
+  on the event only. Approving its cancel offers **Remove the stay**.
+- **Stay and pickup** (`assets/stayPickupUI.js`, shared; `offerStayAndPickup`): whenever a stay
+  extra or boarding goes on a sale it offers, in one dialog, the stay(s) and the pickup the
+  day after. The plan is `goHome.stayPickupPlan` (pure): each stay extra with no linked stay
+  from the ready date (today once passed), after the sale's stays already logged, one after
+  another; boarding just added with none logged from 7 days before the ready date, from the
+  day after the last stay, its length long; then the pickup the day after it all, a new one
+  (`pickupEvent`) or the next one on the calendar moved there when it falls before. Every
+  date is editable (a stay's end follows its start, the next stay and the pickup follow the
+  last end until she changes them), each line can be unticked. Offered after the Sale page's
+  save (after the schedule question; `goHome.addedStays(before, after)`, an open sale only),
+  after approving a family's stay extra, and after **Add charges…**. Today's
+  `training-stay` nudge adds **Log the stay and the pickup** (or **Log the stay, move the
+  pickup**) beside **Log the stay**. The event form carries the two link keys through an edit
   (`LINK_DETAIL_KEYS`). A stay counts as boarding for the go-home nudges like any other.
 - **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal sent as
   business…), for an ordinary sale at the base price whose family chooses to pay that way. Each
@@ -2618,7 +2629,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,
   and **Backing out** (online lists only; the online-only fields inside the other groups
   likewise). **Contact page:** the family's entries (and the
-  waitlist status becomes read-only). **Dashboard:** application and list tiles. **Today:**
+  waitlist status becomes read-only), and a **Waitlist page →** header button to the entry
+  `waitlistRules.entryForContact` picks: one not closed, else the most recent (not closed:
+  `WAITLIST_OPEN_STATUSES`, or placed with its sale still open; several: the most recent of
+  them; archived ones count only when all are). **Dashboard:** application and list tiles. **Today:**
   waitlist nudges (§19).
 - **"Almost your turn…"** (`waitlistUI.openSoonNotice`): the families and her editable
   message, sent by `mailto:` BCC or copied addresses (stamping `soon_notified_*`), or from
@@ -2903,6 +2917,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
+  On the entry page an address request also has **Add transport…** (Add charges on
+  Transport, its miles and place filled in).
+- **Add charges…** (Interact's Do something, while the family has an open sale: `endableSale`):
+  a dialog choosing **Extra** (her price list grouped, each with its price and stay days, one
+  already on the sale disabled, or Something else: a name and amount; the hint says how it's
+  paid and that a stay is offered next), **Transport** (miles one way from `home_miles` or the
+  request, **Get driving miles**, **Open in Maps**, the fee from `transportQuote` with the
+  working; replaces the sale's, $0 takes it off) or **Boarding** (rate, from the sale's or her
+  standard `boarding_rate`; per; how many; replaces the sale's, `boarding_from_pickup` false).
+  `waitlistActions.addSaleCharge` puts it on the family's open sale (`familySale`) as the Sale
+  page would (a price-list extra through `chargeFromPriceList`). Then `afterAction` (the
+  schedule question) and, for a stay extra or boarding, Stay and pickup. No email: their status
+  page shows it.
   A pickup she logs another way while a family's time or own place still waits
   (`familyPickup.pickupWish`; `waitlistActions.pickupWishesFor` finds each sale's family)
   starts with what they asked for: Today's **Schedule pickup** / **No, new pickup date**
@@ -3312,7 +3339,8 @@ Share with families hint and the card's badge say so for this type.
     among her forms), the form goes out on that agreement's own sendable record for the
     sale, else a new draft titled "<form label>: <pup>". So one being signed never marks
     another Signed. The Contract page then opens that record; Pick to send does the same.
-  - Each fills the sale fields plus its own group (`contractForms.fieldGroupsFor`), from
+  - Each fills the sale fields, the sale's transport and boarding, and an Extra agreement its
+    extra (`contractForms.fieldGroupsFor`), from
     `contractAddOns.addOnFacts` (pure; `contractSend.saleAddOns` reads the records, and
     `gatherContractFacts` passes it as `addOns`):
     - transport: the fee, the date and place of the sale's next pickup event (else its
@@ -3321,7 +3349,8 @@ Share with families hint and the card's badge say so for this type.
       its ready date, or the day after its last training stay) to the day before its pickup
       (else `goHome.boardingEnd`);
     - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with
-      the row's name): name, price-list description, price, the payment plan in words and up
+      the row's name): name, price-list description, price, the sale's price plus it
+      (`priceWithExtra`, nothing paid subtracted), the payment plan in words and up
       to four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
       training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`),
       else the one Today's nudge would log, from the ready date. A deposit fee charge-back
@@ -3334,10 +3363,14 @@ Share with families hint and the card's badge say so for this type.
     without.
   `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
   Which groups of `PREFILL_FIELDS` a template kind fills (`contractForms.fieldGroupsFor`),
-  after `every` (contract, kennel and `breeder*`): pet home, breeding rights and deposit the
-  sale; transport, boarding and extra the sale and their own; stud service its own; lease and
-  foster the dog; co-own and Other the sale and the dog (the dog's other party only when
-  there's no sale: on a sale it's the buyer).
+  after `every` (contract, kennel and `breeder*`): every kind on a sale (pet home, breeding
+  rights, deposit, transport, boarding, extra, co-own, Other) the sale, transport and
+  boarding, so one sales contract can list them; extra only an Extra agreement (its row names
+  the extra); stud service its own; lease and foster the dog; co-own and Other also the dog
+  (the dog's other party only when there's no sale: on a sale it's the buyer). Transport fills
+  on a kind other than a Transport agreement only when the sale has a transport fee; boarding
+  only when the sale has deferred boarding. The editor offers every field on every template
+  (Payment Schedule plan D38), and the Send preview names a placed field the kind doesn't fill.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
@@ -3430,6 +3463,37 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     places a field with a mouse (a drag from its field list, or a right-click on the page)
     and opens zoomed in beside its 320 px field list on a phone, so on a device with no
     mouse (`(any-pointer: fine)` false) Place fields says so instead of opening it.
+  - **Field guide** (`assets/fieldGuideUI.js`, Pro-only; its rows `data/prefillGuide.js`,
+    shared): a button on Contract templates, and offered again once Place fields has opened
+    the editor. It opens where it stays up beside Firma's tab: a Picture-in-Picture window
+    (`documentPictureInPicture`, Chrome and Edge), else a pop-up window, else (pop-ups
+    blocked) a panel on the page in its own shadow root; one at a time. Three tabs, in this
+    order (`openFieldGuide({ tab })`, `help` by default; Place fields offers it on Fields):
+    - **Using Firma's editor**: see below.
+    - **Fields**: every fact by its `FIRMA_LABELS` label, with a Copy button, which
+      contracts fill it (`GUIDE_GROUPS`, as `fieldGroupsFor` reads), how its value is worked
+      out (`prefillGuide` `HOW`, else the `PREFILL_FIELDS` words) and an example. By type
+      (one section per group; a fact in two groups shows in both, each with that group's
+      example) or A–Z, and a filter. The examples are `prefillValues` on made-up records
+      (an Extra agreement on an example sale with a schedule, transport, boarding and a
+      training package; a stud service; a lease: `EXAMPLE_STORY`), so they're what a real
+      send would put there, and add up as the contracts do.
+    - **Sample sales** (`data/prefillSamples.js`, shared): six made-up sales set up
+      different ways (deposit only; deposit pending with the application fee credited
+      toward it; transport with a payment in and a balance due date; money carried over from
+      a lost pup; a plan with a package; boarding with two payments before pickup). Each
+      shows its Sale page's parts (`saleRows`) beside a sample contract's price section
+      (`sections`: the price, what's added to it, everything on the sale, the payment plan):
+      per line the detail to place, the value it fills (or why it's blank) and how it's
+      worked out, with an "adds up" line per section. A line hovered, focused or tapped (a
+      tap pins it) outlines in red the sale parts it comes from (`sources`); the sale card
+      sticks under the header. Values are `prefillValues` on facts gathered as
+      `gatherContractFacts` does (`saleFacts`: statement with its credits, price table,
+      balance due), so they're what a send fills.
+    - **Using Firma's editor** (the content): a computer only; a Text field per detail with its Prefilled
+      Data set to the label (Text for dates and money too: KennelOS sends text); one signer
+      per field; a second signer for I sign first / last; what a detail can't do (tick a
+      box, choose between packages); saving, then checking with the Send preview.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
     `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`

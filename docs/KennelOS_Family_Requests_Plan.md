@@ -272,6 +272,11 @@ or "18 miles: under your 25, no charge".
 - The pickup scheduler then lists only slots after the stay ends for that family, and the
   `gohome-boarding` nudge stops asking for boarding already covered.
 - Cancelling the extra asks whether to remove the stay; moving the stay leaves the charge.
+- **Modified (owner, 2026-11-15):** however a staying package (or boarding) goes on a sale
+  (the Sale page, approving a request, Add charges on the family's page), one dialog offers
+  the stay and the pickup the day after it (moving an earlier pickup); Today's stay nudge
+  offers both too. The family's page also has **Add charges…** (an extra, transport or
+  boarding on their open sale, with or without a request; no email).
 - New FK pair (`boarding.details.sale_id`) goes in `referenceRegistry.js` (D6: on the event,
   derived the other way, per the "no back-pointers" rule).
 

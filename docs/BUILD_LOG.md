@@ -5171,3 +5171,82 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
   card reads the new `failed` field, and ignores it when absent).
 - **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
 - `CACHE_NAME` bumped to `kennelos-shell-v147` (owner asked), covering fix steps 8 and 9 and the lifetime / end-of-life build batch.
+
+## 2026-11-15: Contract field: the price plus one extra (`priceWithExtra`)
+- **Why:** an extra's own agreement (an extended-stay package) prints a "Combined Total": the
+  pup's price plus that package's fee, nothing paid subtracted. No field held it
+  (`totalCharges` is everything on the sale; `balanceDue` has payments taken off).
+- **Built:** `contractForms.PREFILL_FIELDS.extra` gains `priceWithExtra` (the sale's `price`, with
+  any Full surcharge, plus the extra's amount); Firma label "Extra · Price + sale price".
+- **Tests:** `contractAddOns` (+1 assert); `priceTable` field count 88 → 89. `node --test` 2068 pass.
+- **Docs:** End-State guide (the extra agreement's fields).
+- **Service worker:** no app file added or renamed. `CACHE_NAME` not bumped.
+- `CACHE_NAME` bumped to `kennelos-shell-v148` (owner asked), covering the `priceWithExtra` contract field.
+
+## 2026-11-15: Transport and boarding fields fill on every contract on a sale
+- **Why:** the editor offers every field on every template (D38), but a send filled only the
+  form type's groups, so Transport · Fee placed on a sales contract came out blank. Owner:
+  her sister sends four contracts, but someone else may want one sales contract that lists
+  transport and boarding.
+- **Built:** `contractForms.fieldGroupsFor`: every kind on a sale fills `sale`, `transport`
+  and `boarding`; `extra` stays on the Extra agreement (its row names the extra); stud
+  service, lease and foster unchanged. Transport fills on a kind other than a Transport
+  agreement only when the sale has a transport fee (boarding already needs deferred
+  boarding). The Send preview's "doesn't fill on this kind" note follows (`previewNotes`).
+- **Tests:** `contractAddOns` (+1; the Extra agreement now carries the sale's transport and
+  boarding); `contractForms` (co-own and Other groups). `node --test` 2069 pass.
+- **Docs:** End-State guide (the field groups); Integrations plan (Modified note).
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.
+
+## 2026-11-15: Field guide for placing fields in Firma's editor
+- **Why (owner):** a reference that helps people pick the right prefill, with every label,
+  how it's worked out and an example, A–Z or by type, that stays up while they're in Firma's
+  editor; and general help on the workspace (a second signer, Text type for every prefill).
+- **Built:** `data/prefillGuide.js` (pure: `guideRows`, `GUIDE_GROUPS`, `EXAMPLE_STORY`; the
+  examples are `prefillValues` on made-up records). `assets/fieldGuideUI.js`
+  (`openFieldGuide`): a Picture-in-Picture window, else a pop-up, else an on-page panel; tabs
+  Fields (by type / A–Z, filter, Copy) and Using Firma's editor. Contract templates gains a
+  **Field guide** button and offers it again after Place fields opens the editor; its hint
+  there now says a Text field with Prefilled Data set to the label.
+- **Tests:** new `prefillGuide.test.js` (3). `node --test` 2072 pass; `node build/assemble.mjs`
+  green (Lite drops `fieldGuideUI.js`).
+- **Docs:** End-State guide (Contract templates: the Field guide).
+- **Service worker:** `assets/fieldGuideUI.js` and `data/prefillGuide.js` added to
+  `PRECACHE_URLS`; `fieldGuideUI.js` in `proPages`. Rides `kennelos-shell-v148`.
+
+## 2026-11-15: Field guide: Sample sales tab, tabs reordered
+- **Why (owner):** show, on sample sales set up different ways (with and without a plan;
+  transport, boarding, an extra; credits or money already in, and none), which money detail
+  to place on each line of a contract to get each figure, with red boxes on where it comes
+  from; and put the Firma help first.
+- **Built:** `data/prefillSamples.js` (pure: `SAMPLE_SALES`, `sampleSale`, `saleFacts`): six
+  samples, each the sale's parts and a sample contract's price section (lines with the
+  detail, value or why it's blank, how it's worked out, and the sale parts it comes from;
+  an "adds up" check per section). `fieldGuideUI`: tabs Using Firma's editor (first, the
+  default), Fields, Sample sales (picker; a line outlines its sources in red; the sale card
+  sticks). The Contract templates button opens the first tab; after Place fields, Fields.
+- **Tests:** new `prefillSamples.test.js` (3). `node --test` 2075 pass.
+- **Docs:** End-State guide (Field guide).
+- **Service worker:** `data/prefillSamples.js` added to `PRECACHE_URLS`. Rides `kennelos-shell-v148`.
+
+## 2026-11-15: Stay and pickup, Add charges, contact → waitlist page
+- **Why (owner):** adding a staying extra on the Sale page offered neither the stay nor the
+  pickup; a contact needed a way to its waitlist page; the family's page needed a way to add
+  an extra, transport or boarding to their sale (with or without a request; no email).
+- **Built:**
+  - `goHome.stayPickupPlan` / `addedStays` / `afterStays` (pure) and `assets/stayPickupUI.js`
+    (shared): one dialog for the stay(s), boarding and the pickup the day after (an earlier
+    pickup moved), every date editable. After the Sale page's save (after the schedule
+    question), after approving a family's stay extra (replacing the stay-only prompt), after
+    Add charges. Today: `training-stay` adds **Log the stay and the pickup**; the go-home
+    pickup nudge defaults to the day after any stay still to end.
+  - `waitlistActions.addSaleCharge` and Interact's **Add charges…** (Extra from the price
+    list or typed / Transport with the quote and Get driving miles / Boarding from the
+    standard rate); an address request gains **Add transport…**.
+  - `waitlistRules.entryForContact` and the Contact page's **Waitlist page →** button (one
+    not closed, else the most recent; placed with an open sale counts as not closed).
+- **Tests:** `goHome` (+3), `waitlistRules` (+1), `cloudWaitlist` (+1). `node --test` 2080 pass; `node build/assemble.mjs` green.
+- **Docs:** End-State guide (training stays, Stay and pickup, the nudges, Add charges, the
+  Contact page); Family Requests plan §6 (Modified note).
+- **Service worker:** `assets/stayPickupUI.js` added to `PRECACHE_URLS` (shared). Rides
+  `kennelos-shell-v148`.
