@@ -16,13 +16,15 @@
 // server state, like r2_sweep, and so is account_deletions (token hashes of deleted accounts, for 90 days). Of
 // assisted setup, assist_programs is exported; its links, events and the manager's
 // push subscriptions aren't. E-sign sends, own limits and ops_config are (the sends
-// map Firma's requests back to contracts and count the month).
+// map Firma's requests back to contracts and count the month), and so is the template
+// library (its offers, named breeders, who may add what, and the copies made).
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
 export const EXPORT_TABLES = ['users', 'programs', 'assist_programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps',
   'pro_purchases', 'license_links', 'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_sessions', 'wl_senders',
-  'sync_devices', 'int_connections', 'int_events', 'notify_settings', 'push_subscriptions', 'esign_sends', 'esign_limits', 'ops_config'];
+  'sync_devices', 'int_connections', 'int_events', 'notify_settings', 'push_subscriptions', 'esign_sends', 'esign_limits', 'ops_config',
+  'esign_library_templates', 'esign_library_breeders', 'esign_library_access', 'esign_library_copies'];
 export const FORMAT = 'kennelos-cloud-d1';
 
 async function schemaVersion(db) {

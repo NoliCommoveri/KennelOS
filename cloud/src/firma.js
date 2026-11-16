@@ -61,7 +61,7 @@ const base = (env) => (env.FIRMA_API_URL || FIRMA_DEFAULT_URL).replace(/\/+$/, '
 
 // → { status, data }. A network failure is { status: 0 }. Firma's body is parsed
 // when it is JSON; nothing from it is logged.
-async function firma(env, key, method, path, body) {
+export async function firma(env, key, method, path, body) {
   let res;
   try {
     res = await fetch(`${base(env)}${path}`, {
@@ -77,23 +77,23 @@ async function firma(env, key, method, path, body) {
   return { status: res.status, data };
 }
 
-const ok = (r) => r.status >= 200 && r.status < 300;
+export const ok = (r) => r.status >= 200 && r.status < 300;
 // Firma's error code (e.g. VALIDATION_ERROR, RECIPIENT_EMAIL_SUPPRESSED), never its message.
-const firmaCode = (r) => (typeof r.data?.code === 'string' && /^[A-Z0-9_]{1,60}$/.test(r.data.code) ? r.data.code : null);
+export const firmaCode = (r) => (typeof r.data?.code === 'string' && /^[A-Z0-9_]{1,60}$/.test(r.data.code) ? r.data.code : null);
 
-function masterKey(env) {
+export function masterKey(env) {
   if (!env.FIRMA_API_KEY) fail(503, 'esign_not_configured');
   return env.FIRMA_API_KEY;
 }
 
 // --- Her connection -------------------------------------------------------------------------
 
-async function connectionOf(env, programId) {
+export async function connectionOf(env, programId) {
   return env.DB.prepare("SELECT * FROM int_connections WHERE program_id = ? AND provider = 'firma' ORDER BY connected_at LIMIT 1")
     .bind(programId).first();
 }
 
-async function secretsOf(env, connection) {
+export async function secretsOf(env, connection) {
   try { return JSON.parse(await openToken(env, connection)) || {}; } catch { return {}; }
 }
 
@@ -102,7 +102,7 @@ async function secretsOf(env, connection) {
 // not connected and Set up makes a new workspace; → 409 esign_workspace_gone. Still
 // there, or no clear answer: 502 esign_unavailable, as before.
 const REFUSED = new Set([401, 403, 404]);
-async function failFirma(env, connection, r, { refused = REFUSED } = {}) {
+export async function failFirma(env, connection, r, { refused = REFUSED } = {}) {
   if (connection && refused.has(r.status) && env.FIRMA_API_KEY) {
     const w = await firma(env, env.FIRMA_API_KEY, 'GET', `/workspaces/${encodeURIComponent(connection.account_ref)}`);
     const gone = w.status === 404 || w.status === 410 || (ok(w) && (w.data?.deleted === true || w.data?.is_deleted === true || !!w.data?.deleted_at));
@@ -119,7 +119,7 @@ async function failFirma(env, connection, r, { refused = REFUSED } = {}) {
 }
 
 // Her connection and its workspace key, or 409 when she hasn't connected.
-async function mine(env, auth) {
+export async function mine(env, auth) {
   const connection = await connectionOf(env, auth.programId);
   if (!connection) fail(409, 'esign_not_connected');
   const secrets = await secretsOf(env, connection);
@@ -340,7 +340,7 @@ export async function syncFirmaFields(env, auth, body) {
 // that repeats one already read (paging not honoured) or the page cap leaves it false.
 const FIELD_PAGE = 100;
 const FIELD_PAGES_MAX = 4;
-async function workspaceFields(env, key, ws, connection) {
+export async function workspaceFields(env, key, ws, connection) {
   const rows = [];
   const seen = new Set();
   let calls = 0;
@@ -533,7 +533,7 @@ export function withFieldAliases(facts, rows) {
 
 // The keys of prefilled fields Firma left empty on a request it made (only the
 // keys: never a value), for the log. → [key]
-const fieldsOf = (data) => (Array.isArray(data) ? data
+export const fieldsOf = (data) => (Array.isArray(data) ? data
   : Array.isArray(data?.fields) ? data.fields
     : Array.isArray(data?.results) ? data.results
       : Array.isArray(data?.signing_request?.fields) ? data.signing_request.fields : []);

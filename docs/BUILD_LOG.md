@@ -5327,3 +5327,35 @@ No owner decisions needed; each fix follows the review's suggestion.
   the litter draft on resume and before the save, the vet step, applicants, the form, Getting
   Started, the website check, the tour); this review's `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.
+
+## 2026-11-16: The template library (Integrations plan §2.3b, D39–D41)
+- **Why (owner):** build contract templates with their details already placed, for chosen
+  breeders to pull into their own templates, without support being in their program
+  (assisted setup). Firma's prefills name a workspace's own custom-field id, so a plain
+  copy leaves them empty in another workspace.
+- **Found:** Firma's `POST /templates/{id}/copy` (company key) deep-copies a template into
+  another workspace of the company. Every KennelOS workspace has the same custom fields by
+  `field_name` (one fact list), so each prefill can be pointed at the breeder's field of the
+  same name after the copy (`PATCH /templates/{id}` with one `field`).
+- **Built:**
+  - Worker: `src/esignLibrary.js` (`prefillRemap`, pure; the manager app's library routes;
+    `GET /integrations/firma/library`, `POST /integrations/firma/library/add`, resumable
+    within the 45-call budget), migration `0027_esign_library` (offers, named breeders, who
+    may add what, copies), account deletion and `/ops` export. `firma.js` exports the helpers
+    it shares.
+  - Manager app: a Templates tab (link the library account, name breeders by email, per
+    template its name, line, who signs and who may add it: no one, every breeder, or chosen
+    breeders).
+  - App: Contract templates' **From KennelOS** (`cloudEsign.libraryTemplates` /
+    `addFromLibrary`, `cloudApi.listFirmaLibrary` / `addFirmaLibraryTemplate`);
+    `setTemplateType` takes `remember: false` so a library add keeps her own last signs choice.
+- **Decided (owner):** D39 the library is the owner's test account's workspace, linked in
+  the manager app; D40 access per template and per breeder. **Proposed, built:** D41 support
+  sets who signs, the breeder picks the kind; a one-time copy, its origin kept.
+- **Tests:** new `cloud/tests/esignLibrary.test.js` (7); `tests/esign.test.js` (+1).
+  `node --test` 2088 pass; `cd cloud && npm test` 372 pass. Manager app and Contract
+  templates checked in a browser (phone and desktop) against a fake Firma.
+- **To prove on production:** `docs/LAUNCH_CHECKLIST.md` (the template library, first run).
+- **Docs:** Integrations plan §2.3b and D39–D41; End-State guide (From KennelOS); Assisted
+  Setup plan §2; `cloud/README.md`; launch checklist; README status.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v149` (covers the template-library app changes and the v148 batch before it).

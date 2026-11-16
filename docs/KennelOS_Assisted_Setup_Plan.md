@@ -76,6 +76,9 @@ every manager app out** ends them all without rotating `OPS_TOKEN`.
   **Modified:** this was one form (email, erase on, DELETE); review K05-2 made it two steps.
 - **Notifications** for: she signed in on her device (keep the setup device open), she
   took over, she asked for help, she ended help.
+- **Templates** (a second tab): the template library, contract templates support builds
+  once and offers to chosen breeders, who add a copy themselves, so support needn't be in
+  their program to set up their e-sign templates (`KennelOS_Integrations_Plan.md` §2.3b).
 
 ## 3. What a helper can and can't do
 

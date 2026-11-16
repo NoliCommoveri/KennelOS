@@ -37,6 +37,7 @@ import esignCopies from './0023_esign_copies.sql';
 import esignSignFirst from './0024_esign_sign_first.sql';
 import syncBaseSeq from './0025_sync_base_seq.sql';
 import failedChangesManagerSessions from './0026_failed_changes_manager_sessions.sql';
+import esignLibrary from './0027_esign_library.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -65,4 +66,5 @@ export const MIGRATIONS = [
   { id: '0024', name: 'esign_sign_first', sql: esignSignFirst },
   { id: '0025', name: 'sync_base_seq', sql: syncBaseSeq },
   { id: '0026', name: 'failed_changes_manager_sessions', sql: failedChangesManagerSessions },
+  { id: '0027', name: 'esign_library', sql: esignLibrary },
 ];
