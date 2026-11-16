@@ -353,3 +353,21 @@ test('K4-7: a fee reminder whose day was missed goes on the due day, once', asyn
   await runKennel(late.env, row(late.env), { now: NOW, origin: 'o' });
   assert.equal(mails(late.env).filter((m) => m.kind === 'fee_reminder').length, 0);
 });
+
+test('a turn\'s deadline is its latest row\'s, whichever row comes first (K6-12)', () => {
+  const p = { entries: { ann: { offers: [
+    { id: 'o1', turn_id: 't', litter_id: 'l1', offered_date: '2026-10-01', respond_by_date: '2026-10-04' },
+    { id: 'o2', turn_id: 't', litter_id: 'l2', offered_date: '2026-10-02', respond_by_date: '2026-10-09' }
+  ] } } };
+  assert.equal(openTurns(p)[0].respondBy, '2026-10-09');
+});
+
+test('a kennel with no time zone has no deadline closed or reminded by the server (D11, K6-3)', async () => {
+  const { env } = await published();
+  const p = stored(env);
+  delete p.kennel.time_zone;
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  assert.deepEqual(await runKennel(env, row(env), { now: NOW, origin: 'o' }), { closed: 0, offered: 0, reminders: 0 });
+  assert.equal(count(env, 'wl_events'), 0);
+  assert.equal(mails(env).length, 0);
+});

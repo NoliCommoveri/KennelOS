@@ -382,7 +382,9 @@ calls them. Nothing is stored except what §4 lists.
 - **Manual override:** `position_anchor_date` lets her move a family for a special case
   by giving them a different place in the date order: "place them as if they paid on
   March 2", or "place them right after the Smiths" (the app converts that to a date just
-  after the Smiths' anchor). Ordering then uses `position_anchor_date` instead of
+  after the Smiths' anchor). **Modified:** "with the Smiths" takes the Smiths' own date, and
+  families on one date are ordered by when their fee was recorded, so they may land just
+  before or after; the dialog says so. A family with no date can't be chosen. Ordering then uses `position_anchor_date` instead of
   `fee_received_date`; the real fee date is untouched. Because it's a date, not a "move N
   places" offset, it stays put as families ahead are placed or removed, two overrides can't
   collide, and it never crosses the priority group (step 1 still applies first). It shows
@@ -1415,7 +1417,8 @@ matches in every open litter.**
    their place, so when litter B opens they come before everyone below them, even if A's walk
    is already further down.
 5. **A litter opening during someone's turn** joins that turn (its pups added, the respond-by
-   date restarted) only when nobody ranked above the holder is eligible for it. Otherwise it
+   date restarted; **Modified:** never to a date earlier than the turn already had, so more
+   time she gave is kept) only when nobody ranked above the holder is eligible for it. Otherwise it
    waits, and the next turn goes to the higher-ranked family who matches it.
 6. **What counts as a pass (decided 2026-10-08): only passing on every pup offered in the
    turn.** Picking a pup from litter B while passing on litter A is not a pass. A turn passed in

@@ -11,7 +11,7 @@ import {
   isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, plannedHeats, depositsDueLitters, placeHidden, prefPlaces, prefCovers, narrowedPrefFields, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
-  overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
+  overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
   soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
   prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
@@ -357,7 +357,7 @@ test('overdue offers and fees are the ones past their date (today itself is stil
     offer({ id: 'due-today', respond_by_date: TODAY }),
     offer({ id: 'closed', respond_by_date: '2026-09-01', outcome: 'passed' }),
   ];
-  assert.deepEqual(overdueOffers(offers, TODAY).map((o) => o.id), ['late']);
+  assert.deepEqual(overdueTurns(offers, TODAY).map((t) => t.id), ['late']);
   const entries = [
     entry({ id: 'unpaid', status: 'approved', fee_due_date: '2026-10-01' }),
     entry({ id: 'no-window', status: 'approved' }),

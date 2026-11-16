@@ -1,6 +1,6 @@
 # KennelOS — Waitlist fixes and three enhancements (plan)
 
-> **Status: steps 1–4 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 5–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
+> **Status: steps 1–7 built** (`docs/BUILD_LOG.md`: 1–4 on 2026-11-11, 5 on 11-15, 6 and 7 on 11-16); steps 8–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
 > one build order. The owner answered the decisions that shape the enhancements the same day
@@ -45,6 +45,8 @@ in the same step, so the new features are built on one rule each, not on a fourt
 | D6 | E3: where does she find these families? | **Their own section on the Waitlist page**, with the other sections, not inside Closed. |
 | D7 | E3: do the two new fields sync between her devices? | **Yes: `cloud`** for `WaitlistEntry.off_list` and `Litter.waitlist_off`. |
 | D8 | E3: a family page family backs out, or loses its pup | **Keep or Refund only**, never "Move the deposit", and no "put them back in line". To join the list they apply. (Read from the owner's last answer, "Yes".) **Modified by D9:** a back-out is Keep only. |
+| D10 | K7-5: which policies did a family agree to? | **Decided 2026-11-16: no.** Nothing is sealed into an application; K7-5 isn't built. |
+| D11 | K6-3: whose clock ends a deadline? | **Decided 2026-11-16: the kennel's time zone** for the waitlist's deadlines only (turns, fees, ready checks, and the family-facing pickup and extras dates); everything else keeps the device's date. |
 | D9 | K8-2: a family backs out after paying more than the deposit. Today Move carries only the deposit and Refund erases everything. | **Decided 2026-11-15: nothing is refunded; she chooses how much to apply as a credit.** Breeders' contracts make all money non-refundable on a back-out. Keep what they paid, or put them back in line, asked whether to credit what they paid toward their next pup: the amount prefilled with all they paid, hers to change (owner, the same day). Refund is gone from the back-out. |
 
 **Still open** (each is assumed as recommended until the owner says otherwise):
@@ -52,8 +54,6 @@ in the same step, so the new features are built on one rule each, not on a fourt
 | # | Question | Recommendation |
 |---|---|---|
 | D3 | E1: what does the row show? | The name as it was listed (private names stay masked) and **Pup selected** in the Wants column. Never the pup's name, the date or the price. Her own Waitlist page may name the pup. |
-| D10 | K7-5: which policies did a family agree to? | Seal the `policies_updated` day into each application and keep earlier wordings when she saves. Needs her yes: it stores more. |
-| D11 | K6-3: whose clock ends a deadline? The setup card says "11:59 pm in the kennel's time zone"; her device uses its own clock. | The kennel's time zone for the waitlist's deadlines only (turns, fees, ready checks). Everything else keeps the device's date. |
 | D12 | K7-8: public names. "Smith Family" lists as "Smith F.". E1 keeps names on the public list longer, so this matters more. | Build the public name from the application's own name when the contact's name is a household or "Last, First", and always show her the public form in the Approve dialog. |
 
 ## 3. The enhancements
@@ -246,8 +246,8 @@ live before she sends E3 families to the portal.
 | **3** | **E3.** | E3, K7-9, K8-8 |
 | **4** | **The puppy portal says only what's true.** A returned sale is retracted; facts from the portal are checked and shown to her; disconnecting takes the portal button off. **Modified (built):** Disconnect turns the portal off on any device's disconnect (a device can't tell it was the last); one still linked turns it back on within the hour. | K7-1, K7-2, K7-3, K7-14 |
 | **5** | **Money a family is shown.** The deposit email, backing out after paying more, a paid step that changes, a carried deposit, the fee card, the wording. **Built 2026-11-15.** **Modified:** K8-1 (the deposit email from the sale's payment statement) and K8-10 (the fee card's two prices) are built with Payment Schedule plan step 6 (its D32); K8-4 came with the lost-pup credit (a carried amount is a published credit; a test now holds it). K8-2 is built to D9 (no refund, her credit). | K8-1, K8-2, K8-3, K8-4, K8-10, K8-13, K6b-5, K6b-8 |
-| **6** | **One turn rule each.** The out-of-turn guard asks the real rule; one reason for "can't offer"; Kels ranks from the same map; an extension is never shortened and honours her open days; undo puts back only what it closed. | K6-6, K6-7, K6-5, K6-2, K6-8, K6-4, K6-11, K6-12 (rest), K6b-6 |
-| **7** | **The clock.** The kennel's time zone ends deadlines on her device, on the Worker and on the family's page. | K6-3, K8-9 |
+| **6** | **One turn rule each.** The out-of-turn guard asks the real rule; one reason for "can't offer"; Kels ranks from the same map; an extension is never shortened and honours her open days; undo puts back only what it closed. **Built 2026-11-16.** K6-5 was already built (Kels review-defects batch). **Modified:** an extension onto a closed day moves to her next open day (not refused) and Kels says so; an undone pass leaves a "Not this litter" row closed; a family who takes it back is a separate action, **Changed their mind…** on that row (`undoPrepass`: the row is voided, so the litter is theirs to be offered again, joining a turn they hold). The `validateEntry` guard for an undated `active` record became an ordering rule instead (it sorts last), so a record that arrives undated can still be edited and acted on. | K6-6, K6-7, K6-5, K6-2, K6-8, K6-4, K6-11, K6-12 (rest), K6b-6 |
+| **7** | **The clock.** The kennel's time zone ends deadlines on her device, on the Worker and on the family's page. **Built 2026-11-16** (D11). **Modified:** with no time zone, the Worker leaves a kennel's deadlines and reminders alone (rather than refusing to publish); her device shows them. | K6-3, K8-9 |
 | **8** | **Applying and signing in.** | K7-4, K7-5, K7-6, K7-7, K7-10, K7-11, K7-13, K6b-7 |
 | **9** | **Pickup, miles and queued emails.** | K8-5, K8-6, K8-11, K8-14, K8-15 |
 | **10** | **Holding together.** Each action's writes in one transaction; the preview modal asks before dropping changes. | K6-13, K6b-9 |
@@ -322,7 +322,7 @@ back to what it was (step 5, with K8-2); the two Side Sale spec lines that disag
 | 2 | S2 | Facts from the portal rewrite her records unchecked and unseen | Only for a placement this device sent, in a fitting state, with bounded dates; a history line each; shown to her once | 4 |
 | 3 | S2 | Disconnecting the last device leaves the portal on | Clear `kennelport_portal` on the last disconnect; say so on the card | 4 |
 | 4 | S3 | A long policy is cut short for families | The editor enforces the server's limits | 8 |
-| 5 | S3 | Nothing records which policies a family agreed to | D10 | 8 |
+| 5 | S3 | Nothing records which policies a family agreed to | D10: not built (owner, 2026-11-16) | — |
 | 6 | S3 | A sealing failure shows the applicant nothing | Catch and say so, keeping their answers | 8 |
 | 7 | S3 | The code step can't be corrected or recovered | "Wrong address? Change it"; "Already applied? Enter your code" | 8 |
 | 8 | S3 | Public names show the surname for common shapes | D12. Before E1 ships, because E1 keeps names up longer | 2 |

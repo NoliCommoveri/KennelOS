@@ -5359,3 +5359,116 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Docs:** Integrations plan §2.3b and D39–D41; End-State guide (From KennelOS); Assisted
   Setup plan §2; `cloud/README.md`; launch checklist; README status.
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v149` (covers the template-library app changes and the v148 batch before it).
+
+## 2026-11-16: Reservation agreements before a sale (Contract type Reservation)
+
+- **Why (owner):** a breeder sends a reservation/deposit agreement before a pup is picked,
+  often without the KennelOS waitlist. Typing litter, sex and deposit into Firma's fields on
+  a phone while signing is miserable, so the details are picked in the app and prefilled.
+- **Built:**
+  - `vocab.CONTRACT_TYPE` adds `reservation`; the Deposit form type serves it.
+  - `contractRepo`: `BUYER_LINK_TYPES` (a reservation's buyer is `related_contact_id`, kept
+    out of `CONTACT_LINK_TYPES` so it's never a Companion partner) and `RESERVATION_FIELDS`
+    (`reservation_litter_id`, `_pref_sex`, `_pref_color`, `_deposit_amount`), tidied on save
+    and nulled on other types. `referenceRegistry`: the litter FK (scan). `syncRegistry`:
+    the four fields pending (device-only until decided).
+  - `saleDefaults.reservationDeposit`; `contractSend` gathers the buyer and litter
+    (`reservationLitterName`, `NEXT_AVAILABLE_LITTER`); `contractForms` adds the
+    `reservation` prefill group (4 new facts with Firma labels "Reservation · …"), filled on a
+    Deposit form or any form on a reservation; Field guide and Accounts list the group.
+  - Contract page: the Reservation fields as dropdowns (buyer, litter or Next available,
+    Either/Male/Female, color with suggestions, deposit from the litter); shortcuts on the
+    contact's Sales card and the waitlist family's ⋯ menu.
+- **Open (owner):** whether the four reservation fields go to the cloud (pending now).
+- **Tests:** new `tests/reservationContract.test.js` (8); `prefillGuide` (+1), field count
+  89 → 93. `node --test` all pass. Contract page checked in a browser at phone width.
+- **Docs:** End-State guide (Contract row, prefill groups, Reservation agreements).
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-16: Fix step 12, part 1: Waitlist Fixes plan step 6 (one turn rule each)
+
+- **Why:** K06's S2 (K6-6: the out-of-turn guard asked the per-litter rule, so she could jump
+  the queue with a green "They're next" and no note) and the turn-rule S3s/S4s beside it.
+  `docs/review/FIX_PRIORITIES.md` step 12; `docs/KennelOS_Waitlist_Fixes_Plan.md` step 6.
+- **Built:**
+  - **K6-6:** `waitlistRules.nextOfferedTurn(..., { opening })` (nextTurn's rule, the litter
+    being offered counted as open, skipping a family whose whole turn is "Not this
+    litter"). `offerTo` asks it and refuses another family unless `outOfOrder: true`
+    (`err.code 'out_of_turn'`, `err.nextEntry`); an out-of-order turn always gets a note
+    naming who was next. The Offer pups… dialog's badge and confirm, and the Waitlist page's
+    not-yet-open litters ("Opening picks offers the turn to …"), use it; Kels's Offer someone
+    else passes `outOfOrder` and lets `offerTo` write the note.
+  - **K6-7:** one `offerBlocker(entry, litter, …)` for the dialog and `offerTo` ("Not this
+    litter" and a pending side sale now say so before she picks).
+  - **K6-2:** `joinRespondBy`: a litter joining a turn never shortens its deadline.
+  - **K6-8:** `extendTurn` moves a closed day to her next open day (`onOpenDay`,
+    `moved_from`); Kels prefills `respondByDate` and says when the date moved.
+  - **K6-11:** `openPicks` keeps the first `picks_opened_date`.
+  - **K6-4:** `undoPass` reopens only the rows the pass closed, never a "Not this litter"
+    row; a turn passed in full ahead of time has no turn to give back.
+  - **K6-12:** `turnRespondBy`, `isTurnOverdue`, `holdsTurn` replace the page copies (entry
+    page, Waitlist page, picks panel, `recordSideSale`); the Worker's `openTurns` takes the
+    latest row's date; dead `overdueOffers` deleted; Kels uses `litterQueue`. (Item 1, the
+    live stages, was built in step 2.)
+  - **K6b-6:** the preview's "When it ends, next in line" comes from `simulateOpen`
+    (`action.next_after`, stated answers, every open litter, full prepasses left out), not
+    from the view or the Either switch.
+  - **Notes:** an `active` record with no date sorts last, not #1 (an ordering rule instead
+    of the plan's `validateEntry` guard: Modified); "Place them with…" a family with no date
+    refuses instead of clearing the override; the Waitlist spec's `position_anchor_date`
+    Modified note.
+  - **K6-5** was already built (Kels review-defects batch).
+- **Tests:** new `tests/waitlistTurnRules.test.js` (14); `waitlistTurns.test.js` marks its
+  deliberate out-of-order offers; `waitlistRules.test.js` reads `overdueTurns`;
+  `cloud/tests/serverMoves.test.js` (+1). `node --test` 2142 pass; `cd cloud && npm test`
+  373 pass; `node build/assemble.mjs` succeeds. Waitlist, family and litter pages load
+  without errors in a browser.
+- **Docs:** End-State guide §29 (position, turns, one rule per question, the offer flow,
+  Kels, the picks preview); Waitlist spec §6.1 and §16.1 rule 5 (Modified); Waitlist Fixes
+  plan (status, step 6 Modified); FIX_PRIORITIES; README Status.
+- **Service worker:** no app file added or renamed; cache not bumped yet.
+- **Follow-up (owner's question, same day):** a family who takes back a "Not this litter"
+  after their turn used it up. **Changed their mind…** on that row (`undoPrepass`): the row
+  is voided (never a pass; a pass it counted is forgiven), so the litter is theirs to be
+  offered again; while they hold a turn it joins it at the turn's deadline. `isPrepassedRow`
+  and `PREPASSED_NOTE` moved to `waitlistRules`. Tests: `waitlistTurnRules.test.js` (+2).
+
+## 2026-11-16: Fix step 12, part 2: Waitlist Fixes plan step 7 (the clock, D11)
+
+- **Decided (owner):** D11, the kennel's time zone for the waitlist's deadlines only; D10, no
+  (nothing sealed into an application; K7-5 not built).
+- **Built:**
+  - `dateUtils.dayInZone(tz)` and `kennelToday(kennel)` (no zone, or an unknown one: the
+    device's date); `ui.js` re-exports it.
+  - **K6-3, her device:** every `waitlistActions` action given no date takes the kennel's
+    (`kennelDay`): offers, picks, deposits, outcomes, undos, side sales, approvals (the fee's
+    pay-by date), back-outs, requests. The Waitlist and family pages, the picks panel, Kels's
+    Review my waitlist and the pick and deposit dialogs' prefills use it; Today's waitlist
+    nudges read each kennel's date (`overdueTurns` / `overdueFees` take a date or a
+    `(kennelId) =>` function; a kennel with no zone keeps Today's date);
+    `sweepReadyChecks` per kennel.
+  - **K6-3, the Worker:** `serverMoves.isTimeZone`; a projection with no valid `time_zone`
+    has no deadline closed or reminded (logged without names). **Modified:** the plan said
+    "refuses"; nothing is refused, the server just leaves those to her device.
+  - **K8-9:** `familyActions.checkAction` reads the kennel's day (`familyPages.localDay`)
+    for extras, pickup and pause dates; the family page's `status.js` shows them on it
+    (and the pause picker's earliest day).
+- **Tests:** `tests/waitlistTurnRules.test.js` (+3); `cloud/tests/serverMoves.test.js` (+1),
+  `cloud/tests/familyActions.test.js` (+1). `node --test` 2149 pass; `cd cloud && npm test`
+  375 pass; `node build/assemble.mjs` succeeds; waitlist, family and litter pages load
+  without errors.
+- **Release:** Worker and family pages first (the server reads the same `time_zone` the
+  projection already carries), then the app. No migration.
+- **Docs:** End-State guide (dateUtils, data conventions, §29 Whose clock, Changed their
+  mind); Waitlist Fixes plan (D10, D11, step 7, K7-5); `cloud/README.md`; FIX_PRIORITIES;
+  README Status.
+- **Service worker:** no app file added or renamed; cache not bumped yet.
+
+## 2026-11-16: One release for the reservation agreements and fix step 12
+
+- Folded onto one branch: Reservation agreements before a sale, and fix step 12 parts 1
+  and 2 (one turn rule each; the kennel's clock), cherry-picked from
+  `claude/fix-priorities-review-j6pq83`. The build log's two entries were kept side by side.
+- **Tests:** `node --test` 2158 pass; `cd cloud && npm test` 375 pass; editions build.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v150`
+  (covers all three).

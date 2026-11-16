@@ -27,6 +27,13 @@ export const MORNING_HOUR = 8;
 
 // --- Dates in the kennel's time zone (pure) ------------------------------------------
 
+// Is this an IANA time zone this runtime knows? A kennel without one has no clock
+// the server may close its deadlines on (D11, K6-3): her device still does.
+export function isTimeZone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+}
+
 // → { date: 'YYYY-MM-DD', hour } for `now` in `timeZone` (UTC when it isn't one).
 export function localNow(now, timeZone) {
   let parts;
@@ -114,6 +121,8 @@ export function openTurns(projection, { includeDirect = false } = {}) {
       if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, offeredDate: o.offered_date, picked: null });
       const t = out.get(turnId);
       t.offers.push(o);
+      // The turn's deadline is its latest row's, as on her device (turnRespondBy).
+      if ((o.respond_by_date || '') > (t.respondBy || '')) t.respondBy = o.respond_by_date;
       if (o.picked_dog_id) t.picked = o.picked_dog_id;
     }
   }
@@ -308,8 +317,12 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     run.changed = true;
   }
 
-  // 2. Deadlines she lets the server close.
-  for (const t of openTurns(projection)) {
+  // 2. Deadlines she lets the server close: only on the kennel's own clock. With no
+  // time zone published, a deadline isn't closed here (nor reminded, below); her
+  // device still shows it on Today.
+  const zoned = isTimeZone(projection.kennel?.time_zone);
+  if (!zoned && openTurns(projection).length) console.log('waitlist moves: kennel has no time zone, deadlines left to her device');
+  for (const t of zoned ? openTurns(projection) : []) {
     if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
     const trigger = t.picked ? 'no_deposit' : 'no_response';
     if (!autoOn(projection, trigger)) continue;
@@ -349,7 +362,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
   }
 
   // 3. Reminders, each once (its id). They write nothing but the message.
-  if (projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
+  if (zoned && projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
     for (const t of openTurns(projection, { includeDirect: true })) {
       if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy || turnIsEmpty(projection, t)) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);

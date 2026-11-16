@@ -245,7 +245,7 @@ modules they use. The core data-layer modules:
 | `kennelScope.js` / `scopePredicates.js` | Active-kennel scope: bound read predicates and write stamp / their pure half |
 | `editionConfig.js`, `editionTour.js`, `proPages.js`, `demoMode.js` | Edition injection points and gates (§0) |
 | `settings.js`, `nudgeState.js` | Device-local `localStorage` settings; nudge dismissals (§19) |
-| `dateUtils.js` | `todayYMD()`, the single "what is today" |
+| `dateUtils.js` | `todayYMD()`, the single "what is today"; `kennelToday(kennel)` / `dayInZone(tz)`, a kennel's own date for the waitlist's deadlines (§29) |
 | `appReset.js`, `sampleData.js` | Reset App / remote erase; the sample kennel seed (§11) |
 
 ---
@@ -268,7 +268,7 @@ to the cloud unsealed).
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date`; follows a first-date change while still the prefill), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date` (a new litter: today; a litter made from its pairing, the pairing's `expected_due_date`, else 63 days after its first date, else blank; on an Expected litter it is the expected date), `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
-| **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
+| **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` only for `lease`/`co_own`/`foster`/`other`, `related_contact_id` for those and for `reservation` (its buyer, `BUYER_LINK_TYPES`; never a Companion partner), forced null otherwise (`contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. A `reservation` (a reservation agreement before there's a sale, with or without the waitlist) has no sale or stud service and carries `RESERVATION_FIELDS`: `reservation_litter_id` (FK → Litter, a scanned reference; null = Next available litter), `reservation_pref_sex` (`WAITLIST_PREF_SEX`, default `any` = Either), `reservation_pref_color` (trimmed text), `reservation_deposit_amount` (number or null), all null on every other type and pending in the sync registry (device-only). |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `shared_ref` (cloud; a test or title that came on a Dog Card: `<dog public id>:<the sender's event id>`, §36). No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
@@ -1184,7 +1184,7 @@ second registrations when it has none.
 
 - `id` = `crypto.randomUUID()`. Soft delete only; never cascades.
 - Date-only fields are `YYYY-MM-DD`, compared lexicographically; "today" is local
-  (`todayYMD`). Only `created_at`/`updated_at` are full ISO.
+  (`todayYMD`), except the waitlist's deadlines, which use the kennel's date (`kennelToday`, §29). Only `created_at`/`updated_at` are full ISO.
 - Money is decimal, never cents.
 - Pickers exclude archived by default. Every dog picker (sire/dam on the Dog, Litter and
   Pairing forms; contract, sale, stud-service partner, heat-cycle dam, expense, document,
@@ -2176,6 +2176,19 @@ restored into Lite keeps its waitlist rows, dormant.
   server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
   on the open day before (or, if that day's runs were all missed, any day up to the due
   date; the default subject names the date, `[Pay by]`). Dates already set (an offer made, a fee asked for) keep theirs.
+- **Whose clock** (decision D11): the waitlist's deadlines (turns, fees, "Ready now?", the
+  undo windows, pickup cutoffs and extras' dates) run on the kennel's own date,
+  `dateUtils.kennelToday(kennel)` from `Kennel.time_zone` (set when the list goes online;
+  none, or one the browser doesn't know: the device's date). Every `waitlistActions` action
+  given no date takes it (`kennelDay`), as do the waitlist pages, the picks panel, Kels's
+  Review my waitlist, the pick and deposit dialogs' prefills, `sweepReadyChecks`, and
+  Today's waitlist nudges (`overdueTurns` / `overdueFees` take a date or `(kennelId) =>
+  date`; a kennel with no zone uses Today's date). Everything else in the app keeps the
+  device's date. The Worker reads the same day (`serverMoves.localNow`, `familyPages.localDay`
+  in `familyActions.checkAction`), and the family's page shows pickup, extras and pause
+  dates on it (`status.js` `kennelToday`). A projection with no valid `time_zone` has no
+  deadline closed or reminded by the server (`serverMoves.isTimeZone`); her device still
+  shows them on Today.
   A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
   dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
   Demo).
@@ -2363,7 +2376,11 @@ Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. 
 it computes is stored.**
 - **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
   else `fee_received_date` (else `approved_date` when the fee was waived), then
-  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`. A
+  record with none of the three dates (only a restore or sync of a row written elsewhere
+  makes one) sorts last in its group, never first. "Place them with the Smiths"
+  (`setPositionAnchor({ afterEntryId })`) copies the Smiths' date exactly, so the two are
+  ordered by `fee_received_at`; it refuses a family with no date rather than clearing hers.
 - **Pup selected** (Waitlist Fixes Plan §3.1): a family the list placed keeps its place and
   its number until the pup has gone home. `holdsPlace(entry, { sales, dogs })`: `placed`,
   not archived, not `off_list`, its `placed_sale_id` sale open (`vocab.isOpenSale`: not
@@ -2435,9 +2452,23 @@ it computes is stored.**
   every pup they're eligible for. `nextTurn` picks the top family with an eligible pup in an
   open litter they haven't spent a turn on (`turnSpent`, per litter; a voided offer gives it
   back), recalculated each time. A litter opening mid-turn joins it only if the holder is
-  that litter's top family (`joinsOpenTurn`). A pass closes the whole turn and counts
+  that litter's top family (`joinsOpenTurn`); the turn's deadline then restarts from today
+  for all its rows, but never earlier than the date it has (`joinRespondBy`), so more time
+  she gave by hand is kept. A pass closes the whole turn and counts
   **once**. "Not this litter" (`prepasses`) leaves a litter out when their turn comes; a
   turn made only of those is passed at once and reported (`auto_passed`).
+- **One rule per question** (`waitlistRules`; pages and Kels ask these, never their own
+  copy): a turn's deadline is `turnRespondBy(rows)` (the latest row's; the Worker's
+  `serverMoves.openTurns` reads it the same way), overdue is `isTurnOverdue(turn, today)`,
+  holding a turn is `holdsTurn(offers, entryId)`, a litter's own queue is `litterQueue`.
+  **Who a turn belongs to** is `nextOfferedTurn(..., { opening })`: `nextTurn`'s rule, with
+  the litter being offered from counted as open, skipping a family whose whole turn is "Not
+  this litter". `nextFamilyForLitter` (first in one litter's queue) only says someone is in
+  line for that litter (the Litters card, `prefChangeEffect`). **Why a family can't be
+  offered a litter** is `offerBlocker(entry, litter, …)`, in order: not on the list, the
+  litter archived or kept off, a turn held, their turn on it spent, a pending side sale, a
+  readiness hold, paused, not listening, "Not this litter", no pup available, no pup that
+  matches; `''` when they can.
 - **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
   undo that forgives the latest pass.
 - **A turn left with no pup** (`turnIsEmpty`, `emptiedTurns`: no pick waiting on its deposit
@@ -2539,8 +2570,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
   `waiting` and she offers by hand (**Open picks**, **Offer to them**, **Offer pups…**).
   Actions on one family (approve, fee received, undo removal or withdrawal) never make offers.
-- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`), `offerNext`,
-  `offerTo` (out of turn, with a note; nobody's place changes). **Accepting is pick +
+- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`: stamped the
+  first time picks open, kept on a second Open picks, cleared only by `closePicks`),
+  `offerNext`, `offerTo` (from a family's page or Kels; nobody's place changes). `offerTo`
+  refuses with `offerBlocker`'s reason, the same one the Offer pups… dialog shows beside each
+  litter. When `nextOfferedTurn` names another family it refuses (`err.code ===
+  'out_of_turn'`, `err.nextEntry`) unless the caller passes `outOfOrder: true` after asking
+  her ("Offer out of turn?"), and an out-of-order turn always carries a note naming who was
+  next (the caller's, else its own). **Accepting is pick +
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
   pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
@@ -2553,9 +2590,15 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   has no "deposit is already in" box), `recordOutcome('accepted')`, a family's pick on
   their status page, and a side sale (`recordSideSale`, on the side sale's date). `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
-  pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
-  `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
-  noted on each of its offers.
+  pass: only the rows that pass closed, never a litter the family said "Not this litter" to
+  (a row whose note begins "Passed ahead of time on"), and a turn passed in full ahead of time
+  has no turn to give back. **Changed their mind…** on a "Not this litter" row
+  (`isPrepassedRow`) is `undoPrepass(offerId)`: the row is voided (never a pass, a counted
+  pass forgiven), so the litter is theirs to be offered again; while they hold a turn it
+  joins it at its deadline when a pup in it still matches them. `previewNextTurn(kennelId)` says who `nextTurn` would offer
+  without offering it; `extendTurn(turnId, { until })` gives an open turn a later respond-by
+  date (after today), noted on each of its offers; a day she's closed (`open_days`,
+  `closed_dates`) moves to her next open day (`onOpenDay`), returned as `moved_from`.
 - **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
   when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
   It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
@@ -2655,7 +2698,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   rule a pup out), families applied or with the fee not recorded, and soft checks on the
   list's families (blank looking for, a breed not among hers, no email, no fee date). The
   **Either** switch (`withEitherAs`) reads Either families as female or male for the lists;
-  the action line always uses their stated answers. Her turn settings (respond days, passes,
+  the action line always uses their stated answers, and so does its "When it ends, next in
+  line" (the action's `next_after`, worked out on every open litter, leaving out a family
+  whose turn would be "Not this litter" in full; numbered from `positions`). Her turn settings (respond days, passes,
   no response counts, color matching, open days, closed dates, automatic offers) preview live
   as a draft and save to `waitlist_config` after `waitlistConfigProblem`; a pup's
   disposition, intended registration and sex save from its row. `?preview=<litter id>` stays
@@ -3404,10 +3449,23 @@ Share with families hint and the card's badge say so for this type.
   rights, deposit, transport, boarding, extra, co-own, Other) the sale, transport and
   boarding, so one sales contract can list them; extra only an Extra agreement (its row names
   the extra); stud service its own; lease and foster the dog; co-own and Other also the dog
-  (the dog's other party only when there's no sale: on a sale it's the buyer). Transport fills
+  (the dog's other party only when there's no sale: on a sale it's the buyer); deposit also
+  the reservation group, and a `reservation` contract fills it on any kind (`buyer*` from its
+  contact, `litterName` from `contractSend.reservationLitterName`, the litter's `sireName` /
+  `damName`, `preferredSex`, `preferredColor`, `reservationDeposit`). Transport fills
   on a kind other than a Transport agreement only when the sale has a transport fee; boarding
   only when the sale has deferred boarding. The editor offers every field on every template
   (Payment Schedule plan D38), and the Send preview names a placed field the kind doesn't fill.
+- **Reservation agreements** (Contract page, type Reservation): she picks the buyer, the
+  litter (open litters, expected first, or Next available litter), Preferred sex (Either /
+  Male / Female) and Preferred color (her dogs' colors suggested) from lists, and the
+  Deposit fills in from the litter's expected deposit for that sex
+  (`saleDefaults.reservationDeposit`: for Either, the two when they agree) and follows a new
+  litter or sex until she types her own. They go out as prefilled facts, so the family
+  types nothing on the signing form. Started from a contact's Sales card (**+ Reservation
+  agreement**) or a waitlist family's ⋯ menu (**Reservation agreement…**, their preferences
+  picked) as `contract.html?new=1&type=reservation&contact=…&sex=…&color=…&litter=…`. Her
+  Deposit forms are offered first.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
@@ -4704,15 +4762,17 @@ unpaid fees), else 26.
      `waitlistUI.restoreLostPupDialog`, as the Sale page does.
   3. **Offers past their deadline:** **They picked** / **The deposit came** (`pickDialog` /
      `depositDialog`), **Count it as a pass** (`recordOutcome`, `outcomeReport`), **Record no
-     response** (the nudge's action), **Give them more time** (`extendTurn`, then the offer
-     email with the new date).
+     response** (the nudge's action), **Give them more time** (prefilled with
+     `respondByDate` from today; `extendTurn`, saying when a closed day moved it; then the
+     offer email with the new date).
   4. **Picks to open:** **Open picks** (the nudge's action), **Not yet, remind me in a few
      days** (snoozes the nudge 3 days; the planned date stays), **Change the date**
      (`accept_deposits_date`).
   5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
      months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
      families with pups in it, ranked and numbered from `waitlistProgramRepo.getMapForKennel`,
-     archived programs included, as every other reader; `offerTo` with a note) / **Not yet**.
+     archived programs included, as every other reader; `litterQueue`; `offerTo` with
+     `outOfOrder`, which notes who was next) / **Not yet**.
   6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
      program, the contact as `contactMatches` suggests, their private-listing ask; then the
      fee request or "on the list" email) / **Decline** (confirmed; the declined email) /

@@ -13,7 +13,7 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
-import { sameFamilyIds, portalOf, portalLink } from './familyPages.js';
+import { sameFamilyIds, portalOf, portalLink, localDay } from './familyPages.js';
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
@@ -37,7 +37,9 @@ const SESSION = /^[0-9a-f]{64}$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-const todayUtc = (now) => now.toISOString().slice(0, 10);
+// The kennel's own date (D11, K8-9): her pickup cutoffs, pickup days, extras' dates
+// and pause limits are all hers, so a family's evening isn't already tomorrow.
+const kennelDay = (projection, now) => localDay(projection?.kennel?.time_zone, now);
 const addDays = (ymd, n) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 // The family a request acts for: a live session, on the page whose link it came
@@ -125,7 +127,7 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
   // approves it.
   if (action === 'extra_request' || action === 'extra_cancel') {
     const x = entry.companion?.available && entry.extras && typeof entry.extras === 'object' ? entry.extras : fail(409, 'no_sale');
-    const today = todayUtc(now);
+    const today = kennelDay(projection, now);
     const waiting = (r) => r && !r.decided;
     if (action === 'extra_request') {
       const id = String(body.list_id ?? '');
@@ -162,7 +164,7 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
   // approves it; the miles are measured in handleAct.
   if (['pickup_book', 'pickup_cancel', 'pickup_address', 'home_location'].includes(action)) {
     const pk = entry.companion?.available && entry.pickup && typeof entry.pickup === 'object' ? entry.pickup : fail(409, 'no_sale');
-    const today = todayUtc(now);
+    const today = kennelDay(projection, now);
     const note = cleanNote(body.note);
     const waitingBook = already('pickup_book') || already('pickup_address') || (pk.requests || []).some((r) => r && !r.decided && (r.kind === 'slot' || r.kind === 'address'));
     const canChange = !pk.booked || (pk.booked.change_until && today <= pk.booked.change_until);
@@ -246,7 +248,7 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     case 'pause_request': {
       if (entry.status !== 'active') fail(409, 'not_on_list');
       const until = String(body.until ?? '');
-      const today = todayUtc(now);
+      const today = kennelDay(projection, now);
       if (!YMD.test(until) || until <= today || until > addDays(today, ACTION_LIMITS.maxPauseDays)) fail(400, 'bad_date');
       return { until, note: cleanNote(body.note) };
     }
@@ -259,7 +261,7 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
       if (body.answer === 'yes') return { answer: 'yes' };
       if (body.answer !== 'no') fail(400, 'bad_request');
       const until = String(body.until ?? '');
-      const today = todayUtc(now);
+      const today = kennelDay(projection, now);
       if (!YMD.test(until) || until <= today || until > addDays(today, ACTION_LIMITS.maxPauseDays)) fail(400, 'bad_date');
       const reason = cleanNote(body.reason);
       if (!reason) fail(400, 'reason_required');

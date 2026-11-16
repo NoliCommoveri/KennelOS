@@ -20,9 +20,19 @@ test('every detail is in the guide once, with its editor label and how it\'s wor
 
 test('a detail in two groups keeps each group\'s example', () => {
   const dam = guideRows().find((r) => r.name === 'damName');
-  assert.deepEqual(dam.groups, ['sale', 'stud_service']);
+  assert.deepEqual(dam.groups, ['sale', 'reservation', 'stud_service']);
   assert.equal(dam.examples.sale, 'Maple Ridge\'s Rosie Belle', 'a sale: the registered name');
   assert.equal(dam.examples.stud_service, 'Daisy', 'a stud service: the call name');
+  assert.equal(dam.examples.reservation, 'Maple Ridge\'s Rosie Belle', 'a reservation: the litter\'s dam');
+});
+
+test('the reservation group has an example for every detail', () => {
+  const rows = guideRows().filter((r) => r.groups.includes('reservation'));
+  for (const r of rows) assert.ok(r.examples.reservation, `${r.name} has a reservation example`);
+  const v = Object.fromEntries(rows.map((r) => [r.name, r.examples.reservation]));
+  assert.equal(v.litterName, 'Rosie × Duke');
+  assert.equal(v.preferredSex, 'Either');
+  assert.equal(v.reservationDeposit, '400.00');
 });
 
 test('the examples add up the way the contracts do', () => {
