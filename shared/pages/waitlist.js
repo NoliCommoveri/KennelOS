@@ -17,7 +17,7 @@ import * as actions from '../data/waitlistActions.js';
 import { WAITLIST_ENTRY_STATUS, WAITLIST_PRIORITY, WAITLIST_REMOVED_REASON } from '../data/vocab.js';
 import {
   waitlistConfig, passesUsed, isMovedByBreeder, anchorDate, contactMatches, entryName,
-  canUndoRemoval, overdueFees, nextFamilyForLitter, nextTurn, openTurns, isPupAvailable,
+  canUndoRemoval, overdueFees, nextFamilyForLitter, nextTurn, nextOfferedTurn, openTurns, isTurnOverdue, isPupAvailable,
   soonFamiliesForKennel, kennelBreeds, resolveBreed, whelpNotes, nextTurnPrepassNote, describeOfferChanges,
   numberedList, holdsPlace, isPupReserved, waitlistLitters, isFamilyPageOnly
 } from '../data/waitlistRules.js';
@@ -192,6 +192,7 @@ async function main() {
       const reserved = pups.filter(isPupReserved);
       const lOffers = offers.filter((o) => o.litter_id === l.id);
       const open = lOffers.find((o) => o.outcome === 'open' && !o.is_archived) || null;
+      // First in line for this litter alone (Spec §6.1): only to say someone is.
       const next = open ? null : nextFamilyForLitter(entries, lOffers, l, pups, sales, opts);
       return { l, available, reserved, open, next };
     })
@@ -200,11 +201,15 @@ async function main() {
   // card leads with it, or with who's next.
   const kennelTurns = openTurns(offers, kennel.id);
   const kennelLitters = litters.filter((l) => l.kennel_id === kennel.id);
+  // Who opening picks on a litter really offers the turn to: the kennel-wide rule,
+  // never the litter's own queue (K6-6).
+  const opensTo = (l) => (kennelTurns.length ? null
+    : nextOfferedTurn(entries, offers, kennelLitters, dogs, sales, { ...opts, kennelId: kennel.id, opening: l }));
   const upNext = kennelTurns.length ? null : nextTurn(entries, offers, kennelLitters, dogs, sales, { ...opts, kennelId: kennel.id });
   const turnLine = kennelTurns.length
     ? kennelTurns.map((t) => {
       const e = entriesById.get(t.entry_id);
-      const overdue = t.respond_by_date && t.respond_by_date < today;
+      const overdue = isTurnOverdue(t, today);
       return `<p style="margin:0 0 8px;"><strong>${e ? familyLink(e) : 'A family'}'s turn</strong>: ${esc(t.offers.map((o) => litterLabel(litters.find((x) => x.id === o.litter_id) || {})).join(', '))} · pick and pay by ${esc(fmtDate(t.respond_by_date))}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}</p>`;
     }).join('')
     : upNext
@@ -222,7 +227,8 @@ async function main() {
             : upNext && upNext.litters.some((x) => x.litter.id === l.id) ? '<span class="faint">In the next turn</span>'
               : '<span class="faint">Nobody on the list is eligible</span>';
         } else if (next) {
-          turn = `First in line: ${familyLink(next.entry)} <button class="btn btn-sm" data-offer-litter="${esc(l.id)}" title="Open picks on this litter">Open picks</button>`;
+          const to = opensTo(l);
+          turn = `${to ? `Opening picks offers the turn to ${familyLink(to.entry)}` : `First in line for this litter: ${familyLink(next.entry)}`} <button class="btn btn-sm" data-offer-litter="${esc(l.id)}" title="Open picks on this litter">Open picks</button>`;
         } else turn = '<span class="faint">Nobody on the list is eligible</span>';
         return `<tr><td><a href="litter.html?id=${encodeURIComponent(l.id)}">${esc(litterLabel(l))}</a></td>
           <td>${available.length}</td>

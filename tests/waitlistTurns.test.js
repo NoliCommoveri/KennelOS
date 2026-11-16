@@ -79,7 +79,7 @@ test('opening picks on two litters: one turn, for the top family, covering every
 
 test('only passing on everything counts, and it counts once however many litters the turn had', async () => {
   await litterRepo.update(B.id, { picks_opened_date: DAY });
-  const t = await actions.offerTo(A.id, ids.kim, { today: DAY, note: 'out of order' });
+  const t = await actions.offerTo(A.id, ids.kim, { today: DAY, note: 'out of order', outOfOrder: true });
   assert.equal(t.offers.length, 2);
   const res = await actions.recordOutcome(t.offers[1].id, 'passed', { date: DAY });
   assert.deepEqual(res.passes, { used: 1, max: 2, counted: true });
@@ -98,7 +98,7 @@ test('only passing on everything counts, and it counts once however many litters
 
 test('a pick can move between the litters of a turn; the deposit ends the whole turn without a pass', async () => {
   await litterRepo.update(B.id, { picks_opened_date: DAY });
-  const t = await actions.offerTo(A.id, ids.kim, { today: DAY });
+  const t = await actions.offerTo(A.id, ids.kim, { today: DAY, outOfOrder: true });
   const rowA = t.offers.find((o) => o.litter_id === A.id);
   const rowB = t.offers.find((o) => o.litter_id === B.id);
   const { sale: s1 } = await actions.recordPick(rowA.id, { chosenDogId: ids.aFemale, date: DAY });
@@ -127,7 +127,7 @@ test('a litter opening mid-turn joins it when the holder is the top family for i
 
 test('no response and void close the whole turn; an undo gives the whole turn back', async () => {
   await litterRepo.update(B.id, { picks_opened_date: DAY });
-  const t = await actions.offerTo(A.id, ids.kim, { today: DAY });
+  const t = await actions.offerTo(A.id, ids.kim, { today: DAY, outOfOrder: true });
   await actions.recordOutcome(t.offers[0].id, 'no_response', { date: '2026-10-12' });
   assert.deepEqual((await waitlistOfferRepo.getByEntry(ids.kim)).map((o) => o.outcome), ['no_response', 'no_response']);
   const back = await actions.undoPass(t.offers[1].id, { today: '2026-10-13' });
@@ -140,7 +140,7 @@ test('no response and void close the whole turn; an undo gives the whole turn ba
 
 test('leaving the list with a turn open voids every litter of it and the kennel moves on', async () => {
   await litterRepo.update(B.id, { picks_opened_date: DAY });
-  await actions.offerTo(A.id, ids.kim, { today: DAY });
+  await actions.offerTo(A.id, ids.kim, { today: DAY, outOfOrder: true });
   const res = await actions.withdraw(ids.kim, { date: DAY });
   assert.equal(res.voided.length, 2);
   assert.deepEqual(res.waiting.map((w) => w.entry_id), [ids.lee], 'one "who is next" for the kennel, not one per litter');
@@ -153,7 +153,7 @@ const reason = { id: 'finances', label: 'Financial reasons', text: '' };
 test('"Not this litter" counts for nothing until the turn comes, and then the rest of the turn is offered', async () => {
   await actions.addPrepass(ids.kim, { litter_id: A.id, reason, date: DAY });
   await litterRepo.update(B.id, { picks_opened_date: DAY });
-  const t = await actions.offerTo(B.id, ids.kim, { today: DAY });
+  const t = await actions.offerTo(B.id, ids.kim, { today: DAY, outOfOrder: true });
   assert.deepEqual(t.litter_ids, [B.id], 'A is left out of the offer');
   await litterRepo.update(A.id, { picks_opened_date: DAY });
   const rows = await waitlistOfferRepo.getByEntry(ids.kim);

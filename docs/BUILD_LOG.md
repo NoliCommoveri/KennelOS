@@ -5384,3 +5384,46 @@ No owner decisions needed; each fix follows the review's suggestion.
   89 → 93. `node --test` all pass. Contract page checked in a browser at phone width.
 - **Docs:** End-State guide (Contract row, prefill groups, Reservation agreements).
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-16: Fix step 12, part 1: Waitlist Fixes plan step 6 (one turn rule each)
+
+- **Why:** K06's S2 (K6-6: the out-of-turn guard asked the per-litter rule, so she could jump
+  the queue with a green "They're next" and no note) and the turn-rule S3s/S4s beside it.
+  `docs/review/FIX_PRIORITIES.md` step 12; `docs/KennelOS_Waitlist_Fixes_Plan.md` step 6.
+- **Built:**
+  - **K6-6:** `waitlistRules.nextOfferedTurn(..., { opening })` (nextTurn's rule, the litter
+    being offered counted as open, skipping a family whose whole turn is "Not this
+    litter"). `offerTo` asks it and refuses another family unless `outOfOrder: true`
+    (`err.code 'out_of_turn'`, `err.nextEntry`); an out-of-order turn always gets a note
+    naming who was next. The Offer pups… dialog's badge and confirm, and the Waitlist page's
+    not-yet-open litters ("Opening picks offers the turn to …"), use it; Kels's Offer someone
+    else passes `outOfOrder` and lets `offerTo` write the note.
+  - **K6-7:** one `offerBlocker(entry, litter, …)` for the dialog and `offerTo` ("Not this
+    litter" and a pending side sale now say so before she picks).
+  - **K6-2:** `joinRespondBy`: a litter joining a turn never shortens its deadline.
+  - **K6-8:** `extendTurn` moves a closed day to her next open day (`onOpenDay`,
+    `moved_from`); Kels prefills `respondByDate` and says when the date moved.
+  - **K6-11:** `openPicks` keeps the first `picks_opened_date`.
+  - **K6-4:** `undoPass` reopens only the rows the pass closed, never a "Not this litter"
+    row; a turn passed in full ahead of time has no turn to give back.
+  - **K6-12:** `turnRespondBy`, `isTurnOverdue`, `holdsTurn` replace the page copies (entry
+    page, Waitlist page, picks panel, `recordSideSale`); the Worker's `openTurns` takes the
+    latest row's date; dead `overdueOffers` deleted; Kels uses `litterQueue`. (Item 1, the
+    live stages, was built in step 2.)
+  - **K6b-6:** the preview's "When it ends, next in line" comes from `simulateOpen`
+    (`action.next_after`, stated answers, every open litter, full prepasses left out), not
+    from the view or the Either switch.
+  - **Notes:** an `active` record with no date sorts last, not #1 (an ordering rule instead
+    of the plan's `validateEntry` guard: Modified); "Place them with…" a family with no date
+    refuses instead of clearing the override; the Waitlist spec's `position_anchor_date`
+    Modified note.
+  - **K6-5** was already built (Kels review-defects batch).
+- **Tests:** new `tests/waitlistTurnRules.test.js` (14); `waitlistTurns.test.js` marks its
+  deliberate out-of-order offers; `waitlistRules.test.js` reads `overdueTurns`;
+  `cloud/tests/serverMoves.test.js` (+1). `node --test` 2142 pass; `cd cloud && npm test`
+  373 pass; `node build/assemble.mjs` succeeds. Waitlist, family and litter pages load
+  without errors in a browser.
+- **Docs:** End-State guide §29 (position, turns, one rule per question, the offer flow,
+  Kels, the picks preview); Waitlist spec §6.1 and §16.1 rule 5 (Modified); Waitlist Fixes
+  plan (status, step 6 Modified); FIX_PRIORITIES; README Status.
+- **Service worker:** no app file added or renamed; cache not bumped yet.

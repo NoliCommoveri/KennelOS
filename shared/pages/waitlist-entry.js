@@ -48,12 +48,12 @@ import { programIconHtml } from '../assets/programIcons.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches, contactMatchReason,
-  entryName, publicSourceName, holdsPlace, waitlistLitters, isWaitlistLitter, LISTEN_LIVE_PAIRING, canUndoRemoval, canUndoWithdrawal, canUndoDecline, canUndoExpire, canUndoFeeReceived, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
-  eligiblePupsFor, nextFamilyForLitter, turnSpent, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly, isPupAvailable,
+  entryName, publicSourceName, holdsPlace, waitlistLitters, isWaitlistLitter, LISTEN_LIVE_PAIRING, canUndoRemoval, canUndoWithdrawal, canUndoDecline, canUndoExpire, canUndoFeeReceived, isPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
+  eligiblePupsFor, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
   PREF_FIELD_LABEL, prefValueText, prefChangeSummary, lostSaleFamily, listedName, privateName, publicName, prefPlaces,
-  sideSaleOf, pupClaims, isFamilyPageOnly
+  sideSaleOf, pupClaims, isFamilyPageOnly, offerBlocker, nextOfferedTurn, turnRespondBy, isTurnOverdue, holdsTurn
 } from '../data/waitlistRules.js';
 import { sideSaleDialog, sideDepositDialog, cancelSideSaleDialog } from '../assets/sideSaleUI.js';
 import {
@@ -327,7 +327,7 @@ function suggestedText(e) {
   const linkLine = link ? `\n\nYour waitlist page: ${link}` : '';
   const open = ctx.kennelOffers.filter((o) => o.entry_id === e.id && o.outcome === 'open' && !o.is_archived);
   if (open.length) {
-    const by = open.map((o) => o.respond_by_date).filter(Boolean).sort().pop();
+    const by = turnRespondBy(open);
     const picked = open.find((o) => o.chosen_dog_id);
     if (picked) {
       return `Hi ${first}, this is ${kennel}. We're holding ${dogName(picked.chosen_dog_id)} for you! Please send your deposit${by ? ` by ${fmtDate(by)}` : ''} to confirm.${ctx.config.payment_instructions ? `\n\n${ctx.config.payment_instructions}` : ''}${linkLine}`;
@@ -360,7 +360,7 @@ function emailChoices(e) {
   if (familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries)) out.push({ kind: 'transport_options', label: 'Transport options (getting their pup home)' });
   const open = ctx.offers.filter((o) => o.outcome === 'open' && !o.is_archived && !o.chosen_dog_id);
   if (open.length) {
-    out.push({ kind: 'offer', label: 'It\'s your turn (send again)', extra: { litterIds: open.map((o) => o.litter_id), respondBy: open.map((o) => o.respond_by_date).filter(Boolean).sort().pop() } });
+    out.push({ kind: 'offer', label: 'It\'s your turn (send again)', extra: { litterIds: open.map((o) => o.litter_id), respondBy: turnRespondBy(open) } });
   }
   return out;
 }
@@ -1551,29 +1551,25 @@ const familyNameById = (entryId) => {
 };
 
 // Every live litter of this kennel, with whether this family can be offered a turn
-// starting from it now and, if not, why. `next` is who's first in line for that
-// litter (null = nobody). One family holds a turn at a time across the kennel
-// (Spec §16.1), so while anyone holds one, nothing can be offered.
+// starting from it now and, if not, why (the engine's offerBlocker, which offerTo
+// also asks: K6-7). `next` is who the turn really goes to if it's offered from that
+// litter (the kennel-wide rule, nextOfferedTurn: K6-6; null = nobody). One family
+// holds a turn at a time across the kennel (Spec §16.1), so while anyone holds one,
+// nothing can be offered.
 function litterChoices(e) {
   const today = todayYMD();
   const opts = { today, config: ctx.config, programsById: ctx.programs };
-  const [held] = openTurns(ctx.kennelOffers, ctx.kennel.id);
+  const pups = [...ctx.dogsById.values()];
   return ctx.litters
     .filter((l) => isWaitlistLitter(l, ctx.kennel))
     .map((l) => {
-      const pups = kennelLitterPups(l);
-      const offers = ctx.kennelOffers.filter((o) => o.litter_id === l.id);
-      const eligible = eligiblePupsFor(e, l, pups, ctx.sales, opts);
-      let blocked = '';
-      if (held) {
-        blocked = held.entry_id === e.id ? 'They hold the turn now.' : `${familyNameById(held.entry_id)} holds the turn now; one family at a time.`;
-      } else if (turnSpent(offers, l.id, e.id)) blocked = 'They\'ve already had their turn on this litter.';
-      else if (isReadyHeld(e, today, ctx.config)) blocked = readyHoldText(e, today, ctx.config);
-      else if (isManuallyPaused(e, today)) blocked = 'They\'re paused.';
-      else if (!isListeningFor(e, l)) blocked = e.listen_mode === 'except' ? 'They asked to skip litters from this sire or dam.' : 'They\'re only listening for litters from other sires/dams.';
-      else if (!pups.some((d) => isPupAvailable(d, ctx.sales))) blocked = 'No pups available yet.';
-      else if (!eligible.length) blocked = 'No available pup matches what they want.';
-      const next = blocked ? null : nextFamilyForLitter(ctx.kennelEntries, offers, l, pups, ctx.sales, opts);
+      const eligible = eligiblePupsFor(e, l, kennelLitterPups(l), ctx.sales, opts);
+      const blocked = offerBlocker(e, l, {
+        offers: ctx.kennelOffers, pups: kennelLitterPups(l), sales: ctx.sales, today, config: ctx.config,
+        nameOf: familyNameById, readyText: (x) => readyHoldText(x, today, ctx.config)
+      });
+      const next = blocked ? null
+        : nextOfferedTurn(ctx.kennelEntries, ctx.kennelOffers, ctx.litters, pups, ctx.sales, { ...opts, kennelId: ctx.kennel.id, opening: l });
       return { litter: l, eligible, blocked, next };
     });
 }
@@ -1609,12 +1605,12 @@ async function onOfferLitter() {
       const c = choices.find((x) => x.litter.id === picked.value);
       let note = '';
       if (c.next && c.next.entry.id !== e.id) {
-        if (!(await confirmModal({ title: 'Offer out of turn?', message: `${familyNameById(c.next.entry.id)} is next in line for this litter. Offer it to ${entryName(e, ctx.contact)} anyway? Nobody's place changes, and ${familyNameById(c.next.entry.id)} still gets their turn afterwards.`, confirmLabel: 'Offer anyway' }))) {
+        if (!(await confirmModal({ title: 'Offer out of turn?', message: `${familyNameById(c.next.entry.id)} is next in line for a turn. Offer it to ${entryName(e, ctx.contact)} anyway? Nobody's place changes, and ${familyNameById(c.next.entry.id)} still gets their turn afterwards.`, confirmLabel: 'Offer anyway' }))) {
           throw new Error('Not offered. Pick another litter, or cancel.');
         }
         note = `Offered out of turn by you; ${familyNameById(c.next.entry.id)} was next in line.`;
       }
-      turn = await actions.offerTo(c.litter.id, e.id, { note });
+      turn = await actions.offerTo(c.litter.id, e.id, { note, outOfOrder: Boolean(note) });
     }
   }) && (await afterAction(), await emailFamilies(offerSpecs({ next: turn })));
 }
@@ -1803,7 +1799,7 @@ function liveOffersHtml() {
   const open = live.some((o) => o.outcome === 'open');
   return `<section class="card"><h2 style="margin-top:0;">${open ? 'Their turn' : 'Recent offers'}</h2>
     ${live.map((o, i) => {
-      const overdue = o.outcome === 'open' && o.respond_by_date && o.respond_by_date < today;
+      const overdue = o.outcome === 'open' && isTurnOverdue(o, today);
       return `<div style="padding:8px 0;${i ? 'border-top:1px solid var(--border);' : ''}">
         <div><strong>${litterLink(o.litter_id)}</strong> · ${offerStatusHtml(o)}</div>
         <div class="faint">Offered ${esc(fmtDate(o.offered_date))}${o.respond_by_date ? ` · respond by ${esc(fmtDate(o.respond_by_date))}` : ''}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}</div>
@@ -2130,7 +2126,7 @@ const TABS = [
 // How many things wait on her in Interact: their requests, an open turn, a lost pup.
 function interactCount(e) {
   return pendingRequests(e).length
-    + (ctx.offers.some((o) => o.outcome === 'open' && !o.is_archived) ? 1 : 0)
+    + (holdsTurn(ctx.offers, e.id) ? 1 : 0)
     + (lostSale(e) ? 1 : 0)
     + suggestions(e).length;
 }
@@ -2290,7 +2286,7 @@ function interactButtons(e) {
     case 'approved': main = b('fee', e.fee_amount == null ? 'Add to the list…' : 'Fee received…', 'btn-primary'); break;
     case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary')
       // A side sale (Side Sale Spec): outside the turn order; not while they hold the turn or already buy one.
-      + (!ctx.offers.some((o) => o.outcome === 'open' && !o.is_archived) && !sideSaleOf(e, ctx.sales) ? b('side', 'Record a side sale…') : '')
+      + (!holdsTurn(ctx.offers, e.id) && !sideSaleOf(e, ctx.sales) ? b('side', 'Record a side sale…') : '')
       + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, todayYMD(), ctx.sales) ? b('undofee', 'Undo fee received…') : ''); break;
     case 'declined': main = (canUndoDecline(e, todayYMD()) ? b('undo', 'Undo decline', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'expired': main = (canUndoExpire(e, todayYMD()) ? b('undo', 'Reopen application', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;

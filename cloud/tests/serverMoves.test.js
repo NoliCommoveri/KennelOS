@@ -353,3 +353,11 @@ test('K4-7: a fee reminder whose day was missed goes on the due day, once', asyn
   await runKennel(late.env, row(late.env), { now: NOW, origin: 'o' });
   assert.equal(mails(late.env).filter((m) => m.kind === 'fee_reminder').length, 0);
 });
+
+test('a turn\'s deadline is its latest row\'s, whichever row comes first (K6-12)', () => {
+  const p = { entries: { ann: { offers: [
+    { id: 'o1', turn_id: 't', litter_id: 'l1', offered_date: '2026-10-01', respond_by_date: '2026-10-04' },
+    { id: 'o2', turn_id: 't', litter_id: 'l2', offered_date: '2026-10-02', respond_by_date: '2026-10-09' }
+  ] } } };
+  assert.equal(openTurns(p)[0].respondBy, '2026-10-09');
+});

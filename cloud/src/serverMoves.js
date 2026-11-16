@@ -114,6 +114,8 @@ export function openTurns(projection, { includeDirect = false } = {}) {
       if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, offeredDate: o.offered_date, picked: null });
       const t = out.get(turnId);
       t.offers.push(o);
+      // The turn's deadline is its latest row's, as on her device (turnRespondBy).
+      if ((o.respond_by_date || '') > (t.respondBy || '')) t.respondBy = o.respond_by_date;
       if (o.picked_dog_id) t.picked = o.picked_dog_id;
     }
   }

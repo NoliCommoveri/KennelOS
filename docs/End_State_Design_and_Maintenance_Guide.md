@@ -2363,7 +2363,11 @@ Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. 
 it computes is stored.**
 - **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
   else `fee_received_date` (else `approved_date` when the fee was waived), then
-  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`. A
+  record with none of the three dates (only a restore or sync of a row written elsewhere
+  makes one) sorts last in its group, never first. "Place them with the Smiths"
+  (`setPositionAnchor({ afterEntryId })`) copies the Smiths' date exactly, so the two are
+  ordered by `fee_received_at`; it refuses a family with no date rather than clearing hers.
 - **Pup selected** (Waitlist Fixes Plan §3.1): a family the list placed keeps its place and
   its number until the pup has gone home. `holdsPlace(entry, { sales, dogs })`: `placed`,
   not archived, not `off_list`, its `placed_sale_id` sale open (`vocab.isOpenSale`: not
@@ -2435,9 +2439,23 @@ it computes is stored.**
   every pup they're eligible for. `nextTurn` picks the top family with an eligible pup in an
   open litter they haven't spent a turn on (`turnSpent`, per litter; a voided offer gives it
   back), recalculated each time. A litter opening mid-turn joins it only if the holder is
-  that litter's top family (`joinsOpenTurn`). A pass closes the whole turn and counts
+  that litter's top family (`joinsOpenTurn`); the turn's deadline then restarts from today
+  for all its rows, but never earlier than the date it has (`joinRespondBy`), so more time
+  she gave by hand is kept. A pass closes the whole turn and counts
   **once**. "Not this litter" (`prepasses`) leaves a litter out when their turn comes; a
   turn made only of those is passed at once and reported (`auto_passed`).
+- **One rule per question** (`waitlistRules`; pages and Kels ask these, never their own
+  copy): a turn's deadline is `turnRespondBy(rows)` (the latest row's; the Worker's
+  `serverMoves.openTurns` reads it the same way), overdue is `isTurnOverdue(turn, today)`,
+  holding a turn is `holdsTurn(offers, entryId)`, a litter's own queue is `litterQueue`.
+  **Who a turn belongs to** is `nextOfferedTurn(..., { opening })`: `nextTurn`'s rule, with
+  the litter being offered from counted as open, skipping a family whose whole turn is "Not
+  this litter". `nextFamilyForLitter` (first in one litter's queue) only says someone is in
+  line for that litter (the Litters card, `prefChangeEffect`). **Why a family can't be
+  offered a litter** is `offerBlocker(entry, litter, …)`, in order: not on the list, the
+  litter archived or kept off, a turn held, their turn on it spent, a pending side sale, a
+  readiness hold, paused, not listening, "Not this litter", no pup available, no pup that
+  matches; `''` when they can.
 - **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
   undo that forgives the latest pass.
 - **A turn left with no pup** (`turnIsEmpty`, `emptiedTurns`: no pick waiting on its deposit
@@ -2539,8 +2557,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
   `waiting` and she offers by hand (**Open picks**, **Offer to them**, **Offer pups…**).
   Actions on one family (approve, fee received, undo removal or withdrawal) never make offers.
-- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`), `offerNext`,
-  `offerTo` (out of turn, with a note; nobody's place changes). **Accepting is pick +
+- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`: stamped the
+  first time picks open, kept on a second Open picks, cleared only by `closePicks`),
+  `offerNext`, `offerTo` (from a family's page or Kels; nobody's place changes). `offerTo`
+  refuses with `offerBlocker`'s reason, the same one the Offer pups… dialog shows beside each
+  litter. When `nextOfferedTurn` names another family it refuses (`err.code ===
+  'out_of_turn'`, `err.nextEntry`) unless the caller passes `outOfOrder: true` after asking
+  her ("Offer out of turn?"), and an out-of-order turn always carries a note naming who was
+  next (the caller's, else its own). **Accepting is pick +
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
   pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
@@ -2553,9 +2577,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   has no "deposit is already in" box), `recordOutcome('accepted')`, a family's pick on
   their status page, and a side sale (`recordSideSale`, on the side sale's date). `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
-  pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
-  `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
-  noted on each of its offers.
+  pass: only the rows that pass closed, never a litter the family said "Not this litter" to
+  (a row whose note begins "Passed ahead of time on"), and a turn passed in full ahead of time
+  has no turn to give back. `previewNextTurn(kennelId)` says who `nextTurn` would offer
+  without offering it; `extendTurn(turnId, { until })` gives an open turn a later respond-by
+  date (after today), noted on each of its offers; a day she's closed (`open_days`,
+  `closed_dates`) moves to her next open day (`onOpenDay`), returned as `moved_from`.
 - **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
   when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
   It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
@@ -2655,7 +2682,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   rule a pup out), families applied or with the fee not recorded, and soft checks on the
   list's families (blank looking for, a breed not among hers, no email, no fee date). The
   **Either** switch (`withEitherAs`) reads Either families as female or male for the lists;
-  the action line always uses their stated answers. Her turn settings (respond days, passes,
+  the action line always uses their stated answers, and so does its "When it ends, next in
+  line" (the action's `next_after`, worked out on every open litter, leaving out a family
+  whose turn would be "Not this litter" in full; numbered from `positions`). Her turn settings (respond days, passes,
   no response counts, color matching, open days, closed dates, automatic offers) preview live
   as a draft and save to `waitlist_config` after `waitlistConfigProblem`; a pup's
   disposition, intended registration and sex save from its row. `?preview=<litter id>` stays
@@ -4717,15 +4746,17 @@ unpaid fees), else 26.
      `waitlistUI.restoreLostPupDialog`, as the Sale page does.
   3. **Offers past their deadline:** **They picked** / **The deposit came** (`pickDialog` /
      `depositDialog`), **Count it as a pass** (`recordOutcome`, `outcomeReport`), **Record no
-     response** (the nudge's action), **Give them more time** (`extendTurn`, then the offer
-     email with the new date).
+     response** (the nudge's action), **Give them more time** (prefilled with
+     `respondByDate` from today; `extendTurn`, saying when a closed day moved it; then the
+     offer email with the new date).
   4. **Picks to open:** **Open picks** (the nudge's action), **Not yet, remind me in a few
      days** (snoozes the nudge 3 days; the planned date stays), **Change the date**
      (`accept_deposits_date`).
   5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
      months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
      families with pups in it, ranked and numbered from `waitlistProgramRepo.getMapForKennel`,
-     archived programs included, as every other reader; `offerTo` with a note) / **Not yet**.
+     archived programs included, as every other reader; `litterQueue`; `offerTo` with
+     `outOfOrder`, which notes who was next) / **Not yet**.
   6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
      program, the contact as `contactMatches` suggests, their private-listing ask; then the
      fee request or "on the list" email) / **Decline** (confirmed; the declined email) /

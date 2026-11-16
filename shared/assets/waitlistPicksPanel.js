@@ -21,7 +21,7 @@ import {
   waitlistConfig, litterQueue, nextTurn, openTurns, turnOffers, turnIdOf, eligiblePupsFor, isPupAvailable,
   overallPositions, entryName, describeOfferChanges, soonFamiliesForLitter, whelpNotes,
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, autoOffers, autoOfferSummary, closingTrigger,
-  nextTurnPrepassNote, familyPagePlan, isFamilyPageOnly
+  nextTurnPrepassNote, familyPagePlan, isFamilyPageOnly, isTurnOverdue
 } from '../data/waitlistRules.js';
 import { doNotSellRepo } from '../data/doNotSellRepo.js';
 import { doNotSellMatches, doNotSellWarning } from '../data/doNotSell.js';
@@ -168,7 +168,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
   if (open) {
     const entry = entriesById.get(open.entry_id);
     const live = entry ? eligiblePupsFor(entry, litter, d.pups, d.sales, opts) : [];
-    const overdue = open.respond_by_date && open.respond_by_date < today;
+    const overdue = isTurnOverdue(open, today);
     const picked = isAwaitingDeposit(open) ? pupsById.get(open.chosen_dog_id) : null;
     // Her request (W2 Plan §8): the family's status-page link, to send by Messenger.
     const copyBtn = entry && statusLinkFor(entry, d.kennel)

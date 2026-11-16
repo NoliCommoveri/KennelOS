@@ -1,6 +1,6 @@
 # KennelOS — Waitlist fixes and three enhancements (plan)
 
-> **Status: steps 1–4 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 5–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
+> **Status: steps 1–6 built** (`docs/BUILD_LOG.md`: 1–4 on 2026-11-11, 5 on 11-15, 6 on 11-16); steps 7–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
 > one build order. The owner answered the decisions that shape the enhancements the same day
@@ -246,7 +246,7 @@ live before she sends E3 families to the portal.
 | **3** | **E3.** | E3, K7-9, K8-8 |
 | **4** | **The puppy portal says only what's true.** A returned sale is retracted; facts from the portal are checked and shown to her; disconnecting takes the portal button off. **Modified (built):** Disconnect turns the portal off on any device's disconnect (a device can't tell it was the last); one still linked turns it back on within the hour. | K7-1, K7-2, K7-3, K7-14 |
 | **5** | **Money a family is shown.** The deposit email, backing out after paying more, a paid step that changes, a carried deposit, the fee card, the wording. **Built 2026-11-15.** **Modified:** K8-1 (the deposit email from the sale's payment statement) and K8-10 (the fee card's two prices) are built with Payment Schedule plan step 6 (its D32); K8-4 came with the lost-pup credit (a carried amount is a published credit; a test now holds it). K8-2 is built to D9 (no refund, her credit). | K8-1, K8-2, K8-3, K8-4, K8-10, K8-13, K6b-5, K6b-8 |
-| **6** | **One turn rule each.** The out-of-turn guard asks the real rule; one reason for "can't offer"; Kels ranks from the same map; an extension is never shortened and honours her open days; undo puts back only what it closed. | K6-6, K6-7, K6-5, K6-2, K6-8, K6-4, K6-11, K6-12 (rest), K6b-6 |
+| **6** | **One turn rule each.** The out-of-turn guard asks the real rule; one reason for "can't offer"; Kels ranks from the same map; an extension is never shortened and honours her open days; undo puts back only what it closed. **Built 2026-11-16.** K6-5 was already built (Kels review-defects batch). **Modified:** an extension onto a closed day moves to her next open day (not refused) and Kels says so; an undone pass leaves a "Not this litter" row closed rather than putting the prepass back on the entry (the closed row already keeps that litter off their turns). The `validateEntry` guard for an undated `active` record became an ordering rule instead (it sorts last), so a record that arrives undated can still be edited and acted on. | K6-6, K6-7, K6-5, K6-2, K6-8, K6-4, K6-11, K6-12 (rest), K6b-6 |
 | **7** | **The clock.** The kennel's time zone ends deadlines on her device, on the Worker and on the family's page. | K6-3, K8-9 |
 | **8** | **Applying and signing in.** | K7-4, K7-5, K7-6, K7-7, K7-10, K7-11, K7-13, K6b-7 |
 | **9** | **Pickup, miles and queued emails.** | K8-5, K8-6, K8-11, K8-14, K8-15 |
