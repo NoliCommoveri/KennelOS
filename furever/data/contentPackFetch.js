@@ -65,12 +65,17 @@ export function filesForThisPup(manifest, pupId) {
   return manifest.files.filter((f) => !f || !f.dogId || f.dogId === pupId || parentIds.includes(f.dogId));
 }
 
-// One pack pointer (§3.2): fetch its manifest, skip if unchanged, else fetch
-// every listed file relevant to this pup and blind-replace this pet's breeder
-// layer for the pack. Never throws — every failure just leaves the
-// cache/documents as they were, retried on the next open that carries this
-// pointer.
-async function fetchOnePackage(petId, pointer, pupId) {
+// One pack pointer (§3.2): fetch its manifest, skip if this PET already has it
+// whole at this version, else fetch every listed file relevant to this pup and
+// replace this pet's breeder layer for the pack. Never throws — every failure
+// just leaves the cache/documents as they were.
+//
+// Per pet (K14-4): a second pup from the same breeder, or a sibling on the same
+// litter pack, fetches it for itself. All or retried (K14-14): a file that
+// doesn't come down keeps the pet's copy from before (if any), and the pet's
+// fetch is recorded as incomplete, so the next open tries again
+// (retryIncompletePacks), not only the breeder's next republish.
+export async function fetchOnePackage(petId, pointer, pupId) {
   if (!pointer || !pointer.manifestFileId || !pointer.packKey) return;
 
   let manifest;
@@ -82,12 +87,16 @@ async function fetchOnePackage(petId, pointer, pupId) {
   if (!isValidManifest(manifest)) return;
 
   const cached = await contentPackRepo.getByKey(pointer.packKey);
-  if (cached && typeof cached.version === 'number' && manifest.version <= cached.version) {
-    return; // already have this version — cheap no-op (§4.4 step 2)
+  const mine = contentPackRepo.petState(cached, petId);
+  if (mine && mine.complete && typeof mine.version === 'number' && manifest.version <= mine.version) {
+    return; // this pet already has this version, whole — cheap no-op (§4.4 step 2)
   }
 
+  const before = await documentRepo.getBreederDocsForPack(petId, pointer.packKey);
   const docDate = manifest.updatedAt ? String(manifest.updatedAt).slice(0, 10) : '';
   const entries = [];
+  const keepDocIds = [];
+  let failed = 0;
   for (const f of filesForThisPup(manifest, pupId)) {
     if (!f || !f.fileId) continue;
     try {
@@ -101,16 +110,21 @@ async function fetchOnePackage(petId, pointer, pupId) {
         doc_date: docDate
       });
     } catch {
-      // one bad file in the pack shouldn't drop the rest of it
+      // One bad file shouldn't drop the rest: keep the copy she had, retry later.
+      failed += 1;
+      const had = before.find((d) => d.drive_file_id === f.fileId);
+      if (had) keepDocIds.push(had.id);
     }
   }
 
-  await documentRepo.replaceBreederLayer(petId, pointer.packKey, entries);
+  await documentRepo.replaceBreederLayer(petId, pointer.packKey, entries, { keepDocIds });
   await contentPackRepo.upsert({
     pack_key: pointer.packKey,
     kennel_name: manifest.kennelName || '',
     scope: manifest.scope || pointer.scope || '',
-    version: manifest.version
+    version: manifest.version,
+    pet_id: petId,
+    complete: failed === 0
   });
 }
 
@@ -129,5 +143,31 @@ export async function fetchContentPackagesForPet(pet) {
     } catch {
       // best-effort — one pack's failure never breaks another's or the caller
     }
+  }
+}
+
+// On every app open (app.js boot): retry each pet's pack whose last fetch left a
+// file behind (K14-14). Only incomplete fetches, so a normal open makes no
+// requests. Best-effort, never throws.
+export async function retryIncompletePacks() {
+  try {
+    const { petRepo } = await import('./petRepo.js');
+    const packs = await contentPackRepo.getAll();
+    const incomplete = new Set();
+    for (const row of packs) {
+      for (const [petId, state] of Object.entries(row.pets || {})) {
+        if (state && state.complete === false) incomplete.add(`${petId}\u0000${row.pack_key}`);
+      }
+    }
+    if (!incomplete.size) return;
+    for (const pet of await petRepo.getAll()) {
+      const pointers = (pet.seed && Array.isArray(pet.seed.contentPackages)) ? pet.seed.contentPackages : [];
+      for (const pointer of pointers) {
+        if (!pointer || !incomplete.has(`${pet.id}\u0000${pointer.packKey}`)) continue;
+        try { await fetchOnePackage(pet.id, pointer, pet.pup_id); } catch { /* next open */ }
+      }
+    }
+  } catch {
+    // best-effort
   }
 }

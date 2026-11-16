@@ -25,18 +25,36 @@ export const contentPackRepo = {
   // Record that pack `pack_key` has been fetched at `version`. `scope` is
   // 'kennel' | 'litter' (manifest §3.1), carried through for display only.
   // Upserts on pack_key.
-  async upsert({ pack_key, kennel_name = '', scope = '', version = 1 }) {
+  //
+  // The documents a pack gates are PER PET (two pups from one breeder share the
+  // kennel pack, siblings share the litter pack), so `pets` (unindexed) keeps
+  // each pet's own fetch: `{ [petId]: { version, complete } }` (K14-4).
+  // `complete` is false when a file didn't come down (K14-14); the app retries
+  // that pet's pack on the next open (contentPackFetch.retryIncompletePacks).
+  async upsert({ pack_key, kennel_name = '', scope = '', version = 1, pet_id = null, complete = true }) {
     if (!pack_key) throw new Error('contentPackRepo.upsert: pack_key is required.');
     const existing = await contentPackRepo.getByKey(pack_key);
     const now = nowIso();
+    const pets = { ...((existing && existing.pets) || {}) };
+    if (pet_id) pets[pet_id] = { version, complete: complete === true };
     if (existing) {
-      const record = { ...existing, kennel_name, scope, version, fetched_at: now };
+      const record = { ...existing, kennel_name, scope, version: Math.max(version, existing.version || 0), fetched_at: now, pets };
       await db.content_packs.put(record);
       return record;
     }
-    const record = { id: newId(), pack_key, kennel_name, scope, version, fetched_at: now };
+    const record = { id: newId(), pack_key, kennel_name, scope, version, fetched_at: now, pets };
     await db.content_packs.add(record);
     return record;
+  },
+
+  // This pet's fetch of the pack: { version, complete }, or null when it has none
+  // recorded (never fetched for it, or a row from before `pets`).
+  petState(row, petId) {
+    return (row && row.pets && row.pets[petId]) || null;
+  },
+
+  async getAll() {
+    return db.content_packs.toArray();
   },
 
   async hardDelete(id) {

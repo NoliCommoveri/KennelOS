@@ -5250,3 +5250,80 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
   Contact page); Family Requests plan §6 (Modified note).
 - **Service worker:** `assets/stayPickupUI.js` added to `PRECACHE_URLS` (shared). Rides
   `kennelos-shell-v148`.
+
+## 2026-11-16: Fix step 10, K14 (multi-kennel scope, Companion, Furever)
+
+Owner's decisions: the Furever identity rides on her own kennel, cloud tier (K14-5); a litter
+publish warns on every pup's document, per-pup packs later (K14-3); a Dog Card's microchip only
+for a sent dog still in her program (K14-15); an outside dog's expense goes under its stud
+service's kennel, else All kennels only (K14-11).
+- **K14-6:** `kennelRepo.update` refuses unticking an own kennel while owned or co-owned dogs,
+  pairings, litters, sales, stud services, contracts, documents or waitlist rows (archived too)
+  are filed under it (`ownKennelHolds`); the message counts them and points to archiving.
+- **K14-9, K14-10:** Reminders, Stud Services and Documents follow the active kennel, with the
+  scope chip (Documents opened for one dog stays unscoped).
+- **K14-11:** `scopePredicates.expenseInScopeOf` / `isUnplacedExpenseOf`, bound as
+  `kennelScope.expenseInScope`: Financials, `moneyReport.loadMoney` and the kennel hub use it;
+  a scoped Financials notes how many outside-dog expenses count only under All kennels.
+- **K14-2:** `buildProspectiveBundle(contact, { kennelId })`: the guided litter flow's kennel,
+  else the active one; refuses under All kennels with pups at two kennels.
+- **K14-8, K14-15:** `dogCard.canSendFrom` (her own dogs at the Send-from kennel; the list
+  follows the kennel picker; `buildDogCard` checks too) and `sendsMicrochip`.
+- **K14-12:** a major with no judge asks for "the judge on N majors" instead of more majors.
+- **K14-13:** every Companion page ends with KennelOS-didn't-check-this and confirm payment
+  with the kennel. **K14-17:** `data/safeHref.js` (re-exported by `ui.js`) on the dog page's
+  link; the shell has its own copy on every bundle link. **K14-16:** spec numbers out of five hints.
+- **K14-5:** `data/fureverIdentity.js` keeps `furever_identity` (cloud, `syncRegistry`;
+  `cloudFields.js` regenerated) on the first own kennel carrying it, else My kennel; the
+  console and `buildSeedPacket` load through it; this device's key moves onto the kennel once.
+- **K14-3:** a litter publish asks the public-by-link confirmation for every pup's own document.
+- **Furever:** K14-1 (`petRepo.seedIdentity`: a resend keeps the family's name, photo, breed,
+  sex and birthday edits and never blanks one); K14-4 / K14-14 (`content_packs.pets[petId]`,
+  a failed file keeps the old copy, `retryIncompletePacks` on each open); K14-7 (`planMerge`
+  by `pup_id`, `breeder_key`, `pack_key`; breeder documents deduped; a failure in a sentence);
+  K14-18 (`migrateCollections`, v1 contacts); K1-2 (the `blocked` / `versionchange` notices).
+- **Tests:** new `kennelScopeFixes.test.js` (14), `fureverData.test.js` (9),
+  `fureverIdentity.test.js` (4). `node --test` 2107 pass; `cd cloud && npm test` 365 pass;
+  `node build/assemble.mjs` green.
+- **Docs:** End-State guide (§4 scope, Kennel fields, shows, §20, §27, §27.1, §28.1, §36,
+  escaping); Multi-Kennel Scope spec, Furever schema doc, Shared Dogs plan (Modified notes);
+  `furever/README.md`; this review's `FIX_PRIORITIES.md`.
+- **Service worker:** `data/safeHref.js` and `data/fureverIdentity.js` added to
+  `PRECACHE_URLS`. Rides `kennelos-shell-v148`.
+
+## 2026-11-16: Fix step 11, K11 (Kels and the guided tasks)
+
+No owner decisions needed; each fix follows the review's suggestion.
+- **K11-2:** `settings.clearGuidedDrafts` on Clear sample data (so the tour's end too) and a
+  Replace restore. Resuming a litter draft, `guidedLitter.goneDraftRefs` /
+  `clearGoneDraftRefs` clear an answer naming a record that's gone and ask it again; a record
+  the save had already made that's gone ends the draft, said.
+- **K11-3:** before Yes, build it, `litterRecordedSince` (same parents, made after the draft
+  began, born within 3 days) asks "Is this that litter?"; Yes builds nothing.
+- **K11-4:** `assistantSync.outboxStatus`: an entry already in is `already`, left as she has
+  it; one she deleted is `removed` (`settings.assistantImported`); only new and helper-changed
+  entries are written; the page pushes a fresh feed after an import.
+- **K11-6:** the check-in's writes go through `safely`: a refusal is said, the visit goes on.
+- **K11-7:** a form draft keeps `basis`; `formChangedSince` on resume and on save offers
+  Start from what's saved now / Keep my draft.
+- **K11-8:** `KELS_AS_YOU_GO_INTRO` for Tidy up, the litter check-in, Pups are going home,
+  Check account health and Set up my waitlist.
+- **K11-9:** Save for later says it kept a draft only when this run has one (`hasDraft`).
+- **K11-10:** Cancel and Save for later run the website check; a page's baseline is kept until
+  a check moves it on, and a page opened while one is owed takes none.
+- **K11-11, K11-12:** Getting Started says what the puppy records leave off
+  (`puppyRecordLeftOff`) with Keep it as it is first; it notes each part done
+  (`settings.kelsSetupDone`), offers Pick up at …, and drops to 15 once all are done.
+- **K11-13, K11-14, K11-15:** Buyer is tagged after the application is saved;
+  `kelsApplicant.approveTypedFamily` (moved from Add people) also approves the families typed
+  in from Set up my waitlist and Set up my application form; "No vet to add, don't ask again"
+  is one key (`tidy:novet`) for Tidy up and Add people, which now offers it too.
+- **K11-16:** `settings.retireDraft` lets go a draft an update can't carry on, with a notice
+  Kels says once on the menu (`takeKelsDraftNotice`); people and form drafts included.
+- **K11-18:** the tour keeps `wizardStepId` beside its index, read first.
+- **Tests:** new `kelsFixes.test.js` (12). `node --test` 2119 pass; `node build/assemble.mjs`
+  green. In Chromium: a litter draft whose mom and dad are gone resumes asking for them again.
+- **Docs:** End-State guide (§26 the outbox, §33: intros, Save for later / Cancel, drafts,
+  the litter draft on resume and before the save, the vet step, applicants, the form, Getting
+  Started, the website check, the tour); this review's `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v148`.

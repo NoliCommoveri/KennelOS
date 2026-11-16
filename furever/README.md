@@ -100,9 +100,14 @@ hard-deleted it; no console errors on any page.
 Settings** (`data/importExport.js`): **Download backup** exports every table
 (including file blobs, base64-tagged) to one JSON file and records the time
 (`settings.getLastBackupDate`, shown as "Last backup: …"); **Restore from a file**
-reads a file, previews row counts per table, and commits via **Merge** (upsert by
-id) or **Replace** (wipe first) — each behind its own inline confirm step, same
-shape as the Reset-app danger button. The export is tagged `app: 'furever'` so a
+reads a file, previews row counts per table, and commits via **Merge** (upsert,
+matching a pet by `pup_id`, a breeder by `breeder_key` and a content pack by
+`pack_key`, so a backup from the family's other phone doesn't double them:
+`planMerge`) or **Replace** (wipe first) — each behind its own inline confirm step, same
+shape as the Reset-app danger button. Rows from an older schema are brought up to
+this one first (`migrateCollections`: v1 contacts' `pet_id` → `pet_ids`), since a
+restore never runs `db.js`'s upgrades; a failure changes nothing and says so in a
+sentence. The export is tagged `app: 'furever'` so a
 breeder-app backup can't be restored here by mistake. Mirrors the breeder core's
 `shared/data/importExport.js` (same blob round-tripping) but drops everything
 edition/demo-specific that doesn't apply here.
@@ -115,10 +120,15 @@ Merge (new pet survived, seeded data still there); no console errors.
 **The content-pack fetch is now built.** `data/contentPackFetch.js` fetches each
 breeder-published pack (kennel-wide + this pet's litter, from `pet.seed.
 contentPackages`) on first open and every resend: a public-key read of that pack's
-Drive-hosted `pack.json` manifest, skipped if unchanged (`content_packs` cache),
-else a public-key read of every listed file, landed as `source:'breeder'` rows in
+Drive-hosted `pack.json` manifest, skipped if this pet already has it whole at that
+version (`content_packs.pets[petId]`, so a second pup or a sibling on the same pack
+fetches it too), else a public-key read of every listed file, landed as `source:'breeder'` rows in
 `documentRepo` (a blind wholesale replace per pack on each version bump) — no
-family sign-in, best-effort/online-only, never blocking first paint. `app.js`
+family sign-in, best-effort/online-only, never blocking first paint. A file that
+doesn't come down keeps the pet's earlier copy and marks the fetch incomplete;
+`retryIncompletePacks` tries again on every open. `app.js` also shows the
+storage-update notice while another open copy blocks a schema upgrade (`db.js`'s
+`DB_BLOCKED_EVENT` / `DB_VERSIONCHANGE_EVENT`, as the breeder app). `app.js`
 triggers it via a `sessionStorage` hand-off (the seed-link flow usually redirects
 to Profile right after applying a packet, which would otherwise cancel an in-flight
 fetch). The Documents page (`pages/documents.*`) now renders a read-only "From your

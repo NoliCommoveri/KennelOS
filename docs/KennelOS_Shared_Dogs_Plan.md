@@ -61,6 +61,10 @@ Companion. Nothing travels unless it's listed here.
   whether it's estimated), date of death, colour and markings, registry and registration
   number, other registrations, microchip, photos link, recorded COI, sire and dam (by public
   ID), breeder kennel, and whether it's one she sent or an ancestor.
+  **Modified:** the microchip goes only for a dog sent that is still in her program, never
+  an ancestor's or a placed, pet-home or deceased dog's (owner decision 2026-11-16, review
+  K14-15). Only her own dogs filed under the sending kennel can be sent; outside and
+  leased-in dogs go as ancestors (K14-8).
 - **Its health tests and titles:** genetic tests, OFA / PennHIP and breed-specific tests, and
   titles earned, each with its date, title and its type's named detail fields (panel, lab,
   result, joint, rating, title, organisation…), and a reference so a re-send updates it.

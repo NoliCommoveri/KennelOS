@@ -323,6 +323,9 @@ above, and each entry needs a comment at the call site saying so:
   "this belongs to <kennel>" affordance with a one-click scope switch; never 404
   and never silently redirect.
 - **External / leased dogs** — scope-transparent per §3.1(a).
+  **Modified:** in a money *total* (Financials, the money reports, the kennel hub), an
+  expense on an outside dog is placed by its stud service, else counted only under All
+  kennels (`expenseInScopeOf`, review K14-11), so one cost is never in two kennels' totals.
 - **Contacts** — buyers, vets, and partners are program-wide. Scope the *lists*
   that hang off a kennel (a kennel's affiliated contacts) but never the contact
   pool itself; a buyer who bought from two of your kennels is one person.
@@ -375,6 +378,13 @@ if this becomes a real pain point in practice; don't build per-kennel keying
 speculatively. `getFureverSettings().breederKey` stays independent of
 `myKennelId` regardless (unrelated to this decision — it's what keeps
 already-sent Furever packets deduping into their breeder row).
+
+**Modified:** the identity stays one for the whole program, but the Furever block now
+rides on an own kennel's record (`furever_identity`, `data/fureverIdentity.js`; review
+K14-5), so a second device or a restore sends the same `breederKey`. The prospective
+Companion bundle's pups follow one kennel (the active one, or the guided litter's), and
+under All kennels with pups at two kennels it asks for one first (K14-2), so a swapped
+name never sits over another kennel's litters.
 
 ## 11. Import / export & CSV
 

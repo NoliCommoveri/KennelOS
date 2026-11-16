@@ -166,6 +166,34 @@ db.version(2).stores({
   });
 });
 
+// --- Schema upgrade hand-off between open copies (K1-2) ----------------------
+// The same hand-off as the breeder app's db.js: a new version(N) installs only
+// once every other open copy lets go of the older database. A copy the phone has
+// frozen in the background (the installed app in Recents) can't, and the
+// upgrade then waits with no error while every read hangs. So the data layer
+// announces both sides and app.js shows them:
+//   DB_BLOCKED_EVENT — this copy is waiting on another to close (DB_READY_EVENT
+//     once it got through); isDbUpgradeBlocked() for a late reader.
+//   DB_VERSIONCHANGE_EVENT — another copy upgraded, so this one was closed and
+//     must reload to keep working.
+export const DB_BLOCKED_EVENT = 'furever:dbblocked';
+export const DB_READY_EVENT = 'furever:dbready';
+export const DB_VERSIONCHANGE_EVENT = 'furever:dbversionchange';
+
+let upgradeBlocked = false;
+export function isDbUpgradeBlocked() { return upgradeBlocked; }
+
+const announce = (name) => globalThis.dispatchEvent?.(new Event(name));
+db.on('blocked', () => { upgradeBlocked = true; announce(DB_BLOCKED_EVENT); });
+db.on('ready', () => {
+  if (!upgradeBlocked) return;
+  upgradeBlocked = false;
+  announce(DB_READY_EVENT);
+});
+// Not returning false keeps Dexie's default: close, so the other copy's upgrade
+// goes through.
+db.on('versionchange', () => { announce(DB_VERSIONCHANGE_EVENT); });
+
 // --- First-run storage durability -----------------------------------------
 // This app is meant to last FIVE YEARS on a family's phone, so eviction is the
 // real risk. Ask the browser to keep this origin's data; best-effort, pairs with
