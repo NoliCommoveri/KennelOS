@@ -154,6 +154,7 @@ const PRECACHE_URLS = [
   'data/depositRequest.js',
   'data/calendarMath.js',
   'data/dateUtils.js',
+  'data/safeHref.js',
   'data/dogCare.js',
   'data/careVisit.js',
   'data/healthTestLog.js',

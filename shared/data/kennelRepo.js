@@ -7,6 +7,38 @@ import { KENNEL_REFERENCES } from './referenceRegistry.js';
 
 const base = makeRepo('kennels', KENNEL_REFERENCES);
 
+// --- What holds a kennel to being one of her own (K14-6) ---------------------
+// Every scoped repo asserts its kennel_id is an OWN kennel on create and on
+// update (kennelScope.assertOwnKennel), and so does dogRepo for an owned or
+// co-owned dog. Unticking "This is one of my own kennels" while any of these
+// point at it would make every later save on them throw. Archived rows count
+// too: unarchiving one runs the same check. Contacts, a dog's breeder kennel,
+// external dogs and kennel expenses don't need an own kennel, so they don't hold it.
+const OWN_KENNEL_HOLDS = [
+  ['pairings', 'pairing'], ['litters', 'litter'], ['sales', 'sale'],
+  ['stud_services', 'stud service'], ['contracts', 'contract'], ['documents', 'document'],
+  ['waitlist_entries', 'waitlist entry'], ['waitlist_offers', 'waitlist offer'],
+  ['waitlist_programs', 'waitlist program']
+];
+
+export async function ownKennelHolds(id) {
+  const holds = [];
+  const dogs = await db.dogs.where('kennel_id').equals(id).toArray();
+  const owned = dogs.filter((d) => d.ownership_type === 'owned' || d.ownership_type === 'co_owned').length;
+  if (owned) holds.push({ label: 'dog', count: owned });
+  for (const [table, label] of OWN_KENNEL_HOLDS) {
+    if (!db[table]) continue;
+    const count = await db[table].where('kennel_id').equals(id).count();
+    if (count) holds.push({ label, count });
+  }
+  return holds;
+}
+
+export function holdsSentence(holds) {
+  const plural = (label) => (label.endsWith('entry') ? label.slice(0, -1) + 'ies' : label + 's');
+  return holds.map(({ label, count }) => `${count} ${count === 1 ? label : plural(label)}`).join(', ');
+}
+
 // --- Public identity (End-State guide §28) ---------------------------------
 // `public_id` is the kennel's PORTABLE identity: minted once for an own kennel,
 // immutable thereafter, and carried on every kennel card (data/kennelCard.js).
@@ -134,6 +166,13 @@ export const kennelRepo = {
     // that predates this field (a dev database, or a backup restored from one).
     const merged = { ...existing, ...next };
     if (!merged.public_id && merged.is_own_kennel) next.public_id = newPublicId();
+
+    if (existing.is_own_kennel && 'is_own_kennel' in next && !next.is_own_kennel) {
+      const holds = await ownKennelHolds(id);
+      if (holds.length) {
+        throw new Error(`“${existing.kennel_name}” can’t stop being one of your own kennels while ${holdsSentence(holds)} ${holds.length === 1 && holds[0].count === 1 ? 'is' : 'are'} filed under it. Move them to another of your kennels, or archive the kennel instead.`);
+      }
+    }
 
     validateKennel({ ...existing, ...next });
     return base.update(id, next);
