@@ -66,6 +66,11 @@ backup, carries a program from Lite to Pro.
     Jotform is retired; pasted contract-form links stay as the free fallback. Her
     countersignature (D32, before or after the buyer) and kept signed copies emailed to
     buyers (D33) are built, to be proven on the same run.
+    The template library (plan §2.3b: templates support builds on its test account and
+    offers per breeder from the manager app; breeders add a copy with its details pointed at
+    their own fields) is built; migration `0027` needs the Worker deployed and Apply pending,
+    then its first run. D41 (support sets who signs, the breeder the kind) is for the owner
+    to confirm.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0025` applied; `0026` (review fix step 9) needs the Worker deployed, then Apply

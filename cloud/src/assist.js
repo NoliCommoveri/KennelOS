@@ -14,7 +14,8 @@
 //       POST /assist/help                                       owner: Get help
 //       POST /assist/end                                        owner or helper: end help
 //   - the manager app (handleManager, /manager/*, same-origin, cookie signed with
-//     OPS_TOKEN like /ops): the operator's installable page, its JSON and its pushes.
+//     OPS_TOKEN like /ops): the operator's installable page, its JSON and its pushes,
+//     and the template library's routes (esignLibrary.js).
 //
 // Nothing here stores or logs an email: support types it once, to make the account, and
 // it's hashed like every sign-in. The manager shows the label support typed.
@@ -24,6 +25,7 @@ import { sendPush, validEndpoint, vapidConfig } from './notify.js';
 import { hmacHex, randomHex, sha256Hex, timingSafeEqual } from './lib/crypto.js';
 import { fail, json, readCookie, readJson } from './lib/http.js';
 import { MANAGER_FILES } from './assistApp.js';
+import { handleLibraryManager } from './esignLibrary.js';
 
 export const LINK_MS = 15 * 60 * 1000;
 const SESSION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -428,7 +430,8 @@ export async function handleManager(request, env) {
     else if (p === 'api/delete' && request.method === 'POST') out = await deleteFor(env, body);
     else if (p === 'api/push' && request.method === 'POST') out = await subscribe(env, body);
     else if (p === 'api/pending' && request.method === 'POST') out = await pending(env, body);
-    else fail(404, 'not_found');
+    // The template library (esignLibrary.js, Integrations plan §2.3b).
+    else if ((out = await handleLibraryManager(env, p, request.method, body)) === undefined) fail(404, 'not_found');
     return json(out, 200, sameSite);
   } catch (err) {
     if (err?.status && err?.code) return json({ error: err.code, ...(err.extra ?? {}) }, err.status, sameSite);

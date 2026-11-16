@@ -379,6 +379,18 @@ and Email Routing.
   by the label you know from the editor, with the value sent; check each against the contract.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
   days (the privacy policy promises it; Firma has no API to delete one).
+- [ ] **The template library (Integrations plan §2.3b), first run:** deploy the Worker and apply
+  migration `0027` in `/ops`. In the manager app (`/manager/`) → Templates, link your test
+  account (it needs Set up e-signing done). On that account, upload a contract and Place
+  fields with a few details (Buyer · Full name, Sale · Price) and a signature. Back in
+  Templates, set who signs it and offer it to one breeder you name (a second test account
+  with e-signing set up). On that account: Contracts → Contract templates → From KennelOS →
+  Add. Check in the Worker's log `firma: library copy, N prefill(s) re-pointed, 0 refused`;
+  then **Place fields** on the copy, where each detail should show its label in the editor's
+  Prefilled Data, not a blank; then **Preview** a send from it: **On your template** should
+  list every detail filled. If the log says `refused` or the editor shows blanks, note
+  Firma's status and code from the log: the re-pointing call (`PATCH /templates/{id}` with
+  one `field`) is the part Firma's docs don't settle.
 
 ## 5. Recurring (every subsequent release)
 

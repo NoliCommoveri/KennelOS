@@ -714,6 +714,85 @@ Firma"; migration `0023_esign_copies`.
   download link is fetchable without a key; whether Firma's own completion email can be
   turned off, so the buyer doesn't get two copies.
 
+### 2.3b The template library: KennelOS's templates for breeders (2026-11-16, D39–D41)
+
+**What the owner wants:** to build contract templates, with their details already placed
+(prefills), for breeders who then pull them into their own templates, without support being
+in their program (no assisted session, `KennelOS_Assisted_Setup_Plan.md`).
+
+**Why it can't be a plain copy.** A field placed in Firma's editor with its Prefilled Data
+set to a workspace custom field stores that field's id (`custom_workspace_<id>`, §2.3a "As
+built: the Worker"). Ids belong to a workspace, so a template copied into another workspace
+keeps pointing at fields that aren't there, and those boxes come out empty.
+
+**How it's solved.** Every KennelOS workspace has the same custom fields **by `field_name`**
+(Set up e-signing makes them from one fact list, `PREFILL_FIELDS`); only the ids differ. So
+the name is the bridge:
+1. Firma's `POST /templates/{id}/copy` (company key, any workspace of the same company)
+   deep-copies the template, its PDF, fields, signer roles and reminders, into her workspace.
+2. The Worker reads the library's custom fields (id → name) and hers (name → id), and makes in
+   hers any the copy needs that she lacks.
+3. It reads the copy's fields (`GET /templates/{id}/fields`) and, for each prefill that names
+   a library field, `PATCH /templates/{id}` `{ field: { id, format_rules } }` with
+   `prefilledData` naming her field of the same name, in the same form
+   (`esignLibrary.prefillRemap`, pure). Firma's own recipient keys (`email`, `first_name`…)
+   and plain fact names are left as they are: they fill in any workspace. A prefill naming a
+   later copy of one of her names is pointed at the first, the one `syncFirmaFields` keeps.
+4. One PATCH per field and at most 45 outbound calls a request: a long contract takes more
+   than one call. The answer says `ready: false` and her device calls again.
+
+A copy costs no credit (Firma charges per signing request) and never counts against her month.
+
+**As built (2026-11-16)** (`cloud/src/esignLibrary.js`, migration `0027_esign_library`,
+`cloud/tests/esignLibrary.test.js`; the manager app's **Templates** tab; Contract templates'
+**From KennelOS**, End-State guide §32 "E-sign through Firma"):
+- **The library (D39)** is the Firma workspace of one KennelOS account support links in the
+  manager app (`/manager/`, Templates → Link): the owner's own test account, which must have
+  Pro and Set up e-signing done. `ops_config` holds its program
+  (`esign_library_program`) and a name only support sees (`esign_library_label`). Templates
+  are built there with the app itself: Contract templates → Upload, then Place fields.
+  Linking another account withdraws the old one's offers; copies breeders added stay theirs.
+- **Who may add what (D40).** Support names breeders by their KennelOS email (looked up by
+  its hash; `esign_library_breeders` keeps the program and the name support typed, never an
+  email). Each library template is offered to **no one** (the default: nothing is offered
+  until support says), **every breeder** (Pro with e-signing), or **breeders support
+  chooses** (`esign_library_templates.all_breeders`, `esign_library_access`). Removing a
+  breeder or withdrawing a template stops new adds; a copy already added is hers.
+- **What support sets per template (D41):** the name and a line breeders see, and **who signs
+  it**, as its signer roles were placed (only the buyer, the breeder first, the breeder last;
+  `signs`). Her copy's row starts with it, without changing the choice she made last for her
+  own uploads. **The kind of contract is hers** to pick when she adds it, as for an upload.
+- **One copy per breeder and template** (`esign_library_copies`, statuses `copying`,
+  `mapping`, `ready`). Adding again answers the copy she has; one she deleted in Firma's
+  editor is copied anew. A copy Firma refused is forgotten; one whose answer was lost is
+  copied again (a spare template costs nothing). **Later changes to the library template
+  don't reach copies already made.** The rows keep where each copy came from, so telling her
+  that a newer version is in the library can be added later.
+- A field Firma refuses to re-point is counted in `unmapped`, not retried forever; her device
+  says how many details don't fill yet and to set them in Place fields.
+- **Routes:** manager app (ops cookie) `GET /manager/api/library`, `POST …/library/link`,
+  `…/library/unlink`, `…/library/breeder` (add, or `remove`), `…/library/offer`; her device
+  (Pro) `GET /integrations/firma/library` (no Firma call) and `POST
+  /integrations/firma/library/add` `{ templateId }`.
+- **Account deletion** removes her breeder entry, access and copy rows; deleting the library's
+  own account removes the link and every offer. `/ops` export carries the four tables.
+- **Modified** from the first idea (owner, 2026-11-16): a separate library workspace made from
+  the manager app isn't built. The owner's test account is the library, so uploading and
+  placing fields needs nothing new.
+
+*To prove on the first production run* (Firma's docs don't settle these):
+- that `GET /templates/{id}/fields` returns each field's `format_rules.prefilledData` (its
+  schema lists only date settings; the guide says `prefilledData` is the real mechanism, and
+  the signing-request fields read back carry it);
+- that `PATCH /templates/{id}` with one `field` sets `prefilledData` and keeps the field's
+  other `format_rules` (the Worker sends the whole object back with only that key changed);
+- what the copy does with workspace custom fields (its spec says "custom field definitions"
+  are copied). If it already re-points them, the re-pointing is a no-op; if it makes doubles
+  of her fields, the copy's prefills are pointed at the first of each name;
+- that a copied template opens in her Place fields with each detail shown in the editor's
+  Prefilled Data list, and that a preview of a send from it fills every detail (the Send
+  dialog's preview list says so).
+
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
 - `esign_provider` (`jotform`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
@@ -1159,6 +1238,9 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
 | D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature"). **Modified 2026-11-12:** or **first**, before the buyer, per template (I sign first / I sign last / I don't sign) |
 | D33 | **Decided 2026-11-12, built.** The signed PDF | **Per template** (an "Email the buyer the signed copy" tick): KennelOS keeps it (R2, copied by the hourly cron once Firma reports completion) and **emails the buyer a link** to it. Kept until account deletion. Supersedes §2.3a's on-demand fetch for those templates (§2.3a "As built: the signed copies") |
+| D39 | **Decided 2026-11-16, built.** Where support builds templates for breeders, without an assisted session | **In the workspace of a KennelOS account support links** in the manager app (the owner's test account), built there with the app's own Contract templates and Place fields; breeders add a copy, its prefills pointed at their own fields by `field_name` (§2.3b) |
+| D40 | **Decided 2026-11-16, built.** Who may add a library template | **Support says, per template:** no one (the default), every breeder, or breeders it names in the manager app (by their KennelOS email, kept as a program id and a name only support sees) |
+| D41 | **Proposed and built 2026-11-16; owner to confirm.** What a library template comes with | **Who signs it** is set by support, as its signers were placed; **the kind of contract** is the breeder's choice when adding it. A copy is a one-time copy: later changes to the library don't reach it (its origin is kept, so a "newer version" notice can come later) |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---

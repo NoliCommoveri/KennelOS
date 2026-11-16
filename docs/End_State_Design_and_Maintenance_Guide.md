@@ -3465,7 +3465,8 @@ Pro with a cloud server, signed in (`cloudEsign.esignOffered` / `esignSignedIn`;
 kennel a workspace and counts her sends against a monthly limit (`/ops`). Her device only sees
 ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `connectFirma`,
 `syncFirmaFields`, `listFirmaTemplates`, `createFirmaTemplate`, `firmaTemplateToken`,
-`sendForEsign`, `esignDocument`, `esignCountersign`).
+`listFirmaLibrary`, `addFirmaLibraryTemplate`, `sendForEsign`, `esignDocument`,
+`esignCountersign`).
 - **Contract templates** (Contracts page button, or `contracts.html#templates`;
   `assets/esignUI.openContractTemplates`):
   - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name
@@ -3531,6 +3532,20 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
       Data set to the label (Text for dates and money too: KennelOS sends text); one signer
       per field; a second signer for I sign first / last; what a detail can't do (tick a
       box, choose between packages); saving, then checking with the Send preview.
+  - **From KennelOS** (Integrations plan §2.3b): the templates KennelOS support offers her
+    (`cloudEsign.libraryTemplates`; the section shows only when there's one), each with its
+    name, a line from support and **Add** beside a kind-of-contract picker. Add
+    (`cloudEsign.addFromLibrary`) syncs her fact fields, then asks the Worker to copy the
+    template into her workspace with each placed detail pointed at her own field
+    (`esignLibrary.prefillRemap`, by `field_name`), calling again while the answer says
+    `ready: false` (at most `LIBRARY_ADD_ROUNDS`). Her copy gets a `contract_forms` row like an
+    upload: the kind she picked, and who signs as support set it (`signs`), saved with
+    `setTemplateType({ remember: false })` so her own last choice for uploads stays. The
+    message says how many details don't fill yet (`unmapped`), to set in Place fields. One
+    already added shows **Added**. The copy is hers: Place fields changes it, deleting it in
+    Firma's editor drops it as any template, and later changes to the library's template
+    don't reach it. Support builds and offers these in the manager app (`/manager/`,
+    Templates: the Worker's `esignLibrary.js`, `cloud/README.md`).
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
     `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`

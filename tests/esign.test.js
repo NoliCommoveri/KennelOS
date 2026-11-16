@@ -155,6 +155,15 @@ function makeFake() {
       return reply(200, row);
     }
     if (method === 'GET' && path === '/templates') return reply(200, { results: [...f.templates.values()] });
+    // The template library (§2.3b): a copy into her workspace, its fields, one field's update.
+    if (method === 'POST' && (m = /^\/templates\/([^/]+)\/copy$/.exec(path))) {
+      if ((init.headers?.authorization || '') !== `Bearer ${MASTER}`) return reply(403, {});
+      const t = { id: `tpl_${f.templates.size + 1}`, name: body.name, page_count: 4, fields: structuredClone(f.libraryFields || []) };
+      f.templates.set(t.id, t);
+      f.copies = (f.copies || 0) + 1;
+      return reply(201, { id: t.id, name: t.name, workspace_id: body.workspace_id, created_date: '2026-11-16T00:00:00Z', seal_participants: [] });
+    }
+    if ((m = /^\/templates\/([^/]+)\/fields$/.exec(path))) return reply(200, { results: f.templates.get(m[1])?.fields || [] });
     if (method === 'POST' && path === '/templates') {
       const t = { id: `tpl_${f.templates.size + 1}`, name: body.name, page_count: 2 };
       f.templates.set(t.id, t);
@@ -351,6 +360,36 @@ test('set up, upload and type a template, send a contract, and it comes back sig
   assert.equal(signed.status, 'signed');
   assert.equal(signed.signed_date, '2026-11-14');
   assert.equal((await esign.signedCopyLink('sr_2')).url, 'https://files.firma.dev/sr_2.pdf');
+});
+
+test('from KennelOS: a template support offers her is added as her own copy, signed as support set it', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  assert.deepEqual(await esign.libraryTemplates(), [], 'nothing offered: nothing listed');
+  // Support linked a library and offered one template to every breeder (the manager app).
+  // Here the library is her own workspace, so its details are already hers.
+  const programId = env.DB.raw.prepare('SELECT id FROM programs').get().id;
+  const now = new Date().toISOString();
+  env.DB.raw.prepare("INSERT INTO ops_config (key, value, updated_at) VALUES ('esign_library_program', ?, ?)").run(programId, now);
+  env.DB.raw.prepare("INSERT INTO esign_library_templates (template_id, name, description, all_breeders, signs, created_at, updated_at) VALUES ('lib_1', 'Puppy sale (KennelOS)', 'Pet home', 1, 'last', ?, ?)").run(now, now);
+  fake.templates.set('lib_1', { id: 'lib_1', name: 'Puppy sale', page_count: 4 });
+  fake.libraryFields = [{ id: 'f1', type: 'text', format_rules: { prefilledData: `custom_workspace_${fake.fields[0].id}` } }, { id: 'f2', type: 'signature' }];
+  assert.deepEqual(await esign.libraryTemplates(), [{ id: 'lib_1', name: 'Puppy sale (KennelOS)', description: 'Pet home', signs: 'last', added: false }]);
+
+  const t = await esign.addFromLibrary('lib_1');
+  assert.deepEqual(t, { id: 'tpl_2', name: 'Puppy sale (KennelOS)', signs: 'last', unmapped: 0 });
+  await esignTemplates.setTemplateType({ templateId: t.id, name: t.name, formType: 'pet_home', signs: t.signs, remember: false });
+  const account = (await accountRepo.getAll())[0];
+  assert.equal(account.esign_signs_default, undefined, 'her own last choice is left alone');
+  const row = cleanForms(account.contract_forms).find((f) => f.template_id === t.id);
+  assert.deepEqual([row.form_type, row.countersign, row.countersign_first], ['pet_home', true, undefined], 'she signs last, as support set it');
+  assert.equal((await esign.libraryTemplates())[0].added, true);
+  // Adding it again answers the copy she has.
+  assert.equal((await esign.addFromLibrary('lib_1')).id, t.id);
+  assert.equal(fake.copies, 1);
+  // Not offered to her: refused, said plainly.
+  const err = await esign.addFromLibrary('lib_2').catch((e) => e);
+  assert.equal(esign.esignProblem(err).message, 'KennelOS doesn\'t offer that template to you any more.');
 });
 
 test('she signs first: the first signer, the buyer\'s link on the contract, her link from Sign first', async () => {

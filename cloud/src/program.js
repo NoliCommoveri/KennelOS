@@ -6,6 +6,7 @@ import { backingInfo } from './snapshots.js';
 import { requireFreshSignIn } from './auth.js';
 import { deleteWaitlistStatements } from './waitlist.js';
 import { deleteIntegrationStatements, revokeAllConnections } from './integrations.js';
+import { deleteLibraryStatements } from './esignLibrary.js';
 import { deleteNotifyStatements } from './notify.js';
 
 export async function getProgram(env, auth) {
@@ -138,6 +139,7 @@ export async function removeAccount(env, { userId, programId }, { erase = false,
     env.DB.prepare('DELETE FROM sync_records WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM sync_devices WHERE program_id = ?').bind(p),
     ...deleteWaitlistStatements(env, p),
+    ...deleteLibraryStatements(env, p), // before int_connections' rows: names the library by program
     ...deleteIntegrationStatements(env, p),
     ...deleteNotifyStatements(env, p),
     env.DB.prepare('DELETE FROM assist_links WHERE program_id = ?').bind(p),

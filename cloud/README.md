@@ -88,6 +88,17 @@ src/firma.js           e-sign through Firma (Integrations plan §2.3a, migration
                        each completed one to R2 (esign/<program>/<send id>.pdf) and emails the
                        buyer a link; GET /signed/<send id>/<mac> serves it (mac = HMAC of the id
                        with INT_TOKEN_KEY)
+src/esignLibrary.js    the template library (Integrations plan §2.3b, migration 0027): the Firma
+                       workspace of one account support links in the manager app (ops_config
+                       esign_library_program) holds templates support built; support names breeders
+                       (esign_library_breeders: a program and a name it typed, never an email) and says
+                       who may add each (esign_library_templates, esign_library_access). GET/POST
+                       /manager/api/library/* (link, unlink, breeder, offer), GET
+                       /integrations/firma/library and POST /integrations/firma/library/add (Pro):
+                       POST /templates/{id}/copy with FIRMA_API_KEY into her workspace, then each
+                       prefill PATCHed to her field of the same field_name (prefillRemap), over as
+                       many calls as it takes (ready: false = call again); esign_library_copies keeps
+                       one copy per breeder and template
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -151,7 +162,7 @@ src/assist.js          assisted setup and help: the editions' /assist/* routes (
                        into a helper session, state, claimed, help, end) and the manager app at
                        /manager/ (ops-token sign-in kept server-side in manager_sessions, 0026: Log out
                        ends it, /ops can end them all; installable, web push; files in assistApp.js and
-                       assistIcons.js). Helper sessions are sessions.role = 'helper'; api.js refuses
+                       assistIcons.js; its Templates tab is the template library, esignLibrary.js). Helper sessions are sessions.role = 'helper'; api.js refuses
                        them the owner-only routes (OWNER_ONLY; taking over backing up is left open on
                        purpose, and the server marks a helper backing device). Optional var PRO_APP_URL (where the
                        links open; default https://pro.kennelos.app). Migration 0020
@@ -231,6 +242,10 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   spent) and /ops shows how many. Firma has no idempotency key: never retry a send blindly.
   Firma can't delete a workspace through its API, so disconnect and account deletion only
   remove the webhook; a deleted account's workspace is removed by hand in Firma's dashboard.
+- **The template library is an account's workspace.** Deleting (or resetting) the account
+  linked as the library in the manager app unlinks it and withdraws every offer; breeders'
+  copies stay theirs. A copy costs no credit and is never counted, so it isn't in
+  `esign_sends`.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
