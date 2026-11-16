@@ -420,6 +420,9 @@ entity repo wraps it with validation and derived queries:
 `getById`, `getAll({ includeArchived })`, `create` (id, `is_archived=false`, timestamps),
 `update` (merges; keeps `id`/`created_at`), `archive`/`unarchive`, `getDeleteBlockers`,
 `hardDelete` (throws `ReferenceBlockedError` if anything points at the record, §7).
+`getAll` on contacts, accounts, kennels and waitlist programs comes back sorted by name
+(case-insensitive), so every picker of them (buyer, referrer, vet, owner, kennel, program)
+reads A–Z; dogs are grouped and sorted by `dogOptgroups`.
 Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud backup dirty
 (`settings.markDataChanged()`).
 
@@ -1048,7 +1051,8 @@ their own `confirmDialog` (`cloud/public/family/common.js`).
   `data/kennelTree.js` (families, generations, sire × dam unions, lanes so lines never run
   behind cards). Archived dogs included; pedigree-only ancestors behind a checkbox; not
   kennel-scoped.
-- **eventForm.js** — the event modal (§8). Event has no page of its own, so
+- **eventForm.js** — the event modal (§8). Its Type picker lists the subject's types A–Z
+  by label (a new event still starts on the catalog's first type). Event has no page of its own, so
   `openEventFromQuery` lets a subject page open one: `openEvent=<id>`, or
   `logEvent=<type>` with optional `logDate`, `logTitle`, `logEnd` (a span's end),
   `logContact` (related contact id), `logDetails` (JSON), `fromReminder` (an event id:
@@ -3414,6 +3418,11 @@ Share with families hint and the card's badge say so for this type.
     when the sale has its charge (`addOnApplies`: a transport fee, deferred boarding, or the
     extra the form would fill from, `extraFor`, given the sale's `addOns`), else under Show
     all forms.
+  - **The pickers fold by kind** (Send for signature and Review sale & send's step 2):
+    `contractForms.formTypeGroups` makes one folded card per kind she has a form of, the
+    kinds by label A–Z and each kind's forms A–Z inside, all cards closed and **nothing
+    picked**: Continue stays off until she picks a form (or, in Review sale & send, No
+    contract). A card she opened stays open across redraws.
   - **Each agreement has its own contract record** (`contractSend.contractForForm`,
     `contractForms.agreementKey`: '' for the sale's main contract, `transport`, `boarding`,
     `extra:<row id>`). A send uses the record she's on while nothing went out on it, or the

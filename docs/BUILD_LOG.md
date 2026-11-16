@@ -5472,3 +5472,21 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Tests:** `node --test` 2158 pass; `cd cloud && npm test` 375 pass; editions build.
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v150`
   (covers all three).
+
+## 2026-11-16: Folded contract pickers; pickers A–Z
+
+- **Contract pickers fold by kind, nothing picked:** Send for signature (Contract page) and
+  Review sale & send's step 2 show one closed card per kind of contract she has a form of
+  (`contractForms.formTypeGroups`: kinds A–Z by label, forms A–Z inside). No form is
+  picked to start, so Continue stays off until she picks one (or No contract). The Show
+  all forms split for forms that don't fit the contract stays. Asked for because the first
+  form kept going out by accident.
+- **Pickers A–Z:** `contactRepo`, `kennelRepo` and `waitlistProgramRepo` `getAll` sort by
+  name (as `accountRepo` already did), so buyer, referrer, vet, owner, kennel and program
+  pickers everywhere read alphabetically. Litter and pairing pickers keep their date order;
+  dogs were already sorted.
+- **Add event:** the Type picker lists types A–Z; the default type is unchanged.
+- **Tests:** `tests/pickerOrder.test.js` (+2). `node --test` 2160 pass; editions build;
+  Send for signature checked in the Pro build.
+- **Docs:** End-State guide (§6 repo layer, contract forms, eventForm).
+- **Service worker:** no app file added or renamed; cache not bumped yet.
