@@ -5463,3 +5463,12 @@ No owner decisions needed; each fix follows the review's suggestion.
   mind); Waitlist Fixes plan (D10, D11, step 7, K7-5); `cloud/README.md`; FIX_PRIORITIES;
   README Status.
 - **Service worker:** no app file added or renamed; cache not bumped yet.
+
+## 2026-11-16: One release for the reservation agreements and fix step 12
+
+- Folded onto one branch: Reservation agreements before a sale, and fix step 12 parts 1
+  and 2 (one turn rule each; the kennel's clock), cherry-picked from
+  `claude/fix-priorities-review-j6pq83`. The build log's two entries were kept side by side.
+- **Tests:** `node --test` 2158 pass; `cd cloud && npm test` 375 pass; editions build.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v150`
+  (covers all three).
