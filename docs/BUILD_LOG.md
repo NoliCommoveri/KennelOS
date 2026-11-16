@@ -5359,3 +5359,28 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Docs:** Integrations plan §2.3b and D39–D41; End-State guide (From KennelOS); Assisted
   Setup plan §2; `cloud/README.md`; launch checklist; README status.
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v149` (covers the template-library app changes and the v148 batch before it).
+
+## 2026-11-16: Reservation agreements before a sale (Contract type Reservation)
+
+- **Why (owner):** a breeder sends a reservation/deposit agreement before a pup is picked,
+  often without the KennelOS waitlist. Typing litter, sex and deposit into Firma's fields on
+  a phone while signing is miserable, so the details are picked in the app and prefilled.
+- **Built:**
+  - `vocab.CONTRACT_TYPE` adds `reservation`; the Deposit form type serves it.
+  - `contractRepo`: `BUYER_LINK_TYPES` (a reservation's buyer is `related_contact_id`, kept
+    out of `CONTACT_LINK_TYPES` so it's never a Companion partner) and `RESERVATION_FIELDS`
+    (`reservation_litter_id`, `_pref_sex`, `_pref_color`, `_deposit_amount`), tidied on save
+    and nulled on other types. `referenceRegistry`: the litter FK (scan). `syncRegistry`:
+    the four fields pending (device-only until decided).
+  - `saleDefaults.reservationDeposit`; `contractSend` gathers the buyer and litter
+    (`reservationLitterName`, `NEXT_AVAILABLE_LITTER`); `contractForms` adds the
+    `reservation` prefill group (4 new facts with Firma labels "Reservation · …"), filled on a
+    Deposit form or any form on a reservation; Field guide and Accounts list the group.
+  - Contract page: the Reservation fields as dropdowns (buyer, litter or Next available,
+    Either/Male/Female, color with suggestions, deposit from the litter); shortcuts on the
+    contact's Sales card and the waitlist family's ⋯ menu.
+- **Open (owner):** whether the four reservation fields go to the cloud (pending now).
+- **Tests:** new `tests/reservationContract.test.js` (8); `prefillGuide` (+1), field count
+  89 → 93. `node --test` all pass. Contract page checked in a browser at phone width.
+- **Docs:** End-State guide (Contract row, prefill groups, Reservation agreements).
+- **Service worker:** no app file added or renamed; cache not bumped.

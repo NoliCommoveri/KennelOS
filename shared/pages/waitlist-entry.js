@@ -2043,6 +2043,17 @@ async function save() {
   }
 }
 
+// A new Reservation contract for this family (contract.html), their contact and
+// preferences already picked; she checks the litter and deposit there. '' without
+// contracts in this edition or a contact on the entry.
+function reservationHref(e) {
+  if (!editionFlags.contracts || !e.contact_id) return '';
+  const colors = (Array.isArray(e.pref_colors) ? e.pref_colors : [e.pref_colors]).filter(Boolean).join(', ');
+  const q = new URLSearchParams({ new: '1', type: 'reservation', contact: e.contact_id, sex: e.pref_sex || 'any' });
+  if (colors) q.set('color', colors);
+  return `contract.html?${q}`;
+}
+
 // Archive, Delete and New status link: rare, so behind one ⋯ menu (decided 2026-10-10).
 async function renderHeaderActions() {
   els.headerActions.innerHTML = '';
@@ -2057,6 +2068,7 @@ async function renderHeaderActions() {
     <div class="action-menu" id="entry-manage">
       <button class="btn btn-sm" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More">⋯</button>
       <div class="action-menu-list" role="menu" hidden>
+        ${reservationHref(e) ? `<a role="menuitem" href="${esc(reservationHref(e))}" title="A reservation agreement for this family, with their preferences picked">Reservation agreement…</a><hr>` : ''}
         ${link ? '<button type="button" role="menuitem" id="btn-newlink" title="Make a new link; the old one stops working">New status link…</button><hr>' : ''}
         ${isLiveEntry(e) ? '<button type="button" role="menuitem" id="btn-samefamily" title="They applied twice: merge the two and delete one">Same family as another application…</button><hr>' : ''}
         <button type="button" role="menuitem" id="btn-archive">${e.is_archived ? 'Unarchive' : 'Archive'}</button>
