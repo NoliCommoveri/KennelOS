@@ -1046,3 +1046,24 @@ test('plannedHeats (Spec §16.4): future heats of her active breeding females, a
     { id: 'h1', kind: 'planned_heat', stage: 'planned_heats', dam_id: 'jun', month: '2027-03' }
   ]);
 });
+
+test('entryForContact: one not closed, else the most recent; placed with an open sale is not closed', async () => {
+  const { entryForContact } = await import('../shared/data/waitlistRules.js');
+  const e = (id, status, created_at, o = {}) => ({ id, status, created_at, ...o });
+  const sales = [{ id: 'open', status: 'deposit_paid' }, { id: 'done', status: 'delivered' }];
+  assert.equal(entryForContact([], sales), null);
+  // One not closed wins over a newer closed one.
+  assert.equal(entryForContact([e('a', 'active', '2026-01-01'), e('b', 'withdrawn', '2026-06-01')], sales).id, 'a');
+  // Several not closed: the most recent of them.
+  assert.equal(entryForContact([e('a', 'active', '2026-01-01'), e('b', 'applied', '2026-03-01'), e('c', 'declined', '2026-09-01')], sales).id, 'b');
+  // All closed: the most recent.
+  assert.equal(entryForContact([e('a', 'withdrawn', '2026-01-01'), e('b', 'removed', '2026-04-01')], sales).id, 'b');
+  // Placed with its sale still open counts as not closed; once delivered it's closed.
+  assert.equal(entryForContact([e('a', 'placed', '2026-01-01', { placed_sale_id: 'open' }), e('b', 'declined', '2026-05-01')], sales).id, 'a');
+  assert.equal(entryForContact([e('a', 'placed', '2026-01-01', { placed_sale_id: 'done' }), e('b', 'declined', '2026-05-01')], sales).id, 'b');
+  // A newer application beats an older open placement only by date.
+  assert.equal(entryForContact([e('a', 'placed', '2026-01-01', { placed_sale_id: 'open' }), e('b', 'applied', '2026-05-01')], sales).id, 'b');
+  // Archived count only when all are.
+  assert.equal(entryForContact([e('a', 'withdrawn', '2026-01-01'), e('b', 'active', '2026-05-01', { is_archived: true })], sales).id, 'a');
+  assert.equal(entryForContact([e('b', 'active', '2026-05-01', { is_archived: true })], sales).id, 'b');
+});

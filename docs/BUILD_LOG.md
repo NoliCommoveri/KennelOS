@@ -5228,3 +5228,25 @@ over backing up, named as support (9-B); K5-13 rides this branch's migration (9-
 - **Tests:** new `prefillSamples.test.js` (3). `node --test` 2075 pass.
 - **Docs:** End-State guide (Field guide).
 - **Service worker:** `data/prefillSamples.js` added to `PRECACHE_URLS`. Rides `kennelos-shell-v148`.
+
+## 2026-11-15: Stay and pickup, Add charges, contact → waitlist page
+- **Why (owner):** adding a staying extra on the Sale page offered neither the stay nor the
+  pickup; a contact needed a way to its waitlist page; the family's page needed a way to add
+  an extra, transport or boarding to their sale (with or without a request; no email).
+- **Built:**
+  - `goHome.stayPickupPlan` / `addedStays` / `afterStays` (pure) and `assets/stayPickupUI.js`
+    (shared): one dialog for the stay(s), boarding and the pickup the day after (an earlier
+    pickup moved), every date editable. After the Sale page's save (after the schedule
+    question), after approving a family's stay extra (replacing the stay-only prompt), after
+    Add charges. Today: `training-stay` adds **Log the stay and the pickup**; the go-home
+    pickup nudge defaults to the day after any stay still to end.
+  - `waitlistActions.addSaleCharge` and Interact's **Add charges…** (Extra from the price
+    list or typed / Transport with the quote and Get driving miles / Boarding from the
+    standard rate); an address request gains **Add transport…**.
+  - `waitlistRules.entryForContact` and the Contact page's **Waitlist page →** button (one
+    not closed, else the most recent; placed with an open sale counts as not closed).
+- **Tests:** `goHome` (+3), `waitlistRules` (+1), `cloudWaitlist` (+1). `node --test` 2080 pass; `node build/assemble.mjs` green.
+- **Docs:** End-State guide (training stays, Stay and pickup, the nudges, Add charges, the
+  Contact page); Family Requests plan §6 (Modified note).
+- **Service worker:** `assets/stayPickupUI.js` added to `PRECACHE_URLS` (shared). Rides
+  `kennelos-shell-v148`.

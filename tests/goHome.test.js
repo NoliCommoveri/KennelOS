@@ -115,3 +115,48 @@ test('a contract\'s pickup date: the next booked pickup, else the latest one, el
   assert.equal(get([pickup(at(12), { is_archived: true }), boarding(at(12))]), ready, 'archived pickups and boarding don\'t count');
   assert.equal(H.expectedPickupDate({ sale: sale(), events: [], litter: null, today }), '', 'no litter, nothing booked: blank');
 });
+
+// --- A stay extra or boarding just added: the stay and the pickup (owner, 2026-11-15) ---
+
+test('addedStays: only stay extras and boarding the save added', async () => {
+  const { addedStays } = await import('../shared/data/goHome.js');
+  const pkg = { id: 'x1', label: '12-week package', amount: 1200, boarding_days: 28 };
+  const photos = { id: 'x2', label: 'Photos', amount: 75 };
+  assert.equal(addedStays({ extra_charges: [] }, { extra_charges: [photos] }), null);
+  assert.deepEqual(addedStays({ extra_charges: [] }, { extra_charges: [pkg, photos] }), { chargeIds: ['x1'], boarding: false });
+  assert.equal(addedStays({ extra_charges: [pkg] }, { extra_charges: [pkg] }), null, 'already on it');
+  assert.deepEqual(addedStays(null, { deferred_boarding_amount: 25 }), { chargeIds: [], boarding: true });
+  assert.equal(addedStays({ deferred_boarding_amount: 25 }, { deferred_boarding_amount: 30 }), null);
+});
+
+test('stayPickupPlan: the stay from the ready date, boarding after it, the pickup the day after; an early pickup moves', async () => {
+  const { stayPickupPlan } = await import('../shared/data/goHome.js');
+  const pup = { id: 'p' };
+  const litter = { estimated_ready_date: '2026-10-27' };
+  const sale = { id: 's', buyer_contact_id: 'b', extra_charges: [{ id: 'x1', label: '12-week package', amount: 1200, boarding_days: 28 }],
+    deferred_boarding_amount: 25, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: '5' };
+  const early = { id: 'pk', event_type: 'placement', event_date: '2026-10-30', related_contact_id: 'b' };
+  const plan = stayPickupPlan({ sale, pup, litter, events: [early], today: '2026-10-20', boarding: true });
+  assert.deepEqual(plan.stays.map((e) => [e.event_date, e.event_end_date, e.details.extra_charge_id]), [['2026-10-27', '2026-11-23', 'x1']]);
+  assert.deepEqual([plan.boarding.event_date, plan.boarding.event_end_date], ['2026-11-24', '2026-11-28']);
+  assert.deepEqual([plan.pickup.date, plan.pickup.event?.id], ['2026-11-29', 'pk'], 'the earlier pickup moves');
+  // A pickup already after it all: nothing to move.
+  const later = { ...early, event_date: '2026-12-05' };
+  assert.equal(stayPickupPlan({ sale, pup, litter, events: [later], today: '2026-10-20', boarding: true }).pickup, null);
+  // No pickup yet: a new one.
+  const none = stayPickupPlan({ sale, pup, litter, events: [], today: '2026-10-20', chargeIds: ['x1'] });
+  assert.deepEqual([none.boarding, none.pickup], [null, { date: '2026-11-24', event: null }]);
+  // The stay already logged: nothing to do.
+  const logged = { event_type: 'boarding', event_date: '2026-10-27', event_end_date: '2026-11-23', details: { sale_id: 's', extra_charge_id: 'x1', boarding_reason: 'Training' } };
+  assert.equal(stayPickupPlan({ sale, pup, litter, events: [logged], today: '2026-10-20', chargeIds: ['x1'] }), null);
+  // Past the ready date: from today.
+  assert.equal(stayPickupPlan({ sale, pup, litter, events: [], today: '2026-11-02', chargeIds: ['x1'] }).stays[0].event_date, '2026-11-02');
+});
+
+test('afterStays: the day after the last stay still to end, else where it started', async () => {
+  const { afterStays } = await import('../shared/data/goHome.js');
+  const ev = [{ event_type: 'boarding', event_date: '2026-10-27', event_end_date: '2026-11-23' }, { event_type: 'placement', event_date: '2026-12-30' }];
+  assert.equal(afterStays(ev, '2026-10-27'), '2026-11-24');
+  assert.equal(afterStays(ev, '2026-12-01'), '2026-12-01');
+  assert.equal(afterStays([], '2026-10-27'), '2026-10-27');
+});

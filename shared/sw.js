@@ -81,6 +81,7 @@ const PRECACHE_URLS = [
   'assets/pickToSend.js',
   'assets/esignUI.js',
   'assets/fieldGuideUI.js',
+  'assets/stayPickupUI.js',
   'assets/paymentRequestUI.js',
   'assets/puppyForm.js',
   'assets/receiptCapture.js',
