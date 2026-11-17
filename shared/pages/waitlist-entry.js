@@ -374,7 +374,7 @@ async function onCommunicate() {
 // Making a new status link (header ⋯ menu): the old one stops working, so it's
 // a safety step, not a way to reach them.
 async function onNewLink() {
-  if (!(await confirmModal({ title: 'Make a new link?', message: 'Their current link stops working as soon as the new one is published. Send them the new link.', confirmLabel: 'Make a new link' }))) return;
+  if (!(await confirmModal({ title: 'Make a new link?', message: 'Their current link stops working as soon as the new one is published, and every browser signed in to their page is signed out. Send them the new link.', confirmLabel: 'Make a new link' }))) return;
   const { replaceStatusToken } = await import('../data/cloud/cloudWaitlist.js');
   await replaceStatusToken(ctx.entry.id);
   await afterAction();
@@ -2111,6 +2111,8 @@ async function renderHeaderActions() {
       if (!(await confirmModal({ title: 'Delete this entry?', message: 'This cannot be undone.', confirmLabel: 'Delete', danger: true }))) return;
       try {
         await waitlistEntryRepo.hardDelete(e.id);
+        // An online application also leaves the server, so a new device can't bring it back.
+        if (e.source === 'online_form') await import('../data/cloud/cloudWaitlist.js').then((m) => m.forgetApplication(e)).catch(() => {});
         location.href = `waitlist.html?kennel=${encodeURIComponent(e.kennel_id)}`;
       } catch (err) {
         if (err instanceof ReferenceBlockedError) renderHeaderActions();

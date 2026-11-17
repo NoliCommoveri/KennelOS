@@ -270,3 +270,13 @@ test('KennelOS\'s own pages are untouched: same-origin apply and verify get no C
   assert.equal(list.status, 200);
   assert.equal((await list.json()).form, undefined, 'the public list carries no form; only the website feed does');
 });
+
+test('K7-11: a kennel-wide verify limit says busy, not "your connection"; a crowded Wi-Fi can apply', async () => {
+  const { env } = await setup();
+  assert.ok(FAMILY_LIMITS.applicationsPerHourPerIp >= 20);
+  const window = `${new Date().toISOString().slice(0, 13)}:00:00Z`;
+  env.DB.raw.prepare('INSERT INTO rate_limits (bucket, window_start, count) VALUES (?, ?, ?)').run(`wl-verify-kennel:${KENNEL}`, window, FAMILY_LIMITS.verifyPerHourPerKennel);
+  const res = await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: '123456' }, ip: '203.0.113.9' });
+  assert.equal(res.status, 429);
+  assert.equal((await res.json()).error, 'busy');
+});

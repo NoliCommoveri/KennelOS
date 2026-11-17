@@ -77,11 +77,20 @@ function requireStatus(entry, allowed, verb) {
 }
 
 // An undo that would reopen a closed entry is refused once the family has a newer
-// live one on the same list (they re-applied), so they're never on it twice.
+// live one on the same list (they re-applied), so they're never on it twice. The same
+// family: the same contact, or (K6b-7: a declined or withdrawn application usually has
+// no contact yet, linked only at approve) the same email, the contact's or the one
+// they applied with.
 async function assertNotReapplied(entry, what) {
-  if (!entry.contact_id) return;
-  const again = (await waitlistEntryRepo.getAll()).find((x) => x.id !== entry.id && x.kennel_id === entry.kennel_id
-    && x.contact_id === entry.contact_id && ['applied', 'approved', 'active'].includes(x.status));
+  const emailOf = async (e) => String((e.contact_id && (await contactRepo.getById(e.contact_id))?.email) || e.application?.email || '').trim().toLowerCase();
+  const email = await emailOf(entry);
+  if (!entry.contact_id && !email) return;
+  const live = (await waitlistEntryRepo.getAll()).filter((x) => x.id !== entry.id && x.kennel_id === entry.kennel_id
+    && ['applied', 'approved', 'active'].includes(x.status));
+  let again = entry.contact_id ? live.find((x) => x.contact_id === entry.contact_id) : null;
+  if (!again && email) {
+    for (const x of live) if ((await emailOf(x)) === email) { again = x; break; }
+  }
   if (again) throw new Error(`This family has applied again since, so the ${what} can't be undone. Their new application is on the list.`);
 }
 

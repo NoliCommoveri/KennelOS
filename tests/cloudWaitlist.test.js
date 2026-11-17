@@ -268,6 +268,47 @@ test('a reset phone fetches what the server still holds and fills in answers a b
   assert.equal((await waitlistEntryRepo.getById(entry.id)).application.about, 'Kept safe');
 });
 
+test('K7-13: an application she deleted stays deleted on a new device; offline, it waits on this one', async () => {
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const k = await thornfield();
+  await applyOnline(k.public_id, { name: 'Spam One', email: 'spam1@example.com' });
+  await applyOnline(k.public_id, { name: 'Spam Two', email: 'spam2@example.com' });
+  await cw.syncWaitlistOnline();
+  const find = async (email) => (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.application?.email === email);
+  const one = await find('spam1@example.com');
+  const two = await find('spam2@example.com');
+  assert.equal(one.source, 'online_form');
+  // Deleted while signed in: the server forgets it at once.
+  await waitlistEntryRepo.hardDelete(one.id);
+  await cw.forgetApplication(one);
+  assert.equal(raw('SELECT id FROM wl_inbox WHERE id = ?', one.id).length, 0);
+  assert.equal(raw('SELECT token FROM wl_tokens WHERE entry_id = ?', one.id).length, 0);
+  // Deleted offline: queued here, skipped by a take-in meanwhile, sent with the next sync.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await waitlistEntryRepo.hardDelete(two.id);
+  await cw.forgetApplication(two);
+  globalThis.fetch = realFetch;
+  assert.deepEqual(settings.getWaitlistOnlineState().droppedInbox, [two.id]);
+  settings.updateWaitlistOnlineState({ inboxFetchedAll: false }); // as on a fresh device
+  await cw.syncWaitlistOnline();
+  assert.equal(await find('spam2@example.com'), undefined);
+  assert.deepEqual(settings.getWaitlistOnlineState().droppedInbox, []);
+  assert.equal(raw('SELECT id FROM wl_inbox WHERE id = ?', two.id).length, 0);
+  // A new device reads everything the server holds: neither comes back.
+  settings.updateWaitlistOnlineState({ inboxFetchedAll: false });
+  await cw.syncWaitlistOnline();
+  assert.equal(await find('spam1@example.com'), undefined);
+  assert.equal(await find('spam2@example.com'), undefined);
+  // A typed-in entry never asks the server.
+  calls.length = 0;
+  await cw.forgetApplication({ id: 'x', source: 'manual' });
+  assert.deepEqual(calls, []);
+});
+
 test('rotating the form key: the new key is published, old applications still open', async () => {
   await breeder();
   const k0 = await putOnline();

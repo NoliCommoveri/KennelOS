@@ -95,6 +95,7 @@ export async function fetchJson(path, { method = 'GET', json, headers = {} } = {
 export function loadError(res, { notFound }) {
   if (res.status === 404) return notFound;
   if (res.status === 503) return 'This page is down for a few minutes of maintenance. Please try again shortly.';
+  if (res.status === 429 && res.body?.error === 'busy') return 'This waitlist is busy right now. Please try again in a few minutes.';
   if (res.status === 429) return 'Too many requests from your connection. Please try again in a little while.';
   if (res.status === 0) return 'You seem to be offline. Check your connection and try again.';
   return 'Something went wrong loading this page. Please try again.';

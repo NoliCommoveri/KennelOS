@@ -357,3 +357,38 @@ test('her pickup cutoff ends on her calendar, not UTC: a Chicago evening is stil
   const nextMorning = { ...evening, now: new Date('2026-11-04T14:00:00Z') };
   assert.throws(() => checkAction('pickup_cancel', {}, nextMorning), /too_late/);
 });
+
+test('K7-10: New link, or a changed email, signs that family out everywhere; nobody else', async () => {
+  const { env, ann, bo, publish } = await setup();
+  const session = (s) => call(env, 'POST', '/f/session', { body: { session: s } });
+  assert.equal((await session(ann)).status, 200);
+  // New link for Ann: her old browser can neither find her page nor act.
+  const p1 = projection();
+  p1.entries.ann.status_token = tok('d');
+  await publish(p1);
+  assert.equal((await session(ann)).status, 401);
+  assert.equal((await act(env, ann, tok('d'), 'still_interested')).status, 401);
+  assert.equal((await session(bo)).status, 200, "Bo's browser is untouched");
+  // Ann signs in again on the new link; then Bo's email changes (a couple who separated).
+  const ann2 = await (async () => {
+    await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' }, ip: '192.0.2.99' });
+    const code = /(\d{6})/.exec(env.DB.raw.prepare('SELECT subject FROM wl_messages ORDER BY rowid DESC LIMIT 1').get().subject)[1];
+    return (await (await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code }, ip: '192.0.2.99' })).json()).session;
+  })();
+  const p2 = projection();
+  p2.entries.ann.status_token = tok('d');
+  p2.entries.bo.email = 'bo.new@example.com';
+  await publish(p2);
+  assert.equal((await session(bo)).status, 401);
+  assert.equal((await session(ann2)).status, 200);
+  // Republishing unchanged signs nobody out; a different case is the same address.
+  p2.entries.bo.email = 'Bo.New@Example.com';
+  const bo2 = await (async () => {
+    await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'bo.new@example.com' }, ip: '192.0.2.98' });
+    const code = /(\d{6})/.exec(env.DB.raw.prepare('SELECT subject FROM wl_messages ORDER BY rowid DESC LIMIT 1').get().subject)[1];
+    return (await (await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code }, ip: '192.0.2.98' })).json()).session;
+  })();
+  await publish(p2);
+  assert.equal((await session(bo2)).status, 200);
+  assert.equal((await session(ann2)).status, 200);
+});

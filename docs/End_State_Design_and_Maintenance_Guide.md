@@ -1102,7 +1102,10 @@ Pro-only pages are listed in `data/proPages.js`; everything else ships in every 
 **The Kennel page** (`kennel.html`) shows one section card at a time, chosen from a
 **Section** dropdown (`SECTIONS` in `kennel.js`) or `#<section>` in the URL; cards for this
 kennel's own data filter on its id, not the active scope. An outside kennel gets only
-Kennel expenses, Logo and Kennel card. The Logo, Lifecycle nudges and Puppy Record fields
+Kennel expenses, Logo and Kennel card. A settings card's Save (Lifecycle nudges, Puppy Record
+fields, Extra charges, Payment schedules, Waitlist settings, Pickup) keeps her on the card
+and redraws it, then `flashSaved` shows the button as **Saved ✓** for two seconds and
+"Saved at <time>" beside it (`role="status"`; `.is-saved`, `.save-flash` in `app.css`). The Logo, Lifecycle nudges and Puppy Record fields
 cards build their fields from `assets/kennelSettingsFields.js` (`fileToLogoDataUrl`,
 `logoPreview`, `nudgeFields` / `readNudgeFields`, `puppyRecordFieldsHtml` /
 `wirePuppyRecordFields` / `readPuppyRecordFields`; Pro-only, in `proPages.js`), which Kels's
@@ -2261,10 +2264,13 @@ restored into Lite keeps its waitlist rows, dormant.
 - **Her waitlist policies** (`docs/KennelOS_Waitlist_Policies_Plan.md`, Pro, only while the
   list can go online): `waitlist_config.policies[]` (`{ id, heading, body, topic?, basis? }`,
   cleaned by `waitlistForm.waitlistPolicies`, `validatePolicies` heading and body both or
-  neither) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
+  neither, and within `POLICY_LIMITS`: 30 policies, a heading of 200 characters, a body of
+  5,000, the same numbers the Worker's `familyPages.POLICY_LIMITS` shows families, held
+  equal by a test; Save refuses past them, and the editor counts each body as she types,
+  and a heading once it's over) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
   changed). Edited in **Kennel › Waitlist settings › Policies** (`kennel.js`, a working copy
   `policiesDraft` redrawn on its own) with the FAQ's editor, now shared
-  (`assets/qaListEditor.js`, `.qa-*` in `app.css`). **Start from common topics**
+  (`assets/qaListEditor.js`, `.qa-*` in `app.css`; `aMax`/`bMax` draw the live count). **Start from common topics**
   (`data/waitlistPolicies.js`, pure, `tests/waitlistPolicies.test.js`) adds the owner's six
   (`POLICY_TOPICS`: applications, preferences, passes, picking, pausing, days), each worded
   by `policyStarter` from her settings at that moment (fee and its due days, pass limit and
@@ -2563,7 +2569,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   applied from `fee_paid_online` never sets, counted from
   `fee_received_at`, back to approved, and only until they're offered a turn or have a side
   sale; `canUndoFeeReceived` needs the sales). Each keeps the
-  family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
+  family's anchor, makes no offers, and is refused once they've re-applied (`assertNotReapplied`: a live entry on the same list
+  with the same contact, or the same email, the contact's or the application's, since a
+  declined or withdrawn application usually has no contact yet). A withdrawal from
   their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
@@ -2770,7 +2778,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   the lease holder, `serverWork.js`). Why it stopped is kept in the `waitlistOnline` setting.
 - **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
   public list, the status page (`/s/<token>`; `status_token` minted by
-  `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
+  `ensureStatusTokens`, **New link** replaces it), and the online form. A publish that
+  gives a family a new token (New link) or a different email ends every browser signed in
+  to their page (`waitlist.signedOutEntries`, deleting their `wl_family_sessions`). On the
+  form, a browser that can't lock the answers (`seal` throws) says so and keeps them; the
+  code step offers **Wrong address? Change it** (back to the form, answers kept, a fresh
+  Turnstile) and the form offers **Already applied? Enter your code** (a code, or a new one
+  to the address they type, for a page that was closed). Rate limits (`FAMILY_LIMITS`):
+  20 applications an hour from one connection, 3 per address; a kennel's verify limit,
+  when it's full, answers `busy` ("This waitlist is busy right now"), not "your connection".
+  Deleting an online application (`source: 'online_form'`) also tells the server
+  (`cloudWaitlist.forgetApplication` → `POST /waitlist/inbox/drop`, any of her devices),
+  so a new device's first take-in can't bring it back; offline, the id waits in the
+  `waitlistOnline` setting's `droppedInbox`, skipped by take-ins, sent at the next sync. A family signs in
   with an emailed code; signing in lands on their open entry. While it's their turn, their
   number is hidden (`placeHidden`). Each entry publishes `since` (its applied date), `pup`
   (its own pup's call name) and `record` (`recordFor`: `{ state, until? }`, where it stands

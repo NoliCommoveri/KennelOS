@@ -713,6 +713,7 @@ both create a Sale for the same accept.
 |---|---|
 | `GET /apply/:kennelPublicId` · `POST /apply/:kennelPublicId` | Form (questions + public key) and submission |
 | `GET /waitlist/inbox` · `POST /waitlist/inbox/ack` | Her device fetches and acknowledges applications |
+| `POST /waitlist/inbox/drop` | She deleted these applications: the server forgets them (**Modified:** added by the Waitlist Fixes plan step 8, K7-13) |
 | `PUT /waitlist/projection` | Her device publishes entries, offers, litter cards, deadlines and the per-litter next-families lists (allow-listed, versioned, §8.4) |
 | `GET /waitlist/events?since=<seq>` | Any of her devices reads family responses and server-made moves after its own cursor (§8.4). No ack; events are never consumed by a read. |
 | `GET /s/:token` · `POST /s/:token/respond` | The family's status page and button actions |

@@ -139,6 +139,29 @@ export async function rotateFormKey(kennelId) {
   return saved;
 }
 
+// An online application she deleted (K7-13): the server is told to forget it, so a new
+// or reset device's first take-in (which reads every application the server still
+// holds) can't bring it back. Queued on this device until the server has it: offline,
+// signed out, or no cloud at all, it waits, and takeInApplications skips it meanwhile.
+// Only for an entry that came from the online form (its id is the inbox item's id).
+export async function forgetApplication(entry) {
+  if (!entry || entry.source !== 'online_form') return;
+  const queue = getWaitlistOnlineState().droppedInbox || [];
+  if (!queue.includes(entry.id)) updateWaitlistOnlineState({ droppedInbox: [...queue, entry.id] });
+  await flushDroppedApplications().catch(() => {});
+}
+
+// → how many the server forgot. Leaves the queue as it was when it can't reach it.
+export async function flushDroppedApplications(token = sessionToken()) {
+  const queue = getWaitlistOnlineState().droppedInbox || [];
+  if (!queue.length || !token || !isWaitlistOnlineOffered()) return 0;
+  let dropped = 0;
+  for (let i = 0; i < queue.length; i += 100) dropped += (await api.dropWaitlistInbox(token, queue.slice(i, i + 100)))?.dropped ?? 0;
+  const left = (getWaitlistOnlineState().droppedInbox || []).filter((id) => !queue.includes(id));
+  updateWaitlistOnlineState({ droppedInbox: left });
+  return dropped;
+}
+
 // Take in new applications (W2 Plan step 4): each confirmed application in the
 // inbox for an own kennel is opened with that kennel's form keys and becomes an
 // `applied` entry whose id is the inbox item's id (D5), so taking one in twice
@@ -151,6 +174,7 @@ export async function takeInApplications(token, kennels, { claim = serverWorkCla
   const byPublicId = new Map(kennels.filter((k) => k.public_id).map((k) => [k.public_id, k]));
   const state = getWaitlistOnlineState();
   const all = !state.inboxFetchedAll;
+  const deleted = new Set(state.droppedInbox || []); // she deleted it; the server hasn't heard yet
   const done = [];
   let taken = 0;
   let filled = 0;
@@ -172,6 +196,7 @@ export async function takeInApplications(token, kennels, { claim = serverWorkCla
         continue;
       }
       if (item.kind !== 'application') continue;
+      if (deleted.has(item.id)) continue;
       const existing = await waitlistEntryRepo.getById(item.id);
       // Already here with its answers: just tell the server.
       if (existing && Object.keys(existing.application || {}).length > 2) { if (!item.acked) done.push(item.id); continue; }
@@ -531,6 +556,8 @@ async function syncNow({ force, asked }) {
     const claim = serverWorkClaim(token);
     // New applications and messages first, then what families did on their
     // pages, so the projection that follows includes all of it.
+    // Deletions first, so a take-in that reads everything never sees them.
+    await flushDroppedApplications(token).catch(() => {});
     if (wanted.length) inbox = await takeInApplications(token, wanted, { claim });
     if (wanted.length) events = await applyFamilyEvents(token, kennels, { claim });
     if (wanted.length) await sweepReadyChecks(token, kennels, { claim });

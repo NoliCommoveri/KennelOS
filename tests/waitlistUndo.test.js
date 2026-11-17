@@ -154,3 +154,21 @@ test('K6b-5: a fee recorded from Stripe offers no undo; one she marked does', as
   const byHand = await actions.feeReceived(approvedId, { date: '2026-11-03', amount: 100, method: 'Cash' });
   assert.equal(rules.canUndoFeeReceived(byHand, [], '2026-11-04', []), true);
 });
+
+test('K6b-7: undoing a decline sees a re-application by the same email, with no contact on either', async () => {
+  const app = (email, name = 'Kim') => waitlistEntryRepo.create({ kennel_id: K.id, status: 'applied', source: 'online_form', application: { name, email }, pref_sex: 'any' });
+  const old = (await app('Kims@Example.com')).id;
+  await actions.decline(old, { date: '2026-11-01' });
+  await app(' kims@example.com ', 'The Kims'); // applied again through her form, no contact yet
+  await assert.rejects(actions.undoDecline(old, { today: '2026-11-03' }), /applied again/);
+  // Someone else's application doesn't block it.
+  const other = (await app('ng@example.com', 'Ng')).id;
+  await actions.decline(other, { date: '2026-11-01' });
+  assert.equal((await actions.undoDecline(other, { today: '2026-11-03' })).status, 'applied');
+  // A contact's email counts too: the new one was approved and linked.
+  const c = await contactRepo.create({ name: 'Ray', email: 'ray@example.com' });
+  const ray = (await app('ray@example.com', 'Ray')).id;
+  await actions.decline(ray, { date: '2026-11-01' });
+  await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: c.id, status: 'approved', approved_date: '2026-11-02', pref_sex: 'any' });
+  await assert.rejects(actions.undoDecline(ray, { today: '2026-11-03' }), /applied again/);
+});

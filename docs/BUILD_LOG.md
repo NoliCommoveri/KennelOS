@@ -5626,3 +5626,31 @@ No owner decisions needed; each fix follows the review's suggestion.
   plan §12 and the Cloud Phase 1 plan §6.
 - README Status rewritten.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Waitlist Fixes plan step 8 (applying and signing in); Saved on Kennel settings
+
+- **K7-4:** `waitlistForm.POLICY_LIMITS` (30 policies, heading 200, body 5,000), equal to the
+  Worker's `familyPages.POLICY_LIMITS` (a test holds them); `validatePolicies` refuses past
+  them; `qaListEditor` `aMax`/`bMax` live counts (the heading's only once over).
+- **K7-6:** the application page catches a failed `seal` and says so, answers kept.
+- **K7-7:** **Wrong address? Change it** on the code step (form back, answers kept, Turnstile
+  reset); **Already applied? Enter your code** on the form (a code, or a new one to an
+  address they type); the application-code email says how to find it. Confirm handlers wired
+  once (`wireConfirm`).
+- **K7-10:** `waitlist.signedOutEntries`: a publish with a new token or a changed email
+  deletes that entry's `wl_family_sessions`. New link's confirm says so.
+- **K7-11 (part):** the kennel-wide verify limit answers `429 busy` ("This waitlist is busy
+  right now"); 20 applications an hour per connection (was 5). Counting wrong guesses per
+  code is left for the owner (plan D13: a migration and a cheap way to burn every live code).
+- **K7-13:** `POST /waitlist/inbox/drop` (any of her devices) forgets deleted applications
+  and their links; `cloudWaitlist.forgetApplication` from the entry's Delete, queued in the
+  `waitlistOnline` setting's `droppedInbox` until sent, skipped by take-ins meanwhile.
+  **Modified:** instead of a dismissed-ids list in the backup.
+- **K6b-7:** `assertNotReapplied` also matches by email (contact's or application's).
+- **K7-5:** not built (D10).
+- **Kennel settings Saved:** `kennel.js` `flashSaved` on the six settings cards' Save.
+- Tests: `waitlistPolicies`, `waitlistUndo`, `cloudWaitlist` (app); `familyActions`,
+  `application` (cloud). Guide (Kennel page, §29 undo, family pages), Waitlist Spec route
+  table, plan step 8 and D13, `FIX_PRIORITIES.md` step 12.
+- **Service worker:** no app file added or renamed; cache not bumped. No cloud migration.
+  Release: deploy the Worker (new route, family pages) before or with the app.
