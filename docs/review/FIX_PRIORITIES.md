@@ -232,7 +232,7 @@ file. Production needs `0026` applied after the deploy (README Status, `LAUNCH_C
 12. **Waitlist Fixes plan, steps 6–10.** *Its step 6 built 2026-11-16 (the turn rules: K6-6's guard now asks the kennel-wide rule and `offerTo` needs `outOfOrder`; one `offerBlocker`; deadlines never shortened by a join and moved off closed days). Its step 7 built the same day (D11: the kennel's clock for the waitlist's deadlines, on her device, the Worker and the family's page). D10 decided no (K7-5 not built). Next is its step 8.* The turn rules (K6-6 S2), the clock (K6-3 S2 and
     K8-9: decision D11), applying and signing in (K7-4 to K7-13), pickup and queued emails,
     and transactions (K6-13). Step 7 is the largest risk among these. D10, D11 and D12 are
-    still open.
+    decided (D10 and D11 on 2026-11-16, D12 on 2026-11-17).
 13. **Performance:** K1-4, K2-7, K4-11.
 14. **K15** redone once the UI settles, taking group J with it. Then **K16** writes
     `SUMMARY.md` from what's left.
