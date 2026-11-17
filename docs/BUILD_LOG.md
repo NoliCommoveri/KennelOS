@@ -5472,3 +5472,50 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Tests:** `node --test` 2158 pass; `cd cloud && npm test` 375 pass; editions build.
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v150`
   (covers all three).
+
+## 2026-11-16: Folded contract pickers; pickers A–Z
+
+- **Contract pickers fold by kind, nothing picked:** Send for signature (Contract page) and
+  Review sale & send's step 2 show one closed card per kind of contract she has a form of
+  (`contractForms.formTypeGroups`: kinds A–Z by label, forms A–Z inside). No form is
+  picked to start, so Continue stays off until she picks one (or No contract). The Show
+  all forms split for forms that don't fit the contract stays. Asked for because the first
+  form kept going out by accident.
+- **Pickers A–Z:** `contactRepo`, `kennelRepo` and `waitlistProgramRepo` `getAll` sort by
+  name (as `accountRepo` already did), so buyer, referrer, vet, owner, kennel and program
+  pickers everywhere read alphabetically. Litter and pairing pickers keep their date order;
+  dogs were already sorted.
+- **Add event:** the Type picker lists types A–Z; the default type is unchanged.
+- **Tests:** `tests/pickerOrder.test.js` (+2). `node --test` 2160 pass; editions build;
+  Send for signature checked in the Pro build.
+- **Evening test fix:** three tests (`cloud/tests/familyActions.test.js` pause request and
+  Ready now?, `tests/cloudWaitlist.test.js` backing out) took today from UTC while the
+  app and Worker use the kennel's clock (fix step 12 part 2), so they failed in US
+  evenings once UTC was on tomorrow. They now take the fixture kennel's day
+  (`familyPages.localDay` / `dateUtils.dayInZone`, America/Chicago). Tests only.
+  `cd cloud && npm test` 375 pass.
+- **Docs:** End-State guide (§6 repo layer, contract forms, eventForm).
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v151`.
+
+## 2026-11-17: Credits plan and security hardening plan (docs only)
+
+- **`docs/KennelOS_Credits_Plan.md`:** one currency (1 credit = $0.35, fixed) bought in packs
+  and spent on Lite passes for Pro features, items moved to credits in both editions (payment
+  schedules, extra waitlist programs), per-use server services and add-ons. Lite and Pro stay
+  two apps. Enforcement is on the server: a ledger, signed entitlement tokens, and feature
+  packs served by the Worker only to entitled programs. Manual payment first (support marks
+  it received in the manager app); Lemon Squeezy as the future state. Decisions D1–D19.
+- **`docs/KennelOS_Security_Hardening_Plan.md`:** the source repo is public; plan to make it
+  private, add licenses and a terms section, minify `dist/`, optionally move hosting off
+  public repos, and keep what matters on the server. Decisions S1–S6.
+- README doc map: both plans added.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Credits plan, how a pack's code leaves a device (docs only)
+
+- `docs/KennelOS_Credits_Plan.md` §7.3: one cache per pack, the service worker checks the
+  signed token on every pack request (offline too), cleanup after the view-only window, why
+  the rows can stay without their screens, and app updates: new pack versions are fetched
+  during install so a device with an active pass is never left without it (the activate step
+  in `shared/sw.js` deletes every non-current cache).
+- **Service worker:** no app file added or renamed; cache not bumped.
