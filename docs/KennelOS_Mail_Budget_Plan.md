@@ -183,13 +183,41 @@ does: `shared/assets/messageComposer.js` opens a real `sms:` link with the famil
 the message filled in.
 
 - **On her push alerts** for urgent waitlist moves (a server-made offer, a deadline tomorrow):
-  tapping the alert opens the family's entry with **Text them** ready, the offer's wording
-  filled in (from her email template, without the footer, plus the status-page link).
+  a notification that texts the family in as few taps as each phone allows (§5.1).
 - **On the loud alert for a held or refused email** (§3.2): "Text them instead" beside Send
   now.
 - Marking the offer as texted counts as delivered for §3.3.
 - No new provider, no registration, no phone numbers on the server, no cost. The family gets a
   text from the number they already know.
+### 5.1 "Next family's turn — text them" from the notification
+
+- **Her service worker** (`shared/sw.js`) gets the server move from `POST /notify/push/pending`
+  as today (payload-free push), now with the entry id and the offer's facts (litter labels,
+  respond-by date). It shows "<Family>'s turn to pick — respond by Fri" and passes only the
+  entry id onward.
+- **Android (Chrome, installed app):** the notification has two buttons, **Text them** and
+  **Open**. Text them opens a tiny page, `shared/pages/text-family.html?entry=…`, which builds
+  the message and hands off to `sms:` at once: Messages opens with the number and wording
+  filled in, after a split-second flash of the app. If a service worker can open `sms:`
+  directly (`clients.openWindow`), the flash goes too. This is unproven, so it's **step 0**:
+  a five-minute test on a real Android phone decides which.
+- **iPhone (installed app, iOS 16.4+):** Safari's web push has no notification buttons, and
+  opening `sms:` usually needs a real tap. Tapping the notification opens the same page,
+  showing one large **Text <Family>** button: two taps in all.
+- **The page** is a normal app page: it reads the family's phone number (their contact) and
+  her offer template from her own records **through the repos**, never `db.*`, and uses
+  `messageComposer.js`'s `sms:` builder. The wording is her email template without the
+  footer, plus the status-page link. The service worker never reads her data; it only opens
+  a URL.
+- **The phone number never goes to the server.** If her device hasn't synced the server's move
+  yet, the page still has the number locally and the offer's facts from the pending answer.
+- **No phone number on the contact:** the page says so and offers Open the family instead.
+- **After Messages opens:** coming back to the page asks "Sent?" → **Yes** marks the offer
+  texted (§3.3, M5) and lets her skip or hold that family's offer email; **Not now** leaves it.
+- **Rules:** the new page and its script go into `PRECACHE_URLS` in `shared/sw.js` and into
+  `shared/data/proPages.js` (waitlist is Pro). No new server table, no new synced field (the
+  texted mark rides the existing offer/outbox records; any new field is classified `private`).
+
 - **Later, only if one tap isn't good enough:** one KennelOS toll-free number with toll-free
   verification (about $2 a month plus about 1¢ a text; families' agreement, STOP replies and
   their numbers on the server). Not planned.
@@ -253,7 +281,8 @@ week, not guessed.
    held emails and their release, the family-code cap (§2–§3.1).
 3. **Loud failures:** `daily_email_limit` and the app banner; `email_held` alerts, the held
    list in the app and on /ops; the server run that waits instead of offering (§3.2–§3.3).
-4. **Tap to text** on her alerts and on held emails (§5).
+4. **Tap to text** on her alerts and on held emails (§5): first the Android test of opening
+   `sms:` from the service worker (§5.1), then the notification buttons and `text-family.html`.
 5. **Family notifications:** manifest, service worker, subscribe on the status page, routing
    and fallback (§4).
 6. **Optional:** a second provider for overflow (§6).
@@ -272,3 +301,4 @@ week, not guessed.
 | M8 | Family notifications on KennelOS's status page, not KennelPort's portal | Proposed |
 | M9 | Rank 4 goes push-only for families with notifications on | Proposed |
 | M10 | Automatic SMS (toll-free number) | Not planned; tap to text instead |
+| M11 | "Text them" from her notification: offered for which moves | Proposed: server-made offers and deadline-tomorrow; others open the app |

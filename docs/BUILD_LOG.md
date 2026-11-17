@@ -5534,3 +5534,11 @@ No owner decisions needed; each fix follows the review's suggestion.
   there's a real per-email cost.
 - README doc map: the plan added.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, text the family from her notification (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.1: a "<Family>'s turn — text them" push for the
+  breeder. Android gets a Text them button that opens `sms:` via a tiny page (or directly,
+  if a real-phone test shows a service worker can); iPhone opens a one-button page. The
+  phone number stays on her device; the page reads it through the repos. Decision M11.
+- **Service worker:** no app file added or renamed; cache not bumped.
