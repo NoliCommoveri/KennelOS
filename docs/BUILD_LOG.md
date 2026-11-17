@@ -5488,6 +5488,12 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Add event:** the Type picker lists types A–Z; the default type is unchanged.
 - **Tests:** `tests/pickerOrder.test.js` (+2). `node --test` 2160 pass; editions build;
   Send for signature checked in the Pro build.
+- **Evening test fix:** three tests (`cloud/tests/familyActions.test.js` pause request and
+  Ready now?, `tests/cloudWaitlist.test.js` backing out) took today from UTC while the
+  app and Worker use the kennel's clock (fix step 12 part 2), so they failed in US
+  evenings once UTC was on tomorrow. They now take the fixture kennel's day
+  (`familyPages.localDay` / `dateUtils.dayInZone`, America/Chicago). Tests only.
+  `cd cloud && npm test` 375 pass.
 - **Docs:** End-State guide (§6 repo layer, contract forms, eventForm).
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v151`.
 

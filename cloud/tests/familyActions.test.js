@@ -6,17 +6,21 @@ import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
 
 const { checkAction, ACTION_LIMITS } = await import('../src/familyActions.js');
+const { localDay } = await import('../src/familyPages.js');
 
 const KENNEL = 'kos1_11111111-2222-4333-8444-555555555555';
 const tok = (c) => c.repeat(64);
 const iso = () => new Date().toISOString();
-const today = () => new Date().toISOString().slice(0, 10);
-const plusDays = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+// Dates on the kennel's clock (its time_zone below), as the server reads them, so
+// the tests hold at any hour, including evenings when UTC is already tomorrow.
+const TZ = 'America/Chicago';
+const today = () => localDay(TZ);
+const plusDays = (n) => new Date(Date.parse(`${today()}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 const projection = (extra = {}) => ({
   format: 1, as_of: today(),
   kennel: {
-    public_id: KENNEL, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
+    public_id: KENNEL, name: 'Thornfield Kennels', time_zone: TZ,
     parents: { sires: [{ id: 'sire1', name: 'Ash' }], dams: [{ id: 'dam1', name: 'Juniper' }] },
     breeds: ['Boston Terrier'], message_key: { key_id: 'fk_1', public_key: 'PUB' },
     pass_reasons: [{ id: 'timing', label: 'Timing', message: 'Thanks!' }, { id: 'other', label: 'Other', message: 'Thanks.' }],

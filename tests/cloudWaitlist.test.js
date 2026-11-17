@@ -675,6 +675,8 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   await contactRepo.update(entry.contact_id, { email: 'backout@example.com' });
   const pups = (await dogRepo.getAll()).filter((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
   const later = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  // The kennel's own day (its time_zone, putOnline), which the anchor date is stamped with.
+  const { dayInZone } = await import('../shared/data/dateUtils.js');
   const sale = await saleRepo.create({ kennel_id: k.id, dog_id: pups[0].id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid',
     price: 3000, deposit_amount: 500, deposit_date: later(-10), extra_charges: [
       { id: 'tr', label: 'Puppy training', amount: 600, payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: later(-2) }, { id: 'b', percent: 50, due: 'with_balance' }] },
@@ -711,7 +713,7 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
   const moved = await waitlistEntryRepo.getById(entry.id);
   assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.received_credits?.[0]?.amount, moved.back_out_request.outcome],
-    ['active', null, later(0), 800, 'move'], 'back on the list at the end, the same entry, all they paid credited (none named: all of it)');
+    ['active', null, dayInZone('America/Chicago'), 800, 'move'], 'back on the list at the end, the same entry, all they paid credited (none named: all of it)');
   await cw.syncWaitlistOnline();
   const back = await view();
   assert.equal(back.family.status, 'active', 'their status page and sign-in still work');
