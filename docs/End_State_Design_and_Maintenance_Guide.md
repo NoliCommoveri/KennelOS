@@ -3654,7 +3654,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     upload: the kind she picked, and who signs as support set it (`signs`), saved with
     `setTemplateType({ remember: false })` so her own last choice for uploads stays. The
     message says how many details don't fill yet (`unmapped`), to set in Place fields. One
-    already added shows **Added**. The copy is hers: Place fields changes it, deleting it in
+    already added shows **Added**, with a picker and **Add again for this kind**: one more copy
+    beside hers (`another: true`), named "<template> (<kind>)", so one library agreement can
+    serve two of her extras (each copy has one kind). A plain add never makes a second copy. The copy is hers: Place fields changes it, deleting it in
     Firma's editor drops it as any template, and later changes to the library's template
     don't reach it. Support builds and offers these in the manager app (`/manager/`,
     Templates: the Worker's `esignLibrary.js`, `cloud/README.md`).

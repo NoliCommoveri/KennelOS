@@ -5695,3 +5695,13 @@ No owner decisions needed; each fix follows the review's suggestion.
   tables scroll in `.table-scroll`. Checked at 320 px.
 - Guide (Actions, Picks preview), plan step 10, `FIX_PRIORITIES.md`, README Status.
 - **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`.
+
+## 2026-11-17: Add a library template again, for another kind
+
+- Owner: one library agreement should serve two of a breeder's extras. `POST
+  /integrations/firma/library/add` takes `another: true` (one more copy beside a ready one;
+  a copy in progress is carried on) and `name`; From KennelOS shows **Add again for this
+  kind** on an added template, naming the copy "<template> (<kind>)". A plain add still
+  answers the copy she has. Test in `cloud/tests/esignLibrary.test.js`.
+- Guide (From KennelOS), Integrations plan §2.3b **Modified**, `cloud/README.md`.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`. No migration.

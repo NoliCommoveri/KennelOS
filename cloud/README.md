@@ -97,7 +97,8 @@ src/esignLibrary.js    the template library (Integrations plan §2.3b, migration
                        /integrations/firma/library and POST /integrations/firma/library/add (Pro):
                        POST /templates/{id}/copy with FIRMA_API_KEY into her workspace, then each
                        prefill PATCHed to her field of the same field_name (prefillRemap), over as
-                       many calls as it takes (ready: false = call again); esign_library_copies keeps
+                       many calls as it takes (ready: false = call again; another: true = one more
+                       copy beside hers, for another kind); esign_library_copies keeps
                        one copy per breeder and template
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
