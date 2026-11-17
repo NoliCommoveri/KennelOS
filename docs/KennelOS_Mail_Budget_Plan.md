@@ -182,8 +182,8 @@ and forbid automating them. Texts come from **her own phone** instead, which Ken
 does: `shared/assets/messageComposer.js` opens a real `sms:` link with the family's number and
 the message filled in.
 
-- **On her push alerts** for urgent waitlist moves (a server-made offer, a deadline tomorrow):
-  a notification that texts the family in as few taps as each phone allows (§5.1).
+- **When a turn's deadline ends:** one notification that closes the turn, offers the next
+  family and opens the text, in one button (§5.1).
 - **On the loud alert for a held or refused email** (§3.2): "Text them instead" beside Send
   now.
 - Marking the offer as texted counts as delivered for §3.3.
@@ -193,34 +193,65 @@ the message filled in.
   verification (about $2 a month plus about 1¢ a text; families' agreement, STOP replies and
   their numbers on the server). Not planned.
 
-### 5.1 "Next family's turn — text them" from the notification
+### 5.1 "Time's up — offer the next family and text them" from one notification
 
-- **Her service worker** (`shared/sw.js`) gets the server move from `POST /notify/push/pending`
-  as today (payload-free push), now with the entry id and the offer's facts (litter labels,
-  respond-by date). It shows "<Family>'s turn to pick — respond by Fri" and passes only the
-  entry id onward.
-- **Android (Chrome, installed app):** the notification has two buttons, **Text them** and
-  **Open**. Text them opens a tiny page, `shared/pages/text-family.html?entry=…`, which builds
-  the message and hands off to `sms:` at once: Messages opens with the number and wording
-  filled in, after a split-second flash of the app. If a service worker can open `sms:`
-  directly (`clients.openWindow`), the flash goes too. This is unproven, so it's **step 0**:
-  a five-minute test on a real Android phone decides which.
-- **iPhone (installed app, iOS 16.4+):** Safari's web push has no notification buttons, and
-  opening `sms:` usually needs a real tap. Tapping the notification opens the same page,
-  showing one large **Text <Family>** button: two taps in all.
-- **The page** is a normal app page: it reads the family's phone number (their contact) and
-  her offer template from her own records **through the repos**, never `db.*`, and uses
-  `messageComposer.js`'s `sms:` builder. The wording is her email template without the
-  footer, plus the status-page link. The service worker never reads her data; it only opens
-  a URL.
-- **The phone number never goes to the server.** If her device hasn't synced the server's move
-  yet, the page still has the number locally and the offer's facts from the pending answer.
-- **No phone number on the contact:** the page says so and offers Open the family instead.
-- **After Messages opens:** coming back to the page asks "Sent?" → **Yes** marks the offer
-  texted (§3.3, M5) and lets her skip or hold that family's offer email; **Not now** leaves it.
-- **Rules:** the new page and its script go into `PRECACHE_URLS` in `shared/sw.js` and into
-  `shared/data/proPages.js` (waitlist is Pro). No new server table, no new synced field (the
-  texted mark rides the existing offer/outbox records; any new field is classified `private`).
+In practice breeders run their turns by hand (no `auto_offer_on` moments ticked) with
+one-day deadlines. So the moment that matters is **a turn's deadline ending**, and the
+notification does the whole next step: closes the turn, offers the next family, and opens the
+text, in one button.
+
+**The trigger (server).**
+- The hourly cron already reads each published kennel (`runKennel`, `serverMoves.js`). When a
+  turn's deadline has passed in the kennel's time zone and the kennel has **not** ticked
+  auto-offer for it, the cron makes **no move**; it raises one alert for her,
+  `turn_ended` (a `what` under the existing `turn` kind, `notify.js`), once per turn.
+- The pending answer carries the turn id, the family whose time ran out, and the server's
+  guess at who's next (`nextFromQueue` on the published projection), so the notification can
+  read "The Smiths' time is up. Offer the Joneses?"
+- No time zone published → no alert (the server can't tell when her day ends), as with
+  server moves today. Today's nudge ("…offer deadline passed") stays either way.
+- Kennels that did tick auto-offer keep today's server move; their alert becomes "The Smiths'
+  time ran out; the Joneses were offered", with **Text them** (below, without the offer step).
+
+**The tap (her device).**
+- Tapping the notification (iPhone and Android) opens one small page,
+  `shared/pages/next-turn.html?turn=…`. A notification button can't make the offer itself:
+  writing records is the app's job, through the repos, never the service worker's.
+- The page works out the next family **on her device** (`previewNextTurn`); the server's guess
+  is only the notification's wording, and the page shows if they differ. It shows: the Smiths'
+  turn closes (no response, or no deposit if they had picked); the Joneses get the litter(s),
+  respond by tomorrow (her kennel's turn length, counted from **now**); and the text to send.
+- **One button, "Offer & text the Joneses":**
+  1. records the outcome (`recordOutcome(…, 'no_response', { moveOn: false })`),
+  2. gives the next turn (`offerNextTurn`; any families it passes on the way because they'd
+     passed ahead of time are shown after, as `auto_passed` requires),
+  3. opens `sms:` with the Joneses' number and her offer wording (her offer email template,
+     no footer, plus their status-page link), built with `messageComposer.js`'s helper.
+  The tap is a real tap, so `sms:` opens on iPhone as well as Android. Two taps in all
+  (notification, button), then Send in Messages.
+- **Order:** the records are written first (local, fast), `sms:` opens inside the same tap,
+  and the publish (so the status page shows the offer) runs when she comes back to the app.
+  Waiting for the publish before opening `sms:` would lose the tap on iPhone. A family that
+  opens the link in the first seconds may see the page a moment behind; it catches up on the
+  publish.
+- **Secondary choices on the page:** **Offer & email** (the existing preview), **Offer
+  someone else** (opens the litter's picks), **Extend the Smiths** (`extendTurn`), **Not
+  now**.
+- **No phone number** on the Joneses' contact: the button reads "Offer & email the Joneses"
+  instead.
+- **Coming back** from Messages: "Sent?" → **Yes** marks the offer texted (it reached the
+  family, §3.3 and M5) and skips the offer email unless she asks for it too; **Not now**
+  leaves the offer email in her outbox, ready.
+- **The phone number never goes to the server**: the page reads it from her contact through the
+  repos. The service worker only opens the page.
+- **Android:** a notification button could save the first tap only for the auto-offer case
+  (Text them, nothing to write). Not worth a second path at first; the two-tap page is the
+  same on both phones.
+
+**Rules.** `next-turn.html` and its script go into `PRECACHE_URLS` in `shared/sw.js` and into
+`shared/data/proPages.js` (waitlist is Pro). `turn_ended` joins the notification catalog
+(guide, Notifications plan). No new server table, no new synced field (the texted mark rides
+the offer's existing records; any new field is classified `private`).
 
 ## 6. Optional: a second provider for heavy days
 
@@ -281,8 +312,9 @@ week, not guessed.
    held emails and their release, the family-code cap (§2–§3.1).
 3. **Loud failures:** `daily_email_limit` and the app banner; `email_held` alerts, the held
    list in the app and on /ops; the server run that waits instead of offering (§3.2–§3.3).
-4. **Tap to text** on her alerts and on held emails (§5): first the Android test of opening
-   `sms:` from the service worker (§5.1), then the notification buttons and `text-family.html`.
+4. **Time's up → offer & text** (§5.1): the `turn_ended` alert from the cron, `next-turn.html`;
+   then "Text them instead" on held emails (§5). This step doesn't depend on steps 2–3 and can
+   go first.
 5. **Family notifications:** manifest, service worker, subscribe on the status page, routing
    and fallback (§4).
 6. **Optional:** a second provider for overflow (§6).
@@ -301,4 +333,5 @@ week, not guessed.
 | M8 | Family notifications on KennelOS's status page, not KennelPort's portal | Proposed |
 | M9 | Rank 4 goes push-only for families with notifications on | Proposed |
 | M10 | Automatic SMS (toll-free number) | Not planned; tap to text instead |
-| M11 | "Text them" from her notification: offered for which moves | Proposed: server-made offers and deadline-tomorrow; others open the app |
+| M11 | The `turn_ended` alert for kennels running turns by hand | Proposed: on by default inside the `turn` kind she already ticks for push |
+| M12 | After "Offer & text", the offer email too? | Proposed: skipped once she says the text was sent; one tap to send it as well |

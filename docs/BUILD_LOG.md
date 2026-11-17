@@ -5542,3 +5542,12 @@ No owner decisions needed; each fix follows the review's suggestion.
   if a real-phone test shows a service worker can); iPhone opens a one-button page. The
   phone number stays on her device; the page reads it through the repos. Decision M11.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, offer and text from the deadline alert (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.1 rewritten: breeders run turns by hand with one-day
+  deadlines, so the trigger is a turn's deadline ending. The cron raises a `turn_ended` alert
+  (no move) for kennels without auto-offer; tapping it opens `next-turn.html`, where one
+  button records no response, offers the next turn and opens the prefilled text. Decisions
+  M11 (reworded) and M12.
+- **Service worker:** no app file added or renamed; cache not bumped.
