@@ -73,9 +73,7 @@ backup, carries a program from Lite to Pro.
     sets who signs, the breeder the kind) is for the owner to confirm.
   - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
     (counting wrong code guesses per code) and one live Mapbox try of the address checks.
-    The review's other open findings are in `docs/review/FIX_PRIORITIES.md`. Open: D13 (counting wrong code guesses per
-    code). The rest of the review's
-    open findings are in `docs/review/FIX_PRIORITIES.md`.
+    The review's other open findings are in `docs/review/FIX_PRIORITIES.md`.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
     (live updates) waits on owner decisions.
   - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own
