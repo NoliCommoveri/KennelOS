@@ -5519,3 +5519,18 @@ No owner decisions needed; each fix follows the review's suggestion.
   during install so a device with an active pass is never left without it (the activate step
   in `shared/sw.js` deletes every non-current cache).
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan (docs only)
+
+- **`docs/KennelOS_Mail_Budget_Plan.md`:** staying inside the email provider's daily limit when
+  several kennels have a heavy week at once. A daily budget for the whole account (a reserve
+  for sign-in codes, a guaranteed floor per program, a shared pool), emails ranked by urgency
+  with non-urgent ones held to the next day, loud failures (`daily_email_limit` banner for
+  manual sends, `email_held` alerts for server sends), no deadline started before its email
+  goes out, notifications on the families' status pages (installable, payload-free push) to
+  take non-urgent mail off email, tap to text from her own phone, and an optional second
+  provider (Bird Startup or SES). Decisions M1–M10.
+- `docs/KennelOS_Credits_Plan.md` §4.5: emails added as a later candidate, priced only once
+  there's a real per-email cost.
+- README doc map: the plan added.
+- **Service worker:** no app file added or renamed; cache not bumped.
