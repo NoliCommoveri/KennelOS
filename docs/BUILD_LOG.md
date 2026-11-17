@@ -5611,3 +5611,18 @@ No owner decisions needed; each fix follows the review's suggestion.
   unranked on purpose. Decisions V8–V13.
 - README doc map row updated.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Waitlist decisions D3 and D12 confirmed; launch checklist closed; Workers Free (docs only)
+
+- `docs/KennelOS_Waitlist_Fixes_Plan.md` §2: D3 (a Pup selected row shows the listed name and
+  Pup selected, nothing about the pup) and D12 (public names from the application's own name
+  for households and "Last, First"; the Approve dialog shows the public form) confirmed as
+  built. `docs/review/FIX_PRIORITIES.md` step 12 row updated.
+- `docs/LAUNCH_CHECKLIST.md`: every deploy and launch item ticked (owner: all done), Firma
+  verified on production. Open only: the template library's copy down to a breeder. A deleted
+  account's Firma workspace moved to §5 Recurring.
+- Workers plan: the owner stays on Workers Free until a limit is hit (three real programs and
+  one test account). The checklist names the signs to watch; **Modified:** notes in the W2
+  plan §12 and the Cloud Phase 1 plan §6.
+- README Status rewritten.
+- **Service worker:** no app file added or renamed; cache not bumped.

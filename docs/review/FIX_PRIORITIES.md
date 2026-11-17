@@ -250,7 +250,7 @@ file. Production needs `0026` applied after the deploy (README Status, `LAUNCH_C
 | 8 | **Decided 2026-11-15:** K13-6: block them (and Furever's Drive). K11-5: Kels walks a Demo task to its review, then says so and keeps nothing. K13-4: Lite's CSV refuses leased types (restores unchanged). K13-5: a restore over the litter cap is refused, all or nothing. |
 | 9 | **Decided 2026-11-15:** **9-A** (K4-2): an orphaned migration no longer gates the API; /ops shows it. **9-B** (K4-13): support's helper device may take over backing up; it's named as support (its label, and `helper: true`). **9-C**: K5-13 (revocable manager sessions) rides migration `0026`. |
 | 10 | **Decided 2026-11-16:** K14-5: the Furever identity rides on her own kennel, cloud tier. K14-3: warn on every pup's document in a litter publish for now; per-pup packs later. K14-15: a Dog Card's microchip only for a sent dog still in her program. K14-11: an outside dog's expense goes under its stud service's kennel, else only All kennels. |
-| 12 | **Decided 2026-11-16:** D10 no (no policy wording sealed into applications). D11: the kennel's time zone for the waitlist's deadlines only. D3 and D12 are built as recommended, not yet confirmed. |
+| 12 | **Decided 2026-11-16:** D10 no (no policy wording sealed into applications). D11: the kennel's time zone for the waitlist's deadlines only. D3 and D12 confirmed as built (owner, 2026-11-17). |
 
 ## 5. Not reviewed here
 

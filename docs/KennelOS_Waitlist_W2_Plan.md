@@ -748,7 +748,8 @@ test`, the precache check, and the flow in headless Chromium at phone width.
 ## 12. Operator setup (dashboard, not code)
 
 - **Workers Paid plan** before families use it (`LAUNCH_CHECKLIST.md` §3a): hourly cron,
-  public form traffic.
+  public form traffic. **Modified:** the owner stays on Workers Free until a limit is hit
+  (`LAUNCH_CHECKLIST.md` §2).
 - **`apply.kennelos.app`** as a custom domain on the production Worker.
 - **Resend:** verify `mail.kennelos.app` (DKIM + SPF in Cloudflare DNS).
 - **Turnstile:** a site for `apply.kennelos.app` (and staging); its secret as the Worker
