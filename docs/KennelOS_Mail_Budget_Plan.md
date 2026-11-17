@@ -177,6 +177,49 @@ the "can wait" messages stop being email.
   it (M8).
 - A family on two kennels' waitlists installs two apps, one per status page.
 
+### 4.5 Messages posted to the page
+
+She can post a message **to a family's status page** instead of, or as well as, emailing it.
+How a program talks to its families is **hers to choose** (M14, decided): one that wants
+families to check their page to hear anything may run it that way.
+
+- **Her setting, per kennel** (in waitlist settings, inside `waitlist_config` as
+  `family_delivery`, default `email`):
+
+  | Setting | What families get |
+  |---|---|
+  | **Email** (`email`, today's behavior) | Every message by email, listed on the page too |
+  | **Page, email when needed** (`page_notify`) | Posted to the page; a push to families with notifications on (§4); an email only to families without them |
+  | **Page only** (`page_only`) | Posted to the page; a push to families with notifications on; **no email**, for any family |
+
+- **Per message**, the composer offers **Send** (following the setting) and the other choices
+  ("Post to their page only", "Post and email"), so one message can differ from her usual.
+- **Always email, whatever the setting:** codes (rank 2), the confirmation with their status
+  link (the family's way in), and account email. Without those a family could never reach
+  the page.
+- **The server's own sends** (server moves' offer and fee reminders, ready checks, §3) follow
+  the setting too: it rides the projection as `kennel.family_delivery` (added to the
+  allow-list in `waitlistProjection.js`, like `reminders`).
+- **Telling families.** With `page_notify` or `page_only`, the application's confirmation
+  and the top of the status page say so: "<Kennel> posts updates here, not by email. Turn on
+  notifications so you don't miss your turn." With `page_only`, her settings screen says in
+  one line that families who don't check their page or turn on notifications **will miss
+  offers and deadlines**, and that's her call.
+- **Deadlines (§3.3, M5).** A message posted to the page counts as reaching the family when it
+  posts, under `page_only` and `page_notify` alike; she chose that delivery. The server-move
+  check in §3.3 only waits on the mail budget when the message would actually be emailed.
+- **On the server:** `POST /waitlist/messages` takes `channel: 'page'` (or `'page_email'`).
+  A page post writes the `wl_messages` row with status `sent`, `channel` `page`, sends no
+  email and uses no budget, then pushes to the family's subscriptions (payload-free, §4.2).
+  `page_email` does both, the email going through the budget as usual.
+- **On the page:** the history (`sentMessagesFor`, §5.2) lists posts, emails and texts
+  together, newest first, each marked; posts and messages they haven't seen yet are marked
+  **New** until the page is opened.
+- **Her side:** the family's entry shows each message with how it went (posted, emailed,
+  texted, pushed). The family's "Notifications on" mark (§4.3) tells her who'll be pinged.
+- **Cost:** a page post costs nothing against the daily email limit. A program on
+  `page_only` sends almost no email at all.
+
 ## 5. Tap to text, from her own phone
 
 US carriers treat any text sent by software as business texting at any volume (10DLC brand
@@ -319,7 +362,10 @@ programs sharing a paid plan, or SES).
   added columns `hold_reason`, `channel`, `to_hint`, §3.1 and §5.2) with its line in
   `cloud/src/migrations/index.js`; the only migration on its branch. Columns are added with
   `ALTER TABLE … ADD COLUMN`; the table's CHECK is left alone.
-- **No app schema change:** held and refused emails are server rows; the app's outbox messages
+- **`waitlist_config.family_delivery`** (§4.5): a new key inside a field already classified
+  `cloud` in `shared/data/syncRegistry.js` (her business settings), optional with default
+  `email`, so old backups and devices read as today. Added to the projection allow-list.
+- **No other app schema change:** held and refused emails are server rows; the app's outbox messages
   already have `status` and `error`. A delivery field on outbox messages (`push`/`email`), if
   added, is classified `private` in `shared/data/syncRegistry.js`.
 - **Notification catalog:** `email_held` added to `NOTIFY_KINDS` in `notify.js` and the
@@ -351,7 +397,7 @@ week, not guessed.
 4. **Time's up → offer & text** (§5.1): the `turn_ended` alert from the cron, `next-turn.html`;
    then "Text them instead" on held emails (§5). This step doesn't depend on steps 2–3 and can
    go first.
-5. **Family notifications:** manifest, service worker, subscribe on the status page, routing
+5. **Family notifications and page posts:** manifest, service worker, subscribe on the status page, `family_delivery` and page posts (§4.5), routing
    and fallback (§4).
 6. **Optional:** a second provider for overflow (§6).
 
@@ -372,3 +418,4 @@ week, not guessed.
 | M11 | The `turn_ended` alert for kennels running turns by hand | Proposed: on by default inside the `turn` kind she already ticks for push |
 | M12 | After "Offer & text", the offer email too? | Proposed: skipped once she says the text was sent; one tap to send it as well |
 | M13 | A text on the status page: how much of the number | Proposed: last 2 digits only (Q11 keeps the phone off the server); or none |
+| M14 | May a breeder post to the page only, with no email, even to families without notifications? | **Decided (owner):** yes; how she runs her program is hers to choose. Codes and the first status link are still emailed |

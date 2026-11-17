@@ -5562,3 +5562,12 @@ No owner decisions needed; each fix follows the review's suggestion.
 - §3.1 corrected: `wl_messages.status` has a CHECK (`queued | sent | failed`), so held emails
   are `queued` with `send_after` at the reset plus a `hold_reason` column, not a new status.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, messages posted to the status page (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §4.5: she can post a message to a family's status page
+  instead of, or as well as, emailing it. A per-kennel setting (`waitlist_config.
+  family_delivery`: `email`, `page_notify`, `page_only`) plus a per-message choice; codes and
+  the first status link are always emailed. Decision M14 decided by the owner: page only is
+  allowed, even for families without notifications.
+- **Service worker:** no app file added or renamed; cache not bumped.
