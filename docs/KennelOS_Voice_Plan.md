@@ -92,6 +92,28 @@ Read from what the server already has (the projection, `notify_items`):
 - "Record that the Joneses passed" → a push opening their entry with Pass ready.
 - On the server these are notification items (`notify.js`), not writes to her records.
 
+### 5.1 "Alexa, update my website"
+
+- Her KennelPort website is fed by **Update website** (End-State guide §35): her device builds
+  the bundle (`siteExport.js`, from her own records, some of them private) and sends it with
+  that device's website link. The server can't build it, so voice can't publish by itself.
+- "Alexa, update my website" → "I've sent it to your phone." A push to **a device linked to
+  her website** opens Settings → Your website with **Update website** ready (and the counts
+  of what will go). One tap sends it, as the card's button does today. No linked device on
+  the account → Alexa says so and nothing is sent.
+- "Alexa, update my website **and publish it**" → the same, with **Update and publish** (below)
+  ready instead.
+- **Publishing live (KennelPort's side).** Today what arrives lands in the website's
+  **draft**, and she publishes it in KennelPort Site Manager. For voice (and the card) to push
+  changes live, KennelPort accepts a `publish: true` on the update and publishes the draft
+  straight after it lands, when her site allows it. That's a **KennelPort change** (its own
+  repo and plan), and its setting stays hers: a site set to "review in Site Manager first"
+  ignores the flag and says so in the answer. KennelOS side: **Update and publish** beside
+  Update website on the Your website card and in Kels's Update my website, offered only when
+  the site's facts say it accepts `publish` (as `settings` and `sections` are offered today).
+- The push is a notification item (`notify.js`), like §5's actions; nothing about the site is
+  stored for voice.
+
 ## 6. Reminders on her Echo
 
 - With her permission (Alexa Reminders API), the skill sets reminders on her Echo: "The
@@ -142,7 +164,7 @@ Read from what the server already has (the projection, `notify_items`):
 2. **Voice feed and outbox** (§8, §3's landing), with the KennelAssistant import reused.
 3. **Siri Shortcuts** (§7): the cheapest way to prove logging weights by voice end to end.
 4. **Alexa skill:** account linking, weight checks and quick records (§3), then waitlist
-   questions (§4), then actions through the phone (§5).
+   questions (§4), then actions through the phone (§5), then "update my website" (§5.1).
 5. **Echo reminders** (§6).
 6. Amazon certification, privacy policy and terms updates before the skill is public.
 
@@ -156,3 +178,4 @@ Read from what the server already has (the projection, `notify_items`):
 | V4 | Waitlist actions only ever confirmed on her phone, never by voice alone | Proposed |
 | V5 | Which record types voice may log | Proposed: `ASSISTANT_EVENT_TYPES` as it stands |
 | V6 | What the calendar feed includes | Proposed: Today's and the calendar's dated items, titles only |
+| V7 | Update and publish (straight live, skipping Site Manager's draft), by voice and on the card | Proposed; needs KennelPort to accept `publish: true` and her site's setting to allow it |

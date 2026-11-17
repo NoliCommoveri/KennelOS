@@ -5589,3 +5589,12 @@ No owner decisions needed; each fix follows the review's suggestion.
   on the same routes. Decisions V1–V6.
 - Credits plan's voice assistant row points to it. README doc map: the plan added.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Voice plan, update the website by voice (docs only)
+
+- `docs/KennelOS_Voice_Plan.md` §5.1: "Alexa, update my website" pushes to a device linked to
+  her KennelPort website with Update website ready (the bundle is built on her device), and
+  "…and publish it" with Update and publish. Publishing straight live needs KennelPort to
+  accept `publish: true` on an update (its own change) and her site to allow it; Update and
+  publish is then offered on the Your website card and in Kels too. Decision V7.
+- **Service worker:** no app file added or renamed; cache not bumped.
