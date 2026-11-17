@@ -5,7 +5,7 @@
 > weight checks, answers waitlist questions and starts waitlist actions that she confirms on
 > her phone (§3–§5), reminders on her Echo (§6), Siri Shortcuts for iPhone (§7), talking to
 > the app itself with push-to-talk (§8), what Google allows (§9), and Claude Haiku for what a
-> fixed command list can't parse, with a cost estimate (§10). Deliberately wide: everything is
+> fixed command list can't parse (model to be compared; Haiku is the lean), with a cost estimate (§10). Deliberately wide: everything is
 > recorded first and ranked later. Open decisions are in §14.
 
 ## 1. Why, and the constraint
@@ -207,7 +207,12 @@ Read from what the server already has (the projection, `notify_items`):
   how-to page might be enough. Niche.
 - **Samsung Bixby and others:** not planned.
 
-## 10. Claude Haiku for what the command list can't parse
+## 10. An LLM for what the command list can't parse (leaning Claude Haiku)
+
+- **Model not chosen yet.** We'll compare LLMs before picking one (accuracy on her kinds of
+  sentences and dog names, speed, price, privacy terms); the lean is Claude Haiku 5.5, so the
+  rest of this section and the costs assume it. The route returns the same structured
+  commands whichever model it uses, so swapping models touches only the Worker (V13).
 
 - **A fallback, not the main path.** The command list (§8) and Alexa's intents (§3–§5) go
   first. When nothing matches, or for free-form requests ("move the Smiths up once the Jones
@@ -305,5 +310,6 @@ in the app (§8), Google and other home assistants (§9), the Claude Haiku fallb
 | V8 | Speech to text in the app: the browser's own first, an on-device model as an opt-in download | Open |
 | V9 | In-app voice records confirmed on a card before saving (Alexa's stay auto-applied with undo, V3) | Proposed |
 | V10 | Google: calendar feed and Android shortcuts now; revisit if Gemini opens third-party actions | Proposed |
-| V11 | Claude Haiku fallback on the Worker: cloud only, edition per V2; her words and dog names go to Anthropic | Open: privacy decision |
+| V11 | LLM fallback on the Worker: cloud only, edition per V2; her words and dog names go to Anthropic | Open: privacy decision |
 | V12 | Speech to text on the Worker (audio leaves the device) | Open: proposed not to, unless §8's options fall short |
+| V13 | Which LLM for the fallback | Open: compare options first; leaning Claude Haiku 5.5 |

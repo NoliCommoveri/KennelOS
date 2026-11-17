@@ -5606,8 +5606,8 @@ No owner decisions needed; each fix follows the review's suggestion.
   "Flowers' litter or Founder's?" questions; a read-back card; a typed command bar on the
   same parser), §9 Google and other home assistants (no third-party actions in Gemini for
   Home as of Nov 2026; calendar feed and Android shortcuts; HomePod, Home Assistant), §10
-  Claude Haiku 5.5 on the Worker as a fallback returning the same structured commands, with
+  an LLM on the Worker (to be compared; leaning Claude Haiku 5.5) as a fallback returning the same structured commands, with
   a per-call and monthly cost estimate. Old §8–§11 renumbered §11–§14. New sections left
-  unranked on purpose. Decisions V8–V12.
+  unranked on purpose. Decisions V8–V13.
 - README doc map row updated.
 - **Service worker:** no app file added or renamed; cache not bumped.
