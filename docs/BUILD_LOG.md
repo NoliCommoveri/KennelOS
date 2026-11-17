@@ -5489,7 +5489,7 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Tests:** `tests/pickerOrder.test.js` (+2). `node --test` 2160 pass; editions build;
   Send for signature checked in the Pro build.
 - **Docs:** End-State guide (§6 repo layer, contract forms, eventForm).
-- **Service worker:** no app file added or renamed; cache not bumped yet.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v151`.
 
 ## 2026-11-17: Credits plan and security hardening plan (docs only)
 
