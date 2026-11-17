@@ -189,6 +189,10 @@ the message filled in.
 - Marking the offer as texted counts as delivered for §3.3.
 - No new provider, no registration, no phone numbers on the server, no cost. The family gets a
   text from the number they already know.
+- **Later, only if one tap isn't good enough:** one KennelOS toll-free number with toll-free
+  verification (about $2 a month plus about 1¢ a text; families' agreement, STOP replies and
+  their numbers on the server). Not planned.
+
 ### 5.1 "Next family's turn — text them" from the notification
 
 - **Her service worker** (`shared/sw.js`) gets the server move from `POST /notify/push/pending`
@@ -217,10 +221,6 @@ the message filled in.
 - **Rules:** the new page and its script go into `PRECACHE_URLS` in `shared/sw.js` and into
   `shared/data/proPages.js` (waitlist is Pro). No new server table, no new synced field (the
   texted mark rides the existing offer/outbox records; any new field is classified `private`).
-
-- **Later, only if one tap isn't good enough:** one KennelOS toll-free number with toll-free
-  verification (about $2 a month plus about 1¢ a text; families' agreement, STOP replies and
-  their numbers on the server). Not planned.
 
 ## 6. Optional: a second provider for heavy days
 
