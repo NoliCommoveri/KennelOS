@@ -108,7 +108,10 @@ does them (D4). A feature that runs on her device is a pass, never per use.
 | **Voice assistant** | TBD | — | Priced from its real per-minute cost in its own plan |
 
 Later candidates, once there's a meter for them: cloud storage over a free amount, live sync
-devices over a free number.
+devices over a free number, and emails to families over an allowance. Emails
+are priced only once there's a real per-email cost (enough programs sharing a paid email plan,
+or a pay-per-use provider): below that, a block of emails at a credit's price can't cover the
+step to a paid plan. Until then the daily limit is handled by `docs/KennelOS_Mail_Budget_Plan.md`.
 
 ## 5. Buying credits (manual payment)
 
