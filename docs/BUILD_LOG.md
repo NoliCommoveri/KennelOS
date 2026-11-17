@@ -5504,3 +5504,12 @@ No owner decisions needed; each fix follows the review's suggestion.
   public repos, and keep what matters on the server. Decisions S1–S6.
 - README doc map: both plans added.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Credits plan, how a pack's code leaves a device (docs only)
+
+- `docs/KennelOS_Credits_Plan.md` §7.3: one cache per pack, the service worker checks the
+  signed token on every pack request (offline too), cleanup after the view-only window, why
+  the rows can stay without their screens, and app updates: new pack versions are fetched
+  during install so a device with an active pass is never left without it (the activate step
+  in `shared/sw.js` deletes every non-current cache).
+- **Service worker:** no app file added or renamed; cache not bumped.

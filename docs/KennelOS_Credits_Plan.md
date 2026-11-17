@@ -208,12 +208,35 @@ features.
   device whose program holds that pass (read from the database, not the token), with
   `Cache-Control: private, no-store` for anything else.
 - **The service worker** makes pack files appear at their normal app paths: a request for
-  `/pages/reports.html` or `/pages/reports.js` is answered from the pack cache
-  (`kennelos-packs-<version>`), or fetched from the Worker with the device's session when
-  online and entitled, or answered with an "Unlock this in Settings → Credits" page. Page code
-  doesn't change: the same imports as in Pro, the files just arrive differently.
-- **On lapse** the pack switches to view-only (§6.4); after 90 days the app deletes it from the
-  pack cache.
+  `/pages/reports.html` or `/pages/reports.js` is answered from the pack's cache, or fetched
+  from the Worker with the device's session when online and entitled, or answered with an
+  "Unlock this in Settings → Credits" page. Page code doesn't change: the same imports as in
+  Pro, the files just arrive differently.
+- **One cache per pack**, `kennelos-pack-<pack>-<CACHE_NAME>`, in Cache Storage, apart from
+  the database. Removing a pack is `caches.delete()` of that one cache and never touches
+  IndexedDB.
+- **The service worker checks the token on every pack request**, not only when it fetches:
+  past the pass's end date it serves the view-only pack (§6.4), and after the view-only
+  window the unlock page. A pack whose cache wasn't deleted is dead weight, never a working
+  feature. The end date is inside the signed token, so this holds offline, and the date can't
+  be moved without the server's signature.
+- **On lapse** the pack switches to view-only (§6.4). After 90 days the app deletes the pack's
+  cache on its next open; the Worker already refuses to send it again (it checks the
+  database).
+- **App updates.** `shared/sw.js`'s activate step deletes every cache that isn't the current
+  `CACHE_NAME` (or the notifications cache), so packs from the old version go with it, which
+  is right: packs are built per version. But a device with an active pass must not be left
+  without its pack after an update. So while a new version **installs** online, the service
+  worker fetches the new version of every pack the device holds an active or view-only pass
+  for, into the new version's pack caches, and the install fails (keeping the old version
+  running) if any of those fetches does. Activate then deletes the old version's pack caches
+  together with the old shell, only once the new ones are in place.
+- **Why leaving the data behind is safe:** packs hold only screens. The data layer (repos,
+  schema, `referenceRegistry.js`) ships in every edition, so with a pack gone Lite still
+  enforces the same rules on those rows (a hard delete that would orphan them is still
+  refused), and its JSON backups, cloud backup and sync carry them like any other table.
+  Renewing brings the screens back over the same rows; moving to Pro shows them with nothing
+  to restore.
 - **Pro** uses the same mechanism for the §4.4 packs (payment schedules), which are left out
   of Pro's static files too.
 
