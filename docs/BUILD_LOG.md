@@ -5551,3 +5551,14 @@ No owner decisions needed; each fix follows the review's suggestion.
   button records no response, offers the next turn and opens the prefilled text. Decisions
   M11 (reworded) and M12.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, texts in the status page history (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.2: a text she confirms ("Sent? → Yes") is recorded as
+  a `wl_messages` row (`channel` `text`, sent at the moment she tapped, nothing sent by the
+  server) and listed on the family's status page beside the emails, labelled as her record.
+  The phone number stays off the server (Waitlist Spec §8.1, Q11): last 2 digits at most.
+  Decision M13.
+- §3.1 corrected: `wl_messages.status` has a CHECK (`queued | sent | failed`), so held emails
+  are `queued` with `send_after` at the reset plus a `hold_reason` column, not a new status.
+- **Service worker:** no app file added or renamed; cache not bumped.

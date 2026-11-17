@@ -76,12 +76,16 @@ Every email gets a **rank** from its kind:
 | **5. Digest** | Her email digest | Held; never counted against her floor (it's often the alert about the limit itself) |
 
 ### 3.1 Held emails
-- A held email is a `wl_messages` row with the new status `held` (an additive value; the table
-  is server-side, no app field changes). Its `id` already makes the send happen once, so
-  sending it later is safe.
+- A held email is a `wl_messages` row with status `queued` and `send_after` set to the next
+  UTC reset, plus a new column `hold_reason` (`daily_limit`). `wl_messages.status` has a
+  CHECK of `queued | sent | failed` (`0007_waitlist.sql`), and a shipped table's CHECK can't
+  change without rebuilding it, so no new status values: `queued` + `send_after` is what the
+  table was made for (its `idx_wl_messages_due` index is on exactly those). Its `id` already
+  makes the send happen once, so sending it later is safe.
 - The first cron run after the UTC reset sends held emails oldest first, against the new
   day's budget, rank 3 before rank 4.
-- Held for more than 3 days → it becomes `refused` with the same loud alert (M4).
+- Held for more than 3 days → it becomes `failed` with `hold_reason` kept, and the same loud
+  alert (M4). "Refused" in this plan means `failed` with a `hold_reason`.
 - Her app shows them (§3.2) with **Send now** (tries again against today's budget) and
   **Don't send**.
 
@@ -96,7 +100,7 @@ Every email gets a **rank** from its kind:
 - Queued emails on her device stop trying until the reset instead of failing one by one.
 
 **When the server sends by itself** (server moves, signed copies):
-- The row is marked `held` or `refused`, and the server raises a new notification kind,
+- The row is held (`queued` with `hold_reason`) or refused (`failed` with `hold_reason`), and the server raises a new notification kind,
   `email_held` (push, and the digest, which doesn't count against her floor). One alert per
   program per day, not one per email: "3 emails held until tomorrow (daily limit)."
 - On her next sync the app pulls held and refused emails (a new `GET /waitlist/messages/held`)
@@ -253,6 +257,36 @@ text, in one button.
 (guide, Notifications plan). No new server table, no new synced field (the texted mark rides
 the offer's existing records; any new field is classified `private`).
 
+### 5.2 Texts in the family's status page history
+
+The status page lists the emails she sent a family (`sentEmailsFor`, read from `wl_messages`).
+A text can be listed the same way, **as she recorded it**: a web app can't see whether a text
+was really sent, or what it said after she edited it in Messages. So it's an honest record,
+not proof.
+
+- **What's recorded:** when she answers **Sent? → Yes** (§5.1, or after "Text them" anywhere),
+  her device sends `POST /waitlist/messages` with `channel: 'text'`, the wording as drafted,
+  and `tapped_at`, the moment she tapped the button that opened Messages. The server writes a
+  `wl_messages` row with status `sent`, `channel` `text`, `sent_at` = `tapped_at`, and
+  **sends nothing**: no provider, no mail budget. **Not now** records nothing.
+- **What the family sees**, beside the emails: "**Text** from <Kennel> · Tue 3:12 PM", the
+  wording, and a small note: "Recorded by <Kennel> when they sent it from their phone; what
+  arrived on your phone is the real message." Its `id` is the offer's own, so a retry never
+  lists it twice.
+- **Her side:** the family's entry shows it in the same history, with **Edit** (if she changed
+  the wording in Messages) and **Remove** (if it never went), both before the next publish,
+  and after it through the same route (a later write replaces the row).
+- **The phone number:** the Waitlist Spec's §8.1 rule (Q11) is that a family's **phone never
+  reaches the server**. Showing the full number would break it. Proposed (M13): store and show
+  only the **last 2 digits** (`to_hint`), "to your number ending 34": enough for a family
+  with two phones to know which, too little to be a phone number. Or show no number at all
+  ("sent to your phone"). Either way the full number stays on her device.
+- **Retention and deletion:** the same as emails (the body is dropped after 90 days, rows go
+  with the family's entry and with the account).
+- `sentEmailsFor` becomes `sentMessagesFor` (emails and texts, newest first); the status
+  page's list says which is which. `EMAIL_KINDS` still decides what's listed; the text uses
+  the same kind as the email it replaces (`offer`, `note`…).
+
 ## 6. Optional: a second provider for heavy days
 
 Only if §2–§5 together still hold too much on real heavy weeks (§9 shows it).
@@ -281,8 +315,10 @@ programs sharing a paid plan, or SES).
 
 ## 8. Rules this touches
 
-- **Migration:** one new `.sql` (`mail_budget`, `wl_family_push`) with its line in
-  `cloud/src/migrations/index.js`; the only migration on its branch.
+- **Migration:** one new `.sql` (`mail_budget`, `wl_family_push`, and on `wl_messages` the
+  added columns `hold_reason`, `channel`, `to_hint`, §3.1 and §5.2) with its line in
+  `cloud/src/migrations/index.js`; the only migration on its branch. Columns are added with
+  `ALTER TABLE … ADD COLUMN`; the table's CHECK is left alone.
 - **No app schema change:** held and refused emails are server rows; the app's outbox messages
   already have `status` and `error`. A delivery field on outbox messages (`push`/`email`), if
   added, is classified `private` in `shared/data/syncRegistry.js`.
@@ -335,3 +371,4 @@ week, not guessed.
 | M10 | Automatic SMS (toll-free number) | Not planned; tap to text instead |
 | M11 | The `turn_ended` alert for kennels running turns by hand | Proposed: on by default inside the `turn` kind she already ticks for push |
 | M12 | After "Offer & text", the offer email too? | Proposed: skipped once she says the text was sent; one tap to send it as well |
+| M13 | A text on the status page: how much of the number | Proposed: last 2 digits only (Q11 keeps the phone off the server); or none |
