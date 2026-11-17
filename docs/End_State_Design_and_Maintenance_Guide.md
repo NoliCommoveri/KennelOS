@@ -2553,6 +2553,12 @@ CSV columns into questions and stamps `source_header`, so the application import
 then bring in the answers.
 
 ### Actions (`data/waitlistActions.js`)
+Each exported action that writes is one IndexedDB transaction over every data table
+(`atomic`, `db.transaction('rw', dataTables(), async () => …)`): all its writes land, moving
+the list on to the next turn included, or none do. The scope must be an `async` function
+(Dexie keeps a transaction across native `await`s only then), nothing inside may await the
+network or a timer, and an action another one calls joins its transaction.
+`tests/waitlistAtomic.test.js` holds every new export to it (or a read-only list).
 Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
 one contact rule: the same email or phone first, then the same or a near name; never
 automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
@@ -2697,7 +2703,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
   `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
   fresh records first and asks again if the result changed. With picks open, the panel's
-  **Who's in line…** opens it without that button. Its decisions come from
+  **Who's in line…** opens it without that button. Unsaved settings in it are never dropped in silence:
+  a tap outside, Escape, Close or Cancel asks **Leave without saving?** first; a redraw puts
+  focus back on the control she was on; its tables sit in `.table-scroll` boxes. Its decisions come from
   `data/picksPreview.js` (pure, shared): `previewPicks(data, { litterId, today, view, eitherAs,
   configDraft })` simulates `openPicks` / `offerNextTurn` on copies (offer, join with the
   deadline restart, wait, "Not this litter" passes on the way, none) and lists the turn order

@@ -71,9 +71,9 @@ backup, carries a program from Lite to Pro.
   - Template library (Integrations plan §2.3b): proven on production except the copy down
     (a breeder's From KennelOS → Add, and Place fields / Preview on the copy). D41 (support
     sets who signs, the breeder the kind) is for the owner to confirm.
-  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): steps 1–9 built; next is step 10
-    (each action's writes in one transaction). The address lookup's new checks need one
-    live Mapbox try. Open: D13 (counting wrong code guesses per
+  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
+    (counting wrong code guesses per code) and one live Mapbox try of the address checks.
+    The review's other open findings are in `docs/review/FIX_PRIORITIES.md`. Open: D13 (counting wrong code guesses per
     code). The rest of the review's
     open findings are in `docs/review/FIX_PRIORITIES.md`.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2

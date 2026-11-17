@@ -5678,3 +5678,20 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v152`
   (carries step 8, the Kennel settings Saved indicator, and this batch). No cloud migration;
   deploy the Worker with or before the app.
+
+## 2026-11-17: Waitlist Fixes plan step 10 (holding together): the plan is done
+
+- **K6-13:** every exported waitlist action that writes is wrapped in `atomic`, one
+  `db.transaction('rw', dataTables(), async () => …)` (71 actions; six read-only helpers left
+  out). Found in Chromium: a plain-arrow scope loses the transaction after a write returned
+  through another async function (PrematureCommitError), invisible to the tests' memory
+  database; the scope is `async`. Checked against real IndexedDB: approve, decline/undo,
+  fee received, expire/undo, remove/undo, withdraw, archive, open/close picks, pick, deposit,
+  pass/undo, next turn, a family plan; a failed write rolls back. Nothing reachable from the
+  actions awaits the network, a timer or Web Crypto. `tests/waitlistAtomic.test.js` holds new
+  exports to it. **Modified:** the next turn is inside the transaction.
+- **K6b-9:** the picks preview asks **Leave without saving?** on a tap outside, Escape, Close
+  or Cancel while settings are unsaved; focus returns after a redraw and on close; its
+  tables scroll in `.table-scroll`. Checked at 320 px.
+- Guide (Actions, Picks preview), plan step 10, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`.
