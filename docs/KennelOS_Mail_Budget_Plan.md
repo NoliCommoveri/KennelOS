@@ -330,7 +330,7 @@ not proof.
   page's list says which is which. `EMAIL_KINDS` still decides what's listed; the text uses
   the same kind as the email it replaces (`offer`, `note`…).
 
-## 6. Optional: a second provider for heavy days
+## 6. Optional: a second provider for heavy days, chained in the Worker
 
 Only if §2–§5 together still hold too much on real heavy weeks (§9 shows it).
 
@@ -338,15 +338,49 @@ Only if §2–§5 together still hold too much on real heavy weeks (§9 shows it
 |---|---|---|---|---|
 | **Resend free** (today) | $0 | — | ~100 | ~3,000 a month |
 | **Resend paid** | ~$20 | included up to ~50k | none at this size | Unused emails are lost each month |
-| **Bird Startup** | $15, added to a balance that carries forward | $0.40 | none listed (30 send requests a minute) | Balance also pays for SMS; ask about ramp-up for a new account |
-| **Bird free** | $0 | — | 50 | 1,000 a month; too small to help |
-| **Amazon SES** | $0 | ~$0.10 | high once out of its sandbox | More setup: leaving the sandbox, its domain records |
+| **Bird free** | $0 | — | 50 | 1,000 a month, **one** sending domain |
+| **Bird Startup** | $15 deposit into a wallet | $0.40, from the wallet | none listed (30 send requests a minute) | Wallet also pays for SMS; see §6.2 for what happens to it |
+| **Amazon SES** | $0 | ~$0.10 | high once out of its sandbox | No deposit; more setup (leaving the sandbox, its domain records) |
 
-- Recommendation: keep Resend as the main provider. If needed, add **Bird Startup or SES as
-  overflow**: `reserveMail` sends past Resend's day to the second provider instead of holding
-  rank 3–4 mail. Every send already goes through one function in `mail.js`, so adding a
-  provider stays there. The family sending domain needs its records on the second provider.
-- The prices are as checked on 2026-11-17 and from memory; check before deciding (M7).
+### 6.1 Chaining (our code, not Resend's)
+Resend doesn't pass mail on to anyone. The chain is in `cloud/src/mail.js`:
+- `resendSend` becomes `sendMail(env, kind, payload)`, which tries providers in order:
+  **Resend**, then **Bird** (or SES). It moves on when our own count says Resend's day is used,
+  or when Resend answers 429 for its daily quota. Only when every provider is full does §3's
+  hold or refuse apply.
+- Same `wl_messages` row and message id whichever provider sends it, so nothing goes twice.
+  The row and `mail_counts` record which provider sent it, for /ops.
+- A Worker secret `BIRD_API_KEY`; providers on or off by setting (`MAIL_PROVIDERS`, e.g.
+  `resend,bird`).
+- **Domains:** Bird's free tier allows one sending domain. Put the **family domain**
+  (`MAIL_FAMILY_DOMAIN`, where heavy weeks come from) on Bird; sign-in codes stay on Resend,
+  protected by the reserve (§2). Both providers in that domain's SPF; each its own DKIM key.
+- **Both free tiers chained** give about 150 a day at $0. Check both providers' terms on
+  using free tiers in production.
+- **A cold account:** a new Bird account has no sending reputation; a little mail through it
+  in quiet weeks warms it up. Ask Bird whether a new account can send at full speed.
+
+### 6.2 Bird's wallet, if we pay (as read on 2026-11-17)
+- **Downgrade or cancel** takes effect at the end of the month; the wallet "stays available
+  for any product"; no refund for a partial month (Bird docs, Plan changes and renewals).
+- **No pause**; downgrading to free and upgrading again later is the nearest thing.
+- **The money lapses one year after each deposit** if unused (Bird terms §4.7). The docs'
+  "nothing expires" is about monthly renewals only.
+- **No refunds** of prepaid balance, even if Bird suspends the account (§4.7), except when we
+  end the agreement for Bird's breach (§11.5). An account inactive for 12 months can be
+  suspended or ended (§11.3).
+- **To ask Bird before paying:** (1) Can wallet money pay for emails past the free plan's
+  limit while on the free plan? Probably not ("no overage"). (2) Can an upgrade's deposit be
+  paid from the wallet ("upgrades draw on the wallet first")? If yes, upgrading for a heavy
+  month and downgrading after costs about $15 once, then only what's sent, provided we upgrade
+  again within the year.
+- So treat wallet money as **spend within a year**, not savings. SES has no deposit to lapse.
+
+### 6.3 Recommendation
+Keep Resend as the main provider. First add **Bird free** behind it, for the family domain
+(§6.1). If heavy weeks outgrow both, upgrade Bird to Startup for that month only (after the
+answers in §6.2), or move the overflow to SES. Any paid tier is what the breeder pays for
+through credits (§7). The prices are as checked on 2026-11-17; check before deciding (M7).
 
 ## 7. Credits
 
@@ -399,7 +433,7 @@ week, not guessed.
    go first.
 5. **Family notifications and page posts:** manifest, service worker, subscribe on the status page, `family_delivery` and page posts (§4.5), routing
    and fallback (§4).
-6. **Optional:** a second provider for overflow (§6).
+6. **Optional:** a second provider chained behind Resend (§6.1), Bird free first.
 
 ## 11. Decisions
 
@@ -411,7 +445,7 @@ week, not guessed.
 | M4 | How long a held email waits before it's refused | Proposed: 3 days |
 | M5 | Respond-by counted from when the offer actually reached the family (email sent or texted) | Proposed |
 | M6 | Support can raise one program's floor | Proposed: yes, from the manager app |
-| M7 | A second provider, and which | Open: only if §9 shows it's needed; Bird Startup or SES |
+| M7 | A second provider, and which | Proposed: Bird free chained behind Resend for the family domain; Bird Startup for a heavy month or SES after that. Ask Bird the two §6.2 questions first |
 | M8 | Family notifications on KennelOS's status page, not KennelPort's portal | Proposed |
 | M9 | Rank 4 goes push-only for families with notifications on | Proposed |
 | M10 | Automatic SMS (toll-free number) | Not planned; tap to text instead |

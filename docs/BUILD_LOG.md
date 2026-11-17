@@ -5571,3 +5571,11 @@ No owner decisions needed; each fix follows the review's suggestion.
   the first status link are always emailed. Decision M14 decided by the owner: page only is
   allowed, even for families without notifications.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, chaining a second provider (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §6: the chain lives in `mail.js` (`sendMail`: Resend,
+  then Bird or SES), Bird free behind Resend for the family domain (about 150 a day at $0),
+  and what Bird's terms say about its wallet (stays on downgrade, lapses a year after each
+  deposit, no refunds), with two questions to ask Bird. M7 updated.
+- **Service worker:** no app file added or renamed; cache not bumped.
