@@ -799,7 +799,8 @@ whose page is open to anyone until the first account exists.
 5. Resend: the domain verified (its DNS records added in Cloudflare), and its API key as a
    third secret, `RESEND_API_KEY`.
 6. Production only: the `kennelos.app` zone on Cloudflare DNS (GitHub Pages records
-   DNS-only), the `api.kennelos.app` Custom Domain on the Worker, and the Workers Paid plan.
+   DNS-only), the `api.kennelos.app` Custom Domain on the Worker, and the Workers Paid plan. **Modified:** production runs on
+   Workers Free until a limit is hit (`LAUNCH_CHECKLIST.md` §2).
 
 ## 7. Editions & build wiring
 - **`editionConfig` gains `cloudUrl`:**

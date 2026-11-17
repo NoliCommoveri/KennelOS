@@ -172,3 +172,21 @@ test('Today\'s nudge: each own kennel with the list online and no policies; gone
   assert.deepEqual(policiesNudges(kennels, { scopedTo: 'k2' }), [], 'scoped to a kennel with policies');
   assert.equal(policiesNudges([own('k1', { online: true })])[0].title, 'Add your waitlist policies', 'one kennel: no name');
 });
+
+test('K7-4: Save refuses what families could not see, and the limits match the Worker', async () => {
+  const { POLICY_LIMITS } = await import('../shared/data/waitlistForm.js');
+  const { POLICY_LIMITS: SERVER, policiesOf } = await import('../cloud/src/familyPages.js');
+  assert.deepEqual({ ...POLICY_LIMITS }, { ...SERVER });
+  const long = 'x'.repeat(POLICY_LIMITS.body + 1200);
+  const p = validatePolicies([{ heading: 'Refunds', body: long }]);
+  assert.equal(p.length, 1);
+  assert.match(p[0], /Policy 1's wording is 1,200 characters over the 5,000/);
+  assert.match(validatePolicies([{ heading: 'h'.repeat(201), body: 'ok' }])[0], /heading is 1 character over the 200/);
+  assert.deepEqual(validatePolicies([{ heading: 'h'.repeat(200), body: 'b'.repeat(5000) }]), []);
+  const many = Array.from({ length: 31 }, (_, i) => ({ heading: `H${i}`, body: 'B' }));
+  assert.match(validatePolicies(many).at(-1), /can see 30 policies; you have 31\. Combine or delete 1\./);
+  assert.deepEqual(validatePolicies([...many.slice(0, 30), { heading: '', body: '' }]), []);
+  // At the limit, the Worker shows every character.
+  const atMax = { heading: 'H', body: 'b'.repeat(POLICY_LIMITS.body) };
+  assert.equal(policiesOf({ kennel: { policies: [atMax] } }).policies[0].body.length, POLICY_LIMITS.body);
+});

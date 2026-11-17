@@ -26,6 +26,8 @@
        last question opens this. -->
   <details id="policies" class="card collapsible" hidden></details>
 
+  <p class="small muted" id="have-code-line" hidden>Already applied? <button type="button" class="linkish" id="have-code">Enter your code</button></p>
+
   <form id="app-form" novalidate hidden>
     <div id="questions"></div>
     <div class="card" id="turnstile-card" hidden><div id="turnstile"></div></div>
@@ -35,14 +37,22 @@
   </form>
 
   <section id="confirm" class="card" hidden>
-    <h2>Check your email</h2>
-    <p class="mt0">We sent a 6-digit code to <strong id="confirm-email"></strong>. Enter it here to send your application. It works for 15 minutes.</p>
+    <h2 id="confirm-title">Check your email</h2>
+    <p class="mt0" id="confirm-sent">We sent a 6-digit code to <strong id="confirm-email"></strong>. Enter it here to send your application. It works for 15 minutes.
+      <button type="button" class="linkish" id="change-email">Wrong address? Change it</button></p>
+    <p class="mt0" id="confirm-have" hidden>Enter the 6-digit code from the email we sent when you applied. Your application reaches the breeder once you do.</p>
     <form class="inline" id="confirm-form">
       <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="6-digit code" aria-label="Verification code" required>
       <button class="primary" type="submit">Confirm</button>
     </form>
     <p class="small" id="confirm-result" role="status"></p>
-    <p class="small muted">No email after a few minutes? Check your spam folder, or <button type="button" class="linkish" id="resend">send a new code</button>.</p>
+    <p class="small muted" id="resend-sent">No email after a few minutes? Check your spam folder, or <button type="button" class="linkish" id="resend">send a new code</button>.</p>
+    <form class="inline" id="resend-form" hidden>
+      <input id="resend-email" type="email" autocomplete="email" maxlength="254" placeholder="The email you applied with" aria-label="The email you applied with" required>
+      <button type="submit">Send a new code</button>
+    </form>
+    <p class="small muted" id="resend-have" hidden>No code, or it's more than 15 minutes old? Type the email you applied with above for a new one. Check your spam folder too.
+      <button type="button" class="linkish" id="back-to-form">Back to the application</button></p>
   </section>
 
   <footer class="page">Your application goes only to this breeder.</footer>

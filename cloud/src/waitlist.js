@@ -19,6 +19,7 @@ import { limitBucket } from './ratelimit.js';
 import { backingInfo } from './snapshots.js';
 import { assertMailAvailable, familyFooter, familySender, sendFamilyMessage } from './mail.js';
 import { fail } from './lib/http.js';
+import { normalizeEmail } from './auth.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 
 // A kennel's portable public identity, as shared/data/kennelRepo.js mints it.
@@ -117,8 +118,25 @@ async function ownedProjection(env, auth, publicId) {
   return row;
 }
 
+// Pure: the families whose signed-in browsers end with this publish (K7-10): a new status
+// token (New link) or a different email on the entry. A family's first token, or an
+// entry that is new, signs nobody out. oldTokens: [{ entry_id, token }].
+export function signedOutEntries(oldBody, newBody, oldTokens, newTokens) {
+  const was = new Map(oldTokens.map((t) => [t.entry_id, t.token]));
+  const out = new Set();
+  for (const t of newTokens) if (was.has(t.entryId) && was.get(t.entryId) !== t.token) out.add(t.entryId);
+  const before = oldBody?.entries || {};
+  for (const [id, e] of Object.entries(newBody?.entries || {})) {
+    const a = normalizeEmail(before[id]?.email);
+    const b = normalizeEmail(e?.email);
+    if (a && a !== b) out.add(id);
+  }
+  return [...out];
+}
+
 // PUT /waitlist/projection/:publicId {projection}. → {version, publishedAt}.
-// A token in no family's entry any more is revoked: that's "New link".
+// A token in no family's entry any more is revoked: that's "New link". New link, or
+// a changed email, also ends that family's signed-in browsers (signedOutEntries).
 export async function publishProjection(env, auth, publicId, payload, now = new Date()) {
   await herSide(env, auth);
   checkPublicId(publicId);
@@ -143,6 +161,10 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
     'SELECT token FROM wl_tokens WHERE token IN (SELECT value FROM json_each(?)) AND (program_id != ? OR public_id != ?) LIMIT 1',
   ).bind(JSON.stringify(tokens.map((t) => t.token)), auth.programId, publicId).all();
   if (clash.length) fail(409, 'token_taken');
+
+  const { results: oldTokens } = await env.DB.prepare('SELECT entry_id, token FROM wl_tokens WHERE public_id = ? AND program_id = ?')
+    .bind(publicId, auth.programId).all();
+  const signOut = signedOutEntries(existing ? JSON.parse(existing.body) : null, body, oldTokens, tokens);
 
   const version = (existing?.version ?? 0) + 1;
   const at = now.toISOString();
@@ -170,6 +192,9 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
       `INSERT INTO wl_tokens (token, program_id, public_id, entry_id, created_at) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (token) DO UPDATE SET entry_id = excluded.entry_id`,
     ).bind(t.token, auth.programId, publicId, t.entryId, at)),
+    ...(signOut.length ? [env.DB.prepare(
+      'DELETE FROM wl_family_sessions WHERE public_id = ? AND program_id = ? AND entry_id IN (SELECT value FROM json_each(?))',
+    ).bind(publicId, auth.programId, JSON.stringify(signOut))] : []),
   ]);
   return { version, publishedAt: at };
 }
@@ -253,6 +278,28 @@ export async function ackInbox(env, auth, payload, now = new Date()) {
     'UPDATE wl_inbox SET acked_at = ? WHERE program_id = ? AND acked_at IS NULL AND id IN (SELECT value FROM json_each(?))',
   ).bind(now.toISOString(), auth.programId, JSON.stringify(ids)).run();
   return { acked: res.meta?.changes ?? 0 };
+}
+
+// POST /waitlist/inbox/drop {ids}: she deleted these applications (K7-13), so the server
+// forgets them now rather than after retention, and a new or reset device's first
+// take-in can't bring them back. Any of her devices may ask: it only removes her own
+// applications, with their status links. → { dropped }
+export async function dropInbox(env, auth, payload) {
+  await herSide(env, auth);
+  const ids = payload.ids;
+  if (!Array.isArray(ids) || !ids.length || ids.length > WAITLIST_LIMITS.inboxPage || ids.some((id) => typeof id !== 'string' || !id || id.length > 64)) {
+    fail(400, 'bad_ids');
+  }
+  const list = JSON.stringify(ids);
+  const res = await env.DB.batch([
+    env.DB.prepare(
+      `DELETE FROM wl_tokens WHERE program_id = ? AND entry_id IN (SELECT id FROM wl_inbox
+         WHERE program_id = ? AND kind = 'application' AND id IN (SELECT value FROM json_each(?)))`,
+    ).bind(auth.programId, auth.programId, list),
+    env.DB.prepare("DELETE FROM wl_inbox WHERE program_id = ? AND kind = 'application' AND id IN (SELECT value FROM json_each(?))")
+      .bind(auth.programId, list),
+  ]);
+  return { dropped: res[1]?.meta?.changes ?? 0 };
 }
 
 // GET /waitlist/events?since=<seq>: everything after this device's cursor.

@@ -311,10 +311,12 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
 async function withMiles(env, fam, action, payload) {
   const from = cleanAddress(fam.projection.server?.geo_from);
   if (!from || !geoAvailable(env)) return payload;
-  await limitBucket(env, `wl-geo:${fam.entry_id}`, GEO_LIMITS.perHourPerFamily);
+  // Over the measuring limit, the request still goes on, unmeasured: the limit is on
+  // the measuring, never on asking her.
+  try { await limitBucket(env, `wl-geo:${fam.entry_id}`, GEO_LIMITS.perHourPerFamily); } catch { return payload; }
   let d = null;
   try { d = await drivingDistance(env, from, action === 'pickup_address' ? payload.address : payload.place); } catch { d = null; }
-  if (!d) return payload;
+  if (!d || d.imprecise) return payload;
   const pk = fam.entry.pickup;
   if (action === 'home_location') return { ...payload, miles: d.miles, allowed: d.miles >= (Number(pk.min_home_miles) || 0) };
   return { ...payload, miles: d.miles, minutes: d.minutes, far: Number(pk.far_miles) > 0 && d.miles > Number(pk.far_miles) };

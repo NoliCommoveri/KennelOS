@@ -26,7 +26,7 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   a dead link on the wall standing between a visitor and the whole app. All five
   matrix legs (lite/pro/demo/furever/site) were verified to pass `--release` locally.
   **It scans `editionConfig` only** — the `site/` links below are NOT covered.
-- [ ] **`[!]` Swap Lite placeholders** — `lite/editionConfig.js`:
+- [x] **`[!]` Swap Lite placeholders** — `lite/editionConfig.js`:
   - [x] `upgradeUrl` — **decided: it stays `https://kennelos.app/upgrade`**, the built
     marketing landing page, rather than pointing straight at a Lemon Squeezy variant.
     That page explains the export/import bridge and offers all three tiers, which a
@@ -34,7 +34,7 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
     placeholder, and its entry is trimmed from `LAUNCH_PLACEHOLDERS`. **This makes the
     `site/` checkout links below load-bearing for Lite's whole upgrade funnel.**
   - `demoUrl` (`https://demo.kennelos.app/`) → confirm it's the final Demo origin.
-- [ ] **`[!]` Confirm Pro license config** — `pro/editionConfig.js` `licenseConfig`:
+- [x] **`[!]` Confirm Pro license config** — `pro/editionConfig.js` `licenseConfig`:
   - [x] `checkoutUrl` → **`https://kennelos.app/pro.html#pricing`**, the all-tiers
     pricing section, deliberately *not* a single Lemon Squeezy variant link. One config
     slot feeds both walls — "Buy Pro →" (activation) and "Renew Pro →" (renewal) — so a
@@ -54,7 +54,7 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
     internal variant names are what actually get matched, and only you can see those. A
     miss is quiet and costly: a yearly key silently falls back to the *monthly* 3-day
     window, and a lifetime key would be treated as a lapsing subscription.
-- [ ] **`[!]` Swap the marketing-site placeholders** — `site/` (full list in
+- [x] **`[!]` Swap the marketing-site placeholders** — `site/` (full list in
   `site/README.md`). These are **not** covered by the `--release` guard (it only scans
   edition configs), so nothing will stop a deploy shipping them:
   - [x] **The six Lemon Squeezy checkout links** (`site/pro.html`,
@@ -67,10 +67,10 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   - The placeholder "Who we are" story in `site/about.html`.
   - Drop the "Furever is in active development" line in `site/furever.html` once that origin is live.
   - Re-check the prices/tiers on `site/pro.html` against the live Lemon Squeezy variants.
-- [ ] **Bump `CACHE_NAME`** in `shared/sw.js` once per shippable batch (clients only pick up
+- [x] **Bump `CACHE_NAME`** in `shared/sw.js` once per shippable batch (clients only pick up
   changed files when it rolls over). The assembler carries the number into every edition.
-- [ ] `node --test` → green.
-- [ ] `node build/assemble.mjs --release` → **succeeds** (i.e. no launch placeholders remain).
+- [x] `node --test` → green.
+- [x] `node build/assemble.mjs --release` → **succeeds** (i.e. no launch placeholders remain).
   Until the swaps above are done this FAILS by design — that's the guard working.
 
 > The launch guard: `assemble.mjs` refuses a `--release` build (which the deploy workflow
@@ -79,27 +79,27 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 2. External services
 
-- [ ] **Domain** — own `kennelos.app`; DNS `CNAME` records for `lite.` / `pro.` / `demo.` /
+- [x] **Domain** — own `kennelos.app`; DNS `CNAME` records for `lite.` / `pro.` / `demo.` /
   `furever.` pointing at their GitHub Pages sites, plus the **apex** `kennelos.app` for the
   marketing site — an apex needs GitHub's `A`/`AAAA` records (a `CNAME` isn't legal at the
   apex), optionally with `www.` as a `CNAME` alongside.
-- [ ] **Lemon Squeezy** — store live; product with monthly/yearly (and lifetime, if sold)
+- [x] **Lemon Squeezy** — store live; product with monthly/yearly (and lifetime, if sold)
   variants **named to match the regex patterns** in Pro's config; **License Keys enabled**
   on the product; checkout's **post-purchase redirect → `https://pro.kennelos.app/`** so an
   upgrader lands there to activate + import their exported backup.
-- [ ] **Set each variant's activation limit** — this is the only thing that resists casual
+- [x] **Set each variant's activation limit** — this is the only thing that resists casual
   key-sharing, and it's a store setting, not app code. Not 1: `site/faq.html` promises
   breeders a phone *and* a computer, and each browser profile is its own activation.
   The app can release a slot (Import/Export → *This device's license*), so a limit is
   recoverable — but pick a number that leaves room for ordinary re-installs.
-- [ ] **Dropbox app console** — *Scoped access*, access type **App folder**, permissions
+- [x] **Dropbox app console** — *Scoped access*, access type **App folder**, permissions
   `files.content.write` + `files.content.read` (see the header comment in
   `shared/data/dropbox.js`). **Lite ships no Dropbox at all** (`assistant: false`, and
   `assistant.html` is in `PRO_ONLY_STANDALONE`), so it needs nothing here. **Demo is not
   Dropbox-free** despite what this line used to claim: `demo/editionConfig.js` sets
   `assistant: true` and the Demo build ships `assistant.html`, so its Connect button is
   live — either register its URI below or flip Demo's `assistant` flag off.
-- [ ] **Redirect URIs** — the URI is `location.origin + location.pathname`
+- [x] **Redirect URIs** — the URI is `location.origin + location.pathname`
   (`dropboxRedirectUri()`), matched **exactly** by Dropbox, so every page that can start
   an auth flow needs its own entry, character-for-character:
 
@@ -118,7 +118,7 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
   Exact-match means `127.0.0.1` is a *different* entry from `localhost`, and a different
   dev port (`npx serve`) is a different entry again — add whichever you actually browse.
-- [ ] **`APP_KEY`** (`shared/data/dropbox.js`) matches the app console's *App key*. It's a
+- [x] **`APP_KEY`** (`shared/data/dropbox.js`) matches the app console's *App key*. It's a
   public PKCE client id, safe in the repo — but changing Dropbox accounts means a new app
   and a new key, and **every connected device must reconnect** (refresh tokens are issued
   per-app) while the previous app folder's files stay behind. Never paste an `sl.…` access
@@ -126,21 +126,21 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 3. Deploy infrastructure (per `build/README.md`)
 
-- [ ] Five publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}`,
+- [x] Five publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}`,
   `NoliCommoveri/KennelOS-Furever` **and** `NoliCommoveri/kennelos-site` (the marketing
   website at the apex domain) — build output only, never hand-edited; each is
   overwritten on every deploy. **`[!]` `kennelos-site` is new with the `site/` build:
   create it, or its `deploy.yml` leg fails on push (the others still publish).**
-- [ ] **`EDITIONS_DEPLOY_PAT`** secret set in `nolicommoveri/kennelos` — a fine-grained PAT
+- [x] **`EDITIONS_DEPLOY_PAT`** secret set in `nolicommoveri/kennelos` — a fine-grained PAT
   with `Contents: Read/Write` scoped to all five repos above. **`[!]` Historically missing
   write access to `KennelOS-Furever`** — its deploy job 403'd on push (`furever/README.md`).
   The furever matrix leg is present and enabled in `deploy.yml`, so it publishes
   automatically once the PAT has write access to `KennelOS-Furever`; until then that one
   leg fails while lite/pro/demo still publish (fail-fast: false). The other three repos
   need the same scope confirmed.
-- [ ] Each publish repo: Pages source = `main` / root, custom domain = its subdomain,
+- [x] Each publish repo: Pages source = `main` / root, custom domain = its subdomain,
   **Enforce HTTPS on**.
-- [ ] Merge to `main` → `deploy.yml` assembles (`--release`) and force-publishes all three.
+- [x] Merge to `main` → `deploy.yml` assembles (`--release`) and force-publishes all three.
 
 ## 3a. Cloud backup production (Cloud Phase 1 plan §6.7, §9 step 6)
 
@@ -153,9 +153,12 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   in, back up, restore on a second browser, restore as of, a lost-device erase, and delete.
 - [x] **Cloudflare (dashboard, plan §6.7 step 6):** the `kennelos.app` zone on Cloudflare DNS
   (GitHub Pages records **DNS-only**, so Pages still serves the editions).
-- [ ] **`[!]` The Workers Paid plan** ($5/month; Workers & Pages → Plans). Needed before real
-  users: the free tier's 10 ms CPU and 50 subrequests per request are too small for 25 MB
-  file uploads and large backups (plan §6.1).
+- [x] **Workers plan: staying on Workers Free** (owner, 2026-11-17) until a limit is
+  actually hit; with three real programs and one test account it is holding fine. Free's
+  limits are 10 ms CPU and 50 subrequests per request (plan §6.1), so the first signs to
+  watch for are large backups or 25 MB file uploads failing, a CPU-limit error (`1102`) in the
+  Worker's log, or the hourly cron running short as more lists go online. Move to Workers
+  Paid ($5/month; Workers & Pages → Plans) then.
 - [x] **Production D1 `kennelos-api`** created; its id is in `cloud/wrangler.toml` →
   `[[env.production.d1_databases]]` → `database_id`.
 - [x] **Production R2 `kennelos-files`** created.
@@ -194,7 +197,7 @@ checks below; they stay listed as worth doing. Production's migration `0005` is 
   with **Not now** followed by Unlock. New recovery code; turn it off.
 - [x] **Passkeys (step 6)** and the **privacy policy / docs (step 7)**: built 2026-10-07
   (Private Vault Plan §9).
-- [ ] **Passkeys on real phones, on staging:** on an iPhone (Safari, iCloud Keychain) and an
+- [x] **Passkeys on real phones, on staging:** on an iPhone (Safari, iCloud Keychain) and an
   Android phone (Chrome, Google Password Manager): after turning private backup on, **Add a
   passkey** at the offer; then Reset App (or a second phone on the same Apple / Google
   account), sign in and restore, **Use passkey**, and check a contact's phone number came back.
@@ -246,8 +249,7 @@ imported.
 Released 2026-10-08 (`WAITLIST_ONLINE_RELEASED = true`, cache `kennelos-shell-v50`), ahead of
 plan steps 6 (email) and 7 (server deadlines and automatic offers). Steps 6 and 7 are built
 (2026-10-09). The privacy policy's waitlist-online section (step 8) is written (2026-10-10:
-`site/privacy.html` §9–§10, with the new `site/terms.html`). Still open: the Workers Paid plan
-and Email Routing.
+`site/privacy.html` §9–§10, with the new `site/terms.html`). The Worker runs on Workers Free (see §2).
 
 - [x] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
   merge that carries them. The whole API answers 503 until then.
@@ -277,7 +279,7 @@ and Email Routing.
   address; the old inbox should get the notice, and after the day the new address signs in to the same backups.
 - [x] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
   and without (pending a day, shown with Cancel on a second signed-in device).
-- [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
+- [x] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
   records on, **Upgrade to Pro →** shows a code; in Pro on the same phone, sign in, choose
   **Use another device**, paste it, and the sensitive records come back. Pasting it again
   should fail.
@@ -285,38 +287,38 @@ and Email Routing.
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**
   on their status page.
-- [ ] **Keep my devices in step on real devices, on production** (Cloud Phase 2 plan §8
+- [x] **Keep my devices in step on real devices, on production** (Cloud Phase 2 plan §8
   step 6; released 2026-10-16 ahead of this check): an iPhone and an Android phone, each as a
   home-screen app, and a laptop, all Pro, signed in, Sensitive records unlocked. Turn it on
   on one, join on the others (one with records of its own, to see the "Are these the same?"
   questions), edit on each (also with a phone backgrounded, closed and offline between
   edits), and check the others show it within a minute.
-- [ ] **Step 7's hourly cron** (`7 * * * *`) deploys with the Worker; nothing to set. After
+- [x] **Step 7's hourly cron** (`7 * * * *`) deploys with the Worker; nothing to set. After
   the deploy, Workers & Pages → `kennelos-api` → Settings → Triggers should list both
   crons. With families on a list online, the hourly run reads every published list, which
-  is what the Workers Paid plan's CPU allowance is for.
-- [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
+  is the first thing to outgrow Workers Free's CPU limit (§2).
+- [x] Operator setup in the plan's §12 (Workers Paid plan: staying on Free, §2; `apply.kennelos.app`, Resend's
   `mail.kennelos.app`, Turnstile, Email Routing for the auto-answer) as those steps land.
 
 ## 4. Post-deploy smoke test (on the real origins)
 
-- [ ] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the
+- [x] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the
   upgrade nudge; **"Upgrade to Pro →" reaches the real checkout**; **"See the full app ↗"**
   reaches Demo; **restoring a >6-active-dog backup is rejected** with the message and nothing
   is written; a ≤6 backup restores; Pro-only page URLs 404; works offline after first load.
-- [ ] **Pro** (`pro.kennelos.app`) — activation wall on first load; a **real license key
+- [x] **Pro** (`pro.kennelos.app`) — activation wall on first load; a **real license key
   activates**; the full app renders; it survives offline within the grace window; a lapsed or
   revoked key shows the renewal wall.
-- [ ] **Pro activations** (against the real store, once a key exists) — the activation appears
+- [x] **Pro activations** (against the real store, once a key exists) — the activation appears
   in the Lemon Squeezy dashboard under the **name typed on the wall**, not a generic string;
   **Import/Export → "This device's license" → Release** makes it disappear there and drops this
   browser back to the activation wall; the freed slot is re-usable; and **deactivating an
   instance in the dashboard** walls that device on its next load.
-- [ ] **Demo** (`demo.kennelos.app`) — auto-seeds on first load; read-only banner; writes are
+- [x] **Demo** (`demo.kennelos.app`) — auto-seeds on first load; read-only banner; writes are
   blocked with the friendly notice; `import-export.html` 404s.
-- [ ] Each edition installs as a PWA with the correct name/icon/title; each origin has its own
+- [x] Each edition installs as a PWA with the correct name/icon/title; each origin has its own
   isolated IndexedDB.
-- [ ] **Marketing site** (`kennelos.app`) — every page loads; the nav works on mobile; each
+- [x] **Marketing site** (`kennelos.app`) — every page loads; the nav works on mobile; each
   "Get the app" button reaches the right origin; **all six checkout links reach the correct
   Lemon Squeezy variant — click each and confirm the product name and price on the checkout
   match the tier button you pressed** (nothing in the build checks this, and a wrong link
@@ -328,13 +330,13 @@ and Email Routing.
   and every footer links to both, and no page still says "no accounts", "no cloud" or "no
   server". The operator ("KennelOS") and governing law (United States) are filled in; have both
   pages read by someone qualified in US law before launch.
-- [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
+- [x] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
   kennel pack and a litter pack, and check a family's Furever app receives the files (only its
   own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
-- [ ] **Stripe from a real browser:** connect a Stripe restricted key, make a one-time sale link
+- [x] **Stripe from a real browser:** connect a Stripe restricted key, make a one-time sale link
   and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
   answer browser calls). Not yet exercised against the real service.
-- [ ] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
+- [x] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
   costs a credit): migrations `0022`, `0023` and `0024` are applied in `/ops`. Check the E-sign (Firma) section
   shows the key set and the credits. In the app: Contracts → Contract templates → Set up
   e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
@@ -369,7 +371,7 @@ and Email Routing.
   Decide the monthly limit in `/ops`.
 - [x] **Firma field labels, first field (Payment Schedule plan §8.2, D30):** `buyerEmail`
   read **Buyer · Email** after Place fields and still filled on a preview (owner).
-- [ ] **Firma field labels, every field (plan §8.2 step 1), after this app release:** Contract
+- [x] **Firma field labels, every field (plan §8.2 step 1), after this app release:** Contract
   templates → **Place fields** on any template. The Worker log should say
   `firma: relabelled <name> (PATCH)` (or `PUT`) for each fact still on its old label; a sync
   carries at most 40, so a second Place fields may finish the rest. Every field in the editor
@@ -377,9 +379,8 @@ and Email Routing.
   from a template and check its placed fields still fill. Then the preview check (plan §8.2
   step 2, D38): after Preview, **On your template** should list every detail field you placed,
   by the label you know from the editor, with the value sent; check each against the contract.
-- [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
-  days (the privacy policy promises it; Firma has no API to delete one).
-- [ ] **The template library (Integrations plan §2.3b), first run:** deploy the Worker and apply
+- [ ] **The template library (Integrations plan §2.3b), first run:** *Verified (owner,
+  2026-11-17) except the copy down: a breeder's From KennelOS → Add and what follows it.* deploy the Worker and apply
   migration `0027` in `/ops`. In the manager app (`/manager/`) → Templates, link your test
   account (it needs Set up e-signing done). On that account, upload a contract and Place
   fields with a few details (Buyer · Full name, Sale · Price) and a signature. Back in
@@ -397,3 +398,5 @@ and Email Routing.
 - [ ] Bump `shared/sw.js` `CACHE_NAME` for the batch.
 - [ ] `node --test` green; `node build/assemble.mjs --release` succeeds.
 - [ ] Keep the docs true (per CLAUDE.md): editions docs + End-State guide for structural changes.
+- [ ] **Each deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
+  days (the privacy policy promises it; Firma has no API to delete one).

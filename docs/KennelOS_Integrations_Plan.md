@@ -720,6 +720,10 @@ Firma"; migration `0023_esign_copies`.
 (prefills), for breeders who then pull them into their own templates, without support being
 in their program (no assisted session, `KennelOS_Assisted_Setup_Plan.md`).
 
+**Modified (2026-11-17, owner):** a breeder may add the same library template more than once,
+each copy for its own kind (**Add again for this kind**: `POST …/library/add` with
+`another: true` and the copy's name), so one agreement serves two of her extras.
+
 **Why it can't be a plain copy.** A field placed in Firma's editor with its Prefilled Data
 set to a workspace custom field stores that field's id (`custom_workspace_<id>`, §2.3a "As
 built: the Worker"). Ids belong to a workspace, so a template copied into another workspace

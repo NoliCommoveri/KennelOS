@@ -1102,7 +1102,10 @@ Pro-only pages are listed in `data/proPages.js`; everything else ships in every 
 **The Kennel page** (`kennel.html`) shows one section card at a time, chosen from a
 **Section** dropdown (`SECTIONS` in `kennel.js`) or `#<section>` in the URL; cards for this
 kennel's own data filter on its id, not the active scope. An outside kennel gets only
-Kennel expenses, Logo and Kennel card. The Logo, Lifecycle nudges and Puppy Record fields
+Kennel expenses, Logo and Kennel card. A settings card's Save (Lifecycle nudges, Puppy Record
+fields, Extra charges, Payment schedules, Waitlist settings, Pickup) keeps her on the card
+and redraws it, then `flashSaved` shows the button as **Saved ✓** for two seconds and
+"Saved at <time>" beside it (`role="status"`; `.is-saved`, `.save-flash` in `app.css`). The Logo, Lifecycle nudges and Puppy Record fields
 cards build their fields from `assets/kennelSettingsFields.js` (`fileToLogoDataUrl`,
 `logoPreview`, `nudgeFields` / `readNudgeFields`, `puppyRecordFieldsHtml` /
 `wirePuppyRecordFields` / `readPuppyRecordFields`; Pro-only, in `proPages.js`), which Kels's
@@ -2261,10 +2264,13 @@ restored into Lite keeps its waitlist rows, dormant.
 - **Her waitlist policies** (`docs/KennelOS_Waitlist_Policies_Plan.md`, Pro, only while the
   list can go online): `waitlist_config.policies[]` (`{ id, heading, body, topic?, basis? }`,
   cleaned by `waitlistForm.waitlistPolicies`, `validatePolicies` heading and body both or
-  neither) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
+  neither, and within `POLICY_LIMITS`: 30 policies, a heading of 200 characters, a body of
+  5,000, the same numbers the Worker's `familyPages.POLICY_LIMITS` shows families, held
+  equal by a test; Save refuses past them, and the editor counts each body as she types,
+  and a heading once it's over) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
   changed). Edited in **Kennel › Waitlist settings › Policies** (`kennel.js`, a working copy
   `policiesDraft` redrawn on its own) with the FAQ's editor, now shared
-  (`assets/qaListEditor.js`, `.qa-*` in `app.css`). **Start from common topics**
+  (`assets/qaListEditor.js`, `.qa-*` in `app.css`; `aMax`/`bMax` draw the live count). **Start from common topics**
   (`data/waitlistPolicies.js`, pure, `tests/waitlistPolicies.test.js`) adds the owner's six
   (`POLICY_TOPICS`: applications, preferences, passes, picking, pausing, days), each worded
   by `policyStarter` from her settings at that moment (fee and its due days, pass limit and
@@ -2547,6 +2553,12 @@ CSV columns into questions and stamps `source_header`, so the application import
 then bring in the answers.
 
 ### Actions (`data/waitlistActions.js`)
+Each exported action that writes is one IndexedDB transaction over every data table
+(`atomic`, `db.transaction('rw', dataTables(), async () => …)`): all its writes land, moving
+the list on to the next turn included, or none do. The scope must be an `async` function
+(Dexie keeps a transaction across native `await`s only then), nothing inside may await the
+network or a timer, and an action another one calls joins its transaction.
+`tests/waitlistAtomic.test.js` holds every new export to it (or a read-only list).
 Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
 one contact rule: the same email or phone first, then the same or a near name; never
 automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
@@ -2563,7 +2575,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   applied from `fee_paid_online` never sets, counted from
   `fee_received_at`, back to approved, and only until they're offered a turn or have a side
   sale; `canUndoFeeReceived` needs the sales). Each keeps the
-  family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
+  family's anchor, makes no offers, and is refused once they've re-applied (`assertNotReapplied`: a live entry on the same list
+  with the same contact, or the same email, the contact's or the application's, since a
+  declined or withdrawn application usually has no contact yet). A withdrawal from
   their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
@@ -2689,7 +2703,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
   `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
   fresh records first and asks again if the result changed. With picks open, the panel's
-  **Who's in line…** opens it without that button. Its decisions come from
+  **Who's in line…** opens it without that button. Unsaved settings in it are never dropped in silence:
+  a tap outside, Escape, Close or Cancel asks **Leave without saving?** first; a redraw puts
+  focus back on the control she was on; its tables sit in `.table-scroll` boxes. Its decisions come from
   `data/picksPreview.js` (pure, shared): `previewPicks(data, { litterId, today, view, eitherAs,
   configDraft })` simulates `openPicks` / `offerNextTurn` on copies (offer, join with the
   deadline restart, wait, "Not this litter" passes on the way, none) and lists the turn order
@@ -2770,7 +2786,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   the lease holder, `serverWork.js`). Why it stopped is kept in the `waitlistOnline` setting.
 - **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
   public list, the status page (`/s/<token>`; `status_token` minted by
-  `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
+  `ensureStatusTokens`, **New link** replaces it), and the online form. A publish that
+  gives a family a new token (New link) or a different email ends every browser signed in
+  to their page (`waitlist.signedOutEntries`, deleting their `wl_family_sessions`). On the
+  form, a browser that can't lock the answers (`seal` throws) says so and keeps them; the
+  code step offers **Wrong address? Change it** (back to the form, answers kept, a fresh
+  Turnstile) and the form offers **Already applied? Enter your code** (a code, or a new one
+  to the address they type, for a page that was closed). Rate limits (`FAMILY_LIMITS`):
+  20 applications an hour from one connection, 3 per address; a kennel's verify limit,
+  when it's full, answers `busy` ("This waitlist is busy right now"), not "your connection".
+  Deleting an online application (`source: 'online_form'`) also tells the server
+  (`cloudWaitlist.forgetApplication` → `POST /waitlist/inbox/drop`, any of her devices),
+  so a new device's first take-in can't bring it back; offline, the id waits in the
+  `waitlistOnline` setting's `droppedInbox`, skipped by take-ins, sent at the next sync. A family signs in
   with an emailed code; signing in lands on their open entry. While it's their turn, their
   number is hidden (`placeHidden`). Each entry publishes `since` (its applied date), `pup`
   (its own pup's call name) and `record` (`recordFor`: `{ state, until? }`, where it stands
@@ -2962,7 +2990,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `mileage_basis` one way / round trip, `mileage_free_under`, `transport_far_miles`,
   `transport_min_home_miles`, `pickup_change_days`); her times per litter on the Litter
   page's **Pickup times** (`assets/pickupTimesPanel.js`, Pro: **Add times** = `makeSlots`,
-  **Copy to another litter**; `Litter.pickup_slots`), each date with a rule
+  **Copy to another litter**, which takes each copied date's rule along unless that litter
+  already has its own for the date, `pickupSlots.copyDateRules`; `Litter.pickup_slots`), each date with a rule
   (`Litter.pickup_date_rules`, `pickupSlots.dateRules`: **Requires** one of her extras, or
   **Standard boarding applies** at `waitlist_config.boarding_rate` per day). For a family with an open sale the
   projection's `entry.pickup` (`familyPickup.familyPickupView`): times from
@@ -2983,9 +3012,21 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   she approves), or says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
   Worker counts other families' unapplied bookings against a time's room, and measures an
   address with Mapbox: `miles`, `far`) become `entry.pickup_requests`; `home_location` sets
-  `home_place` / `home_miles`. Her device measures a family's home once from their
-  application's City / state or contact address (`cloudWaitlist.measureHomes`, during sync).
-  **Approve** (`approvePickupRequest`): a time → the pup's placement event (Local pickup,
+  `home_place` / `home_miles`, and `home_measured_date` only when it came measured (one said
+  while the map service was down is left for her device). Her device measures a family's home
+  once, from where they said they live, else their application's City / state or contact
+  address (`cloudWaitlist.measureHomes`, during sync); a place Mapbox can't find, or places
+  only roughly, is stamped unmeasured, and any other failure stops until the next sync. The
+  Worker's `geo.js` looks the family's address up near hers (`proximity`), refuses a rough
+  match (`roughMatch`: a whole region or country, or Mapbox's low confidence → `422
+  imprecise`), and tells failures apart (`geo_off`; `geo_failed` for the key, quota or a
+  Mapbox outage; `geo_unreachable` for no answer within `GEO_TIMEOUT_MS`, 10 s; `not_found`
+  for one address Mapbox won't take or can't route to). Her app words each with
+  `transportFee.milesErrorText`; a family's request is never refused over the measuring
+  limit, only left unmeasured.
+  **Approve** (`approvePickupRequest`): a time is refused while its places are all booked
+  by other families' confirmed pickups ("That time is full: …"; two families can ask for
+  the last place at once); a time → the pup's placement event (Local pickup,
   the time, the place, `pickup_slot_id`), and on a boarding date her standard boarding
   (`standardBoarding`: per day from `pickupFrom`, the ready date itself, to the day before;
   a time before the ready date has none) as the sale's deferred
@@ -3069,6 +3110,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
   action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
   to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);
+  one queued more than a day (`EMAIL_STALE_MS`, from when she approved it or sent it again)
+  isn't sent: it's held (`status: 'failed'`, `error: 'stale'`, `isHeldEmail`) as **Waiting for
+  you** on their entry and a Today card (`waitlist-email-held:`), with **Send as written**
+  (`retryEmail`, which restarts its age) or **Don't send** (`dropEmail`, `error: 'not_sent'`);
   the server sends from the kennel's name at `mail.kennelos.app`, to the address in the
   projection, never one from the device. A family with a sale (any not cancelled, voided or
   returned: `waitlistOutbox.salePupPhotos` over `familySale`) whose pup has a `url` gets
@@ -3609,7 +3654,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     upload: the kind she picked, and who signs as support set it (`signs`), saved with
     `setTemplateType({ remember: false })` so her own last choice for uploads stays. The
     message says how many details don't fill yet (`unmapped`), to set in Place fields. One
-    already added shows **Added**. The copy is hers: Place fields changes it, deleting it in
+    already added shows **Added**, with a picker and **Add again for this kind**: one more copy
+    beside hers (`another: true`), named "<template> (<kind>)", so one library agreement can
+    serve two of her extras (each copy has one kind). A plain add never makes a second copy. The copy is hers: Place fields changes it, deleting it in
     Firma's editor drops it as any template, and later changes to the library's template
     don't reach it. Support builds and offers these in the manager app (`/manager/`,
     Templates: the Worker's `esignLibrary.js`, `cloud/README.md`).

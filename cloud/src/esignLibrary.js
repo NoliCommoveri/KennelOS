@@ -396,10 +396,13 @@ async function remapCopy(env, lib, her, templateId, used) {
   return { ready, unmapped: plan.unmapped + refused, refused };
 }
 
-// POST /integrations/firma/library/add { templateId }
+// POST /integrations/firma/library/add { templateId, another?, name? }
 // → { id (her copy), name, signs, ready, unmapped, already }
-// One copy per breeder and library template: a second add answers the copy she has,
-// unless she deleted it in Firma's editor. Not ready: call again (her device does).
+// A second add answers the copy she has (unless she deleted it in Firma's editor),
+// so a lost answer never makes two. `another: true` makes one more copy beside it, for
+// a second kind (the same agreement for two of her extras), named `name` (her kind's
+// words after the template's) when given. Not ready: call again (her device does,
+// with the same body): a copy in progress is carried on, never a third made.
 export async function addLibraryTemplate(env, auth, body, now = new Date()) {
   await herSide(env, auth);
   const { connection, secrets } = await mine(env, auth);
@@ -410,10 +413,13 @@ export async function addLibraryTemplate(env, auth, body, now = new Date()) {
   const lib = await libraryOf(env);
   if (!lib?.apiKey) fail(409, 'library_not_linked');
   const her = { connection, apiKey: secrets.apiKey };
+  const another = body?.another === true;
+  const copyName = one(body?.name, 120) || offer.name;
   let calls = 0;
 
   let row = await env.DB.prepare('SELECT * FROM esign_library_copies WHERE program_id = ? AND library_template_id = ? ORDER BY created_at DESC LIMIT 1')
     .bind(auth.programId, libraryId).first();
+  if (another && row?.status === 'ready') row = null; // one more, beside the copies she has
   if (row?.status === 'ready' && row.template_id) {
     const t = await firma(env, her.apiKey, 'GET', `/templates/${encodeURIComponent(row.template_id)}`);
     calls++;
@@ -430,7 +436,7 @@ export async function addLibraryTemplate(env, auth, body, now = new Date()) {
       await env.DB.prepare("INSERT INTO esign_library_copies (id, program_id, library_template_id, template_id, status, created_at, updated_at) VALUES (?, ?, ?, NULL, 'copying', ?, ?)")
         .bind(id, auth.programId, libraryId, iso(now), iso(now)).run();
     }
-    const r = await firma(env, masterKey(env), 'POST', `/templates/${encodeURIComponent(libraryId)}/copy`, { workspace_id: connection.account_ref, name: offer.name });
+    const r = await firma(env, masterKey(env), 'POST', `/templates/${encodeURIComponent(libraryId)}/copy`, { workspace_id: connection.account_ref, name: copyName });
     calls++;
     if (!ok(r) || !r.data?.id || !UUIDISH.test(String(r.data.id))) {
       console.warn(`firma: library copy refused: ${r.status}${firmaCode(r) ? ` ${firmaCode(r)}` : ''}`);
@@ -449,5 +455,5 @@ export async function addLibraryTemplate(env, auth, body, now = new Date()) {
     fail(409, 'copy_missing');
   }
   if (result.ready) await setCopy(env, row.id, { status: 'ready' }, now);
-  return { id: row.template_id, name: offer.name, signs: offer.signs, ready: result.ready, unmapped: result.unmapped, already: false };
+  return { id: row.template_id, name: copyName, signs: offer.signs, ready: result.ready, unmapped: result.unmapped, already: false };
 }

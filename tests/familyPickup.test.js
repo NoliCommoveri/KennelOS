@@ -160,3 +160,25 @@ test('what a family asked for and she has not decided fills in a pickup she logs
   assert.deepEqual(pickupWish({ pickup_requests: [slotReq, own] }), { date: '2026-11-22', time: '2:30 PM', location: '9 Oak, Dallas TX', method: '' }, 'the newest');
   assert.equal(pickupWish({ pickup_requests: [{ ...own, decided: 'declined' }, { id: 'r3', kind: 'cancel', requested_date: '2026-11-03' }] }), null, 'decided, or a cancel: nothing');
 });
+
+test('K8-15: copying times to another litter takes each date\'s rule along; one already there is kept', async () => {
+  const { copyDateRules } = await import('../shared/data/pickupSlots.js');
+  const from = { pickup_date_rules: [{ date: '2026-12-12', requires_list_id: 'trn' }, { date: '2026-12-13', boarding: true }, { date: '2026-12-20', boarding: true }] };
+  const to = { pickup_date_rules: [{ date: '2026-12-13', requires_list_id: 'x' }] };
+  const r = copyDateRules(from, to, ['2026-12-12', '2026-12-12', '2026-12-13', '2026-12-14']);
+  assert.deepEqual(r.rules, [{ date: '2026-12-12', requires_list_id: 'trn' }, { date: '2026-12-13', requires_list_id: 'x' }]);
+  assert.equal(r.copied, 1);
+  assert.equal(r.kept, 1);
+  assert.deepEqual(copyDateRules({}, {}, ['2026-12-12']), { rules: [], copied: 0, kept: 0 });
+});
+
+test('K8-5: why driving miles failed, in a sentence, never a code', async () => {
+  const { milesErrorText } = await import('../shared/data/transportFee.js');
+  for (const code of ['geo_off', 'not_found', 'imprecise', 'geo_failed', 'geo_unreachable', 'rate_limited', 'bad_address']) {
+    const t = milesErrorText({ code, message: `Cloud request refused (${code}).` });
+    assert.doesNotMatch(t, /geo_|refused|_/, code);
+    assert.match(t, /\.$/);
+  }
+  assert.equal(milesErrorText({ name: 'CloudOfflineError', message: 'Could not reach cloud backup.' }), 'This device is offline.');
+  assert.equal(milesErrorText(new Error('Sign in to cloud backup to measure miles.')), 'Sign in to cloud backup to measure miles.');
+});

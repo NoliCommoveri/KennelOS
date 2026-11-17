@@ -229,10 +229,10 @@ file. Production needs `0026` applied after the deploy (README Status, `LAUNCH_C
     belongs here too. Put K1-2 (Furever's missing `blocked` handler) in the Furever half.
 11. **K11: Kels and the guided tasks.** *Built 2026-11-16 (K11-4: an entry already in is left as she has it, a deleted one isn't New again, and the feed is pushed after an import; K11-14: one approve step for a family she types in; no owner decisions needed). Next is step 12.* K11-2, K11-3, K11-4 (KennelAssistant re-imports over
     her corrections), K11-6, K11-7, then the S3s.
-12. **Waitlist Fixes plan, steps 6–10.** *Its step 6 built 2026-11-16 (the turn rules: K6-6's guard now asks the kennel-wide rule and `offerTo` needs `outOfOrder`; one `offerBlocker`; deadlines never shortened by a join and moved off closed days). Its step 7 built the same day (D11: the kennel's clock for the waitlist's deadlines, on her device, the Worker and the family's page). D10 decided no (K7-5 not built). Next is its step 8.* The turn rules (K6-6 S2), the clock (K6-3 S2 and
+12. **Waitlist Fixes plan, steps 6–10.** *Its step 6 built 2026-11-16 (the turn rules: K6-6's guard now asks the kennel-wide rule and `offerTo` needs `outOfOrder`; one `offerBlocker`; deadlines never shortened by a join and moved off closed days). Its step 7 built the same day (D11: the kennel's clock for the waitlist's deadlines, on her device, the Worker and the family's page). D10 decided no (K7-5 not built). Its step 8 built 2026-11-17 (applying and signing in; K7-11's per-code guess count waits on D13). Its step 9 built the same day (pickup, miles and queued emails; K8-6 still to check against live Mapbox). Its step 10 built the same day (each action one transaction; the preview asks before dropping changes): the Waitlist Fixes plan is done.* The turn rules (K6-6 S2), the clock (K6-3 S2 and
     K8-9: decision D11), applying and signing in (K7-4 to K7-13), pickup and queued emails,
     and transactions (K6-13). Step 7 is the largest risk among these. D10, D11 and D12 are
-    still open.
+    decided (D10 and D11 on 2026-11-16, D12 on 2026-11-17).
 13. **Performance:** K1-4, K2-7, K4-11.
 14. **K15** redone once the UI settles, taking group J with it. Then **K16** writes
     `SUMMARY.md` from what's left.
@@ -250,7 +250,7 @@ file. Production needs `0026` applied after the deploy (README Status, `LAUNCH_C
 | 8 | **Decided 2026-11-15:** K13-6: block them (and Furever's Drive). K11-5: Kels walks a Demo task to its review, then says so and keeps nothing. K13-4: Lite's CSV refuses leased types (restores unchanged). K13-5: a restore over the litter cap is refused, all or nothing. |
 | 9 | **Decided 2026-11-15:** **9-A** (K4-2): an orphaned migration no longer gates the API; /ops shows it. **9-B** (K4-13): support's helper device may take over backing up; it's named as support (its label, and `helper: true`). **9-C**: K5-13 (revocable manager sessions) rides migration `0026`. |
 | 10 | **Decided 2026-11-16:** K14-5: the Furever identity rides on her own kennel, cloud tier. K14-3: warn on every pup's document in a litter publish for now; per-pup packs later. K14-15: a Dog Card's microchip only for a sent dog still in her program. K14-11: an outside dog's expense goes under its stud service's kennel, else only All kennels. |
-| 12 | **Decided 2026-11-16:** D10 no (no policy wording sealed into applications). D11: the kennel's time zone for the waitlist's deadlines only. D3 and D12 are built as recommended, not yet confirmed. |
+| 12 | **Decided 2026-11-16:** D10 no (no policy wording sealed into applications). D11: the kennel's time zone for the waitlist's deadlines only. D3 and D12 confirmed as built (owner, 2026-11-17). |
 
 ## 5. Not reviewed here
 

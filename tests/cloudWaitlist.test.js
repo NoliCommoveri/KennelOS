@@ -268,6 +268,47 @@ test('a reset phone fetches what the server still holds and fills in answers a b
   assert.equal((await waitlistEntryRepo.getById(entry.id)).application.about, 'Kept safe');
 });
 
+test('K7-13: an application she deleted stays deleted on a new device; offline, it waits on this one', async () => {
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const k = await thornfield();
+  await applyOnline(k.public_id, { name: 'Spam One', email: 'spam1@example.com' });
+  await applyOnline(k.public_id, { name: 'Spam Two', email: 'spam2@example.com' });
+  await cw.syncWaitlistOnline();
+  const find = async (email) => (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.application?.email === email);
+  const one = await find('spam1@example.com');
+  const two = await find('spam2@example.com');
+  assert.equal(one.source, 'online_form');
+  // Deleted while signed in: the server forgets it at once.
+  await waitlistEntryRepo.hardDelete(one.id);
+  await cw.forgetApplication(one);
+  assert.equal(raw('SELECT id FROM wl_inbox WHERE id = ?', one.id).length, 0);
+  assert.equal(raw('SELECT token FROM wl_tokens WHERE entry_id = ?', one.id).length, 0);
+  // Deleted offline: queued here, skipped by a take-in meanwhile, sent with the next sync.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await waitlistEntryRepo.hardDelete(two.id);
+  await cw.forgetApplication(two);
+  globalThis.fetch = realFetch;
+  assert.deepEqual(settings.getWaitlistOnlineState().droppedInbox, [two.id]);
+  settings.updateWaitlistOnlineState({ inboxFetchedAll: false }); // as on a fresh device
+  await cw.syncWaitlistOnline();
+  assert.equal(await find('spam2@example.com'), undefined);
+  assert.deepEqual(settings.getWaitlistOnlineState().droppedInbox, []);
+  assert.equal(raw('SELECT id FROM wl_inbox WHERE id = ?', two.id).length, 0);
+  // A new device reads everything the server holds: neither comes back.
+  settings.updateWaitlistOnlineState({ inboxFetchedAll: false });
+  await cw.syncWaitlistOnline();
+  assert.equal(await find('spam1@example.com'), undefined);
+  assert.equal(await find('spam2@example.com'), undefined);
+  // A typed-in entry never asks the server.
+  calls.length = 0;
+  await cw.forgetApplication({ id: 'x', source: 'manual' });
+  assert.deepEqual(calls, []);
+});
+
 test('rotating the form key: the new key is published, old applications still open', async () => {
   await breeder();
   const k0 = await putOnline();
@@ -649,6 +690,15 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   charged = await saleRepo.getById(sale.id);
   assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.deferred_boarding_duration_days, charged.boarding_from_pickup, charged.transport_fee ?? null],
     [25, 'Day', 7, true, null], 'replaced and removed once she chose to');
+
+  // K8-14: another family was confirmed on 10:00 in the meantime; a request for it can't
+  // be approved onto a full time (capacity 1), and says why.
+  await eventRepo.create({ subject_type: 'dog', subject_id: 'another-pup', event_type: 'placement', event_date: later(10), title: 'Pickup', details: { pickup_slot_id: 'x1' } });
+  const cur = await waitlistEntryRepo.getById(entry.id);
+  await waitlistEntryRepo.update(entry.id, { pickup_requests: [...cur.pickup_requests, { id: 'late-x1', kind: 'slot', slot_id: 'x1', at: new Date().toISOString() }] });
+  await assert.rejects(actions.approvePickupRequest(entry.id, 'late-x1'), /That time is full: 1 of its 1 place is already booked/);
+  const still = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
+  assert.equal(still.length, 1, 'their own booking is untouched');
 });
 
 test('backing out (Family Requests plan §7): a placed family asks, her policy suggests, she puts them back in line with their deposit as a credit and what she ticked; nothing is refunded (D9)', async () => {
@@ -920,7 +970,7 @@ test('emails to families (W2 step 6): drafted from her records, queued on the en
   assert.equal(queued.status, 'queued');
   calls.length = 0;
   const res = await cw.syncWaitlistOnline();
-  assert.deepEqual(res.emails, { sent: 1, failed: 0 });
+  assert.deepEqual(res.emails, { sent: 1, failed: 0, held: 0 });
   assert.equal(calls[calls.length - 1], 'POST /waitlist/messages', 'after the publish');
   const [row] = raw('SELECT id, entry_id, kind, to_email, subject, body, status FROM wl_messages');
   assert.equal(row.id, queued.id);
@@ -944,12 +994,34 @@ test('emails to families (W2 step 6): drafted from her records, queued on the en
   const other = entries.find((x) => x.id !== e.id);
   const bad = await outbox.queueEmail(other.id, { kind: 'note', subject: 'Hello', body: 'Text' });
   env.DB.raw.prepare('UPDATE wl_projection SET body = json_set(body, ?, NULL)').run(`$.entries."${other.id}".email`);
-  assert.deepEqual((await cw.sendQueuedEmails(auth.sessionToken(), [await thornfield()])), { sent: 0, failed: 1 });
+  assert.deepEqual((await cw.sendQueuedEmails(auth.sessionToken(), [await thornfield()])), { sent: 0, failed: 1, held: 0 });
   const failed = (await waitlistEntryRepo.getById(other.id)).messages.find((m) => m.id === bad.id);
   assert.equal(failed.status, 'failed');
   assert.equal(failed.error, 'no_email');
   await outbox.retryEmail(other.id, bad.id);
   assert.equal(outbox.queuedEmails([await waitlistEntryRepo.getById(other.id)]).length, 1);
+  // K8-11: one that waited more than a day is held for her, not sent; Send as written
+  // sends it, Don't send closes it. Today asks her.
+  const old = await outbox.queueEmail(e.id, { kind: 'note', subject: 'Deposit by Wednesday', body: 'Please send it by Wednesday.' });
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+  await outbox.setEmailStatus(e.id, old.id, { at: twoDaysAgo });
+  assert.deepEqual((await cw.sendQueuedEmails(auth.sessionToken(), [await thornfield()])).held, 1);
+  assert.equal(raw('SELECT id FROM wl_messages WHERE id = ?', old.id).length, 0, 'it didn\'t go');
+  let held = (await waitlistEntryRepo.getById(e.id)).messages.find((m) => m.id === old.id);
+  assert.deepEqual([held.status, held.error, outbox.isHeldEmail(held)], ['failed', 'stale', true]);
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key === `waitlist-email-held:${e.id}:${old.id}`);
+  assert.deepEqual(nudge.actions.map((x) => x.label), ['Open', 'Send as written', "Don't send"]);
+  await nudge.actions[1].run();
+  assert.equal((await cw.sendQueuedEmails(auth.sessionToken(), [await thornfield()])).sent, 1, 'sent as written once she said so');
+  assert.equal(raw('SELECT id FROM wl_messages WHERE id = ?', old.id).length, 1);
+  const old2 = await outbox.queueEmail(e.id, { kind: 'note', subject: 'Another', body: 'Old news.' });
+  await outbox.setEmailStatus(e.id, old2.id, { at: twoDaysAgo });
+  await cw.sendQueuedEmails(auth.sessionToken(), [await thornfield()]);
+  await outbox.dropEmail(e.id, old2.id);
+  held = (await waitlistEntryRepo.getById(e.id)).messages.find((m) => m.id === old2.id);
+  assert.deepEqual([held.status, held.error, outbox.isHeldEmail(held)], ['failed', 'not_sent', false]);
+  assert.equal((await computeNudges()).some((n) => n.key === `waitlist-email-held:${e.id}:${old2.id}`), false);
 });
 
 test('a turn change offers an email to each family a turn went to', async () => {

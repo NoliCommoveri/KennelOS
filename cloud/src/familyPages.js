@@ -60,7 +60,9 @@ export const FAMILY_LIMITS = {
   // 15 minutes and work once, that's hopeless. (A wrong guess matches no code, so
   // these limits, not a per-code count, are what stop guessing.)
   verifyPerHourPerIp: 10, verifyPerHourPerKennel: 300,
-  applicationsPerHourPerIp: 5, applicationsPerHourPerEmail: 3,
+  // One Wi-Fi at a puppy event, or a carrier's shared address, is many families: 20 an
+  // hour from one connection; Turnstile and the per-address limit stop a script.
+  applicationsPerHourPerIp: 20, applicationsPerHourPerEmail: 3,
   applicationBytes: 96 * 1024,
 };
 export const FAMILY_CODE_MS = 15 * 60 * 1000;
@@ -391,13 +393,16 @@ export function listView(projection) {
 // her starter topics. With them, the day she last changed them, and her closed dates
 // still ahead (shown under a policy started from the business-days topic). {} = none.
 const POLICY_TOPIC_IDS = ['applications', 'preferences', 'passes', 'picking', 'pausing', 'days'];
+// The app's editor refuses past these (shared/data/waitlistForm.js POLICY_LIMITS, held
+// equal by tests/waitlistPolicies.test.js), so the cut only meets an old or edited feed.
+export const POLICY_LIMITS = Object.freeze({ count: 30, heading: 200, body: 5000 });
 export function policiesOf(projection, now = new Date()) {
   const list = Array.isArray(projection.kennel?.policies) ? projection.kennel.policies : [];
   const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-  const policies = list.slice(0, 30).map((x, i) => ({
+  const policies = list.slice(0, POLICY_LIMITS.count).map((x, i) => ({
     id: str(x?.id, 60) || `pol_${i + 1}`,
-    heading: str(x?.heading, 200),
-    body: str(x?.body, 5000),
+    heading: str(x?.heading, POLICY_LIMITS.heading),
+    body: str(x?.body, POLICY_LIMITS.body),
     ...(POLICY_TOPIC_IDS.includes(x?.topic) ? { topic: x.topic } : {}),
   })).filter((x) => x.heading && x.body);
   if (!policies.length) return {};
@@ -883,6 +888,7 @@ async function issueCode(env, { publicId, programId, entryId, email, kennelName,
     from, programId, publicId, entryId, kind: 'application_code', to: email,
     subject: `Confirm your application to ${kennelName}: ${code}`,
     text: `Thank you for applying to ${kennelName}'s waitlist. To send your application, enter this code on the application page:\n\n${code}\n\n`
+      + 'If that page has closed, open the application again and choose "Already applied? Enter your code".\n\n'
       + 'It works for 15 minutes. Your application reaches the breeder only once the code is entered.\n\n'
       + 'If you did not apply, you can ignore this email: nothing will be sent.\n',
   } : {
@@ -1007,7 +1013,9 @@ export async function handleFamilyApi(request, env, url) {
     const code = String(body.code ?? '').replace(/\s/g, '');
     if (!/^\d{6}$/.test(code)) fail(400, 'bad_code');
     await limitBucket(env, `wl-verify-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.verifyPerHourPerIp);
-    await limitBucket(env, `wl-verify-kennel:${publicId}`, FAMILY_LIMITS.verifyPerHourPerKennel);
+    // The kennel-wide bucket isn't this visitor's doing: it says "busy", not "your connection".
+    await limitBucket(env, `wl-verify-kennel:${publicId}`, FAMILY_LIMITS.verifyPerHourPerKennel)
+      .catch((e) => { if (e?.status === 429) fail(429, 'busy', { retryAfterSeconds: 600 }); throw e; });
     const now = new Date();
     const hash = await familyCodeHash(env, publicId, code);
     const row = await env.DB.prepare(

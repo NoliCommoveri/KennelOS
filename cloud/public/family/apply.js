@@ -161,14 +161,50 @@ async function loadTurnstile(siteKey) {
   globalThis.turnstile.render('#turnstile', { sitekey: siteKey, callback: (t) => { turnstileToken = t; } });
 }
 
+// The code step. `email`: the address an application was just sent from (its code is on
+// the way; "Wrong address? Change it" goes back to the form, answers kept). null: the
+// applicant came back with a code ("Already applied? Enter your code"), maybe after the
+// page was closed, and can ask for a new one by typing their address.
+let confirmEmail = null;
 function showConfirm(email, kennelName) {
+  confirmEmail = email;
+  const have = !email;
   $('app-form').hidden = true;
   $('faq').hidden = true;
+  $('policies').hidden = true;
+  $('have-code-line').hidden = true;
   $('confirm').hidden = false;
-  $('confirm-email').textContent = email;
+  $('confirm-title').textContent = have ? 'Enter your code' : 'Check your email';
+  $('confirm-sent').hidden = have;
+  $('resend-sent').hidden = have;
+  $('confirm-have').hidden = !have;
+  $('resend-form').hidden = !have;
+  $('resend-have').hidden = !have;
+  $('confirm-email').textContent = email || '';
+  $('confirm-result').textContent = '';
+  $('code').value = '';
   $('code').focus();
   toTop();
+  document.title = `Confirm your application to ${kennelName}`;
+}
 
+// Back to the form with every answer still in it: the confirm card only hid it.
+function showForm(view, { focusEmail = false } = {}) {
+  $('confirm').hidden = true;
+  $('app-form').hidden = false;
+  $('faq').hidden = !view.form.faq.length;
+  $('policies').hidden = !hasPolicies;
+  $('have-code-line').hidden = false;
+  document.title = `Apply to ${possessive(view.kennel.name)} Waitlist`;
+  // A Turnstile pass works once; the next send needs a fresh one.
+  if (globalThis.turnstile && turnstileToken) { globalThis.turnstile.reset('#turnstile'); turnstileToken = null; }
+  const emailQ = view.form.questions.find((q) => q.key === 'email');
+  const field = emailQ && $(fieldId(emailQ));
+  if (focusEmail && field) { field.focus(); field.select?.(); field.scrollIntoView?.({ block: 'center' }); } else toTop();
+}
+
+function wireConfirm(view) {
+  const kennelName = view.kennel.name;
   $('confirm-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const button = $('confirm-form').querySelector('button');
@@ -184,17 +220,28 @@ function showConfirm(email, kennelName) {
     }
     const code = r.body?.error;
     $('confirm-result').textContent = code === 'invalid_code' || code === 'bad_code'
-      ? "That code didn't work. Check it, or send a new one below."
+      ? (confirmEmail ? "That code didn't work. Check it, or send a new one below." : "That code didn't work. Check it, or type your email below for a new one.")
       : loadError(r, { notFound: 'Please try again.' });
   });
 
-  $('resend').addEventListener('click', async () => {
+  const resend = async (email) => {
     const r = await fetchJson('/f/code', { method: 'POST', json: { public_id: publicId, email } });
+    // /f/code answers the same whether or not the address applied, so it can't be used
+    // to find out who did; say so rather than promise a code.
     $('confirm-result').textContent = r.ok
-      ? `A new code is on its way to ${email}.`
+      ? (confirmEmail ? `A new code is on its way to ${email}.` : `If ${email} applied here, a new code is on its way to it.`)
       : loadError(r, { notFound: 'Please try again.' });
+  };
+  $('resend').addEventListener('click', () => resend(confirmEmail));
+  $('resend-form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const email = $('resend-email').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('confirm-result').textContent = "That email address doesn't look right."; return; }
+    resend(email);
   });
-  document.title = `Confirm your application to ${kennelName}`;
+  $('change-email').addEventListener('click', () => showForm(view, { focusEmail: true }));
+  $('back-to-form').addEventListener('click', () => showForm(view));
+  $('have-code').addEventListener('click', () => showConfirm(null, kennelName));
 }
 
 // Embedded: the application is in. Her status page is one family's private page,
@@ -228,7 +275,9 @@ async function load() {
     $('policies').hidden = false;
   }
   renderForm(view);
+  wireConfirm(view);
   $('app-form').hidden = false;
+  $('have-code-line').hidden = false;
   document.addEventListener('click', (ev) => {
     if (!ev.target.closest('[data-open-policies]')) return;
     ev.preventDefault();
@@ -251,7 +300,16 @@ async function load() {
     button.disabled = true;
     button.textContent = 'Sending…';
     try {
-      const sealed = await seal(view.form.public_key, view.form.key_id, { answers, prefs, ...(privateRequest ? { private_request: true } : {}), sent_at: new Date().toISOString() });
+      // Locking the answers can fail in this browser (no Web Crypto in an old in-app
+      // browser, a key it can't read): say so, and keep every answer on screen.
+      let sealed;
+      try {
+        sealed = await seal(view.form.public_key, view.form.key_id, { answers, prefs, ...(privateRequest ? { private_request: true } : {}), sent_at: new Date().toISOString() });
+      } catch {
+        $('form-problems').textContent = "This browser couldn't lock your answers, so nothing was sent. Your answers are still here: please try again, or open this page in another browser (Safari, Chrome, Firefox or Edge). If you opened it from inside another app, use its \u201cOpen in browser\u201d option.";
+        $('form-problems').hidden = false;
+        return;
+      }
       const r = await fetchJson(`/f/apply/${encodeURIComponent(publicId)}`, {
         method: 'POST',
         json: { key_id: view.form.key_id, sealed, name: String(answers.name || '').trim(), email: String(answers.email || '').trim(), turnstile: turnstileToken },

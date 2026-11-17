@@ -281,6 +281,29 @@ test('adding copies the template to her workspace and points its prefills at her
   assert.equal(fresh.ready, true);
 });
 
+test('adding again for another kind makes one more copy beside hers, named for it', async () => {
+  const env = await envWith();
+  const { lib, dana } = await setUp(env);
+  const tpl = libraryTemplate(lib.ws);
+  await manager(env, 'library/offer', { templateId: tpl, name: 'Training agreement', signs: 'none', to: 'chosen', programIds: [dana.programId] });
+  const first = await (await add(env, dana, tpl)).json();
+  const again = (body) => call(env, 'POST', '/integrations/firma/library/add', { token: dana.token, body: { templateId: tpl, ...body } });
+  const second = await (await again({ another: true, name: 'Training agreement (4-week training)' })).json();
+  assert.notEqual(second.id, first.id);
+  assert.equal(second.ready, true);
+  assert.equal(second.already, false);
+  assert.equal(fake.templates.get(second.id).name, 'Training agreement (4-week training)');
+  assert.equal(fake.templates.get(second.id).ws, dana.ws);
+  assert.equal(fake.templates.get(first.id).name, 'Training agreement', 'the first copy is untouched');
+  assert.equal(fake.calls.filter((c) => c.path.endsWith('/copy')).length, 2);
+  // A plain add still answers a copy she has, never a new one.
+  assert.equal((await (await add(env, dana, tpl)).json()).already, true);
+  assert.equal(fake.calls.filter((c) => c.path.endsWith('/copy')).length, 2);
+  // Both prefills re-pointed at her fields, like the first.
+  assert.deepEqual(fake.templates.get(second.id).fields.map((x) => x.format_rules?.prefilledData ?? null),
+    fake.templates.get(first.id).fields.map((x) => x.format_rules?.prefilledData ?? null));
+});
+
 test('a long template is pointed over several calls, and a refused field is counted, not retried forever', async () => {
   const env = await envWith();
   const { lib, lee } = await setUp(env);

@@ -59,58 +59,29 @@ backup, carries a program from Lite to Pro.
 | Making KennelOS harder to copy: repo visibility, licenses, minified builds, hosting (plan) | `docs/KennelOS_Security_Hardening_Plan.md` |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
-## Status (2026-10-15)
+## Status (2026-11-17)
 
-- **The editions are feature-complete and live:** Lite with its cap, Pro with its license gate
-  on, Demo, front doors, guided tours, marketing site, and cloud backup (Phase 1).
+- **Live:** Lite with its cap, Pro with its license gate, Demo, front doors, guided tours, the
+  marketing site, cloud backup, live sync, notifications, family requests, waitlist policies,
+  the KennelPort website feed, the puppy portal (KennelOS's side), payment schedules, dog
+  titles, and e-sign through Firma. Every deploy and migration is applied and the launch
+  checklist is done. The Worker stays on Workers Free until a limit is hit
+  (`docs/LAUNCH_CHECKLIST.md` §2).
 - **In progress:**
-  - Integrations: step 8, e-sign through Firma on KennelOS's own account with a monthly send
-    limit (plan §2.3a): built, Worker and app. Next is the first run on production with the
-    live key (`docs/LAUNCH_CHECKLIST.md`); its migrations `0022`–`0024` are applied.
-    Jotform is retired; pasted contract-form links stay as the free fallback. Her
-    countersignature (D32, before or after the buyer) and kept signed copies emailed to
-    buyers (D33) are built, to be proven on the same run.
-    The template library (plan §2.3b: templates support builds on its test account and
-    offers per breeder from the manager app; breeders add a copy with its details pointed at
-    their own fields) is built; migration `0027` needs the Worker deployed and Apply pending,
-    then its first run. D41 (support sets who signs, the breeder the kind) is for the owner
-    to confirm.
-  - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
-    on production; step 7, the live nudge, is optional. Production has every cloud migration
-    through `0025` applied; `0026` (review fix step 9) needs the Worker deployed, then Apply
-    pending on /ops. Staging isn't in use, so deploys there aren't tracked.
-  - Notifications (app alerts and the email digest): live.
-  - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
-    training stays, pickup and backing out are live, and Kels's Review my waitlist works through them.
-  - KennelPort website (`docs/End_State_Design_and_Maintenance_Guide.md` §35): the feed and
-    Connect / Update website are live. Raw data for it (`docs/KennelOS_Website_Contract_Plan.md`):
-    all of KennelOS's side built (C1–C7, C9). KennelPort takes none of the new sections
-    until its own steps 4 to 7. A breeder's own domain is added by hand to
-    `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
-  - Waitlist policies, the program suggested by an application answer, the do-not-sell list
-    and transport accounts on the website: live.
-  - Puppy portal (KennelPort's `docs/Puppy_Parent_Portal_Plan.md`, guide §35.1): KennelOS's
-    side of phase 1 is live (the family feed sent on its own, the facts back, the status
-    page's one-tap link).
-  - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
-    phase 2, live updates through the cloud, after owner decisions.
-  - Waitlist fixes and three enhancements (`docs/KennelOS_Waitlist_Fixes_Plan.md`): steps
-    1–7 are built (Pup selected, Already Reserved, family pages without the list, the puppy
-    portal says only what's true, money a family is shown, one turn rule each, the
-    kennel's clock); next is step 8 (applying and signing in). Two decisions are still
-    open (its §2: D3, D12, both built as recommended).
-  - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
-    payments received and the per-family invoice/receipt generator. Steps 1–8 built (guide
-    §21.3, §24 and the sections they name): every surface reads the statement, and money
-    carried from a lost pup is a credit (§3.2a). Per-template Firma fields are dropped (D38);
-    Place fields is computer only. Open: the owner's preview check (`docs/LAUNCH_CHECKLIST.md`).
-  - Dog titles as a field (`docs/KennelOS_Dog_Titles_Field_Plan.md`): built. Its
-    `origin_country` website section waits on KennelPort merging its side.
-  - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
-    Tidy up checks only dogs, contacts and waitlist applications for duplicates.
-- **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
-  the store's real variant names. Click the six site checkout links after each deploy
-  (`--release` doesn't check them). See `docs/LAUNCH_CHECKLIST.md`.
+  - Template library (Integrations plan §2.3b): proven on production except the copy down
+    (a breeder's From KennelOS → Add, and Place fields / Preview on the copy). D41 (support
+    sets who signs, the breeder the kind) is for the owner to confirm.
+  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
+    (counting wrong code guesses per code) and one live Mapbox try of the address checks.
+    The review's other open findings are in `docs/review/FIX_PRIORITIES.md`.
+  - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
+    (live updates) waits on owner decisions.
+  - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own
+    steps (`docs/KennelOS_Website_Contract_Plan.md`). A breeder's own domain is added by hand
+    to `WEBSITE_ORIGINS` in `cloud/wrangler.toml`.
+  - Duplicates: Kels's Tidy up checks only dogs, contacts and waitlist applications.
+  - Planned, not built: credits, security hardening, mail budget, voice, family help,
+    duplicate applications, assisted setup.
 
 Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lines.
 

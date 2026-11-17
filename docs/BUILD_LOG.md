@@ -5611,3 +5611,97 @@ No owner decisions needed; each fix follows the review's suggestion.
   unranked on purpose. Decisions V8–V13.
 - README doc map row updated.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Waitlist decisions D3 and D12 confirmed; launch checklist closed; Workers Free (docs only)
+
+- `docs/KennelOS_Waitlist_Fixes_Plan.md` §2: D3 (a Pup selected row shows the listed name and
+  Pup selected, nothing about the pup) and D12 (public names from the application's own name
+  for households and "Last, First"; the Approve dialog shows the public form) confirmed as
+  built. `docs/review/FIX_PRIORITIES.md` step 12 row updated.
+- `docs/LAUNCH_CHECKLIST.md`: every deploy and launch item ticked (owner: all done), Firma
+  verified on production. Open only: the template library's copy down to a breeder. A deleted
+  account's Firma workspace moved to §5 Recurring.
+- Workers plan: the owner stays on Workers Free until a limit is hit (three real programs and
+  one test account). The checklist names the signs to watch; **Modified:** notes in the W2
+  plan §12 and the Cloud Phase 1 plan §6.
+- README Status rewritten.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Waitlist Fixes plan step 8 (applying and signing in); Saved on Kennel settings
+
+- **K7-4:** `waitlistForm.POLICY_LIMITS` (30 policies, heading 200, body 5,000), equal to the
+  Worker's `familyPages.POLICY_LIMITS` (a test holds them); `validatePolicies` refuses past
+  them; `qaListEditor` `aMax`/`bMax` live counts (the heading's only once over).
+- **K7-6:** the application page catches a failed `seal` and says so, answers kept.
+- **K7-7:** **Wrong address? Change it** on the code step (form back, answers kept, Turnstile
+  reset); **Already applied? Enter your code** on the form (a code, or a new one to an
+  address they type); the application-code email says how to find it. Confirm handlers wired
+  once (`wireConfirm`).
+- **K7-10:** `waitlist.signedOutEntries`: a publish with a new token or a changed email
+  deletes that entry's `wl_family_sessions`. New link's confirm says so.
+- **K7-11 (part):** the kennel-wide verify limit answers `429 busy` ("This waitlist is busy
+  right now"); 20 applications an hour per connection (was 5). Counting wrong guesses per
+  code is left for the owner (plan D13: a migration and a cheap way to burn every live code).
+- **K7-13:** `POST /waitlist/inbox/drop` (any of her devices) forgets deleted applications
+  and their links; `cloudWaitlist.forgetApplication` from the entry's Delete, queued in the
+  `waitlistOnline` setting's `droppedInbox` until sent, skipped by take-ins meanwhile.
+  **Modified:** instead of a dismissed-ids list in the backup.
+- **K6b-7:** `assertNotReapplied` also matches by email (contact's or application's).
+- **K7-5:** not built (D10).
+- **Kennel settings Saved:** `kennel.js` `flashSaved` on the six settings cards' Save.
+- Tests: `waitlistPolicies`, `waitlistUndo`, `cloudWaitlist` (app); `familyActions`,
+  `application` (cloud). Guide (Kennel page, §29 undo, family pages), Waitlist Spec route
+  table, plan step 8 and D13, `FIX_PRIORITIES.md` step 12.
+- **Service worker:** no app file added or renamed; cache not bumped. No cloud migration.
+  Release: deploy the Worker (new route, family pages) before or with the app.
+
+## 2026-11-17: Waitlist Fixes plan step 9 (pickup, miles and queued emails); cache v152
+
+- **K8-15:** Copy to another litter takes each copied date's rule along
+  (`pickupSlots.copyDateRules`; a date with its own rule there keeps it), and says so.
+- **K8-14:** `approvePickupRequest` refuses a time whose places are all booked by other
+  families' confirmed pickups.
+- **K8-11:** `sendQueuedEmails` holds an email queued more than a day (`isStaleEmail`,
+  `EMAIL_STALE_MS`) as `failed`/`stale`: **Waiting for you** on the entry and a Today card,
+  **Send as written** (`retryEmail` now sets `requeued_at`) or **Don't send** (`dropEmail`).
+  Counts gain `held`. **Modified:** by age only.
+- **K8-5:** `geo.js` tells failures apart (`geo_failed` key/quota/outage, `geo_unreachable`
+  network/timeout 10 s/not JSON, another 4xx is that address's `not_found`); her app words
+  them (`transportFee.milesErrorText`) on the entry page's two forms and Kels's; a home said
+  while Mapbox was down isn't stamped measured, and `measureHomes` measures `home_place`
+  first; the family-side measuring limit no longer refuses their request.
+- **K8-6:** the family's address is geocoded with `proximity` (her point); `roughMatch`
+  (region/country, or low confidence) → `422 imprecise`. **Modified:** no `country`; needs a
+  live Mapbox check.
+- Tests: `familyPickup`, `waitlistUndo`, `cloudWaitlist` (app); `familyActions` (cloud).
+  Guide (pickup, emails), `cloud/README.md` geo line, plan step 9, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v152`
+  (carries step 8, the Kennel settings Saved indicator, and this batch). No cloud migration;
+  deploy the Worker with or before the app.
+
+## 2026-11-17: Waitlist Fixes plan step 10 (holding together): the plan is done
+
+- **K6-13:** every exported waitlist action that writes is wrapped in `atomic`, one
+  `db.transaction('rw', dataTables(), async () => …)` (71 actions; six read-only helpers left
+  out). Found in Chromium: a plain-arrow scope loses the transaction after a write returned
+  through another async function (PrematureCommitError), invisible to the tests' memory
+  database; the scope is `async`. Checked against real IndexedDB: approve, decline/undo,
+  fee received, expire/undo, remove/undo, withdraw, archive, open/close picks, pick, deposit,
+  pass/undo, next turn, a family plan; a failed write rolls back. Nothing reachable from the
+  actions awaits the network, a timer or Web Crypto. `tests/waitlistAtomic.test.js` holds new
+  exports to it. **Modified:** the next turn is inside the transaction.
+- **K6b-9:** the picks preview asks **Leave without saving?** on a tap outside, Escape, Close
+  or Cancel while settings are unsaved; focus returns after a redraw and on close; its
+  tables scroll in `.table-scroll`. Checked at 320 px.
+- Guide (Actions, Picks preview), plan step 10, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`.
+
+## 2026-11-17: Add a library template again, for another kind
+
+- Owner: one library agreement should serve two of a breeder's extras. `POST
+  /integrations/firma/library/add` takes `another: true` (one more copy beside a ready one;
+  a copy in progress is carried on) and `name`; From KennelOS shows **Add again for this
+  kind** on an added template, naming the copy "<template> (<kind>)". A plain add still
+  answers the copy she has. Test in `cloud/tests/esignLibrary.test.js`.
+- Guide (From KennelOS), Integrations plan §2.3b **Modified**, `cloud/README.md`.
+- **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`. No migration.
