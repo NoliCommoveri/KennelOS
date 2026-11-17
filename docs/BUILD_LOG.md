@@ -5490,3 +5490,17 @@ No owner decisions needed; each fix follows the review's suggestion.
   Send for signature checked in the Pro build.
 - **Docs:** End-State guide (§6 repo layer, contract forms, eventForm).
 - **Service worker:** no app file added or renamed; cache not bumped yet.
+
+## 2026-11-17: Credits plan and security hardening plan (docs only)
+
+- **`docs/KennelOS_Credits_Plan.md`:** one currency (1 credit = $0.35, fixed) bought in packs
+  and spent on Lite passes for Pro features, items moved to credits in both editions (payment
+  schedules, extra waitlist programs), per-use server services and add-ons. Lite and Pro stay
+  two apps. Enforcement is on the server: a ledger, signed entitlement tokens, and feature
+  packs served by the Worker only to entitled programs. Manual payment first (support marks
+  it received in the manager app); Lemon Squeezy as the future state. Decisions D1–D19.
+- **`docs/KennelOS_Security_Hardening_Plan.md`:** the source repo is public; plan to make it
+  private, add licenses and a terms section, minify `dist/`, optionally move hosting off
+  public repos, and keep what matters on the server. Decisions S1–S6.
+- README doc map: both plans added.
+- **Service worker:** no app file added or renamed; cache not bumped.
