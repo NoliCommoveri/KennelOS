@@ -76,12 +76,16 @@ Every email gets a **rank** from its kind:
 | **5. Digest** | Her email digest | Held; never counted against her floor (it's often the alert about the limit itself) |
 
 ### 3.1 Held emails
-- A held email is a `wl_messages` row with the new status `held` (an additive value; the table
-  is server-side, no app field changes). Its `id` already makes the send happen once, so
-  sending it later is safe.
+- A held email is a `wl_messages` row with status `queued` and `send_after` set to the next
+  UTC reset, plus a new column `hold_reason` (`daily_limit`). `wl_messages.status` has a
+  CHECK of `queued | sent | failed` (`0007_waitlist.sql`), and a shipped table's CHECK can't
+  change without rebuilding it, so no new status values: `queued` + `send_after` is what the
+  table was made for (its `idx_wl_messages_due` index is on exactly those). Its `id` already
+  makes the send happen once, so sending it later is safe.
 - The first cron run after the UTC reset sends held emails oldest first, against the new
   day's budget, rank 3 before rank 4.
-- Held for more than 3 days → it becomes `refused` with the same loud alert (M4).
+- Held for more than 3 days → it becomes `failed` with `hold_reason` kept, and the same loud
+  alert (M4). "Refused" in this plan means `failed` with a `hold_reason`.
 - Her app shows them (§3.2) with **Send now** (tries again against today's budget) and
   **Don't send**.
 
@@ -96,7 +100,7 @@ Every email gets a **rank** from its kind:
 - Queued emails on her device stop trying until the reset instead of failing one by one.
 
 **When the server sends by itself** (server moves, signed copies):
-- The row is marked `held` or `refused`, and the server raises a new notification kind,
+- The row is held (`queued` with `hold_reason`) or refused (`failed` with `hold_reason`), and the server raises a new notification kind,
   `email_held` (push, and the digest, which doesn't count against her floor). One alert per
   program per day, not one per email: "3 emails held until tomorrow (daily limit)."
 - On her next sync the app pulls held and refused emails (a new `GET /waitlist/messages/held`)
@@ -173,6 +177,49 @@ the "can wait" messages stop being email.
   it (M8).
 - A family on two kennels' waitlists installs two apps, one per status page.
 
+### 4.5 Messages posted to the page
+
+She can post a message **to a family's status page** instead of, or as well as, emailing it.
+How a program talks to its families is **hers to choose** (M14, decided): one that wants
+families to check their page to hear anything may run it that way.
+
+- **Her setting, per kennel** (in waitlist settings, inside `waitlist_config` as
+  `family_delivery`, default `email`):
+
+  | Setting | What families get |
+  |---|---|
+  | **Email** (`email`, today's behavior) | Every message by email, listed on the page too |
+  | **Page, email when needed** (`page_notify`) | Posted to the page; a push to families with notifications on (§4); an email only to families without them |
+  | **Page only** (`page_only`) | Posted to the page; a push to families with notifications on; **no email**, for any family |
+
+- **Per message**, the composer offers **Send** (following the setting) and the other choices
+  ("Post to their page only", "Post and email"), so one message can differ from her usual.
+- **Always email, whatever the setting:** codes (rank 2), the confirmation with their status
+  link (the family's way in), and account email. Without those a family could never reach
+  the page.
+- **The server's own sends** (server moves' offer and fee reminders, ready checks, §3) follow
+  the setting too: it rides the projection as `kennel.family_delivery` (added to the
+  allow-list in `waitlistProjection.js`, like `reminders`).
+- **Telling families.** With `page_notify` or `page_only`, the application's confirmation
+  and the top of the status page say so: "<Kennel> posts updates here, not by email. Turn on
+  notifications so you don't miss your turn." With `page_only`, her settings screen says in
+  one line that families who don't check their page or turn on notifications **will miss
+  offers and deadlines**, and that's her call.
+- **Deadlines (§3.3, M5).** A message posted to the page counts as reaching the family when it
+  posts, under `page_only` and `page_notify` alike; she chose that delivery. The server-move
+  check in §3.3 only waits on the mail budget when the message would actually be emailed.
+- **On the server:** `POST /waitlist/messages` takes `channel: 'page'` (or `'page_email'`).
+  A page post writes the `wl_messages` row with status `sent`, `channel` `page`, sends no
+  email and uses no budget, then pushes to the family's subscriptions (payload-free, §4.2).
+  `page_email` does both, the email going through the budget as usual.
+- **On the page:** the history (`sentMessagesFor`, §5.2) lists posts, emails and texts
+  together, newest first, each marked; posts and messages they haven't seen yet are marked
+  **New** until the page is opened.
+- **Her side:** the family's entry shows each message with how it went (posted, emailed,
+  texted, pushed). The family's "Notifications on" mark (§4.3) tells her who'll be pinged.
+- **Cost:** a page post costs nothing against the daily email limit. A program on
+  `page_only` sends almost no email at all.
+
 ## 5. Tap to text, from her own phone
 
 US carriers treat any text sent by software as business texting at any volume (10DLC brand
@@ -182,9 +229,8 @@ and forbid automating them. Texts come from **her own phone** instead, which Ken
 does: `shared/assets/messageComposer.js` opens a real `sms:` link with the family's number and
 the message filled in.
 
-- **On her push alerts** for urgent waitlist moves (a server-made offer, a deadline tomorrow):
-  tapping the alert opens the family's entry with **Text them** ready, the offer's wording
-  filled in (from her email template, without the footer, plus the status-page link).
+- **When a turn's deadline ends:** one notification that closes the turn, offers the next
+  family and opens the text, in one button (§5.1).
 - **On the loud alert for a held or refused email** (§3.2): "Text them instead" beside Send
   now.
 - Marking the offer as texted counts as delivered for §3.3.
@@ -194,7 +240,97 @@ the message filled in.
   verification (about $2 a month plus about 1¢ a text; families' agreement, STOP replies and
   their numbers on the server). Not planned.
 
-## 6. Optional: a second provider for heavy days
+### 5.1 "Time's up — offer the next family and text them" from one notification
+
+In practice breeders run their turns by hand (no `auto_offer_on` moments ticked) with
+one-day deadlines. So the moment that matters is **a turn's deadline ending**, and the
+notification does the whole next step: closes the turn, offers the next family, and opens the
+text, in one button.
+
+**The trigger (server).**
+- The hourly cron already reads each published kennel (`runKennel`, `serverMoves.js`). When a
+  turn's deadline has passed in the kennel's time zone and the kennel has **not** ticked
+  auto-offer for it, the cron makes **no move**; it raises one alert for her,
+  `turn_ended` (a `what` under the existing `turn` kind, `notify.js`), once per turn.
+- The pending answer carries the turn id, the family whose time ran out, and the server's
+  guess at who's next (`nextFromQueue` on the published projection), so the notification can
+  read "The Smiths' time is up. Offer the Joneses?"
+- No time zone published → no alert (the server can't tell when her day ends), as with
+  server moves today. Today's nudge ("…offer deadline passed") stays either way.
+- Kennels that did tick auto-offer keep today's server move; their alert becomes "The Smiths'
+  time ran out; the Joneses were offered", with **Text them** (below, without the offer step).
+
+**The tap (her device).**
+- Tapping the notification (iPhone and Android) opens one small page,
+  `shared/pages/next-turn.html?turn=…`. A notification button can't make the offer itself:
+  writing records is the app's job, through the repos, never the service worker's.
+- The page works out the next family **on her device** (`previewNextTurn`); the server's guess
+  is only the notification's wording, and the page shows if they differ. It shows: the Smiths'
+  turn closes (no response, or no deposit if they had picked); the Joneses get the litter(s),
+  respond by tomorrow (her kennel's turn length, counted from **now**); and the text to send.
+- **One button, "Offer & text the Joneses":**
+  1. records the outcome (`recordOutcome(…, 'no_response', { moveOn: false })`),
+  2. gives the next turn (`offerNextTurn`; any families it passes on the way because they'd
+     passed ahead of time are shown after, as `auto_passed` requires),
+  3. opens `sms:` with the Joneses' number and her offer wording (her offer email template,
+     no footer, plus their status-page link), built with `messageComposer.js`'s helper.
+  The tap is a real tap, so `sms:` opens on iPhone as well as Android. Two taps in all
+  (notification, button), then Send in Messages.
+- **Order:** the records are written first (local, fast), `sms:` opens inside the same tap,
+  and the publish (so the status page shows the offer) runs when she comes back to the app.
+  Waiting for the publish before opening `sms:` would lose the tap on iPhone. A family that
+  opens the link in the first seconds may see the page a moment behind; it catches up on the
+  publish.
+- **Secondary choices on the page:** **Offer & email** (the existing preview), **Offer
+  someone else** (opens the litter's picks), **Extend the Smiths** (`extendTurn`), **Not
+  now**.
+- **No phone number** on the Joneses' contact: the button reads "Offer & email the Joneses"
+  instead.
+- **Coming back** from Messages: "Sent?" → **Yes** marks the offer texted (it reached the
+  family, §3.3 and M5) and skips the offer email unless she asks for it too; **Not now**
+  leaves the offer email in her outbox, ready.
+- **The phone number never goes to the server**: the page reads it from her contact through the
+  repos. The service worker only opens the page.
+- **Android:** a notification button could save the first tap only for the auto-offer case
+  (Text them, nothing to write). Not worth a second path at first; the two-tap page is the
+  same on both phones.
+
+**Rules.** `next-turn.html` and its script go into `PRECACHE_URLS` in `shared/sw.js` and into
+`shared/data/proPages.js` (waitlist is Pro). `turn_ended` joins the notification catalog
+(guide, Notifications plan). No new server table, no new synced field (the texted mark rides
+the offer's existing records; any new field is classified `private`).
+
+### 5.2 Texts in the family's status page history
+
+The status page lists the emails she sent a family (`sentEmailsFor`, read from `wl_messages`).
+A text can be listed the same way, **as she recorded it**: a web app can't see whether a text
+was really sent, or what it said after she edited it in Messages. So it's an honest record,
+not proof.
+
+- **What's recorded:** when she answers **Sent? → Yes** (§5.1, or after "Text them" anywhere),
+  her device sends `POST /waitlist/messages` with `channel: 'text'`, the wording as drafted,
+  and `tapped_at`, the moment she tapped the button that opened Messages. The server writes a
+  `wl_messages` row with status `sent`, `channel` `text`, `sent_at` = `tapped_at`, and
+  **sends nothing**: no provider, no mail budget. **Not now** records nothing.
+- **What the family sees**, beside the emails: "**Text** from <Kennel> · Tue 3:12 PM", the
+  wording, and a small note: "Recorded by <Kennel> when they sent it from their phone; what
+  arrived on your phone is the real message." Its `id` is the offer's own, so a retry never
+  lists it twice.
+- **Her side:** the family's entry shows it in the same history, with **Edit** (if she changed
+  the wording in Messages) and **Remove** (if it never went), both before the next publish,
+  and after it through the same route (a later write replaces the row).
+- **The phone number:** the Waitlist Spec's §8.1 rule (Q11) is that a family's **phone never
+  reaches the server**. Showing the full number would break it. Proposed (M13): store and show
+  only the **last 2 digits** (`to_hint`), "to your number ending 34": enough for a family
+  with two phones to know which, too little to be a phone number. Or show no number at all
+  ("sent to your phone"). Either way the full number stays on her device.
+- **Retention and deletion:** the same as emails (the body is dropped after 90 days, rows go
+  with the family's entry and with the account).
+- `sentEmailsFor` becomes `sentMessagesFor` (emails and texts, newest first); the status
+  page's list says which is which. `EMAIL_KINDS` still decides what's listed; the text uses
+  the same kind as the email it replaces (`offer`, `note`…).
+
+## 6. Optional: a second provider for heavy days, chained in the Worker
 
 Only if §2–§5 together still hold too much on real heavy weeks (§9 shows it).
 
@@ -202,15 +338,49 @@ Only if §2–§5 together still hold too much on real heavy weeks (§9 shows it
 |---|---|---|---|---|
 | **Resend free** (today) | $0 | — | ~100 | ~3,000 a month |
 | **Resend paid** | ~$20 | included up to ~50k | none at this size | Unused emails are lost each month |
-| **Bird Startup** | $15, added to a balance that carries forward | $0.40 | none listed (30 send requests a minute) | Balance also pays for SMS; ask about ramp-up for a new account |
-| **Bird free** | $0 | — | 50 | 1,000 a month; too small to help |
-| **Amazon SES** | $0 | ~$0.10 | high once out of its sandbox | More setup: leaving the sandbox, its domain records |
+| **Bird free** | $0 | — | 50 | 1,000 a month, **one** sending domain |
+| **Bird Startup** | $15 deposit into a wallet | $0.40, from the wallet | none listed (30 send requests a minute) | Wallet also pays for SMS; see §6.2 for what happens to it |
+| **Amazon SES** | $0 | ~$0.10 | high once out of its sandbox | No deposit; more setup (leaving the sandbox, its domain records) |
 
-- Recommendation: keep Resend as the main provider. If needed, add **Bird Startup or SES as
-  overflow**: `reserveMail` sends past Resend's day to the second provider instead of holding
-  rank 3–4 mail. Every send already goes through one function in `mail.js`, so adding a
-  provider stays there. The family sending domain needs its records on the second provider.
-- The prices are as checked on 2026-11-17 and from memory; check before deciding (M7).
+### 6.1 Chaining (our code, not Resend's)
+Resend doesn't pass mail on to anyone. The chain is in `cloud/src/mail.js`:
+- `resendSend` becomes `sendMail(env, kind, payload)`, which tries providers in order:
+  **Resend**, then **Bird** (or SES). It moves on when our own count says Resend's day is used,
+  or when Resend answers 429 for its daily quota. Only when every provider is full does §3's
+  hold or refuse apply.
+- Same `wl_messages` row and message id whichever provider sends it, so nothing goes twice.
+  The row and `mail_counts` record which provider sent it, for /ops.
+- A Worker secret `BIRD_API_KEY`; providers on or off by setting (`MAIL_PROVIDERS`, e.g.
+  `resend,bird`).
+- **Domains:** Bird's free tier allows one sending domain. Put the **family domain**
+  (`MAIL_FAMILY_DOMAIN`, where heavy weeks come from) on Bird; sign-in codes stay on Resend,
+  protected by the reserve (§2). Both providers in that domain's SPF; each its own DKIM key.
+- **Both free tiers chained** give about 150 a day at $0. Check both providers' terms on
+  using free tiers in production.
+- **A cold account:** a new Bird account has no sending reputation; a little mail through it
+  in quiet weeks warms it up. Ask Bird whether a new account can send at full speed.
+
+### 6.2 Bird's wallet, if we pay (as read on 2026-11-17)
+- **Downgrade or cancel** takes effect at the end of the month; the wallet "stays available
+  for any product"; no refund for a partial month (Bird docs, Plan changes and renewals).
+- **No pause**; downgrading to free and upgrading again later is the nearest thing.
+- **The money lapses one year after each deposit** if unused (Bird terms §4.7). The docs'
+  "nothing expires" is about monthly renewals only.
+- **No refunds** of prepaid balance, even if Bird suspends the account (§4.7), except when we
+  end the agreement for Bird's breach (§11.5). An account inactive for 12 months can be
+  suspended or ended (§11.3).
+- **To ask Bird before paying:** (1) Can wallet money pay for emails past the free plan's
+  limit while on the free plan? Probably not ("no overage"). (2) Can an upgrade's deposit be
+  paid from the wallet ("upgrades draw on the wallet first")? If yes, upgrading for a heavy
+  month and downgrading after costs about $15 once, then only what's sent, provided we upgrade
+  again within the year.
+- So treat wallet money as **spend within a year**, not savings. SES has no deposit to lapse.
+
+### 6.3 Recommendation
+Keep Resend as the main provider. First add **Bird free** behind it, for the family domain
+(§6.1). If heavy weeks outgrow both, upgrade Bird to Startup for that month only (after the
+answers in §6.2), or move the overflow to SES. Any paid tier is what the breeder pays for
+through credits (§7). The prices are as checked on 2026-11-17; check before deciding (M7).
 
 ## 7. Credits
 
@@ -222,9 +392,14 @@ programs sharing a paid plan, or SES).
 
 ## 8. Rules this touches
 
-- **Migration:** one new `.sql` (`mail_budget`, `wl_family_push`) with its line in
-  `cloud/src/migrations/index.js`; the only migration on its branch.
-- **No app schema change:** held and refused emails are server rows; the app's outbox messages
+- **Migration:** one new `.sql` (`mail_budget`, `wl_family_push`, and on `wl_messages` the
+  added columns `hold_reason`, `channel`, `to_hint`, §3.1 and §5.2) with its line in
+  `cloud/src/migrations/index.js`; the only migration on its branch. Columns are added with
+  `ALTER TABLE … ADD COLUMN`; the table's CHECK is left alone.
+- **`waitlist_config.family_delivery`** (§4.5): a new key inside a field already classified
+  `cloud` in `shared/data/syncRegistry.js` (her business settings), optional with default
+  `email`, so old backups and devices read as today. Added to the projection allow-list.
+- **No other app schema change:** held and refused emails are server rows; the app's outbox messages
   already have `status` and `error`. A delivery field on outbox messages (`push`/`email`), if
   added, is classified `private` in `shared/data/syncRegistry.js`.
 - **Notification catalog:** `email_held` added to `NOTIFY_KINDS` in `notify.js` and the
@@ -253,10 +428,12 @@ week, not guessed.
    held emails and their release, the family-code cap (§2–§3.1).
 3. **Loud failures:** `daily_email_limit` and the app banner; `email_held` alerts, the held
    list in the app and on /ops; the server run that waits instead of offering (§3.2–§3.3).
-4. **Tap to text** on her alerts and on held emails (§5).
-5. **Family notifications:** manifest, service worker, subscribe on the status page, routing
+4. **Time's up → offer & text** (§5.1): the `turn_ended` alert from the cron, `next-turn.html`;
+   then "Text them instead" on held emails (§5). This step doesn't depend on steps 2–3 and can
+   go first.
+5. **Family notifications and page posts:** manifest, service worker, subscribe on the status page, `family_delivery` and page posts (§4.5), routing
    and fallback (§4).
-6. **Optional:** a second provider for overflow (§6).
+6. **Optional:** a second provider chained behind Resend (§6.1), Bird free first.
 
 ## 11. Decisions
 
@@ -268,7 +445,11 @@ week, not guessed.
 | M4 | How long a held email waits before it's refused | Proposed: 3 days |
 | M5 | Respond-by counted from when the offer actually reached the family (email sent or texted) | Proposed |
 | M6 | Support can raise one program's floor | Proposed: yes, from the manager app |
-| M7 | A second provider, and which | Open: only if §9 shows it's needed; Bird Startup or SES |
+| M7 | A second provider, and which | Proposed: Bird free chained behind Resend for the family domain; Bird Startup for a heavy month or SES after that. Ask Bird the two §6.2 questions first |
 | M8 | Family notifications on KennelOS's status page, not KennelPort's portal | Proposed |
 | M9 | Rank 4 goes push-only for families with notifications on | Proposed |
 | M10 | Automatic SMS (toll-free number) | Not planned; tap to text instead |
+| M11 | The `turn_ended` alert for kennels running turns by hand | Proposed: on by default inside the `turn` kind she already ticks for push |
+| M12 | After "Offer & text", the offer email too? | Proposed: skipped once she says the text was sent; one tap to send it as well |
+| M13 | A text on the status page: how much of the number | Proposed: last 2 digits only (Q11 keeps the phone off the server); or none |
+| M14 | May a breeder post to the page only, with no email, even to families without notifications? | **Decided (owner):** yes; how she runs her program is hers to choose. Codes and the first status link are still emailed |

@@ -5534,3 +5534,58 @@ No owner decisions needed; each fix follows the review's suggestion.
   there's a real per-email cost.
 - README doc map: the plan added.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, text the family from her notification (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.1: a "<Family>'s turn — text them" push for the
+  breeder. Android gets a Text them button that opens `sms:` via a tiny page (or directly,
+  if a real-phone test shows a service worker can); iPhone opens a one-button page. The
+  phone number stays on her device; the page reads it through the repos. Decision M11.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, offer and text from the deadline alert (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.1 rewritten: breeders run turns by hand with one-day
+  deadlines, so the trigger is a turn's deadline ending. The cron raises a `turn_ended` alert
+  (no move) for kennels without auto-offer; tapping it opens `next-turn.html`, where one
+  button records no response, offers the next turn and opens the prefilled text. Decisions
+  M11 (reworded) and M12.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, texts in the status page history (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §5.2: a text she confirms ("Sent? → Yes") is recorded as
+  a `wl_messages` row (`channel` `text`, sent at the moment she tapped, nothing sent by the
+  server) and listed on the family's status page beside the emails, labelled as her record.
+  The phone number stays off the server (Waitlist Spec §8.1, Q11): last 2 digits at most.
+  Decision M13.
+- §3.1 corrected: `wl_messages.status` has a CHECK (`queued | sent | failed`), so held emails
+  are `queued` with `send_after` at the reset plus a `hold_reason` column, not a new status.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, messages posted to the status page (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §4.5: she can post a message to a family's status page
+  instead of, or as well as, emailing it. A per-kennel setting (`waitlist_config.
+  family_delivery`: `email`, `page_notify`, `page_only`) plus a per-message choice; codes and
+  the first status link are always emailed. Decision M14 decided by the owner: page only is
+  allowed, even for families without notifications.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Mail budget plan, chaining a second provider (docs only)
+
+- `docs/KennelOS_Mail_Budget_Plan.md` §6: the chain lives in `mail.js` (`sendMail`: Resend,
+  then Bird or SES), Bird free behind Resend for the family domain (about 150 a day at $0),
+  and what Bird's terms say about its wallet (stays on downgrade, lapses a year after each
+  deposit, no refunds), with two questions to ask Bird. M7 updated.
+- **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Voice plan (docs only)
+
+- **`docs/KennelOS_Voice_Plan.md`:** a calendar subscription feed any assistant can read; an
+  Alexa skill that logs quick records (weight checks first) through a Worker outbox her device
+  folds in like the KennelAssistant outbox, answers waitlist questions from the projection,
+  starts waitlist actions she confirms on her phone, and sets Echo reminders; Siri Shortcuts
+  on the same routes. Decisions V1–V6.
+- Credits plan's voice assistant row points to it. README doc map: the plan added.
+- **Service worker:** no app file added or renamed; cache not bumped.

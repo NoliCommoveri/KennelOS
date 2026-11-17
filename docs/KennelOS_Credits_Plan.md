@@ -105,7 +105,7 @@ does them (D4). A feature that runs on her device is a pass, never per use.
 | **Library contract template** (adding one) | 3 | 1.05 | §2.3b of the Integrations plan |
 | **Assisted setup session** | 60 | 21.00 | Support's time, through the manager app |
 | **Custom website domain** (Pro) | 30 once | 10.50 | Support adds it to `WEBSITE_ORIGINS` by hand today |
-| **Voice assistant** | TBD | — | Priced from its real per-minute cost in its own plan |
+| **Voice assistant** | TBD | — | Priced from its real cost; see `docs/KennelOS_Voice_Plan.md` (V2) |
 
 Later candidates, once there's a meter for them: cloud storage over a free amount, live sync
 devices over a free number, and emails to families over an allowance. Emails
