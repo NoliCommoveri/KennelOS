@@ -8,6 +8,17 @@
 // logged: the caller keeps only the miles and minutes.
 //
 // POST /geo/distance {from, to} (her app, signed in) → { miles, minutes }.
+//
+// Failures, each its own code so her app can say what happened (K8-5): no key → 503
+// geo_off; Mapbox refuses the key, is over quota or down (401/403/429/5xx) → 502
+// geo_failed, which stops her device's measuring for this sync; Mapbox unreachable or
+// slower than GEO_TIMEOUT_MS → 502 geo_unreachable, the same; one address Mapbox won't
+// take (another 4xx), can't find or has no road to → 422 not_found; one it only places
+// roughly (a whole state or country, or a low-confidence match) → 422 imprecise. The
+// last two are about that address alone, so measuring moves on to the next family.
+//
+// The family's address is looked up near hers (K8-6): `proximity` her point, so
+// "Springfield" or "123 Main St" means the one nearest her, not the first anywhere.
 import { fail, readJson } from './lib/http.js';
 import { limitBucket } from './ratelimit.js';
 
@@ -16,6 +27,7 @@ const DIRECTIONS = 'https://api.mapbox.com/directions/v5/mapbox/driving/';
 // A route's URL between two [lng, lat] points: no geometry or steps, only the totals.
 const routeUrl = (env, a, b) => `${DIRECTIONS}${a.join(',')};${b.join(',')}?${new URLSearchParams({ overview: 'false', alternatives: 'false', steps: 'false', access_token: env.MAPBOX_TOKEN })}`;
 export const GEO_LIMITS = { perHourPerProgram: 60, perHourPerFamily: 6, addressChars: 300 };
+export const GEO_TIMEOUT_MS = 10 * 1000;
 const METERS_PER_MILE = 1609.344;
 
 export const geoAvailable = (env) => Boolean(env.MAPBOX_TOKEN);
@@ -26,24 +38,44 @@ export function cleanAddress(v) {
   return t.length >= 2 && t.length <= GEO_LIMITS.addressChars ? t : null;
 }
 
-async function geocode(env, query) {
-  const url = `${GEOCODE}?${new URLSearchParams({ q: query, limit: '1', access_token: env.MAPBOX_TOKEN })}`;
-  const res = await fetch(url);
-  if (!res.ok) fail(502, 'geo_failed');
-  const body = await res.json();
-  const at = body?.features?.[0]?.geometry?.coordinates;
-  return Array.isArray(at) && at.length === 2 && at.every(Number.isFinite) ? at : null;
+// One request to Mapbox: unreachable, slow or not JSON → geo_unreachable.
+async function mapbox(url) {
+  let res;
+  try { res = await fetch(url, { signal: AbortSignal.timeout(GEO_TIMEOUT_MS) }); } catch { fail(502, 'geo_unreachable'); }
+  // The key or the service: everything waits for the next try.
+  if (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) fail(502, 'geo_failed');
+  if (!res.ok) return null; // a query Mapbox won't take: about this address only
+  try { return await res.json(); } catch { fail(502, 'geo_unreachable'); }
 }
 
-// → { miles, minutes } (miles to one decimal, minutes whole), or null when either
-// place can't be found or there's no road between them.
+// Too rough to measure miles from: a whole country or region, or a match Mapbox itself
+// rates low. Only what Mapbox says counts; a feature without these fields is taken.
+const ROUGH_TYPES = new Set(['country', 'region']);
+export function roughMatch(feature) {
+  const p = feature?.properties || {};
+  return ROUGH_TYPES.has(p.feature_type) || p.match_code?.confidence === 'low';
+}
+
+// → [lng, lat], null (not found), or 'rough'.
+async function geocode(env, query, near = null) {
+  const body = await mapbox(`${GEOCODE}?${new URLSearchParams({ q: query, limit: '1', ...(near ? { proximity: near.join(',') } : {}), access_token: env.MAPBOX_TOKEN })}`);
+  const feature = body?.features?.[0];
+  const at = feature?.geometry?.coordinates;
+  if (!(Array.isArray(at) && at.length === 2 && at.every(Number.isFinite))) return null;
+  return roughMatch(feature) ? 'rough' : at;
+}
+
+// → { miles, minutes } (miles to one decimal, minutes whole), null when either place
+// can't be found or there's no road between them, or { imprecise: true } when the
+// address is only placed roughly.
 export async function drivingDistance(env, from, to) {
   if (!geoAvailable(env)) fail(503, 'geo_off');
-  const [a, b] = await Promise.all([geocode(env, from), geocode(env, to)]);
-  if (!a || !b) return null;
-  const res = await fetch(routeUrl(env, a, b));
-  if (!res.ok) fail(502, 'geo_failed');
-  const route = (await res.json())?.routes?.[0];
+  const a = await geocode(env, from);
+  if (!a || a === 'rough') return a === 'rough' ? { imprecise: true } : null;
+  const b = await geocode(env, to, a);
+  if (!b) return null;
+  if (b === 'rough') return { imprecise: true };
+  const route = (await mapbox(routeUrl(env, a, b)))?.routes?.[0];
   const meters = route?.distance;
   const seconds = route?.duration;
   if (!Number.isFinite(meters)) return null;
@@ -59,6 +91,7 @@ export async function handleGeoDistance(env, auth, request) {
   await limitBucket(env, `geo:${auth.programId}`, GEO_LIMITS.perHourPerProgram);
   const d = await drivingDistance(env, from, to);
   if (!d) fail(422, 'not_found');
+  if (d.imprecise) fail(422, 'imprecise');
   return d;
 }
 

@@ -1586,7 +1586,8 @@ export async function applyFamilyPlan(entryId, plan) {
       case 'companion_request': await waitlistEntryRepo.update(entryId, { companion_request: plan.request }); break;
       case 'extra_request': await addExtraRequest(entryId, plan.request); break;
       case 'pickup_request': await addPickupRequest(entryId, plan.request); break;
-      case 'home_location': await setHomeLocation(entryId, { place: plan.place, miles: plan.miles, date }); break;
+      // Unmeasured (the map service was down): left for her device to measure (K8-5).
+      case 'home_location': await setHomeLocation(entryId, { place: plan.place, miles: plan.miles, date: Number.isFinite(plan.miles) ? date : null }); break;
       case 'back_out_request': await waitlistEntryRepo.update(entryId, { back_out_request: plan.request }); break;
       case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
       case 'note': case 'skip': break;
@@ -1802,7 +1803,8 @@ export async function addPickupRequest(entryId, request) {
 }
 
 // Where they live, measured once (her device from their application, or the server
-// from their answer on the status page). `miles` null = not measured.
+// from their answer on the status page). `miles` null = not measured; `date` null =
+// not tried yet, so her device's next sync measures it (measureHomes).
 export async function setHomeLocation(entryId, { place, miles = null, date = todayYMD() }) {
   return waitlistEntryRepo.update(entryId, { home_place: place || null, home_miles: Number.isFinite(miles) ? miles : null, home_measured_date: date });
 }
@@ -1884,6 +1886,16 @@ export async function approvePickupRequest(entryId, requestId, { date, when = nu
     const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
     const slot = (litter?.pickup_slots || []).find((s) => s.id === req.slot_id);
     if (!slot) throw new Error('That pickup time isn\'t on the litter any more. Decline it, and they can choose another.');
+    // Two families can ask for the last place in the same moment (K8-14): approving
+    // checks the time still has room among the bookings already confirmed, this
+    // family's own earlier one aside.
+    const mine = new Set(upcoming.map((e) => e.id));
+    const taken = (await eventRepo.getByType('placement')).filter((e) => !e.is_archived
+      && e.details?.pickup_slot_id === slot.id && !mine.has(e.id)).length;
+    const places = Math.max(1, Number(slot.capacity) || 1);
+    if (taken >= places) {
+      throw new Error(`That time is full: ${taken} of its ${places} place${places === 1 ? ' is' : 's are'} already booked. Decline this request so they can choose another time, or give the time more places on the litter's Pickup times first.`);
+    }
     const place = pickupLocations(kennel).find((l) => l.id === slot.location_id);
     for (const e of upcoming) await eventRepo.archive(e.id);
     await clearPickupBoarding(sale);

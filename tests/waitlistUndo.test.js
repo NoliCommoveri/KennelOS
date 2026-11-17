@@ -172,3 +172,14 @@ test('K6b-7: undoing a decline sees a re-application by the same email, with no 
   await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: c.id, status: 'approved', approved_date: '2026-11-02', pref_sex: 'any' });
   await assert.rejects(actions.undoDecline(ray, { today: '2026-11-03' }), /applied again/);
 });
+
+test('K8-5: where a family lives, said while the map service was down, is left for her device to measure', async () => {
+  const c = await contactRepo.create({ name: 'Dee', email: 'dee@example.com' });
+  const id = (await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: c.id, status: 'active', approved_date: '2026-10-01', pref_sex: 'any' })).id;
+  await actions.applyFamilyPlan(id, { op: 'home_location', date: '2026-11-17', place: 'Dallas, TX', miles: null, activity: null });
+  let e = await waitlistEntryRepo.getById(id);
+  assert.deepEqual([e.home_place, e.home_miles, e.home_measured_date], ['Dallas, TX', null, null], 'not stamped: measureHomes tries it');
+  await actions.applyFamilyPlan(id, { op: 'home_location', date: '2026-11-17', place: 'Dallas, TX', miles: 195.7, activity: null });
+  e = await waitlistEntryRepo.getById(id);
+  assert.deepEqual([e.home_miles, e.home_measured_date], [195.7, '2026-11-17']);
+});

@@ -2982,7 +2982,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `mileage_basis` one way / round trip, `mileage_free_under`, `transport_far_miles`,
   `transport_min_home_miles`, `pickup_change_days`); her times per litter on the Litter
   page's **Pickup times** (`assets/pickupTimesPanel.js`, Pro: **Add times** = `makeSlots`,
-  **Copy to another litter**; `Litter.pickup_slots`), each date with a rule
+  **Copy to another litter**, which takes each copied date's rule along unless that litter
+  already has its own for the date, `pickupSlots.copyDateRules`; `Litter.pickup_slots`), each date with a rule
   (`Litter.pickup_date_rules`, `pickupSlots.dateRules`: **Requires** one of her extras, or
   **Standard boarding applies** at `waitlist_config.boarding_rate` per day). For a family with an open sale the
   projection's `entry.pickup` (`familyPickup.familyPickupView`): times from
@@ -3003,9 +3004,21 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   she approves), or says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
   Worker counts other families' unapplied bookings against a time's room, and measures an
   address with Mapbox: `miles`, `far`) become `entry.pickup_requests`; `home_location` sets
-  `home_place` / `home_miles`. Her device measures a family's home once from their
-  application's City / state or contact address (`cloudWaitlist.measureHomes`, during sync).
-  **Approve** (`approvePickupRequest`): a time → the pup's placement event (Local pickup,
+  `home_place` / `home_miles`, and `home_measured_date` only when it came measured (one said
+  while the map service was down is left for her device). Her device measures a family's home
+  once, from where they said they live, else their application's City / state or contact
+  address (`cloudWaitlist.measureHomes`, during sync); a place Mapbox can't find, or places
+  only roughly, is stamped unmeasured, and any other failure stops until the next sync. The
+  Worker's `geo.js` looks the family's address up near hers (`proximity`), refuses a rough
+  match (`roughMatch`: a whole region or country, or Mapbox's low confidence → `422
+  imprecise`), and tells failures apart (`geo_off`; `geo_failed` for the key, quota or a
+  Mapbox outage; `geo_unreachable` for no answer within `GEO_TIMEOUT_MS`, 10 s; `not_found`
+  for one address Mapbox won't take or can't route to). Her app words each with
+  `transportFee.milesErrorText`; a family's request is never refused over the measuring
+  limit, only left unmeasured.
+  **Approve** (`approvePickupRequest`): a time is refused while its places are all booked
+  by other families' confirmed pickups ("That time is full: …"; two families can ask for
+  the last place at once); a time → the pup's placement event (Local pickup,
   the time, the place, `pickup_slot_id`), and on a boarding date her standard boarding
   (`standardBoarding`: per day from `pickupFrom`, the ready date itself, to the day before;
   a time before the ready date has none) as the sale's deferred
@@ -3089,6 +3102,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
   action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
   to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);
+  one queued more than a day (`EMAIL_STALE_MS`, from when she approved it or sent it again)
+  isn't sent: it's held (`status: 'failed'`, `error: 'stale'`, `isHeldEmail`) as **Waiting for
+  you** on their entry and a Today card (`waitlist-email-held:`), with **Send as written**
+  (`retryEmail`, which restarts its age) or **Don't send** (`dropEmail`, `error: 'not_sent'`);
   the server sends from the kennel's name at `mail.kennelos.app`, to the address in the
   projection, never one from the device. A family with a sale (any not cancelled, voided or
   returned: `waitlistOutbox.salePupPhotos` over `familySale`) whose pup has a `url` gets

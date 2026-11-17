@@ -40,7 +40,7 @@ import { generateFormKey, currentFormKey, rotateFormKeys, openSealed } from '../
 import { applicationToEntry } from '../waitlistInbox.js';
 import { planFamilyEvent, activityId } from '../waitlistEvents.js';
 import { applyFamilyPlan, addFamilyActivity, removeForNoReadyAnswer, MESSAGE_MAX } from '../waitlistActions.js';
-import { queuedEmails, setEmailStatus } from '../waitlistOutbox.js';
+import { queuedEmails, setEmailStatus, isStaleEmail } from '../waitlistOutbox.js';
 import { setHomeLocation } from '../waitlistActions.js';
 import { locationRuleOn } from '../waitlistForm.js';
 import { standardLocation } from '../pickupSlots.js';
@@ -389,9 +389,15 @@ export async function sweepReadyChecks(token, kennels, { today: asked = null, cl
 // sync. A refusal about one email (that family isn't published, has no address)
 // marks it failed with the reason; she can retry it. → { sent, failed }
 export async function sendQueuedEmails(token, kennels, { claim = serverWorkClaim(token) } = {}) {
-  const counts = { sent: 0, failed: 0 };
+  const counts = { sent: 0, failed: 0, held: 0 };
   for (const kennel of kennels.filter(isOnline)) {
     for (const { entry, message } of queuedEmails(await waitlistEntryRepo.getByKennel(kennel.id))) {
+      // Too old to send by itself (K8-11): held for her say-so (Today, their entry).
+      if (isStaleEmail(message)) {
+        await setEmailStatus(entry.id, message.id, { status: 'failed', error: 'stale' });
+        counts.held++;
+        continue;
+      }
       let res;
       await claim();
       try {
@@ -438,15 +444,18 @@ export async function measureHomes(token, kennels) {
       const sales = await saleRepo.getByBuyer(entry.contact_id);
       if (!familySale(entry, sales, kennelOffers, kennelEntries)) continue;
       const contact = await contactRepo.getById(entry.contact_id);
-      const place = String(entry.application?.location || contact?.address || '').trim();
+      // Where they said they live on their status page first (an answer the map service
+      // couldn't measure then), else their application's or their contact's.
+      const place = String(entry.home_place || entry.application?.location || contact?.address || '').trim();
       if (!place) continue;
       try {
         const d = await api.getDistance(token, from, place);
         await setHomeLocation(entry.id, { place, miles: d.miles });
         measured++;
       } catch (err) {
-        // A place it can't find is remembered as unmeasured (their page asks); any
-        // other trouble (no map key, offline) stops until the next sync.
+        // A place it can't find, or only roughly, is remembered as unmeasured (their
+        // page asks); any other trouble (no map key, the map service down or out of
+        // reach, offline) stops until the next sync, and they're tried again then.
         if (err?.status !== 422) return measured;
         await setHomeLocation(entry.id, { place, miles: null });
       }

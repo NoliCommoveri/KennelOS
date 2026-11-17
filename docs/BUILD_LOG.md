@@ -5654,3 +5654,27 @@ No owner decisions needed; each fix follows the review's suggestion.
   table, plan step 8 and D13, `FIX_PRIORITIES.md` step 12.
 - **Service worker:** no app file added or renamed; cache not bumped. No cloud migration.
   Release: deploy the Worker (new route, family pages) before or with the app.
+
+## 2026-11-17: Waitlist Fixes plan step 9 (pickup, miles and queued emails); cache v152
+
+- **K8-15:** Copy to another litter takes each copied date's rule along
+  (`pickupSlots.copyDateRules`; a date with its own rule there keeps it), and says so.
+- **K8-14:** `approvePickupRequest` refuses a time whose places are all booked by other
+  families' confirmed pickups.
+- **K8-11:** `sendQueuedEmails` holds an email queued more than a day (`isStaleEmail`,
+  `EMAIL_STALE_MS`) as `failed`/`stale`: **Waiting for you** on the entry and a Today card,
+  **Send as written** (`retryEmail` now sets `requeued_at`) or **Don't send** (`dropEmail`).
+  Counts gain `held`. **Modified:** by age only.
+- **K8-5:** `geo.js` tells failures apart (`geo_failed` key/quota/outage, `geo_unreachable`
+  network/timeout 10 s/not JSON, another 4xx is that address's `not_found`); her app words
+  them (`transportFee.milesErrorText`) on the entry page's two forms and Kels's; a home said
+  while Mapbox was down isn't stamped measured, and `measureHomes` measures `home_place`
+  first; the family-side measuring limit no longer refuses their request.
+- **K8-6:** the family's address is geocoded with `proximity` (her point); `roughMatch`
+  (region/country, or low confidence) → `422 imprecise`. **Modified:** no `country`; needs a
+  live Mapbox check.
+- Tests: `familyPickup`, `waitlistUndo`, `cloudWaitlist` (app); `familyActions` (cloud).
+  Guide (pickup, emails), `cloud/README.md` geo line, plan step 9, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed. Cache bumped to `kennelos-shell-v152`
+  (carries step 8, the Kennel settings Saved indicator, and this batch). No cloud migration;
+  deploy the Worker with or before the app.

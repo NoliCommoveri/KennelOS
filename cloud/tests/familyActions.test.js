@@ -332,6 +332,48 @@ test('driving miles: geocode both, one route (Directions API); no key, no call; 
   }
 });
 
+test('K8-5, K8-6: each Mapbox failure has its own code; the family\'s address is looked up near hers; a rough match gives no miles', async () => {
+  const { drivingDistance, handleGeoDistance, roughMatch } = await import('../src/geo.js');
+  const realFetch = globalThis.fetch;
+  const key = { MAPBOX_TOKEN: 'pk.test' };
+  const asked = [];
+  const ok = (feature) => async (url) => {
+    asked.push(String(url));
+    if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [String(url).includes('Library') ? { geometry: { coordinates: [-97.7, 30.2] } } : feature] }));
+    return new Response(JSON.stringify({ routes: [{ distance: 315000, duration: 11400 }] }));
+  };
+  try {
+    globalThis.fetch = ok({ geometry: { coordinates: [-96.8, 32.8] }, properties: { feature_type: 'address', match_code: { confidence: 'high' } } });
+    assert.equal((await drivingDistance(key, 'Library, Austin TX', '123 Main St')).miles, 195.7);
+    assert.match(asked[1], /proximity=-97\.7%2C30\.2/, 'the family\'s address is looked up near hers');
+    assert.doesNotMatch(asked[0], /proximity/);
+    globalThis.fetch = ok({ geometry: { coordinates: [-99, 31] }, properties: { feature_type: 'region' } });
+    assert.deepEqual(await drivingDistance(key, 'Library', 'Texas'), { imprecise: true });
+    globalThis.fetch = ok({ geometry: { coordinates: [-89.6, 39.8] }, properties: { feature_type: 'place', match_code: { confidence: 'low' } } });
+    assert.deepEqual(await drivingDistance(key, 'Library', 'Springfield'), { imprecise: true });
+    assert.equal(roughMatch({ properties: { feature_type: 'place', match_code: { confidence: 'medium' } } }), false);
+    assert.equal(roughMatch({}), false, 'no quality fields: taken');
+    const env = await makeEnv(key);
+    const req = (body) => new Request('http://x/geo/distance', { method: 'POST', body: JSON.stringify(body) });
+    await assert.rejects(handleGeoDistance(env, { programId: 'p1' }, req({ from: 'Library', to: 'Springfield' })), /imprecise/);
+    // The key or the service: geo_failed (her device stops measuring for this sync).
+    for (const status of [401, 403, 429, 500, 503]) {
+      globalThis.fetch = async () => new Response('{}', { status });
+      await assert.rejects(drivingDistance(key, 'Library', 'Dallas'), /geo_failed/, `HTTP ${status}`);
+    }
+    // One address Mapbox won't take: about that address only.
+    globalThis.fetch = async () => new Response('{"message":"Query too long"}', { status: 422 });
+    assert.equal(await drivingDistance(key, 'Library', 'x'.repeat(290)), null);
+    // Unreachable, or not JSON: geo_unreachable, never a bare 500.
+    globalThis.fetch = async () => { throw new TypeError('network'); };
+    await assert.rejects(drivingDistance(key, 'Library', 'Dallas'), /geo_unreachable/);
+    globalThis.fetch = async () => new Response('<html>', { status: 200 });
+    await assert.rejects(drivingDistance(key, 'Library', 'Dallas'), /geo_unreachable/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 // --- Backing out (docs/KennelOS_Family_Requests_Plan.md §7) ------------------------------
 
 test('backing out: only with an open sale, one of her reasons, one request at a time', () => {

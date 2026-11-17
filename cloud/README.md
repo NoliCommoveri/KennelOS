@@ -147,7 +147,9 @@ src/geo.js             driving miles through Mapbox (docs/KennelOS_Family_Reques
                        app, signed in, 60/hour) and familyActions' measuring of a family's own address;
                        checkMapbox: /ops's live key check (Denver → Boulder, no one's address)
                        or home (6/hour per family). Nothing stored, addresses never logged. Secret
-                       MAPBOX_TOKEN; without it 503 geo_off and nothing is measured
+                       MAPBOX_TOKEN; without it 503 geo_off and nothing is measured; a family's address is looked up near
+                       hers (proximity); a rough match is 422 imprecise; key/quota/outage 502 geo_failed;
+                       no answer in 10 s 502 geo_unreachable
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweepR2Orphans walks the
                        bucket a few pages a run (its place in r2_sweep, migration 0017) and deletes
