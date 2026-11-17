@@ -40,6 +40,7 @@ backup, carries a program from Lite to Pro.
 | Waitlist, shows, reports, multi-kennel | `docs/KennelOS_Waitlist_Spec.md` (+ `_W2_Plan`), `docs/KennelOS_Show_Tracking_Spec.md`, `docs/KennelOS_Reports_Plan.md`, `docs/KennelOS_Multi_Kennel_Scope_Spec.md` |
 | App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Staying inside the email provider's daily limit on heavy weeks, loud failures, notifications on family pages, tap to text (plan) | `docs/KennelOS_Mail_Budget_Plan.md` |
+| Voice: a calendar feed, an Alexa skill (weight checks, waitlist questions, actions confirmed on the phone, reminders), Siri Shortcuts (plan) | `docs/KennelOS_Voice_Plan.md` |
 | Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
 | Families asking for extras, pickup times, transport, backing out | `docs/KennelOS_Family_Requests_Plan.md` |
 | One family who applied twice to a waitlist (merging duplicate applications) | `docs/KennelOS_Duplicate_Applications_Plan.md` |

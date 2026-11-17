@@ -5579,3 +5579,13 @@ No owner decisions needed; each fix follows the review's suggestion.
   and what Bird's terms say about its wallet (stays on downgrade, lapses a year after each
   deposit, no refunds), with two questions to ask Bird. M7 updated.
 - **Service worker:** no app file added or renamed; cache not bumped.
+
+## 2026-11-17: Voice plan (docs only)
+
+- **`docs/KennelOS_Voice_Plan.md`:** a calendar subscription feed any assistant can read; an
+  Alexa skill that logs quick records (weight checks first) through a Worker outbox her device
+  folds in like the KennelAssistant outbox, answers waitlist questions from the projection,
+  starts waitlist actions she confirms on her phone, and sets Echo reminders; Siri Shortcuts
+  on the same routes. Decisions V1–V6.
+- Credits plan's voice assistant row points to it. README doc map: the plan added.
+- **Service worker:** no app file added or renamed; cache not bumped.
