@@ -5822,3 +5822,21 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Tests: `tests/waitlistProjection.test.js`, `cloud/tests/familyPages.test.js`.
 - Checked in a browser: a sample logo in Classic light and Ivory dark at 390px.
 - **Service worker:** rides `kennelos-shell-v154` (bumped this session, not yet on `main`).
+
+## 2026-11-18: The status page stays with the portal until the sale closes
+
+- Owner: families need pickup, extras and payments on their status page while the sale is
+  open, portal or not. Recommendations taken: Delivered counts as closed (payments go then,
+  owed or not); backing out stays wherever it was offered.
+- `portalFeed.portalEntryView`: `only` is now `!isOpenSale(sale)` (Delivered). The portal
+  taking the family over (`home`, `portal_only`) and a passed pickup day no longer switch
+  their page; `home` is still kept. `pickup_on` is no longer published.
+- Worker `familyPages.portalOf`: no date switch; only the device's `only`. A `pickup_on` from
+  an older device is ignored.
+- `cloud/public/family/status.js`: the portal card says to keep using the page for pickup,
+  extras and payments until the sale is complete.
+- Tests: `tests/portalFeed.test.js` (handed over and past pickup stay full while open;
+  Delivered goes portal-only), `cloud/tests/familyPortal.test.js` (no date switch).
+- Docs: End-State guide §35.1.
+- Cloud: no migration; the Worker deploy carries it. **Service worker:** no file added;
+  `CACHE_NAME` → `kennelos-shell-v155` (the owner said bump).
