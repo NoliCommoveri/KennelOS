@@ -104,7 +104,7 @@ test('ownDogs / breedingDogs / homeDogs: only the dogs she looks after; heats an
   assert.deepEqual(ownDogs(dogs).map((d) => d.id), ['Mine', 'Co', 'Lease', 'Old']);
   assert.deepEqual(breedingDogs(dogs, 'female').map((d) => d.id), ['Mine', 'Lease'], 'heats (also Today): her active breeding females, leased in included, never External');
   assert.deepEqual(preventativeGaps(dogs, [], '2026-11-01').map((d) => d.id), ['Co', 'Lease', 'Mine'], 'preventatives (also Today)');
-  assert.equal(homeDogs(dogs).some((d) => d.id === 'Stud'), false, 'Log for several dogs never lists an External dog');
+  assert.equal(homeDogs(dogs).some((d) => d.id === 'Stud'), false, 'Log events for several dogs never lists an External dog');
 });
 
 test('dogEvents: a picked vet is the related contact and replaces the typed name; notes and a reminder ride along', () => {

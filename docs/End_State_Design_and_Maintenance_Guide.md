@@ -596,7 +596,7 @@ out, and not co-owned with `lives_with_contact_id` set. With `{ pairings, litter
 `heatForecast` also leaves out a dam who is busy (`damIsBusy`): a Bred or Confirmed pairing up
 to 14 days past its due date, her Expected litter not yet 14 days past its date, or a litter
 born in the last 56 days (`NURSING_DAYS`). Today and Kels's check-in count pass them.
-**Log for several dogs** is the same form over the dogs at home (`dogCare.homeDogs`: active
+**Log events for several dogs** (under the page's More ▾) is the same form over the dogs at home (`dogCare.homeDogs`: active
 breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
 `cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
 dogs still missing this month's preventative and goes back to Today after saving.
@@ -604,8 +604,12 @@ The Dogs page's **All dogs** list is ordered by `vocab.dogListOrder`: status in 
 order (Puppy, Active breeding, Retired breeding, Pet home, For Sale, Deceased, External
 reference), then sex in `SEX` order (Male, Female, Unknown), then name A→Z (call name, else
 registered name); a missing status, sex or name sorts last at its level. Its Status and Sex
-columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The other tabs keep
-their own order.
+columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The **Puppies** tab
+is sectioned by disposition (Available, Placed, Undecided, Health hold, Keeping; unset reads as
+Undecided), each section in `dogListOrder` (sex, then name). The other tabs keep their own
+order. On every tab Disposition is a plain-text column that collapses into the row's details on
+a phone, and where the website link is offered (`websiteLinkOffered`) an always-visible
+**Website** column shows ✓ for a dog with `show_on_website`.
 
 `screening_test` (a fecal, a heartworm test, brucellosis…: `test`, `result`, Normal or
 abnormal, the vet) is a routine vet check, deliberately not a test-bearing type: it never
@@ -1133,6 +1137,14 @@ tap does (one handler in `ui.js`, after the modal's own); a modal that must stay
 `data-no-dismiss` and swallows backdrop clicks. The family pages follow the same rules with
 their own `confirmDialog` (`cloud/public/family/common.js`).
 
+### Page action buttons — at most three in view
+A page header shows no more than two or three buttons: usually a Kels action, the one primary
+action, and a dropdown (`.action-menu`, wired by `ui.js` `wireActionMenu`; "Manage ▾" on the
+Waitlist, "More ▾" on Dogs) holding everything else, grouped with `<hr>`. A new action goes
+into the page's dropdown unless it truly needs to be always visible; a page that outgrows three
+buttons gets a dropdown rather than another button. A menu item hidden per edition carries
+`hidden` (`.action-menu-list > [hidden]`).
+
 ### Components
 - **timeline.js** — a subject's events with add/edit/archive/delete; `onChange` lets a page
   redraw derived panels.
@@ -1396,7 +1408,7 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
 | `heatwatch` | an active breeding female's (`isCareDog`, `livesHere`, not `damIsBusy`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
-| `preventatives` | from the 1st, while any active breeding dog she looks after and that lives with her (`isCareDog`, `livesHere`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
+| `preventatives` | from the 1st, while any active breeding dog she looks after and that lives with her (`isCareDog`, `livesHere`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's More ▾ → Log events for several dogs) |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter past Expected | no litter: create the litter; an Expected one: "get ready for the pups", **Record the birth** (Kels's `record-litter` on it) |
 | `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter past Expected | no litter: mark whelped / create litter; an Expected one: "has she whelped?", **Record the birth** |
