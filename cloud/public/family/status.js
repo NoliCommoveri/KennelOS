@@ -22,7 +22,7 @@ import {
   SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog,
   policiesHtml, policyAbout, openPolicy
 } from './common.js';
-import { rememberedFamily, forgetFamily } from './session.js';
+import { rememberedFamily, rememberFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
 import { sectionIcon } from './icons.js';
 import { wireThemePicker, showLogo } from './theme.js';
@@ -34,6 +34,11 @@ const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] || '';
 const MESSAGE_MAX = 5000;
 const previewValue = (/(?:^#|&)preview=([0-9]{13}\.[0-9a-f]{64})(?:&|$)/.exec(location.hash) || [])[1] || '';
+// From her puppy portal (KennelPort's "Open your status page"): a one-time link in
+// the address's #, so it's never sent to a server in a URL or a referrer. Read once,
+// then taken off the address before anything else runs.
+const fromPortal = (/(?:^#|&)from=([A-Za-z0-9_-]{10,400}\.[0-9a-f]{64})(?:&|$)/.exec(location.hash) || [])[1] || '';
+if (fromPortal) { try { history.replaceState(null, '', location.pathname + location.search); } catch { /* left as is */ } }
 const PREVIEW_SENT = 'Preview: nothing was sent. This is where their request would go to you.';
 
 const STATUS = {
@@ -1518,7 +1523,15 @@ function render() {
 }
 
 let wired = false;
+// The portal's link to this browser's family session: the same 90 days a typed
+// code gives. A used or old link just leaves the page signed out, as it was.
+async function signInFromPortal() {
+  const r = await fetchJson('/f/from-portal', { method: 'POST', json: { status_token: token, t: fromPortal } });
+  if (r.ok && r.body?.session && r.body.public_id) rememberFamily(r.body.public_id, { session: r.body.session, statusToken: r.body.status_token, expiresAt: r.body.expires_at });
+}
+
 async function load() {
+  if (fromPortal && !previewValue && !wired) await signInFromPortal().catch(() => {});
   const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`, previewValue ? { headers: { 'x-status-preview': previewValue } } : {});
   if (!res.ok) {
     $('error').textContent = loadError(res, { notFound: "This link doesn't work any more. The breeder may have sent you a newer one, or you can ask them for it." });

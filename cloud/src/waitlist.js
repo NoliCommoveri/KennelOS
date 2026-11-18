@@ -433,5 +433,5 @@ export async function sentEmailsFor(env, publicId, entryId, limit = 20) {
 // Account deletion (program.js) removes every waitlist row of the program.
 export const deleteWaitlistStatements = (env, programId) => [
   'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_codes', 'wl_family_sessions', 'wl_senders',
-  'wl_leases',
+  'wl_leases', 'wl_portal_handoffs',
 ].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE program_id = ?`).bind(programId));

@@ -5380,6 +5380,13 @@ Nothing changes for any other kennel or breeder.
   contact id, x: expiry ms, n: nonce }`, a dot, and its HMAC-SHA256 under the key. Not
   signed in: a sign-in link and the portal's own address. Companion: `companion.link:
   false`, no Companion link request (refused on the server too).
+  The other way, the portal's **Open your status page** opens the status page at
+  `/s/<token>#from=<t>`: `t` is the same token format, signed with the same key but over
+  `to-status:` and the body. `status.js` takes it off the address, posts `/f/from-portal`
+  (`familyActions.handleFromPortal`), and keeps the answer as a signed-in browser. The
+  server needs the link for this page's family (`f` = the entry's `portal.family_id`),
+  unexpired, used once (`wl_portal_handoffs`, the nonce's hash, kept a day), and her
+  portal on; it starts the same 90-day `wl_family_sessions` row a typed code gives.
 - **Furever** lists no pup of a kennel with the portal on (a line says why), and Kels's
   Pups are going home doesn't offer it for them.
 

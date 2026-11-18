@@ -28,6 +28,8 @@
 //   POST /f/act, /f/message    what a signed-in family does on their page (familyActions.js)
 //   POST /f/portal             {session, status_token}: their one-tap link into her
 //                              puppy portal on KennelPort (familyActions.handlePortal)
+//   POST /f/from-portal        {status_token, t}: her portal's one-time link back,
+//                              to a 90-day session (familyActions.handleFromPortal)
 // A status view also lists the emails she sent that family (`emails`, step 6).
 //
 // Embedding (docs/KennelOS_Integrations_Plan.md §1): /apply and /list may be shown
@@ -44,7 +46,7 @@ import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
 import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor, previewUntil } from './waitlist.js';
-import { handleAct, handleMessage, handlePortal, pendingFor, heldByOthers } from './familyActions.js';
+import { handleAct, handleMessage, handlePortal, handleFromPortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 import { isWebsiteOrigin } from './lib/cors.js';
@@ -1135,6 +1137,7 @@ export async function handleFamilyApi(request, env, url) {
 
   if (p === '/f/act' && m === 'POST') return handleAct(env, request);
   if (p === '/f/portal' && m === 'POST') return handlePortal(env, request);
+  if (p === '/f/from-portal' && m === 'POST') return handleFromPortal(env, request);
   if (p === '/f/message' && m === 'POST') return handleMessage(env, request);
 
   fail(404, 'not_found');
