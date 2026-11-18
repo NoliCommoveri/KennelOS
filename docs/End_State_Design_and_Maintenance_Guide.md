@@ -3290,16 +3290,21 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 
 ### Notifications: app alerts and the email digest — `docs/KennelOS_Notifications_Plan.md`
 **Editions:** Pro with a server (`editionFlags.waitlist`); never Lite or Demo. Two separate
-opt-ins, both about her waitlist online, both a second way to hear about something Today
-already lists.
+opt-ins, about her waitlist online and her contracts sent for e-signature, both a second way to
+hear about something Today already lists.
 - **Where:** the **Settings** page's Notifications card (`assets/notificationsUI.js`, Pro-only
   in `proPages.js`), shown only with a server; data side `data/cloud/cloudNotify.js`.
   Settings live on the server (`notify_settings` per program, `push_subscriptions` per
   device), never in a backup or `syncRegistry`.
 - **What triggers them** (server, `cloud/src/notify.js` `notifyEvent`): a family's message,
   a confirmed application, a pick or pass, a request (pause, listen, answers, Companion link)
-  or leaving, a "Ready now?" answer, and a turn the server closed or offered. She ticks each
-  kind for alerts and for the digest. Lines name the kind and the family's listed name
+  or leaving, a "Ready now?" answer, and a turn the server closed or offered; and, from the
+  e-sign webhook (`integrations.js`, once per new `int_events` row, so a redelivery is
+  silent), a contract signed by everyone, declined, or expired (kind `contract`; a cancel,
+  which she does herself, isn't one). Contract lines carry no name (the server never knows
+  the buyer) and the item's `entry_id` holds the contract's id, so a tap opens the contract.
+  She ticks each kind for alerts and for the digest; every kind is on by default except
+  "Ready now?" for alerts. Lines name the kind and the family's listed name
   ("New message from Jane S."), never what anyone wrote; "Hide family names on my lock
   screen" makes it "a family".
 - **App alerts** (web push): **Turn on alerts on this device** asks permission and
@@ -3308,7 +3313,7 @@ already lists.
   proving itself with its subscription's auth secret, and reads the server's address from
   the `kennelos-notify` Cache Storage note (`cloudNotify` writes it; `activate` never purges
   it). Every alert uses one tag, so a newer one replaces the last. A tap opens the family's
-  page (one family) or Today. A device with alerts on re-sends its subscription once a day
+  page (one family), the contract (one contract alert) or Today. A device with alerts on re-sends its subscription once a day
   on open (`refreshAlertsHere`, from `bootCloud`), so a subscription iPhone dropped comes
   back. iPhone/iPad need the app added to the Home Screen (iOS 16.4+); the card says so.
   Alerts stop for a device with no live session (sign out, erase).
@@ -3816,7 +3821,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   is connected. The Accounts card says so (`stripeConnection().lastError`), and Kels's account
   health reports it rather than the narrower key check.
 - Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
-  same `integrationApply` / `integrationEvents.planIntegrationEvent`.
+  same `integrationApply` / `integrationEvents.planIntegrationEvent`. A device reads them only
+  while its integrations state counts a connection; one counting none asks for the account's
+  connections once per app open (`syncOnOpen`), so a connection made on another device (or by
+  support's helper in an assist) reaches it.
 - The waitlist application fee: §29.
 
 

@@ -1065,3 +1065,26 @@ test('the template editor page is served sandboxed, with no referrer and no cach
   assert.equal(await (await get('/esign/editor.css')).text(), 'file:/esign/editor.css');
   for (const path of ['/esign/editor.html', '/esign/other.js', '/esign/']) assert.notEqual((await get(path)).status, 200, path);
 });
+
+test('a signed, declined or expired request is kept for her alerts and digest, once; a cancel is not', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  assert.equal((await send(env, s)).status, 200);
+  const { program_id: pid } = env.DB.raw.prepare('SELECT program_id FROM int_connections').get();
+  // The digest on for every kind (no push device needed to keep an item).
+  env.DB.raw.prepare(`INSERT INTO notify_settings (program_id, push_kinds, digest_kinds, digest_email, updated_at) VALUES (?, '[]', ?, 'b@example.com', ?)`)
+    .run(pid, JSON.stringify(['contract']), iso(Date.now()));
+  const items = () => env.DB.raw.prepare('SELECT kind, what, name, entry_id FROM notify_items ORDER BY seq').all().map((r) => ({ ...r }));
+  const hook = hookPathOf(env);
+  const post = async (id, type) => {
+    const { raw, header } = signed({ id, type, created_at: iso(Date.now()), data: { signing_request: { id: 'sr_1', completed_at: '2026-11-12T10:00:00Z' } } });
+    assert.equal((await postHook(env, hook, raw, header)).status, 200);
+  };
+  await post('evt_s', 'signing_request.completed');
+  await post('evt_s', 'signing_request.completed'); // Firma redelivers
+  assert.deepEqual(items(), [{ kind: 'contract', what: 'contract_signed', name: null, entry_id: CONTRACT }], 'once, and no name');
+  await post('evt_d', 'signing_request.recipient.declined');
+  await post('evt_e', 'signing_request.expired');
+  await post('evt_c', 'signing_request.cancelled');
+  assert.deepEqual(items().map((i) => i.what), ['contract_signed', 'contract_declined', 'contract_expired'], 'she cancels herself: no alert');
+});

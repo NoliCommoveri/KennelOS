@@ -42,6 +42,11 @@ inbox writes, `serverMoves.js`).
 | "Ready now?" answered | no | yes | Low urgency. |
 | A turn closed or moved on by itself (server moves while her phone was off) | yes | yes | She must contact the next family. |
 | Fee paid online | no | yes | |
+| A contract sent for e-signature was signed by everyone, declined, or expired | yes | yes | From Firma's webhook; no name in the line. |
+
+**Modified:** contract alerts were added after the build (kind `contract`, migration 0028
+turns them on for settings still at the old defaults). "Fee paid online" isn't built: no
+server sees a payment (her device checks her Stripe key itself).
 
 *Recommendation:* every row above, each with its own tick in a "Tell me about…" list
 (defaults: all on for alerts except the two "no" rows; all on for the digest).

@@ -25,8 +25,8 @@ import { escapeHtml as esc } from './lib/html.js';
 // --- The catalog (plan §1) --------------------------------------------------------
 
 // Kinds she ticks; `what` is the finer event inside a kind (the line's wording).
-export const NOTIFY_KINDS = ['message', 'application', 'turn', 'request', 'ready', 'server_move'];
-export const PUSH_DEFAULT_KINDS = ['message', 'application', 'turn', 'request', 'server_move'];
+export const NOTIFY_KINDS = ['message', 'application', 'turn', 'request', 'ready', 'server_move', 'contract'];
+export const PUSH_DEFAULT_KINDS = ['message', 'application', 'turn', 'request', 'server_move', 'contract'];
 export const DIGEST_DEFAULT_KINDS = [...NOTIFY_KINDS];
 export const DIGEST_FREQUENCIES = ['daily', 'weekly'];
 export const ITEM_KEEP_DAYS = 8;
@@ -42,6 +42,16 @@ export const ACTION_KINDS = Object.freeze({
   extra_request: 'request', extra_cancel: 'request',
   pickup_book: 'request', pickup_cancel: 'request', pickup_address: 'request', home_location: 'request', back_out: 'request',
   ready: 'ready',
+});
+
+// An e-sign webhook's event (integrations.js int_events kind) → its `what` under the
+// 'contract' kind, or absent (not notified: she cancels a request herself). The
+// server never knows the buyer (firma.js reads no names), so these lines carry
+// none; the item's entry_id holds the contract's id, so the alert opens it.
+export const CONTRACT_EVENT_WHATS = Object.freeze({
+  'contract.signed': 'contract_signed',
+  'contract.declined': 'contract_declined',
+  'contract.expired': 'contract_expired',
 });
 
 const LINES = {
@@ -64,6 +74,9 @@ const LINES = {
   ready: (n) => `${n} answered "Ready now?"`,
   server_offer: (n) => `${n} was offered a turn: contact them`,
   server_close: (n) => `${n}'s turn closed with no response`,
+  contract_signed: () => 'A contract was signed by everyone',
+  contract_declined: () => 'A signer declined a contract',
+  contract_expired: () => 'A contract expired before everyone signed',
   test: () => 'Test alert: alerts work on this device',
 };
 
@@ -333,10 +346,12 @@ export function pushText(items, { hideNames = false, withKennel = false } = {}) 
   const tag = 'kennelos-waitlist';
   if (!lines.length) return { title: 'KennelOS', body: 'Something new on your waitlist.', path: 'pages/today.html', tag, count: 0 };
   const one = items.length === 1 && items[0].entry_id && items[0].kind !== 'test' && items[0].kind !== 'application';
+  const page = items[0]?.kind === 'contract' ? 'contract' : 'waitlist-entry';
+  const allWaitlist = items.every((i) => i.kind !== 'contract');
   return {
-    title: lines.length === 1 ? 'KennelOS' : `KennelOS: ${lines.length} new on your waitlist`,
+    title: lines.length === 1 ? 'KennelOS' : `KennelOS: ${lines.length} new${allWaitlist ? ' on your waitlist' : ''}`,
     body: lines.slice(-4).join('\n'),
-    path: one ? `pages/waitlist-entry.html?id=${encodeURIComponent(items[0].entry_id)}` : 'pages/today.html',
+    path: one ? `pages/${page}.html?id=${encodeURIComponent(items[0].entry_id)}` : 'pages/today.html',
     tag, count: lines.length,
   };
 }

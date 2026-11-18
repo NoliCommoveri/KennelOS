@@ -102,6 +102,18 @@ test('an alert for one family opens their page; several, or an application, open
   assert.equal(pushText([]).body, 'Something new on your waitlist.', 'a push always shows something');
 });
 
+test('a contract alert names no one and opens the contract; mixed with the waitlist, the title drops "waitlist"', () => {
+  assert.equal(itemLine({ kind: 'contract', what: 'contract_signed', name: null }), 'A contract was signed by everyone');
+  assert.equal(itemLine({ kind: 'contract', what: 'contract_declined' }), 'A signer declined a contract');
+  assert.equal(itemLine({ kind: 'contract', what: 'contract_expired' }), 'A contract expired before everyone signed');
+  const one = pushText([{ kind: 'contract', what: 'contract_signed', entry_id: 'c-1' }]);
+  assert.deepEqual(one, { title: 'KennelOS', body: 'A contract was signed by everyone', path: 'pages/contract.html?id=c-1', tag: 'kennelos-waitlist', count: 1 });
+  const mixed = pushText([{ kind: 'message', what: 'message', name: 'Ann L.', entry_id: 'ann' }, { kind: 'contract', what: 'contract_signed', entry_id: 'c-1' }]);
+  assert.equal(mixed.title, 'KennelOS: 2 new');
+  assert.equal(mixed.path, 'pages/today.html');
+  assert.ok(notify.PUSH_DEFAULT_KINDS.includes('contract') && notify.DIGEST_DEFAULT_KINDS.includes('contract'));
+});
+
 test('only real push services are ever POSTed to', () => {
   assert.ok(validEndpoint('https://fcm.googleapis.com/fcm/send/x'));
   assert.ok(validEndpoint('https://web.push.apple.com/QAbc'));
@@ -174,7 +186,7 @@ test('alerts: Pro only, real push services only, and "not available" until the k
   const on = await subscribe(env, s);
   assert.equal(on.status, 200);
   assert.equal(on.body.push.thisDevice, true);
-  assert.deepEqual(on.body.push.kinds, ['message', 'application', 'turn', 'request', 'server_move']);
+  assert.deepEqual(on.body.push.kinds, ['message', 'application', 'turn', 'request', 'server_move', 'contract']);
   assert.equal(count(env, 'push_subscriptions'), 1);
   await subscribe(env, s, 'https://fcm.googleapis.com/fcm/send/new');
   assert.equal(count(env, 'push_subscriptions'), 1, 'one subscription per device');
@@ -315,4 +327,16 @@ test('retention keeps a week of items; deleting the account deletes everything',
   const del = await call(env, 'DELETE', '/account', { token: s.token, body: { confirm: 'DELETE', email: 'breeder@example.com', code } });
   assert.equal(del.status, 200);
   for (const t of ['notify_settings', 'push_subscriptions', 'notify_items']) assert.equal(count(env, t), 0, t);
+});
+
+test('migration 0028: settings still on the old defaults get contract alerts; her own choice is kept', async () => {
+  const { env } = await setup({ pro: false });
+  const sql = (await import('node:fs')).readFileSync(new URL('../src/migrations/0028_notify_contract.sql', import.meta.url), 'utf8');
+  const { id: pid } = env.DB.raw.prepare('SELECT id FROM programs').get();
+  env.DB.raw.prepare('INSERT INTO notify_settings (program_id, push_kinds, digest_kinds, updated_at) VALUES (?, ?, ?, ?)')
+    .run(pid, JSON.stringify(['message', 'application', 'turn', 'request', 'server_move']), JSON.stringify(['message']), iso());
+  env.DB.raw.exec(sql);
+  const row = env.DB.raw.prepare('SELECT push_kinds, digest_kinds FROM notify_settings').get();
+  assert.deepEqual(JSON.parse(row.push_kinds), notify.PUSH_DEFAULT_KINDS, 'old default → new default');
+  assert.deepEqual(JSON.parse(row.digest_kinds), ['message'], 'her own choice untouched');
 });

@@ -97,8 +97,10 @@ on the device `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`; E
   becomes an entry in the record's `integration_reviews` (private tier), shown on Today until
   she taps Done. An event already applied is skipped, so a re-read changes nothing.
 - **The backing device applies**, checked before its first write; the cursor is on the device.
-  A device asks nothing until the account has a connection (`settings` integrations state,
-  set by a connect flow or `refreshConnections`), so a breeder without one makes no request.
+  A device reads no events until the account has a connection (`settings` integrations state,
+  set by a connect flow or `refreshConnections`). **Modified:** a device counting none asks for
+  the connections once per app open (`syncOnOpen`): a connection made on another device, e.g.
+  support's helper in an assist, never reached her device, so a signed contract never applied.
 - **Not yet:** the payment's processing fee into the sale (§4 → §5) is step 6's; the
   connections list and Disconnect have no screen until a provider can be connected (step 6).
 

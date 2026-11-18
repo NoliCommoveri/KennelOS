@@ -5705,3 +5705,24 @@ No owner decisions needed; each fix follows the review's suggestion.
   answers the copy she has. Test in `cloud/tests/esignLibrary.test.js`.
 - Guide (From KennelOS), Integrations plan §2.3b **Modified**, `cloud/README.md`.
 - **Service worker:** no app file added or renamed; rides `kennelos-shell-v152`. No migration.
+
+## 2026-11-18: Contract alerts; integration events reach a device that didn't connect
+
+- Owner: push notifications for contracts signed. New notify kind `contract` (alerts and
+  digest, on by default): Firma's webhook for a request signed by everyone, declined, or
+  expired records an item once per new `int_events` row (a redelivery is silent; a cancel,
+  hers, isn't one). Lines carry no name (the server never knows the buyer); `entry_id` holds
+  the contract id and a tap opens `pages/contract.html`. A grouped title with a contract drops
+  "on your waitlist". Migration 0028 adds the kind to settings still at the old defaults.
+  Settings card: "A contract sent for e-signature is signed, declined or expires".
+- Owner (assist test): a contract signed while support's helper had set up Firma never turned
+  Signed on her device. Her device's integrations state counted no connection (only the
+  device that ran the connect flow did), so it never read events. `syncOnOpen`: a device
+  counting none asks `GET /integrations/connections` once per app open, then reads; the
+  backlog applies from cursor 0.
+- Stripe payments: no alert yet. Payments are seen only by her device's own Stripe check
+  (`stripeLinks.js`); a server push needs a server-side Stripe webhook (decision pending).
+- Tests: `cloud/tests/notify.test.js`, `cloud/tests/esign.test.js`, `tests/cloudIntegrations.test.js`.
+- Guide (Notifications, §32), Notifications plan §1 **Modified**, Integrations plan §0
+  **Modified**, `cloud/README.md`.
+- **Service worker:** no app file added or renamed; `CACHE_NAME` → `kennelos-shell-v153`.
