@@ -6094,3 +6094,76 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   Recorded in the End-State guide §13 and CLAUDE.md.
 - **Service worker:** no file added or renamed.
 - **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v158` for this session's Dogs page batch.
+
+## 2026-11-18: Line management plan (docs only)
+
+- **Owner's request:** every dog related to every other dog in the program, with the
+  ancestors they share; warnings for close pairings (today's pairing form checks only sex
+  and same dog); traits graded in their own tables as a long-lived view of the dog, not as
+  events; pairing recommendations and what the program is missing; breeding outcomes as
+  structure (colors, abnormalities, C-sections) so they can be evaluated, including what an
+  untested dog must carry from the colors it throws; her own color list as an enforced
+  dropdown asked at birth, with the standard coat genes shipped; light trait scores on pups
+  before go-home.
+- New `docs/KennelOS_Line_Management_Plan.md`: what's there today (§2), the design (§3:
+  derived kinship, COI, relationship names, shared ancestors and pedigree depth; tables
+  `trait_definitions`, `dog_traits`, `colors`, `birth_records`; DNA per marker; derived
+  coat genetics; production and line insights; the pairing finder), the data model (§4),
+  decisions D1–D12 (D4, and her own color list in D5, are the owner's; the rest have a
+  recommendation and are open), and five phases. Phase 1 needs no schema change.
+- README doc map and Status. No code changed.
+- **Service worker:** no app file added or changed.
+
+## 2026-11-18: Program types plan (docs only)
+
+- **Owner's request:** the type of program a breeder runs should drive her view: a breeder
+  who shows needs show information close, one not breeding registered dogs doesn't need it,
+  stud services may be absent or a main income. Show breeders would use the line tools;
+  large commercial kennels likely wouldn't.
+- New `docs/KennelOS_Program_Types_Plan.md`: six types with each one's top six priorities
+  and where KennelOS stands (§1), the questions that cut across them (§2), what a type sets
+  (features, tabs, Home tiles, a dog's section order, line tools; one main type plus up to
+  two others; never locked) (§3), the gaps by type (§4), data and code (§5), decisions
+  D1–D6 (§6).
+- `docs/KennelOS_Line_Management_Plan.md` §3.6 now follows the types: Line tools on for
+  show, working and stud programs, off by default for family pet, doodle and large kennels;
+  warnings and Relatives always on.
+- README doc map and Status. No code changed.
+- **Service worker:** no app file added or changed.
+
+## 2026-11-18: Line management and program types: owner decisions (docs only)
+
+- **Program types D1 (owner):** large or licensed kennels stay a type; none of their gaps
+  (compliance, staff roles) are built yet.
+- **Line management D13 (owner):** a COI she knows overrides the calculated one: a dog's
+  `recorded_coi` (genomic test, registry, full pedigree) for that dog and in the kinship,
+  and a new `Pairing.recorded_coi` (a trial-mating figure) for the litter, used by the
+  warnings; the calculated figure stays visible and a wide gap is pointed out. §3.1, §4,
+  §5 and Phase 1 updated.
+- **Recorded as a consideration, not a requirement** (Line Management §8.1): traits and
+  production facts of outside parents and ancestors (a dam's litter sizes, a sire's adult
+  weight), raised by a breeder buying a pup from a dam with several large litters. Options
+  noted: a `measured` trait scale; traits on pedigree-only Dog rows or a separate
+  pedigree-traits table; hand-entered production facts for outside dogs.
+- No code changed. **Service worker:** no app file added or changed.
+
+## 2026-11-18: The next channel: a test build of Pro at next-pro.kennelos.app
+
+- **Owner's request:** a segregated next release to see and test what's being built without
+  touching production. Decided with the owner: Pro only, license gate off, `next-` names,
+  no banner (the nav's edition tag reads "Next" instead).
+- New `build/nextChannel.mjs` and `node build/assemble.mjs pro --channel next` (→
+  `dist/next-pro/`): staging cloud and KennelPort URLs, the license gate off, the "Next" tag,
+  the name "KennelOS Pro Next", a `-next` cache name, `robots.txt`. Fails the build if the
+  config would still name a production server.
+- New `.github/workflows/deploy-next.yml`: pushes to the `next` branch run the tests and
+  publish to `NoliCommoveri/kennelos-next-pro` (`next-pro.kennelos.app`). `deploy.yml` is
+  unchanged.
+- Cloud: `lib/cors.js` takes `env` and allows `EXTRA_APP_ORIGINS` (comma-separated), set in
+  the staging Worker's `[vars]` only, to `https://next-pro.kennelos.app`.
+- Tests: `tests/nextChannel.test.js`; `cloud/tests/config.test.js` (staging lists next-pro
+  and matches deploy-next.yml, production never sets it); `cloud/tests/worker.test.js`
+  (the preflight with and without it). `node --test`: 2238 pass.
+- Docs: `build/README.md` "Next channel" (setup steps for the owner, test data, what still
+  reaches real services, schema on next, releasing), `cloud/README.md`, README build line.
+- App source unchanged. **Service worker:** no app file added or changed.

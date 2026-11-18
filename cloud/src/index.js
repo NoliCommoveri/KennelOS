@@ -63,9 +63,9 @@ async function route(request, env, state) {
   // Her KennelPort website's application form calls three family endpoints
   // (lib/cors.js WEBSITE_PATHS); everything else answers the editions only.
   const fromWebsite = WEBSITE_PATHS.test(url.pathname);
-  if (request.method === 'OPTIONS') return fromWebsite ? websitePreflight(request, env) : preflight(request);
+  if (request.method === 'OPTIONS') return fromWebsite ? websitePreflight(request, env) : preflight(request, env);
 
-  const cors = fromWebsite ? websiteCors(request, env) : corsHeaders(request);
+  const cors = fromWebsite ? websiteCors(request, env) : corsHeaders(request, env);
   state.cors = cors;
 
   // Service notices are the shutdown channel, so they're served whatever

@@ -204,6 +204,9 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   changes and every device sends those records again.
 - **Never log** an email address, a code, a token or a request body (plan §6.4).
 - **`DEV_OUTBOX = "1"` is staging-only.** The production Worker's config must not carry it.
+- **`EXTRA_APP_ORIGINS` is staging-only.** It lets the next-channel test build
+  (`next-pro.kennelos.app`, `build/README.md` "Next channel") call staging. Production must not
+  carry it; `tests/config.test.js` checks both.
 - **With a vault, a snapshot's vault part lands before its body.** `PUT /snapshots/:id/vault`
   first, then the body PUT commits; the server refuses a snapshot without a vault part
   (or under a replaced key) while the program has a vault. The part is stored at

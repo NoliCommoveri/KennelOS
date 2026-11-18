@@ -44,6 +44,18 @@ test('no D1 binding answers 503, not a crash', async () => {
   assert.equal(res.status, 503);
 });
 
+test('preflight: EXTRA_APP_ORIGINS (staging only) lets the next build in; without it, refused', async () => {
+  const NEXT = 'https://next-pro.kennelos.app';
+  const ask = (env) => worker.fetch(req('/snapshots', { method: 'OPTIONS', headers: { Origin: NEXT } }), env);
+  const refused = await ask({ DB: makeDb() });
+  assert.equal(refused.status, 403);
+  const allowed = await ask({ DB: makeDb(), EXTRA_APP_ORIGINS: `${NEXT}, https://other.example` });
+  assert.equal(allowed.status, 204);
+  assert.equal(allowed.headers.get('access-control-allow-origin'), NEXT);
+  const lite = await worker.fetch(req('/snapshots', { method: 'OPTIONS', headers: { Origin: LITE } }), { DB: makeDb(), EXTRA_APP_ORIGINS: NEXT });
+  assert.equal(lite.status, 204, 'the editions are still allowed beside it');
+});
+
 test('preflight: an edition and localhost are allowed, anything else is refused', async () => {
   const env = { DB: makeDb() };
   for (const origin of [LITE, 'https://pro.kennelos.app', 'http://localhost:8000', 'http://127.0.0.1:3000']) {

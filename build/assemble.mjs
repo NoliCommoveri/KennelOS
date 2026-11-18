@@ -8,6 +8,7 @@
 //   node build/assemble.mjs            # all editions
 //   node build/assemble.mjs lite       # just one
 //   node build/assemble.mjs --final    # the end-of-life build (build/finalRelease.mjs)
+//   node build/assemble.mjs pro --channel next  # the next-channel test build (build/nextChannel.mjs)
 //
 // What it does per edition:
 //   1. copy shared/ -> dist/<edition>/           (the artifact is shaped like the app,
@@ -24,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE, DEMO_EXCLUDED_PAGES } from '../shared/data/proPages.js';
 import { assertImportsResolve } from './checkImports.mjs';
 import { finalizeEditionConfig, finalizeServiceWorker } from './finalRelease.mjs';
+import { nextEditionConfig, nextServiceWorker, NEXT_EDITIONS, NEXT_NAMES, ROBOTS_TXT } from './nextChannel.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
@@ -139,24 +141,27 @@ function rewriteServiceWorker(destDir, edition) {
 // Stamp the edition's name into manifest.json (name + short_name) so the PWA
 // installs as "KennelOS Lite/Pro/Demo". Parse/serialize as JSON so we touch only
 // those two keys and leave icons/colors/etc. intact.
-function rewriteManifest(destDir, edition) {
+function rewriteManifest(destDir, edition, name = EDITION_NAMES[edition]) {
   const p = join(destDir, 'manifest.json');
   const manifest = JSON.parse(readFileSync(p, 'utf8'));
-  manifest.name = EDITION_NAMES[edition];
-  manifest.short_name = EDITION_NAMES[edition];
+  manifest.name = name;
+  manifest.short_name = name;
   writeFileSync(p, JSON.stringify(manifest, null, 2) + '\n');
 }
 
 // Stamp the edition name into the root index.html <title> (the front door). Only
 // the root redirect page is edition-labelled here; per-page titles stay generic.
-function rewriteIndexTitle(destDir, edition) {
+function rewriteIndexTitle(destDir, edition, name = EDITION_NAMES[edition]) {
   const p = join(destDir, 'index.html');
-  const text = readFileSync(p, 'utf8').replace(/<title>[^<]*<\/title>/, `<title>${EDITION_NAMES[edition]}</title>`);
+  const text = readFileSync(p, 'utf8').replace(/<title>[^<]*<\/title>/, `<title>${name}</title>`);
   writeFileSync(p, text);
 }
 
-function assemble(edition, release, final) {
-  const dest = join(ROOT, 'dist', edition);
+function assemble(edition, release, final, channel) {
+  if (channel && final) throw new Error('--channel and --final are separate builds; pick one');
+  // A next build goes to dist/next-<edition>/, so it never overwrites the live edition's output.
+  const out = channel ? `${channel}-${edition}` : edition;
+  const dest = join(ROOT, 'dist', out);
   rmSync(dest, { recursive: true, force: true });
   cpSync(join(ROOT, 'shared'), dest, { recursive: true });
 
@@ -192,10 +197,23 @@ function assemble(edition, release, final) {
     writeFileSync(swPath, fin.text);
     sw.cacheName = fin.cacheName;
   }
+  // The next channel (build/nextChannel.mjs): staging servers only, no license gate, its own
+  // name, cache name and robots.txt. Its own origin is what keeps her real data apart.
+  if (channel === 'next') {
+    const cfgPath = join(dest, 'data', 'editionConfig.js');
+    writeFileSync(cfgPath, nextEditionConfig(readFileSync(cfgPath, 'utf8'), edition));
+    const swPath = join(dest, 'sw.js');
+    const nx = nextServiceWorker(readFileSync(swPath, 'utf8'), edition);
+    writeFileSync(swPath, nx.text);
+    sw.cacheName = nx.cacheName;
+    rewriteManifest(dest, edition, NEXT_NAMES[edition]);
+    rewriteIndexTitle(dest, edition, NEXT_NAMES[edition]);
+    writeFileSync(join(dest, 'robots.txt'), ROBOTS_TXT);
+  }
   // Every build, not only --release: a dropped file a kept page still imports is a
   // dead page in that edition (K13-7, K13-15).
   assertImportsResolve(dest, edition);
-  console.log(`✅ ${edition}${final ? ' (final)' : ''}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
+  console.log(`✅ ${edition}${final ? ' (final)' : ''}${channel ? ` (${channel} channel)` : ''}: dist/${out}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
 // --- Standalone app assembly (Furever) ------------------------------------
@@ -242,7 +260,11 @@ function assembleStaticSite(name) {
 const args = process.argv.slice(2);
 const release = args.includes('--release');
 const final = args.includes('--final');
-const positional = args.filter((a) => !a.startsWith('--'));
+// --channel next: the next-channel test build (build/nextChannel.mjs); Pro only.
+const channelAt = args.indexOf('--channel');
+const channel = channelAt >= 0 ? args[channelAt + 1] : null;
+if (channelAt >= 0 && channel !== 'next') { console.error(`unknown channel: ${channel ?? '(none)'} (only "next")`); process.exit(1); }
+const positional = args.filter((a, i) => !a.startsWith('--') && !(channelAt >= 0 && i === channelAt + 1));
 const arg = positional[0];
 const ALL_TARGETS = [...EDITIONS, ...STANDALONE_APPS, ...STATIC_SITES];
 const targets = !arg || arg === 'all' ? ALL_TARGETS : [arg];
@@ -250,5 +272,6 @@ for (const t of targets) {
   if (STATIC_SITES.includes(t)) { assembleStaticSite(t); continue; }
   if (STANDALONE_APPS.includes(t)) { assembleStandalone(t); continue; }
   if (!EDITIONS.includes(t)) { console.error(`unknown target: ${t}`); process.exit(1); }
-  assemble(t, release, final);
+  if (channel && !NEXT_EDITIONS.includes(t)) { console.error(`--channel next builds ${NEXT_EDITIONS.join(', ')} only, not ${t}`); process.exit(1); }
+  assemble(t, release, final, channel);
 }

@@ -14,16 +14,24 @@ export const EDITION_ORIGINS = [
 // Local development: `python3 -m http.server` / `npx serve` on any port.
 const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
-export function isAllowedOrigin(origin) {
+// EXTRA_APP_ORIGINS (wrangler.toml, the STAGING Worker's [vars] only): more app origins
+// that may call this Worker, comma-separated. The next-channel test build
+// (next-pro.kennelos.app, build/nextChannel.mjs) talks only to staging, so only staging
+// lists it; production never sets this, so a test build can never reach real data.
+export function extraOrigins(env) {
+  return String(env?.EXTRA_APP_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+export function isAllowedOrigin(origin, env) {
   if (!origin) return false;
-  return EDITION_ORIGINS.includes(origin) || DEV_ORIGIN.test(origin);
+  return EDITION_ORIGINS.includes(origin) || DEV_ORIGIN.test(origin) || extraOrigins(env).includes(origin);
 }
 
 // Headers for a response to an allowed origin, or none. Authentication is a
 // bearer token in Authorization, never a cookie, so credentials stay off.
-export function corsHeaders(request) {
+export function corsHeaders(request, env) {
   const origin = request.headers.get('Origin');
-  if (!isAllowedOrigin(origin)) return {};
+  if (!isAllowedOrigin(origin, env)) return {};
   return {
     'access-control-allow-origin': origin,
     vary: 'Origin',
@@ -32,8 +40,8 @@ export function corsHeaders(request) {
 
 // The answer to a preflight (OPTIONS). A disallowed origin gets a bare 403 with
 // no CORS headers, which the browser reports as a blocked request.
-export function preflight(request) {
-  const headers = corsHeaders(request);
+export function preflight(request, env) {
+  const headers = corsHeaders(request, env);
   if (!headers['access-control-allow-origin']) return new Response(null, { status: 403 });
   return new Response(null, {
     status: 204,
