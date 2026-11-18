@@ -6021,7 +6021,8 @@ so. No server change, no migration, no schema change, no new record field.
   Sample data, First run, Guided tour), §30, §33 (Tidy up), §35; editions plan §Licensing and
   §"The guided tour is per-edition"; the plan's status and Modified notes; README Status.
 - **Service worker:** `assets/todayCloudCard.js` and `data/recordDetach.js` added to
-  `PRECACHE_URLS`; `CACHE_NAME` not bumped (waiting on the owner).
+  `PRECACHE_URLS`; `CACHE_NAME` → `kennelos-shell-v157` (owner's go-ahead, after Phase 0),
+  which carries Phases 0–2.
 
 ## 2026-11-18: Load performance Phase 0 — load budgets and the load check
 
