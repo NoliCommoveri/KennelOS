@@ -131,7 +131,7 @@ test('times: her free-text pickup time in her time zone, and back', () => {
   assert.equal(clockText('19:30'), '7:30 PM');
 });
 
-test('the status page: the portal link from the signed contract on; only that once handed over; Companion off', () => {
+test('the status page: the portal link from the signed contract on; only that once the sale is closed; Companion off', () => {
   const b = base();
   const withPortal = { ...K, kennelport_portal: { url: 'https://ak.kennelport.com/family', handoff_url: 'https://ak.kennelport.com/family/handoff', handoff_key: 'ab'.repeat(32), handoff_minutes: 10, home: [], facts: {} } };
   const project = (kennel, more = {}) => buildProjection({ kennel, entries: b.entries, sales: b.sales, contacts: b.contacts, dogs: b.dogs, litters: b.litters, contracts: b.contracts, pickupEvents: b.events, today: TODAY, ...more });
@@ -141,17 +141,20 @@ test('the status page: the portal link from the signed contract on; only that on
   assert.notEqual(off.entries.en1.companion.link, false);
 
   const on = project(withPortal);
-  assert.deepEqual(on.entries.en1.portal, { family_id: 'reed', only: false, pickup_on: '2026-12-23' });
+  assert.deepEqual(on.entries.en1.portal, { family_id: 'reed', only: false });
   assert.deepEqual(on.entries.en1.companion, { available: true, link: false, request: null });
   assert.deepEqual(on.server.portal, { url: 'https://ak.kennelport.com/family', handoff_url: 'https://ak.kennelport.com/family/handoff', handoff_key: 'ab'.repeat(32), minutes: 10 });
 
   const home = project({ ...withPortal, kennelport_portal: { ...withPortal.kennelport_portal, home: ['reed'] } });
-  assert.equal(home.entries.en1.portal.only, true);
-  assert.equal(portalEntryView(b.entries[0], { sale: { ...b.sales[0], status: 'delivered' }, contracts: b.contracts, events: b.events, today: TODAY }).only, true);
-  assert.equal(portalEntryView(b.entries[0], { sale: b.sales[0], contracts: b.contracts, events: b.events, today: '2026-12-24' }).only, true, 'pickup day passed');
-  assert.equal(portalEntryView(b.entries[0], { sale: { ...b.sales[0], status: 'voided' }, contracts: b.contracts, events: b.events, today: TODAY }), null,
+  assert.equal(home.entries.en1.portal.only, false, 'handed over, but the sale is open: pickup, extras and payments stay');
+  assert.equal(home.entries.en1.companion.available, true);
+  const late = project(withPortal, { today: '2026-12-24' });
+  assert.equal(late.entries.en1.portal.only, false, 'pickup day passed, sale still open: the page stays');
+  assert.equal(late.entries.en1.companion.available, true);
+  assert.equal(portalEntryView(b.entries[0], { sale: { ...b.sales[0], status: 'delivered' }, contracts: b.contracts }).only, true, 'Delivered: only the portal');
+  assert.equal(portalEntryView(b.entries[0], { sale: { ...b.sales[0], status: 'voided' }, contracts: b.contracts }), null,
     'a lost puppy: the status page takes them back in full');
-  assert.equal(portalEntryView(b.entries[0], { sale: b.sales[0], contracts: [], events: b.events, today: TODAY }), null, 'no signed contract yet');
+  assert.equal(portalEntryView(b.entries[0], { sale: b.sales[0], contracts: [] }), null, 'no signed contract yet');
 });
 
 // --- sending, and the facts that come back --------------------------------------------

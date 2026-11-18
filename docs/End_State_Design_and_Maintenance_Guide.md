@@ -5346,7 +5346,7 @@ Nothing changes for any other kennel or breeder.
   Website pages still wait for Update website.
 - **`Kennel.kennelport_portal`** (cloud; owner decision 2026-11-04) holds what the answer's
   `portal` says, `{ url, handoff_url, handoff_key, handoff_minutes }`, plus `home` (the
-  contacts the portal has taken over: `portal_only`) and `facts` (each sale's facts as
+  contacts the portal has taken over: `portal_only`; kept, it no longer changes the status page) and `facts` (each sale's facts as
   applied). Cloud so whichever device publishes her waitlist puts the portal on the status
   page, and Companion and Furever are off on every device. Not an FK: contact and sale ids
   there are matched, never followed (no registry entry). `portalFeed.portalOn(kennel)`.
@@ -5364,14 +5364,16 @@ Nothing changes for any other kennel or breeder.
   Today shows each for 14 days (`nudges.portalFactNudges`, dismissable), with a link to
   the sale or the dog to change it back. Nothing with money comes back.
 - **The status page** (the projection, `waitlistProjection.js`): while `portalOn`, a
-  record whose own sale (placed, else open) is signed and not ended carries `portal:
-  { family_id, only, pickup_on }` (`portalEntryView`); `only` once the family is in `home`,
-  the sale is Delivered, or the pickup day has passed. The key and the portal's addresses
-  go in `server.portal`, which the server never shows a family. The server (`familyPages
-  .statusView`) shows **Your puppy portal is ready** with **Open your puppy portal**, and,
-  once `only` (or `pickup_on` has passed in her time zone, so the switch never waits for her
-  device), only **Your puppy portal**: the page is then that link alone, so its **Your
-  payments** card (§29) goes with the rest, and the portal feed carries no amounts (Payment
+  record whose own sale (placed, else open) is signed and not released carries `portal:
+  { family_id, only }` (`portalEntryView`); `only` once the sale is closed (Delivered,
+  `isOpenSale`). While the sale is open its page keeps everything an open sale shows
+  (pickup, extras, payments, backing out, transport) beside the portal link, even once
+  the family is in `home` or the pickup day has passed. The key and the portal's
+  addresses go in `server.portal`, which the server never shows a family. The server
+  (`familyPages.statusView`, `portalOf`) shows **Your puppy portal is ready** with **Open
+  your puppy portal**, and, once `only`, only **Your puppy portal**: the page is then that
+  link alone. It switches only on `only`, never on a date (a `pickup_on` an older device
+  published is ignored). The portal feed carries no amounts (Payment
   Schedule plan D33). The button posts `/f/portal` (signed in on the status
   page; `familyActions.handlePortal`), which answers a link that works once, for the
   portal's minutes (at most 10), in KennelPort's token format: base64url JSON `{ f: the

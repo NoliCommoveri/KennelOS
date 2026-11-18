@@ -1,7 +1,7 @@
 // Her puppy portal on KennelPort, from the status page (KennelPort's
 // Puppy_Parent_Portal_Plan.md 3.4): Open your puppy portal while her device says
-// the family's signed sale is in the portal; only that once the portal has taken
-// over, or the pickup day has passed; the one-tap link, signed in KennelPort's
+// the family's signed sale is in the portal; only that once her device says the
+// sale is closed (never on the pickup date alone); the one-tap link, signed in KennelPort's
 // format with the key her device published, only for a signed-in family; and no
 // Companion link request while the portal is on.
 import { test } from 'node:test';
@@ -26,7 +26,7 @@ const projection = (extra = {}) => ({
     ann: { name: 'Ann Lee', email: 'ann@example.com', status: 'placed', status_token: tok('a'),
       companion: { available: true, link: false, request: null },
       pickup: { slots: [], booked: null, requests: [] },
-      portal: { family_id: 'contact-ann', only: false, pickup_on: plusDays(5) } },
+      portal: { family_id: 'contact-ann', only: false } },
     bo: { name: 'Bo Kim', email: 'bo@example.com', status: 'placed', status_token: tok('b'),
       companion: { available: true, request: null } },
   },
@@ -35,7 +35,7 @@ const projection = (extra = {}) => ({
   ...extra,
 });
 
-test('statusView: Open your puppy portal while it is on for them; only that once it has taken over or pickup has passed', () => {
+test('statusView: Open your puppy portal while it is on for them; only that once the sale is closed', () => {
   const p = projection();
   const v = statusView(p, 'ann');
   assert.deepEqual(v.family.portal, { only: false });
@@ -50,9 +50,10 @@ test('statusView: Open your puppy portal while it is on for them; only that once
   assert.deepEqual([only.offers, only.litters, only.upcoming, only.public_list], [[], [], [], []]);
 
   p.entries.ann.portal = { family_id: 'contact-ann', only: false, pickup_on: plusDays(-1) };
-  assert.equal(statusView(p, 'ann').family.portal.only, true, 'the switch at pickup happens on the server, not waiting for her device');
-  p.entries.ann.portal.pickup_on = today();
-  assert.equal(portalOf(p, p.entries.ann).only, false, 'the pickup day itself still shows the status page');
+  const late = statusView(p, 'ann');
+  assert.equal(late.family.portal.only, false, 'an older device\'s past pickup day alone no longer switches the page');
+  assert.ok(late.family.companion?.available, 'an open sale past pickup keeps its open-sale sections');
+  assert.equal(portalOf(p, p.entries.ann).only, false);
 
   assert.equal(statusView(p, 'bo').family.portal, undefined);
   delete p.server;
