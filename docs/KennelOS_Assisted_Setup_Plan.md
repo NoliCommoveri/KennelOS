@@ -86,7 +86,8 @@ A helper session is a session on her account with `role = 'helper'` and the labe
 "KennelOS support (…)". It reads and changes every record through sync. Refused with
 `403 helper_not_allowed`: signing others out, deleting the account, changing its email,
 license links, turning the vault off, replacing the recovery wrap, adding or removing a passkey,
-making handoff codes, turning sync off everywhere, erasing devices. On support's device the
+making handoff codes, turning sync off everywhere, erasing devices, and changing her alerts or
+digest or subscribing to them (**Modified:** review K12-8; a helper may read them). On support's device the
 license gate is skipped: the server's own Pro checks use her account's entitlement. Its website checks
 skip it too: support can Connect website (with a code from KennelPort, which an editor of
 her site can make) and Update website. That link is the helper device's own: it is wiped with

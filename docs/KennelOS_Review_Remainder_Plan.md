@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: plan, nothing built.** Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batch A built** (`docs/BUILD_LOG.md`, 2026-11-18); B–I not started. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -92,8 +92,17 @@ Rules for every batch:
   `?from=alert` takes in before it renders. Sign-out clears the note. A helper `PUT /notify`
   gets 403 (`cloud/tests`). At 320 px the Accounts page has no `scrollWidth` overflow
   (Playwright).
-- **Docs:** End-State guide §32 (Notifications), Notifications plan (**Modified:** helper
+- **Docs:** End-State guide §30 (notifications), Notifications plan (**Modified:** helper
   sessions can't change alerts), `cloud/README.md` (owner-only routes).
+- **Built with it:** K12-7's card half (blocked or dropped alerts aren't called "on"),
+  K12-12 (a referral link without `https://`) and K12-13 (permission asked from the tap).
+  `FIX_PRIORITIES.md` had never listed these.
+- **Still open from K12:** K12-5 (a burst of alerts ends on the generic line: `pendingPush`
+  should keep the informative lines), K12-6 (unmatched or duplicate vendor events dropped
+  without a word, for Firma and Stripe now Jotform is gone), K12-7's other half
+  (`pushsubscriptionchange` in `sw.js`, which needs a way to re-subscribe without a session
+  token) and K12-14 (the /ops wording on rotating the push key, and dropping endpoints that
+  answer 401/403). They're small, all in `notify.js` and `sw.js`: a batch **A2**.
 
 ### B. Per-pup Furever packs (K14-3, and `furever_pack` from K1-5)
 

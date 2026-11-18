@@ -105,6 +105,19 @@ test('the helper can set things up but not touch her account itself', async () =
   }
 });
 
+test('the helper can read her alert settings but not subscribe to them or change them (review K12-8)', async () => {
+  const env = await makeEnv();
+  const { helper } = await setUp(env);
+  assert.equal((await call(env, 'GET', '/notify', { token: helper.token })).status, 200);
+  assert.equal((await call(env, 'POST', '/notify/push/unsubscribe', { token: helper.token, body: {} })).status, 200, 'its own device off is fine');
+  for (const [m, path, body] of [['PUT', '/notify', { push_kinds: ['message'] }],
+    ['POST', '/notify/push/subscribe', { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', auth: 'AAAAAAAAAAAAAAAAAAAAAA' }],
+    ['POST', '/notify/push/test', {}], ['POST', '/notify/digest', { email: 'support@example.com' }],
+    ['POST', '/notify/digest/verify', { code: '123456' }], ['DELETE', '/notify/digest', {}]]) {
+    assert.deepEqual(await err(await call(env, m, path, { token: helper.token, body })), { status: 403, error: 'helper_not_allowed' }, `${m} ${path}`);
+  }
+});
+
 test('her takeover: her sign-in says assisted, her device gets the key from support’s automatically, and support is signed out', async () => {
   const env = await makeEnv();
   const { helper } = await setUp(env);

@@ -93,7 +93,7 @@ test('lines name the kind and the family\'s listed name, never more', () => {
 
 test('an alert for one family opens their page; several, or an application, open Today', () => {
   const one = pushText([{ kind: 'message', what: 'message', name: 'Ann L.', entry_id: 'ann' }]);
-  assert.deepEqual(one, { title: 'KennelOS', body: 'New message from Ann L.', path: 'pages/waitlist-entry.html?id=ann', tag: 'kennelos-waitlist', count: 1 });
+  assert.deepEqual(one, { title: 'KennelOS', body: 'New message from Ann L.', path: 'pages/waitlist-entry.html?id=ann&from=alert', tag: 'kennelos-waitlist', count: 1 });
   assert.equal(pushText([{ kind: 'application', what: 'application', name: 'Cy D.', entry_id: 'x' }]).path, 'pages/today.html');
   const many = pushText([{ kind: 'message', what: 'message', name: 'Ann L.', entry_id: 'ann' }, { kind: 'turn', what: 'pass', name: 'Bo K.', entry_id: 'bo' }]);
   assert.equal(many.title, 'KennelOS: 2 new on your waitlist');
@@ -204,7 +204,7 @@ test('a family\'s message wakes her device; the worker learns what to say with i
   assert.equal((await pending(env, { endpoint: ENDPOINT, auth: 'wrong-secret-12345' })).status, 401);
   const first = await pending(env);
   assert.equal(first.status, 200);
-  assert.deepEqual(first.body, { title: 'KennelOS', body: 'New message from Ann L.', path: 'pages/waitlist-entry.html?id=ann', tag: 'kennelos-waitlist', count: 1 });
+  assert.deepEqual(first.body, { title: 'KennelOS', body: 'New message from Ann L.', path: 'pages/waitlist-entry.html?id=ann&from=alert', tag: 'kennelos-waitlist', count: 1 });
   assert.equal((await pending(env)).body.count, 0, 'shown once');
 
   // Her own actions as the family: a pass is a turn alert; still_interested isn't one.

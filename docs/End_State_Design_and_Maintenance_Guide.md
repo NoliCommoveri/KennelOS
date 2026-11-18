@@ -3267,7 +3267,8 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
   as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
-  everything that changes her account itself, adding a passkey wrap included. A helper may
+  everything that changes her account itself, adding a passkey wrap included, and every
+  write to her alerts and digest (they may read them, and turn their own device's alerts off). A helper may
   take over backing up (to push her first backup); its label already reads "KennelOS support
   (…)", and the server marks it `helper: true` in `backingDevice` and the device list.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
@@ -3342,10 +3343,28 @@ hear about something Today already lists.
   proving itself with its subscription's auth secret, and reads the server's address from
   the `kennelos-notify` Cache Storage note (`cloudNotify` writes it; `activate` never purges
   it). Every alert uses one tag, so a newer one replaces the last. A tap opens the family's
-  page (one family), the contract (one contract alert) or Today. A device with alerts on re-sends its subscription once a day
+  page (one family, with `&from=alert`), the contract (one contract alert) or Today. A device with alerts on re-sends its subscription once a day
   on open (`refreshAlertsHere`, from `bootCloud`), so a subscription iPhone dropped comes
   back. iPhone/iPad need the app added to the Home Screen (iOS 16.4+); the card says so.
   Alerts stop for a device with no live session (sign out, erase).
+- **Whose alerts:** the note records the owner's `programId` when she turns alerts on, and
+  `refreshAlertsHere` re-subscribes only for that owner (a note without one is adopted by
+  the owner signed in). Sign-out (`cloudAuth.signOut`) and every erase, support's hand-back
+  included (`cloudDevices.eraseThisDevice`), call `forgetAlertsHere`: the server row, the
+  browser's subscription and the note go. A helper session reads the settings; the card
+  says they're hers to set, and the Worker refuses the writes (`OWNER_ONLY`). Reset App
+  keeps the sign-in, so it keeps alerts too. Before saying "on", the card asks the browser
+  (`alertsLiveHere`): notifications blocked, or a subscription the browser dropped, shows a
+  warning with Turn off (and Turn on again). **Turn on alerts** asks the permission straight
+  from the tap, before anything is awaited, as iPhone requires.
+- **Where the event lands:** what a family did reaches her records only through the device
+  that takes it in (`serverWork.js`: the backing device, or the lease holder of a syncing
+  program). `cloudNotify.takeInHere()` says whether this device is that one, and
+  `takeInHereText` words the answer; the card shows it under "Alerts are on". The entry page
+  opened `from=alert` runs `syncWaitlistOnline({ asked: true })` before it draws (at most
+  5 s), says where events land when this device isn't the one, and says "This family isn't on
+  this device yet" instead of "not found". Open, it redraws on `CLOUD_DATA_CHANGED_EVENT`
+  (debounced), waiting while she edits, a dialog is open or a field has focus.
 - **The email digest:** her readable address is kept on the server **only while it's on**
   (the one exception to "email hashes only"), with consent text at the switch. Her sign-in
   address is on at once; another gets a 6-digit code first. Daily or weekly (Mondays), after
@@ -3446,9 +3465,12 @@ Accounts (payment links, Stripe, contract-form links) are Pro too. Design:
 Chewy…) in the `accounts` table via `data/accountRepo.js`. A table of its own, not Contacts,
 and **program-wide** (not kennel-scoped).
 - **Your login** (`username`, `password` masked until Show, `customer_id`, `notes`):
-  **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
+  **private tier**, so they reach the cloud only inside the vault; they do ride file backups
+  and Dropbox pushes, and the form's hint says so.
 - **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
-  tier, meant to be handed out. `show_on_website` (cloud, Pro with a KennelPort address)
+  tier, meant to be handed out. The link is saved through `referralShare.referralLinkInput`:
+  one typed without a scheme gets `https://`, one that can't be a web address is refused, so
+  "Shown to families" never shows a link families won't get. `show_on_website` (cloud, Pro with a KennelPort address)
   puts the account on her website (§35, `siteExport.websiteProducts`) when it has a referral
   link, code or instructions (`hasReferral`), or is a transport account: others on
   Recommended products, transport ones (to a Worker listing the `transport` section, flagged

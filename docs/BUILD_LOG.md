@@ -5851,3 +5851,36 @@ No owner decisions needed; each fix follows the review's suggestion.
   K13-13 is partly covered by Kels's account health check.
 - README doc map and Status, `FIX_PRIORITIES.md` pointer. No code changed.
 - **Service worker:** no app file added or changed.
+
+## 2026-11-18: Review remainder batch A: alerts that land where they point, the Accounts page
+
+- **K12-4:** a family's alert opens `waitlist-entry.html?id=…&from=alert` (`notify.js`
+  `pushText`). Opened that way, the page runs `syncWaitlistOnline({ asked: true })` before it
+  draws (at most 5 s, "Checking for anything new…"). On a device that doesn't take family
+  events in, it says where they land (`cloudNotify.takeInHere` / `takeInHereText`: the
+  backing device by name, or "keep in step"), and an entry not here yet reads "This family
+  isn't on this device yet" instead of "not found". The open page redraws on
+  `CLOUD_DATA_CHANGED_EVENT` (600 ms debounce), waiting while she edits, a dialog is open or
+  a field has focus. The Notifications card shows the same where-note under "Alerts are on".
+- **K12-8:** the `kennelos-notify` note records the owner's `programId`; `refreshAlertsHere`
+  re-subscribes only for her (an old note without one is adopted by the owner signed in;
+  never by a helper). `forgetAlertsHere` (server row, browser subscription, note) runs on
+  `cloudAuth.signOut` and every erase (`cloudDevices.doErase`, so support's hand-back too).
+  `OWNER_ONLY` gains `PUT /notify`, `POST /notify/push/subscribe`, `POST /notify/push/test`
+  and the three digest writes; a helper may still read them and turn its own alerts off. The
+  card tells a helper the alerts are hers to set.
+- **K12-7 (card half):** `alertsLiveHere` checks the permission and the browser's
+  subscription before the card says "on"; blocked or dropped shows a warning with Turn off
+  (and Turn on again). **K12-13:** Turn on alerts asks the permission straight from the tap.
+- **K12-9 (R2, the recommended wording):** the saved-logins hint says they ride backup files
+  and Dropbox pushes, and reach KennelOS's cloud only encrypted inside the vault.
+- **K12-11:** `.acct-grid` uses `minmax(min(320px, 100%), 1fr)`: no sideways scroll at 320 px.
+- **K12-12:** `referralShare.referralLinkInput`: a referral link typed without `https://`
+  gets it; one that can't be a web address is refused at save.
+- Left for batch A2: K12-5, K12-6, K12-7's `sw.js` half, K12-14 (plan).
+- Tests: `tests/cloudNotify.test.js` (new), `tests/referralShare.test.js`,
+  `cloud/tests/assist.test.js`, `cloud/tests/notify.test.js`. Checked in Chromium: the entry
+  page redraws on a data change; Accounts at 320 px has no overflow.
+- Docs: guide (§30 notifications and assisted setup, §32 Accounts), Notifications plan and
+  Assisted Setup plan (**Modified**), `cloud/README.md`, Remainder plan, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).

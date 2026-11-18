@@ -66,6 +66,11 @@ A "Send a test" button.
   on open when the switch is on.
 - **Android:** works in Chrome as a tab or installed; installed is recommended.
 - Each edition is its own origin (Pro / Demo), so a subscription belongs to the Pro app.
+- **Modified (review K12-4, K12-8):** a device's alerts belong to the owner who turned
+  them on, and end with sign-out or an erase; support's helper session can't turn them on
+  or change them. A device that shows alerts but doesn't take family events in (not the
+  backing device, or not keeping in step) says so on the card and on the page an alert
+  opens, which takes in before it draws.
 
 ### 2.2 Server
 
