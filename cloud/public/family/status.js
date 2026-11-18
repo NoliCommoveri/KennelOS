@@ -736,8 +736,8 @@ function extrasHtml(f) {
   const lists = [...groups.entries()].sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1))
     .map(([g, items]) => {
       const link = g && (x.links || []).find((l) => l.group.toLowerCase() === g.toLowerCase());
-      return `${g ? `<h3 class="mt8">${esc(g)}</h3>` : ''}<ul class="plain">${items.join('')}</ul>
-        ${link ? `<p class="small mt8"><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label || 'See details and pricing')}</a></p>` : ''}`;
+      return `<div class="xgroup">${g ? `<h3 class="mt8">${esc(g)}</h3>` : ''}<ul class="plain">${items.join('')}</ul>
+        ${link ? `<p class="small mt8"><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label || 'See details and pricing')}</a></p>` : ''}</div>`;
     }).join('');
   return card('Extras', `
     ${k.extras_intro ? `<p class="mt0 pre">${esc(k.extras_intro)}</p>` : ''}

@@ -5775,3 +5775,6 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Checked in a browser (the status page with sample data, 390px and desktop): every parent
   name links to its dog page. Found and fixed: the Worker dropped `page` on an Available
   Puppies card (`familyPages.js` litter card), so it read "See the litter's photos".
+- Checked the Extras card in a browser with two groups (Training, Photo/video add-ons), each
+  with its link: both open their pages. Each group is now a `.xgroup` with 24px before the
+  next, so a group's link no longer sits against the next heading (`family.css`).
