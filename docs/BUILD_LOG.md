@@ -6093,3 +6093,4 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
 - New app-wide rule (owner's): no more than 2–3 buttons in view; extra actions go in a dropdown.
   Recorded in the End-State guide §13 and CLAUDE.md.
 - **Service worker:** no file added or renamed.
+- **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v158` for this session's Dogs page batch.
