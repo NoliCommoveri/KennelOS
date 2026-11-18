@@ -2927,8 +2927,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   beside the button (`fee_pay.fee`, K8-10).
   The public list's Available Puppies and Coming up cards center what's inside them
   (`#available, #upcoming` in `family.css`); their headings stay left like the page's other
-  folded cards. On the status page (`main.centered`) every card's heading and content are
-  centered. The section labels (Still Available, Already Reserved) are bold in title case,
+  folded cards. On the status page (`main.centered`) every card's content is centered; its
+  heading reads left, with the section's small line icon in a tinted chip (`icons.js`
+  `sectionIcon`: the icon and the section's kind, `data-kind`: puppies the accent, Coming up
+  gold, extras clay, payments blue) and the fold's chevron at the right. Each litter, pairing
+  or heat (`ul.plain.segs`) and each extras group (`.seg.xgroup`: its name, its link, then
+  its extras) is its own panel. A paw ornament under the greeting and a faint paw on Current
+  Position (`.place-card`) are the only ornaments. **Palettes** (`theme.js`, `html[data-theme]`
+  in `family.css`): Classic (the default, the app's colours), Ivory (forest green on warm
+  ivory, serif headings) and Blush (plum on soft rose), each with a dark version; a family
+  picks one under **Colors** at the status page's foot, kept in this browser's localStorage
+  (`kos-family-theme`), and the public list follows it. Embed mode's own colours still win
+  on her website. The section labels (Still Available, Already Reserved) are bold in title case,
   like the cards' other labels, and an empty column's "None left" / "None"
   (`.pup-col-empty`) sits on the line of a pup's name in the next column.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once

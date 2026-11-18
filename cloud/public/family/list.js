@@ -7,6 +7,10 @@
 import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 import { EMBEDDED, setupEmbed, outward } from './embedded.js';
+import { applyTheme, savedTheme } from './theme.js';
+
+// The palette a family chose on their status page, if this browser has one.
+applyTheme(savedTheme());
 
 const $ = (id) => document.getElementById(id);
 const publicId = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -108,7 +112,7 @@ async function load() {
     if (location.hash === '#policies') openPolicy($('policies'));
   }
   if (available.length) {
-    $('available').innerHTML = `<summary><h2>Available Puppies</h2></summary><ul class="plain">${available.map((l) => `<li>${availableItemHtml(l)}</li>`).join('')}</ul>`;
+    $('available').innerHTML = `<summary><h2>Available Puppies</h2></summary><ul class="plain segs">${available.map((l) => `<li>${availableItemHtml(l)}</li>`).join('')}</ul>`;
     $('available').hidden = false;
   }
   // Pairings and litters she shows publicly before picks open (Spec §16.4).

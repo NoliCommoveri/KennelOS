@@ -5780,3 +5780,28 @@ No owner decisions needed; each fix follows the review's suggestion.
   next, so a group's link no longer sits against the next heading (`family.css`).
 - Then, the owner: a divider between groups (`.xgroup + .xgroup`: a 2px line, heavier than
   the 1px lines between extras, with room above and below).
+
+## 2026-11-18: The family status page's look: panels, section icons, three palettes
+
+- Owner: an extras group should clearly be its own thing with its link going to all of
+  them; litters in one section should read apart; a softer, more intentional look
+  (ChatGPT's mock as direction: icons by headings, softer cards, sparing paws), matching
+  the waitlist side, with a choice of three palettes for families.
+- Each extras group is a panel: its name, its link right under it (› to all of them), then
+  its extras. Each litter in Available Puppies, and each pairing or heat in Coming up, is
+  its own panel (`ul.plain.segs`; the public list too). A litter's name is in the heading
+  face (`.litter-name`).
+- `cloud/public/family/icons.js` (new): line icons drawn in-house, `sectionIcon(title)` →
+  icon and kind; `card` / `openCard` put it in a tinted chip by the heading, chevron right.
+  Softer cards (12–14px corners, a light shadow), a paw ornament under the greeting
+  (`status.html`), a faint paw on Current Position.
+- `cloud/public/family/theme.js` (new): Classic (default, the app's colours), Ivory, Blush,
+  each light and dark (`html[data-theme]`), picked under **Colors** at the status page's
+  foot and kept in localStorage; `list.js` applies it too. Embed mode keeps its own colours.
+- Checked in a browser: both a waiting and a placed family's page in all three palettes,
+  light and dark, at 390px, and at desktop width.
+- Tests: no new ones (look only); the suites pass. One run had `the sealed part opens only
+  with the vault key it was made with` fail once and pass on rerun (unrelated, flaky).
+- Cloud: no migration; the Worker deploy carries it. **Service worker:** `CACHE_NAME` →
+  `kennelos-shell-v154` (the owner said bump), for the session's app changes (the price
+  list's group link and phrase, the featured pup settings).

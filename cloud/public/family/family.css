@@ -1,11 +1,16 @@
 /* The waitlist's family pages (docs/KennelOS_Waitlist_W2_Plan.md §3). Phone first,
    no web fonts, no outside requests. Colors follow shared/assets/app.css. */
 :root {
+  /* Classic, the default: the KennelOS app's own colours (shared/assets/app.css).
+     A family can pick Ivory or Blush instead (the switcher at the page's foot,
+     html[data-theme]); each has a dark version. */
   --bg: #f6f7f9;
   --surface: #ffffff;
+  --panel: #f8f9fb;
   --border: #d9dee5;
   --text: #1c2430;
   --text-muted: #5c6773;
+  --heading: #1c2430;
   --accent: #2f6f4f;
   --accent-soft: #e5f0ea;
   --warn: #8a5f17;
@@ -14,25 +19,60 @@
   --info: #2d5b8a;
   --info-soft: #e3edf7;
   --on-accent: #ffffff;
-  --radius: 10px;
+  /* Each kind of section's icon tint: puppies the accent, coming up gold, extras clay. */
+  --tint-soon: #8a6a24;
+  --tint-soon-soft: #f3e9d2;
+  --tint-extra: #8d5a44;
+  --tint-extra-soft: #f3e3d8;
+  --tint-money: #2d5b8a;
+  --tint-money-soft: #e3edf7;
+  --shadow: 0 1px 3px rgba(20, 30, 45, 0.07), 0 4px 14px rgba(20, 30, 45, 0.05);
+  --radius: 12px;
+  --radius-sm: 10px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-head: var(--font);
   color-scheme: light dark;
+}
+/* Ivory: deep forest green on warm ivory, book-serif headings (a serif the device
+   already has; no web fonts). */
+html[data-theme="ivory"] {
+  --bg: #f4efe4; --surface: #fffcf6; --panel: #f9f4ea; --border: #e3dac8;
+  --text: #24302a; --text-muted: #6a7068; --heading: #234634;
+  --accent: #2e5a42; --accent-soft: #e6eee4; --warn-soft: #f6ead3; --danger: #a8423a;
+  --shadow: 0 1px 2px rgba(48, 40, 24, 0.05), 0 6px 18px rgba(48, 40, 24, 0.06);
+  --radius: 14px;
+  --font-head: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+/* Blush: plum on soft rose. */
+html[data-theme="blush"] {
+  --bg: #f8f1f1; --surface: #fffbfb; --panel: #fbf4f4; --border: #ead8da;
+  --text: #2e2228; --text-muted: #74636a; --heading: #5a2e45;
+  --accent: #7a3f5e; --accent-soft: #f3e3ea; --warn-soft: #f7ebda; --danger: #a8423a;
+  --tint-extra: #7a3f5e; --tint-extra-soft: #f3e3ea;
+  --shadow: 0 1px 2px rgba(60, 30, 40, 0.05), 0 6px 18px rgba(60, 30, 40, 0.06);
+  --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #12161b;
-    --surface: #1b2128;
-    --border: #2e3741;
-    --text: #e6eaef;
-    --text-muted: #a3adb8;
-    --accent: #6fbf94;
-    --accent-soft: #1f3529;
-    --warn: #e0b56a;
-    --warn-soft: #3a2f1b;
-    --danger: #ef8f8f;
-    --info: #8db8e6;
-    --info-soft: #1e2d3d;
-    --on-accent: #0f1a14;
+    --bg: #12161b; --surface: #1b2128; --panel: #171c22; --border: #2e3741;
+    --text: #e6eaef; --text-muted: #a3adb8; --heading: #e6eaef;
+    --accent: #6fbf94; --accent-soft: #1f3529;
+    --warn: #e0b56a; --warn-soft: #3a2f1b; --danger: #ef8f8f; --info: #8db8e6; --info-soft: #1e2d3d; --on-accent: #0f1a14;
+    --tint-soon: #e0c27a; --tint-soon-soft: #3a3120; --tint-extra: #e2ab92; --tint-extra-soft: #3a2820;
+    --tint-money: #8db8e6; --tint-money-soft: #1e2d3d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  html[data-theme="ivory"] {
+    --bg: #121814; --surface: #1a221d; --panel: #161d19; --border: #2d3a32;
+    --text: #e8e5da; --text-muted: #a5ab9f; --heading: #cfe3d3; --accent: #8cc4a2; --accent-soft: #1f3328;
+    --warn-soft: #3a2f1b; --danger: #ef8f8f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  html[data-theme="blush"] {
+    --bg: #1a1316; --surface: #241a1f; --panel: #1f171b; --border: #3c2b33;
+    --text: #efe4e8; --text-muted: #b3a0a8; --heading: #f1d3e0; --accent: #e3a3c3; --accent-soft: #3b2230;
+    --warn-soft: #3a2f1b; --danger: #ef8f8f; --tint-extra: #e3a3c3; --tint-extra-soft: #3b2230; --on-accent: #1f1218;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
   }
 }
 * { box-sizing: border-box; }
@@ -50,7 +90,7 @@ main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
   .card { margin: 10px 0; }
 }
 header.page { padding: 8px 0 4px; }
-header.page h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 2px; overflow-wrap: anywhere; }
+header.page h1 { font-family: var(--font-head); font-size: 1.75rem; font-weight: 700; color: var(--heading); line-height: 1.2; margin: 0 0 2px; overflow-wrap: anywhere; letter-spacing: 0.005em; }
 header.page .actions { margin-top: 10px; }
 header.page .intro { margin: 10px 0 0; white-space: pre-line; line-height: 1.5; }
 .muted { color: var(--text-muted); }
@@ -59,10 +99,13 @@ header.page .intro { margin: 10px 0 0; white-space: pre-line; line-height: 1.5; 
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
   margin: 14px 0;
 }
-.card h2 { font-size: 1.05rem; margin: 0 0 8px; }
+.card h2 { font-family: var(--font-head); font-size: 1.2rem; font-weight: 600; color: var(--heading); margin: 0 0 10px; }
+h3 { font-family: var(--font-head); font-weight: 600; color: var(--heading); }
+a { color: var(--accent); text-underline-offset: 2px; }
 .card.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .card.notice { background: var(--warn-soft); border-color: transparent; }
 .big { font-size: 2rem; font-weight: 700; line-height: 1.1; margin-bottom: 2px; }
@@ -102,6 +145,7 @@ ul.pay-received > li { padding: 4px 0; }
   color: var(--text);
   cursor: pointer;
 }
+.tabs button { box-shadow: var(--shadow); }
 .tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 input[type="search"], input[type="email"], input[type="text"], input[type="date"], textarea, select {
   width: 100%;
@@ -224,8 +268,6 @@ main.centered details.card.collapsible > summary { list-style-position: inside; 
 button.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 #app-form .actions { margin: 16px 0 8px; }
 .mt8 { margin: 8px 0 0; }
-/* Extras: a divider between groups, heavier than the lines between extras. */
-.xgroup + .xgroup { margin-top: 20px; padding-top: 12px; border-top: 2px solid var(--border); }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -345,3 +387,58 @@ a.policies-link, button[data-policy-link].linkish { font-weight: 600; color: var
 /* On the centered status page the headings stay centered; what they say reads left. */
 main.centered details.policy p { text-align: left; }
 
+
+/* --- The look (2026-11-18): section icons, panels, ornaments ----------------------- */
+/* A section's heading: its icon in a soft round chip, tinted by the section's kind
+   (icons.js sectionIcon), the words beside it, the fold's chevron at the right. */
+.card h2 { display: flex; align-items: center; gap: 10px; text-align: left; }
+.card h2 > span:last-child { flex: 1 1 auto; min-width: 0; }
+.sec-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+.sec-ico svg { display: block; }
+.card[data-kind="soon"] .sec-ico { background: var(--tint-soon-soft); color: var(--tint-soon); }
+.card[data-kind="extra"] .sec-ico { background: var(--tint-extra-soft); color: var(--tint-extra); }
+.card[data-kind="money"] .sec-ico { background: var(--tint-money-soft); color: var(--tint-money); }
+details.card.collapsible > summary { list-style: none; }
+details.card.collapsible > summary::-webkit-details-marker { display: none; }
+details.card.collapsible > summary h2 { display: flex; }
+details.card.collapsible > summary h2::after { content: ""; flex: none; width: 9px; height: 9px; margin: 0 4px 0 8px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: translateY(-3px) rotate(45deg); }
+details.card.collapsible[open] > summary h2::after { transform: translateY(2px) rotate(-135deg); }
+details.card.collapsible[open] > summary { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+/* A panel inside a section: one litter, one pairing or heat, one group of extras.
+   Each its own soft box, so several in one section read as separate things. */
+ul.plain.segs > li, ul.plain.segs > li:first-child, .seg { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+ul.plain.segs > li + li, .seg + .seg { margin-top: 12px; }
+.seg > ul.plain > li { border-top-color: var(--border); }
+/* An extras group's name, then its link to the page about all of them. */
+.seg-title { font-size: 1.1rem; margin: 0; }
+.seg-link { margin: 2px 0 10px; font-size: 0.9rem; font-weight: 600; }
+.seg-link a { text-decoration: none; }
+.seg-link a:hover, .seg-link a:focus-visible { text-decoration: underline; }
+.seg > ul.plain { border-top: 1px solid var(--border); padding-top: 4px; }
+.seg > .seg-title + ul.plain { margin-top: 10px; }
+
+/* Under the greeting: a thin line, a paw, a thin line. Used once. */
+.ornament { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px auto 2px; color: var(--accent); opacity: 0.7; max-width: 220px; }
+.ornament::before, .ornament::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: 0.45; }
+.ornament svg { width: 18px; height: 18px; }
+/* Their place: a faint paw behind the number. */
+.card[data-kind="wait"] { position: relative; overflow: hidden; }
+.card[data-kind="wait"] .big { font-family: var(--font-head); font-size: 2.6rem; color: var(--heading); }
+.card.place-card::after { content: ""; position: absolute; right: -14px; bottom: -14px; width: 110px; height: 110px; opacity: 0.06; pointer-events: none;
+  background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232e5a42'%3E%3Cellipse cx='6.2' cy='10.2' rx='1.9' ry='2.4'/%3E%3Cellipse cx='9.6' cy='6.4' rx='1.9' ry='2.5'/%3E%3Cellipse cx='14.4' cy='6.4' rx='1.9' ry='2.5'/%3E%3Cellipse cx='17.8' cy='10.2' rx='1.9' ry='2.4'/%3E%3Cpath d='M12 11.2c-2.6 0-5.2 3.1-5.2 5.3 0 1.7 1.3 2.6 2.8 2.6 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.5 0 2.8-.9 2.8-2.6 0-2.2-2.6-5.3-5.2-5.3z'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { .card.place-card::after { opacity: 0.08; filter: invert(1); } }
+/* A litter's (or pairing's) name in its panel, in the heading serif. */
+.litter-name { font-family: var(--font-head); font-size: 1.15rem; font-weight: 600; color: var(--heading); }
+.litter-name strong { font-weight: 600; }
+/* No stray space under the last line of an extra or a panel. */
+.seg li > :last-child, ul.segs > li > :last-child { margin-bottom: 0; }
+/* The palette switcher at the page's foot: three swatches, the chosen one ringed. */
+.theme-pick { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 18px 0 6px; flex-wrap: wrap; }
+.theme-pick .small { margin-right: 2px; }
+.theme-pick button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.85rem; padding: 4px 10px 4px 4px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.theme-pick button[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; font-weight: 600; }
+.theme-pick .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.12); }
+.theme-pick .sw-classic { background: linear-gradient(135deg, #f6f7f9 50%, #2f6f4f 50%); }
+.theme-pick .sw-ivory { background: linear-gradient(135deg, #f4efe4 50%, #2e5a42 50%); }
+.theme-pick .sw-blush { background: linear-gradient(135deg, #f8f1f1 50%, #7a3f5e 50%); }

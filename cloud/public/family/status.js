@@ -24,6 +24,11 @@ import {
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
+import { sectionIcon } from './icons.js';
+import { wireThemePicker } from './theme.js';
+
+// The palette this browser's family chose, before anything draws (theme.js).
+wireThemePicker();
 
 const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] || '';
@@ -53,14 +58,22 @@ const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
 // 2026-10-08), except the ones asking the family to do something now (openCard).
 // Which ones they've opened is kept across re-renders (state.opened), so a
 // section stays open while they use a button in it.
+// A heading carries its section's small icon and kind (its tint), when it has one
+// (icons.js).
+function heading(title) {
+  const ic = sectionIcon(title);
+  return { h2: `<h2>${ic ? ic.icon : ''}<span>${title}</span></h2>`, kind: ic ? ` data-kind="${ic.kind}"` : '' };
+}
 function card(title, body, cls = '') {
   if (!title) return openCard(title, body, cls);
   const key = String(title).replace(/<[^>]*>/g, '');
-  return `<details class="card collapsible ${cls}" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${title}</h2></summary>${body}</details>`;
+  const h = heading(title);
+  return `<details class="card collapsible ${cls}"${h.kind} data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary>${h.h2}</summary>${body}</details>`;
 }
 
 function openCard(title, body, cls = '') {
-  return `<div class="card ${cls}">${title ? `<h2>${title}</h2>` : ''}${body}</div>`;
+  const h = title ? heading(title) : { h2: '', kind: '' };
+  return `<div class="card ${cls}"${h.kind}>${h.h2}${body}</div>`;
 }
 
 function closedText(status, kennel, pageOnly = false) {
@@ -400,7 +413,7 @@ function upcomingCard(v) {
   // Laid out like Available Puppies; no badges (decided 2026-10-08).
   // A planned heat is no litter yet: no "Not this litter" on it.
   const items = v.upcoming.map((u) => `<li>${upcomingItemHtml(u, u.waiting && u.kind !== 'planned_heat' ? notThisLitter(upcomingTarget(u)) : '')}</li>`).join('');
-  return card('Coming up', `<ul class="plain">${items}</ul>
+  return card('Coming up', `<ul class="plain segs">${items}</ul>
     ${upcomingFootHtml(v.upcoming)}`);
 }
 
@@ -735,9 +748,12 @@ function extrasHtml(f) {
   const decided = (x.requests || []).filter((r) => r.decided).map((r) => `<li class="small">${r.decided === 'approved' ? 'Confirmed' : 'Not confirmed'}: ${r.kind === 'cancel' ? 'cancel ' : ''}${esc(r.name)} (${esc(fmtDate(r.decided_date))})</li>`);
   const lists = [...groups.entries()].sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1))
     .map(([g, items]) => {
+      // Each group its own panel: its name, its link (to the page about all of
+      // them), then its extras.
       const link = g && (x.links || []).find((l) => l.group.toLowerCase() === g.toLowerCase());
-      return `<div class="xgroup">${g ? `<h3 class="mt8">${esc(g)}</h3>` : ''}<ul class="plain">${items.join('')}</ul>
-        ${link ? `<p class="small mt8"><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label || 'See details and pricing')}</a></p>` : ''}</div>`;
+      return `<section class="seg xgroup">${g ? `<h3 class="seg-title">${esc(g)}</h3>` : ''}
+        ${link ? `<p class="seg-link"><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label || 'See details and pricing')} <span aria-hidden="true">›</span></a></p>` : ''}
+        <ul class="plain">${items.join('')}</ul></section>`;
     }).join('');
   return card('Extras', `
     ${k.extras_intro ? `<p class="mt0 pre">${esc(k.extras_intro)}</p>` : ''}
@@ -1181,7 +1197,7 @@ function mineHtml() {
         ${f.passes ? `<dt>Passes</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)} used</dd>` : ''}
         ${creditsFactHtml(f.credits)}
       </dl>
-      ${placeActions(f)}`));
+      ${placeActions(f)}`, 'place-card'));
     parts.push(whelpNotesHtml(f));
     parts.push(featuredHtml());
 
@@ -1189,7 +1205,7 @@ function mineHtml() {
       // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
       // dam, the dates, and the pups still available by sex.
       const items = v.litters.map((l) => `<li>${availableItemHtml(l, notThisLitter(litterTarget(l)))}</li>`).join('');
-      parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
+      parts.push(card('Available Puppies', `<ul class="plain segs">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
   } else {

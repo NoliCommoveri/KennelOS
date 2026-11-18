@@ -257,7 +257,7 @@ export function parentsLine(dam, sire) {
 // 2026-10-08): the breed, its name, its parents, its dates, the litter's photos
 // link (`photos`, when she set one), then any extra lines.
 export function litterHtml({ breed = null, name = '', nameHtml = '', nameAfter = '', dam = null, sire = null, when = '', photos = null, page = false, extra = '' }) {
-  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${nameHtml || esc(name)}</strong>${nameAfter}</div>
+  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div class="litter-name"><strong>${nameHtml || esc(name)}</strong>${nameAfter}</div>
     ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, page ? 'View litter on our website' : 'See the litter\'s photos')}</div>` : ''}${extra}`;
 }
 
@@ -370,7 +370,7 @@ export function availableItemHtml(l, extra = '') {
 
 export function upcomingListHtml(rows) {
   if (!rows.length) return '';
-  return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
+  return `<ul class="plain segs">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
     ${upcomingFootHtml(rows)}`;
 }
 
