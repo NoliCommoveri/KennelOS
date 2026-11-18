@@ -62,7 +62,11 @@ function memoryTable(name) {
     where: (index) => {
       if (index.startsWith('[')) {
         const keys = index.slice(1, -1).split('+');
-        return { equals: (vals) => collection((r) => keys.every((k, i) => r[k] === vals[i])) };
+        const tuple = (r, vals) => keys.every((k, i) => r[k] === vals[i]);
+        return {
+          equals: (vals) => collection((r) => tuple(r, vals)),
+          anyOf: (list) => collection((r) => list.some((vals) => tuple(r, vals)))
+        };
       }
       return {
         equals: (v) => collection((r) => matches(r, index, v)),

@@ -18,7 +18,7 @@
 
 // The exports a final build sets to null, when the edition's config has them.
 export const FINAL_NULLED_EXPORTS = [
-  'cloudUrl', 'devCloudUrl', 'kennelportUrl', 'devKennelportUrl', 'upgradeUrl', 'demoUrl',
+  'cloudUrl', 'devCloudUrl', 'kennelportUrl', 'devKennelportUrl', 'upgradeUrl', 'demoUrl', 'tourUrl',
 ];
 
 export function finalizeEditionConfig(text, edition) {

@@ -18,6 +18,9 @@ before(async () => {
   ({ savedSchedules } = await import('../shared/data/paymentSchedule.js'));
   const { seedSampleData } = await import('../shared/data/sampleData.js');
   await seedSampleData();
+  // The sample packet as a fixture of real records: without its manifest, so the
+  // tour's read-only guard (demoMode.assertWritable) lets these tests write.
+  (await import('../shared/data/settings.js')).removeSampleDataManifest();
 });
 
 const cedarSale = async () => (await saleRepo.getAll()).find((s) => Array.isArray(s.payment_schedule) && s.payment_schedule.length === 2);

@@ -83,9 +83,10 @@ backup, carries a program from Lite to Pro.
     steps (`docs/KennelOS_Website_Contract_Plan.md`). A breeder's own domain is added by hand
     to `WEBSITE_ORIGINS` in `cloud/wrangler.toml`.
   - Duplicates: Kels's Tidy up checks only dogs, contacts and waitlist applications.
-  - Planned, not built: load performance and the read-only tour (all decided; next is
-    Phase 0), credits, security hardening, mail budget, voice, family help, duplicate
-    applications, assisted setup.
+  - Load performance (`docs/KennelOS_Load_Performance_Plan.md`): Phases 1 (nothing moves
+    after first paint) and 2 (the read-only tour) built; next is Phase 0, then 3.
+  - Planned, not built: credits, security hardening, mail budget, voice, family help,
+    duplicate applications, assisted setup.
 
 Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lines.
 

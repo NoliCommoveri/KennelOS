@@ -22,6 +22,9 @@ export const upgradeUrl = null;
 // is false and nothing renders.
 export const demoUrl = null;
 
+// The Demo retakes its own tour over its own seed (Load Performance plan D3).
+export const tourUrl = null;
+
 // No cloud in Demo, ever (Cloud Phase 1 plan §7): no account, no backup, no
 // account wording. Both null, including the local-dev override.
 export const cloudUrl = null;

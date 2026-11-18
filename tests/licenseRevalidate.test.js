@@ -89,3 +89,56 @@ test('an ordinary valid answer is cached as before', async () => {
   assert.equal(r.state, 'valid');
   assert.notEqual(settings.getProLicense().lastValidated, '2026-01-01T00:00:00.000Z');
 });
+
+// --- How often the store is asked (Load Performance plan D6) ---------------------
+function sessionStore() {
+  const m = new Map();
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), clear: () => m.clear() };
+}
+
+test('the store is asked once per browsing session, and again after 6 hours', () => {
+  globalThis.sessionStorage = sessionStore();
+  const t0 = Date.parse('2026-11-18T10:00:00.000Z');
+  assert.equal(license.licenseCheckDue(t0), true, 'never asked: due');
+  settings.markLicenseAsked(new Date(t0).toISOString());
+  assert.equal(license.licenseCheckDue(t0 + 60_000), false, 'asked this session: not due');
+  assert.equal(license.licenseCheckDue(t0 + license.LICENSE_RECHECK_MS - 1), false);
+  assert.equal(license.licenseCheckDue(t0 + license.LICENSE_RECHECK_MS), true, '6 hours on: due');
+  assert.equal(license.licenseCheckDue(t0 - 60_000), true, 'a clock set back can\'t put it off');
+  globalThis.sessionStorage = sessionStore(); // a new tab, or the app relaunched
+  assert.equal(license.licenseCheckDue(t0 + 60_000), true, 'a new session asks again');
+  delete globalThis.sessionStorage;
+});
+
+test('askLicenseStore notes the attempt even when the store can\'t be reached', async () => {
+  globalThis.sessionStorage = sessionStore();
+  settings.setProLicense(record());
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  const r = await license.askLicenseStore();
+  assert.equal(r.state, 'valid', 'the cache still decides offline');
+  assert.equal(license.licenseCheckDue(), false);
+  delete globalThis.sessionStorage;
+});
+
+test('cachedLicense decides from the stored record alone, with no request', () => {
+  globalThis.fetch = async () => { throw new Error('no request expected'); };
+  assert.deepEqual(license.cachedLicense(), { state: 'unactivated', record: null });
+  settings.setProLicense(record({ interval: 'monthly', variantName: 'Monthly', status: 'disabled' }));
+  assert.equal(license.cachedLicense().state, 'wall');
+  settings.setProLicense(record({ interval: 'monthly', variantName: 'Monthly' }));
+  assert.equal(license.cachedLicense().state, 'valid');
+});
+
+test('a store call carries a 5 s timeout, and a timeout reads as offline', async () => {
+  settings.setProLicense(record());
+  let signal = null;
+  globalThis.fetch = async (_url, opts) => {
+    signal = opts.signal;
+    const e = new Error('The operation timed out.'); e.name = 'TimeoutError'; throw e;
+  };
+  const r = await license.evaluateLicense();
+  assert.ok(signal, 'the request had a signal');
+  assert.equal(license.LICENSE_TIMEOUT_MS, 5000);
+  assert.equal(r.state, 'valid', 'the cached record decides, as offline');
+  assert.ok(settings.getProLicense());
+});

@@ -36,6 +36,10 @@ export const upgradeUrl = 'https://kennelos.app/upgrade';
 // build/README.md; swap if the domain changes. One-line change here.
 export const demoUrl = 'https://demo.kennelos.app/';
 
+// Where "Take the tour" goes once this device has a program of its own (Load
+// Performance plan D3): the Demo, which shows Pro (the tour section says so).
+export const tourUrl = demoUrl;
+
 // Cloud backup API (Cloud Phase 1 plan §7): production, live since the go-live
 // change (plan §9 step 6). Back to null is how a shutdown release turns every
 // cloud feature off: the final build (build/finalRelease.mjs) does that. `devCloudUrl` (the staging Worker) applies when served from

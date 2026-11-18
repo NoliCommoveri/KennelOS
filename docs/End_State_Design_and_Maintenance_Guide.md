@@ -26,7 +26,9 @@ The shared core never checks which edition it is: it reads the two injection poi
 
 - **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
   `enforceLitterCap`, `enforceImportDogCap`, `enforceImportLitterCap`) and reads
-  (`dogCapStatus`, `litterCapStatus`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only) and `licenseConfig`. The `shared/` copy is
+  (`dogCapStatus`, `litterCapStatus`), `navItems`, `cloudUrl`, `kennelportUrl` (§35; Pro only),
+  `tourUrl` (where "Take the tour" goes once a device has its own program: the Demo; null
+  in the Demo; §11) and `licenseConfig`. The `shared/` copy is
   the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
 - **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
   Lite supplies its own; Pro and Demo use the shared default.
@@ -42,7 +44,7 @@ The shared core never checks which edition it is: it reads the two injection poi
 | Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
 | Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
 | Dog statuses | puppy / active / retired breeding / deceased (`fullDogStatuses: false`) | All | All |
-| Writes | Normal | Normal | Blocked (`demoMode`) |
+| Writes | Normal; blocked while the tour's sample data is loaded (§0.2) | Same as Lite | Blocked (`demoMode`) |
 | License gate | No | Yes (`licenseGate`) | No |
 | Cloud backup | Yes | Yes | No (`cloudUrl: null`) |
 | Live sync | No (`liveSync: false`) | Yes | No |
@@ -88,20 +90,46 @@ Every other door goes through the same hooks:
 `tests/liteCap.test.js` runs these against the real `lite/editionConfig.js`
 (`tests/support/liteHarness.js` overlays it on a scratch copy of `shared/data`).
 
-### 0.2 Demo mode
-`data/demoMode.js`: every repo write (`repoBase` create/update/hardDelete, `fileRepo`,
-`restoreBackup`) calls `assertWritable()`, which throws a friendly `DemoModeError` when
-`editionFlags.demoMode` is on. The sample seed runs inside `withSeedAllowed()`. `app.js`
-seeds an empty database on load, skips first-run prompts, and shows a read-only banner.
-The writes outside the repos check `isDemo()` themselves: Companion's template Save and
-Furever's kennel-identity Save aren't offered (Furever's prefill shows without being kept),
-and Furever's Google Drive card isn't drawn, so nothing is connected or published. Kels's
-saving tasks run to their review; "Yes, build it" then says it's the demo and nothing is
-kept (`StepConversation.demoEnd`), and no draft is stored (§33).
+### 0.2 Read-only: the Demo, and the guided tour
+`data/demoMode.js` is the one read-only lever. Every write (`repoBase`
+create/update/hardDelete, `fileRepo`, every restore and merge in `importExport`,
+`recordMerge`, `assistantSync`, connecting a website (`kennelportLink.connectWebsite`) or
+Stripe (`stripeKeyStore.setStripeKey`)) calls `assertWritable()`, which throws:
+- `DemoModeError` ("This is a demo — changes aren't saved.") in the Demo edition
+  (`editionFlags.demoMode`), always;
+- `TourModeError` (a `DemoModeError`, so every `instanceof DemoModeError` reads it the same
+  way: "This is the tour's sample kennel. Changes aren't saved. Finish or skip the tour to
+  start your own.") in Lite and Pro while the tour's sample data is loaded
+  (`settings.hasSampleData()`, `isTourMode()`). Nothing of hers can come to point at a sample
+  record, so the seed always clears (§11).
+
+`isReadOnly()` is either; `readOnlyWhy()` says which ("This is a demo" / "This is the tour's
+sample kennel"). The seeds, clearing the tour's seed, and the kennel setup an old seed's
+cleanup waits for run inside `withSeedAllowed()`. In the Demo, `app.js` seeds an empty
+database on load, skips first-run prompts, and shows a read-only banner.
+The writes and outside actions not behind the guard check `isReadOnly()` themselves:
+Companion's template Save and Furever's kennel-identity Save aren't offered (Furever's
+prefill shows without being kept), Furever's Google Drive card isn't drawn, the Accounts
+page's Stripe connect and Kels button are hidden, e-sign isn't offered
+(`cloudEsign.esignOffered`), the picks preview can't open or save, and the shell doesn't
+start the waitlist tidy or the puppy portal feed. Kels's saving tasks run to their review in
+the Demo; "Yes, build it" then says nothing is kept (`StepConversation.demoEnd`), and no
+draft is stored (§33). During the tour Kels's tasks don't start at all (below, §11). The
+one-time migrations (`migrateEventCosts`, `migrateStudTrips`) wait until the seed is gone.
 
 ### 0.3 Pro license gate
 - **Boot gate** (`data/license.js` + `assets/licenseGate.js`): in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
-  `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
+  `app.js`'s `boot()` draws the nav, then calls `ensureLicensed()` before the rest of the
+  shell starts. **When the store is asked:** the stored verdict (`cachedLicense()`, the
+  record's `offlineVerdict`) decides at once, and the store is asked in the background at
+  most once per browsing session and again once 6 hours have passed (`licenseCheckDue`:
+  `kennelOS.licenseCheckedAt` in localStorage and a `kennelOS.licenseAsked` mark in
+  sessionStorage, both written by `askLicenseStore` whatever the answer; outside `KEYS`).
+  A background answer that walls paints the wall over the page then; one that drops to grace
+  adds the banner. A stored verdict that walls (and has a record) always asks first, so a
+  renewal made elsewhere unlocks on the next load. Every request has a 5 s timeout
+  (`LICENSE_TIMEOUT_MS`, `AbortSignal.timeout`), which reads as offline. So a refunded or
+  released key walls at the next session or within 6 hours, not on the next page. — a Lemon Squeezy
   key is browser-validated (activate/validate, no backend) with an interval-scaled
   offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
   perpetual — it never expires, but it still has to **re-validate online**: 90 days of
@@ -506,6 +534,14 @@ field of every record, then checks the duplicate's registry array is clear befor
 an FK the registry lacks is still moved, but one the registry names and the sweep missed stops
 the delete.
 
+**Removing a whole set at once** (`data/recordDetach.js`: the tour's sample data, Kels's
+leftover tour records; §11, §33) reads the same registries, by table
+(`REFERENCES_BY_TABLE`), with one query per entry for every id in the set
+(`findReferencingRows`; `refIdsOf` reads a field, dotted path, `list[].key` or list). Every
+record outside the set that points in is detached (`detachRow`): a kennel link moves to the
+kennel given, any other link is cleared (null, or out of its list). A new FK in the registry
+is covered without touching it.
+
 ---
 
 ## 8. The Event model
@@ -864,6 +900,20 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
+- `dataChangedAt`: when this device's records last changed, by a local edit
+  (`markDataChanged`) or a live-sync apply (`noteDataChanged`, which doesn't mark the backup
+  dirty). Never cleared by a push, so a kept answer can tell whether anything moved since
+  (the website strip, §35).
+- What the shell draws before its first read, each corrected (and rewritten) after it:
+  `navKennels` (the nav's kennel name and the switcher's own kennels; kennel setup writes it
+  on save, a cleared seed drops it), `websiteStrip` (the website strip's last compare, §35)
+  and `cloudCodeUnsaved` (Today's "Save your recovery code", §30). Device-only.
+- `tourCleanupNotice`: what clearing an old tour seed changed in her records, shown once.
+
+**In sessionStorage** (this browsing session only): `kennelOS.tourSeededAt` (the tour's seed
+belongs to this session, below), `kennelOS.tourClearTried` (the one reload after an
+automatic clear), the license's `kennelOS.licenseAsked` (§0.3) and the cloud service notices
+already fetched (`kennelOS.cloudNotices`, `getCachedCloudNotices`, §30).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
 `deviceId` (§0.3); cloud `cloudSession`, `cloudBackupState`, `cloudDeviceId` (Reset App
@@ -875,13 +925,43 @@ origin, shown by a TEST SERVER strip). `nudgeState.js` keeps dismissals under on
 
 ### Sample data (`data/sampleData.js`)
 The "Thornfield Kennels" packet, seeded **through the repos** (same validation as real
-data), with created ids tracked in one manifest setting (no `is_sample` flag), so clearing
-is a lookup. It's broad on purpose: every hub has a live example for the tour, including a
-second own kennel (Briar Hollow) for the kennel switcher, and, in Pro/Demo only, a show
-record and a sample waitlist. When the user's own records point at sample ones, `clearSampleData()` reports them
-(`contaminated`) and deletes nothing; `{ archiveConflicting: true }` archives those sample
-records instead of deleting them, so the user's links keep resolving, and clears the rest. **Editing the seed changes a
-shipped file, so it needs the usual cache bump.**
+data, inside `withSeedAllowed`), with created ids tracked in one manifest setting (no
+`is_sample` flag), so clearing is a lookup. `settings.hasSampleData()` (one localStorage
+read) says whether it's loaded. It's broad on purpose: every hub has a live example for the
+tour, including a second own kennel (Briar Hollow) for the kennel switcher, and, in
+Pro/Demo only, a show record and a sample waitlist. **Editing the seed changes a shipped
+file, so it needs the usual cache bump.**
+
+**It lives only while the tour does.** The app is read-only while it's loaded (§0.2). The
+tour's seed belongs to the browsing session that seeded it (`markTourSeededThisSession`,
+the manifest's `seededAt` in sessionStorage). On every page load, before the rest of the
+shell starts, `app.js` calls `sampleDataUI.autoClearTourSeed()`: unless the tour is
+`active` and this session seeded it (`settings.tourSeedExpired()`), the seed is cleared and
+the page reloads once (a session mark stops a loop; a clear that didn't take shows a strip,
+"Couldn't remove the tour's sample kennel", with Try again, and the next load tries again).
+So a tour left in a closed tab, a new tab, or a relaunched app doesn't resume: the seed is
+gone and kennel setup asks for her kennel. Never in the Demo or on support's helper device.
+
+**`clearSampleData({ kennelTarget, dropKennelLinks })`** deletes every record in the
+manifest through `data/recordDetach.js` (`removeDetaching`). A seed from before the tour was
+read-only may have her own records pointing at it; the registries (§10,
+`referenceRegistry.REFERENCES_BY_TABLE`, `findReferencingRows`) find them, and:
+- a link to a sample **kennel** moves to her own kennel (`myKennelId`, else her oldest own
+  kennel outside the seed). With none yet it changes nothing and returns
+  `reason: 'needs-kennel'`: `sampleDataUI` opens the required kennel setup with a line
+  saying why (`duringTour`, so its save gets through the guard), then clears with the new
+  kennel's id;
+- any other link is cleared: a single id becomes null, an id is taken out of a list
+  (`detachRow`), and an event or expense about a sample record keeps its own details but is
+  about nothing any more. Nothing of hers is deleted.
+
+It returns `detached`, one line per change, which `showTourCleanupNotice` shows once on the
+next page (`tourCleanupNotice`). `dropKennelLinks` clears kennel links too (a restore, which
+brings her kennel). The clear also resets the companion settings the seed wrote, Kels's
+drafts and the nav's stored kennels. Only edits to her records mark the backup dirty.
+
+**A restore, an import, a sync join or a vault merge during the tour clears the seed first**
+(`importExport.leaveTourFirst`), then goes ahead.
 
 ### Seed import (`data/seedImport.js`)
 An optional breed → test vocabulary seed (`resources/common_tests_by_breed_seed.csv` or a
@@ -960,7 +1040,8 @@ Kennels. It shows only where `kennel.html` ships (not Lite).
 On a fresh install, one Welcome card offers:
 - **Start my kennel** → no sample data, then kennel setup (`required`). With a cloud server,
   its optional email field turns on cloud backup after the kennel is saved.
-- **Take the tour** → seed Thornfield and start the tour. The only path that seeds.
+- **Take the tour** → seed Thornfield (for this browsing session only, above) and start the
+  tour. The only path that seeds.
 - **I already use KennelOS** (cloud editions only) → sign in and restore the latest
   snapshot (`cloudBackup.restoreOnNewDevice`), which skips kennel setup.
 
@@ -977,7 +1058,7 @@ the backup scheduler, Today's backup nudges, the Import/Export Cloud backup card
 described in §30; none of it loads when `cloudUrl` is null.
 
 ### Guided tour
-A spotlight tour of the seeded packet. It reads records and never writes app data; its
+A spotlight tour of the seeded packet, read-only (§0.2). Its
 progress lives in settings (`wizardStatus`, `wizardStepIndex`, and `wizardStepId`, read first,
 so a release that adds or removes a stop doesn't move her place).
 - `data/wizardState.js` (state machine, `isTourAvailable()` = sample data present),
@@ -990,10 +1071,20 @@ so a release that adds or removes a stop doesn't move her place).
 - Step kinds: `tour-intro` / `hub-intro` (centered card), `pro-promo` (Lite, centered), and
   highlight steps (spotlight with a card pinned top or bottom). Detail-page steps use an
   `anchor` slug resolved through the seed manifest's `named` map.
-- **Finish** and **Skip tour** both go through `endTour()`: clear the sample data (with
-  `archiveConflicting`), then the required kennel setup, so nobody files real
-  dogs into a sample kennel.
-- Restartable from Import / Export's "Guided tour" section while sample data is present.
+- **Finish** and **Skip tour** both go through `endTour()`: an acknowledgement, then
+  `sampleDataUI.clearTourSeedAndReload()`; the page that loads next has no seed and no own
+  kennel, so the required kennel setup asks for hers. (The Demo never runs the tour: its
+  boot returns before the tour's hooks.)
+- While the seed is loaded, a strip under the nav says "You're in the tour's sample kennel.
+  Nothing here is saved." with **Leave the tour** (`sampleDataUI.leaveTour`: confirm, the
+  tour dismissed, the seed cleared). Settings' Guided tour section has **Restart the guided
+  tour** and **Leave the tour**.
+- **Kels's tasks don't start** during the tour (`pages/kels.js startTask`, `isTourMode`):
+  she says the sample kennel saves nothing and to finish or leave the tour first.
+- **Retaking it** once the device has a program of its own never seeds again beside it
+  (Load Performance plan D3): the More menu's **Take the tour ↗** and Settings' Guided tour
+  section open `editionConfig.tourUrl` (the Demo) in a new tab; Lite says the Demo shows Pro.
+  `tourUrl` is null in the Demo, and the final build (`build/finalRelease.mjs`) nulls it.
 
 ---
 
@@ -1065,6 +1156,8 @@ their own `confirmDialog` (`cloud/public/family/common.js`).
   reloads the page.
 - **cloudBackupUI.js** / **cloudVaultUI.js** — every cloud screen (§30). Imported only
   dynamically and only when `isCloudAvailable()`; the vault UI only by the backup UI.
+- **todayCloudCard.js** — Today's cloud backup card, decided from settings so it's in the
+  first paint; loads `cloudBackupUI.js` when a button is pressed (§30).
 - **paymentScheduleUI.js** — a sale's Payments card, the schedule editor, Record a payment
   and the new-fees question, on the Sale page and the waitlist family page; the Kennel
   page's saved schedules reuse its steps editor, and the invoice generator its Record a
@@ -3306,7 +3399,12 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   its file; nothing is paired). The
   **Settings** page's Account card has sign-in, Change email…, Pro on this account, Your
   devices, sign out, delete cloud data. Today shows turn-on, paused and "save your recovery
-  code" nudges (none while sample data is loaded). The 409 and shrink dialogs need typed
+  code" nudges (none while sample data is loaded) from `assets/todayCloudCard.js`, which
+  decides from settings alone (the backup state, the session, the dismissal ledger, and the
+  last answer to "is the recovery code unsaved", `cloudCodeUnsaved`, looked up again after
+  first paint), so the card is in Today's first paint; `cloudBackupUI.js` loads only when a
+  button on it is pressed. The cloud service notices this session already fetched are drawn
+  by `app.js` at boot; `bootCloud` skips any already on the page. The 409 and shrink dialogs need typed
   confirmation; erase, sign out others and delete need a fresh sign-in (`withFreshSignIn`).
 - **Scheduler:** `cloudBackupUI.bootCloud()` starts it after first run; it pushes when
   `cloudDirtySince` is five minutes old.
@@ -5036,6 +5134,16 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   **Yes, merge them** opens the waitlist's merge dialog over the chat; **Not the same family**
   is remembered under `tidy:dupapplication:<pair>`, which hides the pair on the waitlist,
   Today and the scan too (and their keys hide it here).
+- **Leftover tour records** (every edition; Load Performance plan D5;
+  `tourLeftoverFindings`): archived records an old guided tour left behind, from before it
+  cleaned up after itself, found by the seed's fixed names (`TOUR_KENNEL_NAMES`,
+  `TOUR_DOG_NAMES`, `TOUR_DOG_REGISTERED_NAMES`, `TOUR_CONTACT_NAMES`), **archived ones
+  only**: a sample kennel name; a sample call name tied to the seed (its registered name, or
+  a kennel that is a leftover or gone); a sample contact name with the seed's `555-01xx`
+  phone or none. Archived litters and breedings whose parents are both leftover dogs go with
+  them. One finding lists them all, ticked; she unticks what's hers and **Remove them**
+  (`recordDetach.removeDetaching`: her records that point at them keep going, kennel links
+  moving to her kennel, the others cleared; marked for the cloud). Never during a tour.
 
 **Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`, the
 `mergeDuplicate` of §10): she picks the
@@ -5166,10 +5274,20 @@ publish (or doesn't have it) leaves the send in the draft and the result says so
   sent (`pendingWebsiteChanges`): the first three changes, **Send and publish** (or **Send to
   draft**), **See changes** (all of them, per kennel) and **Later**, which hides it until the
   waiting changes differ (`settings.getWebsiteLaterFor`, a signature). Today shows the same as
-  a card (`#today-website`). It rechecks 1.5 s after each `CLOUD_DATA_CHANGED_EVENT`, so it
-  covers everything the bundle carries: dogs, litters and puppies, pairings, heats, extras and
-  prices, recommended products (Accounts), steps, How to pay, waitlist details. The portal
-  feed isn't counted (it sends itself); the expanded list says so.
+  a card (`#today-website`). It covers everything the bundle carries: dogs, litters and
+  puppies, pairings, heats, extras and prices, recommended products (Accounts), steps, How to
+  pay, waitlist details. The portal feed isn't counted (it sends itself); the expanded list
+  says so.
+  **When it compares** (the compare reads seven tables and rebuilds the bundle): its answer is
+  kept (`settings.websiteStrip`: the kennels' ids and names, the lines, the signature and the
+  strip's closed HTML, `rememberCompare`), and the next page draws it in its first paint:
+  `app.js` under the nav (class `website-banner-strip`), `today.js` as the card; the module
+  then adopts that box. A page compares again only when the kept answer may be stale
+  (`compareIsFresh`): records changed since (`settings.dataChangedAt`), a new day (the bundle
+  counts from today), or nothing kept (`kennelportLinkStore` drops it on a link, a send, a
+  site answer or an unlink). Then it compares in idle time after first paint. While a page is
+  open it rechecks 1.5 s after each `CLOUD_DATA_CHANGED_EVENT`, as before. Send now loads the
+  kennel record by its kept id.
 
 - **The four marks** (plain booleans, cloud, off by default): `Dog.show_on_website`,
   `Dog.heats_online`, `Pairing.show_on_website`, `Litter.show_on_website`. A litter with no

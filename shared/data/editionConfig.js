@@ -27,6 +27,11 @@ export const upgradeUrl = null;
 // editionLinks.js). Null here so hasEditionLinks() is false and nothing renders.
 export const demoUrl = null;
 
+// Where "Take the tour" goes once this device has a program of its own (Load
+// Performance plan D3): the seeded, read-only Demo, in a new tab. The tour is
+// never seeded next to real records. Null in the Demo, which retakes its own.
+export const tourUrl = 'https://demo.kennelos.app/';
+
 // Cloud backup API (Cloud Phase 1 plan §7; data/cloud/cloudConfig.js). Null here:
 // the shared core stays inert, so every cloud module and cloud UI is off.
 // `devCloudUrl` is the staging Worker. It's used when the app is served from
