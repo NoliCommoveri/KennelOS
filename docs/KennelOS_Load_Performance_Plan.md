@@ -3,11 +3,12 @@
 > Status: **plan, nothing built.** Pages are slow to settle: on load the nav, the website
 > strip and Today's top cards appear late and push buttons down mid-tap. This plan fixes
 > that first (Phase 1), then makes the tour's sample data unable to outlive the tour
-> (Phase 2, the owner's decision: a read-only tour with auto-clear). After that it trims
-> what every page loads (Phase 3), reads each table once (Phase 4), throttles the checks
-> every page open repeats (Phase 5), and builds and caches smarter (Phase 6). Phase 0 adds
-> the measurements and guard tests first. Open decisions are in §2. No server change and no
-> migration anywhere in the plan.
+> (Phase 2: a read-only tour with auto-clear). After that it trims what every page loads
+> (Phase 3), reads each table once (Phase 4), throttles the checks every page open repeats
+> (Phase 5), and builds and caches smarter (Phase 6). Phase 0 adds the measurements and
+> guard tests first. No server change and no migration anywhere in the plan.
+>
+> **All decisions are made** (§2; the owner, 2026-11-18). Next: Phase 0.
 
 ## 1. What's slow today (measured on `main` at `69105af`)
 
@@ -121,9 +122,12 @@ cache-first, which is right.
 
 ## 2. Decisions
 
-| # | Question | Recommendation |
+All decided by the owner on 2026-11-18: D1 as asked, and D2–D11 by taking each
+recommendation below.
+
+| # | Question | Decided |
 |---|---|---|
-| **D1** | How the tour's sample data is kept from outliving it | **Decided by the owner:** the tour is read-only, and the seed is cleared automatically. |
+| D1 | How the tour's sample data is kept from outliving it | The tour is read-only, and the seed is cleared automatically. |
 | D2 | How long a seed may live | Only while the tour is active, and only in the browsing session it was seeded in. Any other page load clears it and goes to kennel setup. A tour left in a closed tab doesn't resume; it is retaken (D3). |
 | D3 | Retaking the tour once there's a real program | "Take the tour" opens the Demo edition in a new tab (from Lite too, with a line saying Demo shows Pro). The alternative is no retake once set up. Re-seeding next to real data is not an option. |
 | D4 | Old seeds that real records already point at (manifest still there) | Delete every sample record. A real record's link to a sample **kennel** moves to the breeder's own kennel. If there isn't one yet, the cleanup waits until kennel setup saves. Links to sample dogs, contacts, pairings, litters or sales are cleared. A one-time notice lists each link that was cleared. |
@@ -132,7 +136,7 @@ cache-first, which is right.
 | D7 | The website strip's timing | Keep it under the nav (the owner's 2026-11-18 decision), but draw it in the first paint from the last result. Rerun the compare only when data changed since the last compare, after first paint. |
 | D8 | "On open" checks repeated by every page | The waitlist inbox and integrations checks run at most once a minute across pages. The 5-minute polls and the immediate run after a data change stay as they are. Assist state is cached for the session, and the 5 s loop runs only while help is requested or active. |
 | D9 | The 8.5 MB of OCR and PDF code in the install precache | Cache it in the background after the first page has loaded, instead of at install. A page that needs it before then fetches it as usual. Offline OCR and PDF work arrive seconds to minutes later than today. |
-| D10 | Minified builds | Decided in the Security Hardening plan (S3, `docs/KennelOS_Security_Hardening_Plan.md` §4). This plan only asks that it lands, because it roughly halves download and parse time. |
+| D10 | Minified builds | Phase 6 lands the minify step of the Security Hardening plan (S3, `docs/KennelOS_Security_Hardening_Plan.md` §4), because it roughly halves download and parse time. Its tool and source-map choices are S3's, made there. |
 | D11 | How to stop the repeated table reads | Pass the data in: Today hands what it loaded to `computeNudges(snapshot)`, and the nudge rules share it. No cache inside the repos, so they stay one thin repo per entity. |
 
 ## 3. Phases
@@ -325,15 +329,15 @@ owner's go-ahead for one `CACHE_NAME` bump. A new or renamed app file goes into
 
 ## 4. Order at a glance
 
-| Phase | What the breeder notices | Size | Waits on |
+| Phase | What the breeder notices | Size | Decisions it carries out |
 |---|---|---|---|
 | 0 | Nothing | Small | — |
 | 1 | Buttons stop moving; the Pro nav is there at once | Medium | D6, D7 |
-| 2 | The tour can't leave Thornfield behind; old leftovers are cleaned up | Medium | D2–D5 |
+| 2 | The tour can't leave Thornfield behind; old leftovers are cleaned up | Medium | D1–D5 |
 | 3 | Every page starts faster, Today most | Medium | — |
-| 4 | Today and data changes are quicker on big programs | Small | — |
-| 5 | Fewer requests per tap; less battery and data | Small | D8 |
-| 6 | Faster first load after an update; less download | Small–medium | D9, D10 (S3) |
+| 4 | Today and data changes are quicker on big programs | Small | D11 |
+| 5 | Fewer requests per tap; less battery and data | Small | D6, D8 |
+| 6 | Faster first load after an update; less download | Small–medium | D9, D10 (S3's choices pending there) |
 
 Phases 1 and 2 are independent and can go in either order. Phase 3's "never statically"
 list for the sample and tour code needs Phase 2's `hasSampleData()` move.

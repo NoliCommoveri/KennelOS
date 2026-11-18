@@ -5942,7 +5942,7 @@ No owner decisions needed; each fix follows the review's suggestion.
   validate on every page; the website strip at 1.5 s; Today's late cards above Reminders;
   `app.js` at 56 modules / 893 KB and Today at 98 / 1,684 KB; repeated full-table reads in
   `computeNudges`; per-page network checks; the 15 MB precache; and how the seed outlives
-  the tour. Seven phases (0–6), each with files, tests and docs. Ten open decisions
-  (D2–D11), each with a recommendation. No server change, no migration.
+  the tour. Seven phases (0–6), each with files, tests and docs. Decisions D2–D11: the owner
+  took every recommendation, so all are made; next is Phase 0. No server change, no migration.
 - README doc map and Status. No code changed.
 - **Service worker:** no app file added or changed.
