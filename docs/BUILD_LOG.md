@@ -5769,3 +5769,6 @@ No owner decisions needed; each fix follows the review's suggestion.
   `cloud/tests/familyPages.test.js`. Guide §29 and §35.
 - **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask). Cloud: no
   migration; `cloud/public/family/common.js` and `status.js` change.
+- Then, the owner: a parent's name is its link, not "(Their page)" or "(Photos)" after it
+  (her photos link is the dog's page anyway); a planned heat's dam name too, in place of
+  "Photos of Juniper" (`common.js` `nameLink`, `litterHtml` `nameHtml`).

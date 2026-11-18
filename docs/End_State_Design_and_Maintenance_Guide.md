@@ -2865,8 +2865,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   (`photoLink`, http/https, 500 characters); no key when there's none. The Worker passes
   each through `familyPages.photosOf` (parents, litter cards, Coming up, a turn's litter and
   pups). The pages show links, never images (their CSP allows only their own images):
-  "Dam: Juniper (Photos)" or, a page, "(Their page)"; "See the litter's photos" or, a page,
-  "View litter on our website"; a heat's "Photos of Juniper" or "See Juniper on our website"; and under
+  a parent's name (with its titles) is itself the link ("Dam: **Juniper CH**"), a planned
+  heat's dam name too; "See the litter's photos" or, a page, "View litter on our website"; and under
   a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). A pup whose `url` is a page on
   her KennelPort website (`websiteAddress.isWebsiteAddress`: any kennelport.com address, or
   her kennel's `website` origin) links there whatever `photos_online` says (the page is
