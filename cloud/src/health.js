@@ -7,7 +7,7 @@ import { vapidConfig } from './notify.js';
 export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices', 'device_erasures',
   'vaults', 'vault_wraps', 'vault_pairings', 'vault_handoffs', 'email_changes', 'pro_purchases', 'license_links', 'license_link_codes',
   'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages',
-  'wl_family_codes', 'wl_family_sessions', 'wl_senders', 'wl_leases', 'sync_records', 'sync_devices', 'int_connections', 'int_events',
+  'wl_family_codes', 'wl_family_sessions', 'wl_portal_handoffs', 'wl_senders', 'wl_leases', 'sync_records', 'sync_devices', 'int_connections', 'int_events',
   'notify_settings', 'push_subscriptions', 'notify_items', 'esign_sends', 'esign_library_copies'];
 
 export async function healthCheck(env) {

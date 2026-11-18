@@ -8,7 +8,7 @@ import { test, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  buildPortalFeed, parseClock, zonedIso, zonedParts, clockText, portalEntryView, herVet, feedCopy,
+  buildPortalFeed, earlyPortalState, parseClock, zonedIso, zonedParts, clockText, portalEntryView, herVet, feedCopy,
   FEED_KEYS, FAMILY_KEYS, PLACEMENT_KEYS, HEALTH_KEYS, PORTAL_KEEP_DAYS
 } from '../shared/data/portalFeed.js';
 import { buildProjection } from '../shared/data/waitlistProjection.js';
@@ -65,6 +65,42 @@ test('a family from their signed contract on, field by field, with nothing priva
   const text = JSON.stringify(feed);
   for (const secret of ['3500', '900', '555-0100', '1 Elm St', 'private terms', 'private findings']) assert.equal(text.includes(secret), false, secret);
   assert.deepEqual(known.map((k) => `${k.type}:${k.id}`).sort(), ['family:reed', 'health:v1', 'health:vv', 'health:w1', 'placement:s1']);
+});
+
+test('a portal she started early goes before the contract, with no signed date, and gets the date once it is signed', () => {
+  const b = base();
+  b.sales[1] = { ...b.sales[1], portal_early_on: '2026-11-25' };
+  const { feed, known } = buildPortalFeed(b);
+  const lane = feed.families.find((f) => f.id === 'lane');
+  assert.ok(lane, 'Lane goes, though the contract is only sent');
+  assert.equal(lane.placements[0].contract_signed_on, null);
+  assert.equal(lane.placements[0].puppy_name, 'Pip');
+  // Signed later: the date fills in.
+  b.contracts[1] = signed('c2', 's2', '2026-11-30');
+  const after = buildPortalFeed({ ...b, known }).feed.families.find((f) => f.id === 'lane');
+  assert.equal(after.placements[0].contract_signed_on, '2026-11-30');
+});
+
+test('an early portal: a sale that ended before it was sent never goes; one that ended after says why', () => {
+  const b = base();
+  b.sales[1] = { ...b.sales[1], portal_early_on: '2026-11-25', status: 'cancelled' };
+  assert.equal(buildPortalFeed(b).feed.families.find((f) => f.id === 'lane'), undefined);
+  const open = base();
+  open.sales[1] = { ...open.sales[1], portal_early_on: '2026-11-25' };
+  const { known } = buildPortalFeed(open);
+  const ended = buildPortalFeed({ ...b, known }).feed.families.find((f) => f.id === 'lane');
+  assert.equal(ended.placements[0].voided.reason, 'backed_out');
+});
+
+test('when she can start a portal early', () => {
+  const on = { ...K, kennelport_portal: { handoff_url: 'https://x.kennelport.com/f/h', handoff_key: 'a'.repeat(64) } };
+  const s = sale('s9', 'pip', 'lane');
+  assert.equal(earlyPortalState({ kennel: K, sale: s, contracts: [] }), null, 'portal off');
+  assert.equal(earlyPortalState({ kennel: on, sale: s, contracts: [] }), 'offer');
+  assert.equal(earlyPortalState({ kennel: on, sale: { ...s, portal_early_on: '2026-11-25' }, contracts: [] }), 'started');
+  assert.equal(earlyPortalState({ kennel: on, sale: s, contracts: [signed('c9', 's9')] }), null, 'signed: it goes anyway');
+  assert.equal(earlyPortalState({ kennel: on, sale: { ...s, status: 'delivered' }, contracts: [] }), null, 'closed');
+  assert.equal(earlyPortalState({ kennel: on, sale: { ...s, buyer_contact_id: null }, contracts: [] }), null, 'no buyer');
 });
 
 test('no pickup booked: go-home is the ready date and there is no time', () => {

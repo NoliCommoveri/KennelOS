@@ -5840,3 +5840,94 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Docs: End-State guide §35.1.
 - Cloud: no migration; the Worker deploy carries it. **Service worker:** no file added;
   `CACHE_NAME` → `kennelos-shell-v155` (the owner said bump).
+
+## 2026-11-18: from her puppy portal to the status page, signed in
+
+- KennelPort's portal now opens a family's status page signed in, before pickup, so
+  payments, extras and pickup need no code: `/s/<token>#from=<t>`, a one-time 10-minute
+  link in KennelPort's handoff format, signed with the shared portal key over
+  `to-status:` and the body (so it never works the other way).
+- `cloud/public/family/status.js` reads `#from=`, takes it off the address and posts
+  `/f/from-portal` (`familyActions.handleFromPortal`): this page's family only, unexpired,
+  once, her portal on; it starts the same 90-day family session as a typed code.
+- **Cloud migration 0029** (`wl_portal_handoffs`: the hashes of used links; retention
+  drops them after a day; deleted with the account). Additive.
+- Tests: `cloud/tests/familyPortal.test.js` (two new). Docs: End-State guide §35.1.
+- Service worker: no app file changed (`status.js` is the cloud Worker's page), no bump.
+## 2026-11-18: Plan for the review's remaining findings
+
+- New `docs/KennelOS_Review_Remainder_Plan.md`: 32 open findings (K12-4, K14-3, K1-4 the S2s)
+  in nine batches A–I, each with its files, fixes, failing tests to write first and docs.
+  Seven owner decisions (R1–R7) with recommendations: `status_date` and `furever_pack` sync
+  tier, the saved-logins wording, a co-own's life stage on Delivered, refund fields on a Sale,
+  an update notice, the per-pup pack layout, a re-runnable chunked recovery restore.
+- Rechecked against `main` at `6aacb16`: K6-13, K7-13, K7-10 and K6b-9 are already built;
+  K13-13 is partly covered by Kels's account health check.
+- README doc map and Status, `FIX_PRIORITIES.md` pointer. No code changed.
+- **Service worker:** no app file added or changed.
+
+## 2026-11-18: Review remainder batch A: alerts that land where they point, the Accounts page
+
+- **K12-4:** a family's alert opens `waitlist-entry.html?id=…&from=alert` (`notify.js`
+  `pushText`). Opened that way, the page runs `syncWaitlistOnline({ asked: true })` before it
+  draws (at most 5 s, "Checking for anything new…"). On a device that doesn't take family
+  events in, it says where they land (`cloudNotify.takeInHere` / `takeInHereText`: the
+  backing device by name, or "keep in step"), and an entry not here yet reads "This family
+  isn't on this device yet" instead of "not found". The open page redraws on
+  `CLOUD_DATA_CHANGED_EVENT` (600 ms debounce), waiting while she edits, a dialog is open or
+  a field has focus. The Notifications card shows the same where-note under "Alerts are on".
+- **K12-8:** the `kennelos-notify` note records the owner's `programId`; `refreshAlertsHere`
+  re-subscribes only for her (an old note without one is adopted by the owner signed in;
+  never by a helper). `forgetAlertsHere` (server row, browser subscription, note) runs on
+  `cloudAuth.signOut` and every erase (`cloudDevices.doErase`, so support's hand-back too).
+  `OWNER_ONLY` gains `PUT /notify`, `POST /notify/push/subscribe`, `POST /notify/push/test`
+  and the three digest writes; a helper may still read them and turn its own alerts off. The
+  card tells a helper the alerts are hers to set.
+- **K12-7 (card half):** `alertsLiveHere` checks the permission and the browser's
+  subscription before the card says "on"; blocked or dropped shows a warning with Turn off
+  (and Turn on again). **K12-13:** Turn on alerts asks the permission straight from the tap.
+- **K12-9 (R2, the recommended wording):** the saved-logins hint says they ride backup files
+  and Dropbox pushes, and reach KennelOS's cloud only encrypted inside the vault.
+- **K12-11:** `.acct-grid` uses `minmax(min(320px, 100%), 1fr)`: no sideways scroll at 320 px.
+- **K12-12:** `referralShare.referralLinkInput`: a referral link typed without `https://`
+  gets it; one that can't be a web address is refused at save.
+- Left for batch A2: K12-5, K12-6, K12-7's `sw.js` half, K12-14 (plan).
+- Tests: `tests/cloudNotify.test.js` (new), `tests/referralShare.test.js`,
+  `cloud/tests/assist.test.js`, `cloud/tests/notify.test.js`. Checked in Chromium: the entry
+  page redraws on a data change; Accounts at 320 px has no overflow.
+- Docs: guide (§30 notifications and assisted setup, §32 Accounts), Notifications plan and
+  Assisted Setup plan (**Modified**), `cloud/README.md`, Remainder plan, `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-18: Website changes from anywhere, publish on send, puppy portals started early
+
+- **Owner's request:** an easier way to send website changes than Settings, a publish-now,
+  and puppy portals before the contract is signed. Decided with the owner: a strip on every
+  page plus a Today card; every send publishes (a setting can keep sends in the draft); early
+  portals are her choice per family, skipping only the signed contract.
+- **The website strip** (`assets/websiteBanner.js`, new, Pro-only: `proPages.js`,
+  `PRECACHE_URLS`): under the nav on every page but Today (a card there,
+  `#today-website`), whenever `pendingWebsiteChanges` has something: the first three
+  changes, Send and publish / Send to draft, See changes, Later (until the changes differ;
+  `settings.get/setWebsiteLaterFor`). Covers everything the bundle carries, extras and
+  recommended products included; portal updates send themselves and the list says so.
+- **Publish on send:** `kennelportApi.publishSite` (KennelPort's new `POST /v1/publish`)
+  after each bundle unless **Publish what I send straight away** is off on the Your website
+  card (`settings.get/setWebsitePublishOnSend`, device-only, default on). A refused or
+  missing publish leaves the send in the draft and says so. Kels no longer adds "It's in your
+  website's draft" after a send; the result line says which.
+- **Early puppy portal:** `Sale.portal_early_on` (new optional field, `syncRegistry` cloud,
+  `cloudFields.js` regenerated). `portalFeed.portalSales` carries an early sale while it's
+  open (or once sent), `contract_signed_on: null`; `earlyPortalState` drives **Start puppy
+  portal now** on the Sale page and the waitlist family's Interact tab
+  (`assets/portalEarlyUI.js`, new, shared, in `PRECACHE_URLS`).
+- **KennelPort, same day (its branch `ccr-1cb5defd-uvpej2`):** `POST /v1/publish`, and the
+  feed's `contract_signed_on` optional. **Merge KennelPort first:** until it's deployed, a
+  feed with an early family is refused whole by KennelPort, and publish falls back to the
+  draft.
+- Tests: `tests/websiteBanner.test.js` (new), `tests/siteExport.test.js`,
+  `tests/portalFeed.test.js`. Checked in Chromium at 390 px: the strip on a dog page after an
+  edit, Send and publish, the Today card; Start puppy portal now on a sale.
+- Docs: guide §35, §35.1 and the Sale row.
+- **Service worker:** two files added to `PRECACHE_URLS`; `CACHE_NAME` → `kennelos-shell-v156`
+  (owner's go-ahead), which also carries batch A and the merged `ccr-763e73db-r0a3qt` work.

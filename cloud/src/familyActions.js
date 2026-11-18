@@ -13,16 +13,16 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
-import { sameFamilyIds, portalOf, portalLink, localDay } from './familyPages.js';
+import { sameFamilyIds, portalOf, portalLink, localDay, FAMILY_SESSION_MS } from './familyPages.js';
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
-import { sha256Hex, hmacHex, randomHex } from './lib/crypto.js';
+import { sha256Hex, hmacHex, randomHex, timingSafeEqual } from './lib/crypto.js';
 import { STATUS_TOKEN } from './waitlist.js';
 import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
-export const ACTION_LIMITS = { perHourPerSession: 60, portalPerHourPerSession: 30, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
+export const ACTION_LIMITS = { perHourPerSession: 60, portalPerHourPerSession: 30, fromPortalPerHourPerPage: 30, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
 export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
   'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 
@@ -408,4 +408,47 @@ export async function handlePortal(env, request) {
   const link = portalLink(fam.projection);
   if (!link || !portalOf(fam.projection, fam.entry)) fail(409, 'no_portal');
   return json({ url: await portalHandoffUrl(link, fam.entry.portal.family_id) }, 200, { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
+}
+
+// POST /f/from-portal {status_token, t}: the other way, from her puppy portal back to
+// the family's status page, signed in (KennelPort's family-portal plan 3.4). Before
+// their puppy comes home the status page keeps payments, extras and pickup, so the
+// portal's "Open your status page" signs them in here with no code. The portal
+// makes `t` in the same format as the link above, signed with the same shared key
+// but over "to-status:" and the body (so neither direction's link works for the
+// other), for the family's KennelOS id. It must be for THIS page's family, unexpired,
+// and used once. It starts the same 90-day session a typed code gives (See Your
+// Details). Never logged.
+const unb64url = (s) => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+const HANDOFF_TOKEN = /^([A-Za-z0-9_-]{10,400})\.([0-9a-f]{64})$/;
+export async function handleFromPortal(env, request) {
+  const body = await readJson(request, 4 * 1024);
+  if (typeof body.status_token !== 'string' || !STATUS_TOKEN.test(body.status_token)) fail(400, 'bad_request');
+  const m = HANDOFF_TOKEN.exec(String(body.t ?? ''));
+  if (!m) fail(400, 'bad_link');
+  await limitBucket(env, `wl-from-portal:${await sha256Hex(body.status_token)}`, ACTION_LIMITS.fromPortalPerHourPerPage);
+  const t = await env.DB.prepare('SELECT program_id, public_id, entry_id FROM wl_tokens WHERE token = ?').bind(body.status_token).first();
+  if (!t) fail(404, 'not_found');
+  const row = await env.DB.prepare('SELECT body FROM wl_projection WHERE public_id = ?').bind(t.public_id).first();
+  if (!row) fail(404, 'not_found');
+  const projection = JSON.parse(row.body);
+  const entry = projection.entries?.[t.entry_id];
+  const link = portalLink(projection);
+  if (!link || !entry || !portalOf(projection, entry)) fail(403, 'bad_link');
+  if (!timingSafeEqual(m[2], await hmacHex(link.key, `to-status:${m[1]}`))) fail(403, 'bad_link');
+  let h;
+  try { h = JSON.parse(unb64url(m[1])); } catch { fail(403, 'bad_link'); }
+  const now = Date.now();
+  if (typeof h?.f !== 'string' || typeof h.n !== 'string' || typeof h.x !== 'number') fail(403, 'bad_link');
+  if (h.f !== entry.portal.family_id) fail(403, 'bad_link');
+  if (h.x < now || h.x > now + 11 * 60000) fail(403, 'link_used');
+  const at = new Date(now).toISOString();
+  const used = await env.DB.prepare('INSERT INTO wl_portal_handoffs (nonce_hash, program_id, public_id, used_at) VALUES (?, ?, ?, ?) ON CONFLICT (nonce_hash) DO NOTHING')
+    .bind(await sha256Hex(`${t.public_id}:${h.n}`), t.program_id, t.public_id, at).run();
+  if (used.meta.changes !== 1) fail(403, 'link_used');
+  const session = randomHex(32);
+  const expiresAt = new Date(now + FAMILY_SESSION_MS).toISOString();
+  await env.DB.prepare('INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(await sha256Hex(session), t.program_id, t.public_id, t.entry_id, at, expiresAt).run();
+  return json({ public_id: t.public_id, status_token: body.status_token, session, expires_at: expiresAt }, 200, { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
 }

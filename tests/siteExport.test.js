@@ -353,6 +353,27 @@ test('kennel settings the link fills: website, the feed when the list is online,
   assert.deepEqual(c, { waitlist_config: { online: true, embed_origins: ['https://mykennel.com', 'https://akbostons.kennelport.com'], website_feed: true } });
 });
 
+test('Update website publishes unless she keeps sends in the draft; a refused publish leaves the send done and says so', async () => {
+  const settings = await import('../shared/data/settings.js');
+  const k = await kennelRepo.create({ kennel_name: 'AK pub', is_own_kennel: true });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'Her phone');
+  settings.setWebsitePublishOnSend(false);
+  try {
+    calls = [];
+    const draft = await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-draft-1' });
+    assert.ok(!calls.some((c) => c.url.pathname === '/v1/publish'));
+    assert.equal(draft.published, null);
+  } finally { settings.setWebsitePublishOnSend(true); }
+  const realReply = reply;
+  reply = (method, path) => (path === '/v1/publish' ? { status: 404, body: { error: 'not_found' } } : realReply(method, path));
+  try {
+    const old = await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-old-kp-1' });
+    assert.equal(old.published.ok, false);
+    assert.match(old.published.text, /draft: press Publish in KennelPort Site Manager/);
+    assert.ok(old.summary, 'the send itself landed');
+  } finally { reply = realReply; }
+});
+
 test('Connect website: the token on this device only, the kennel filled in; Update website sends, fills photos links; Unlink there forgets it here', async () => {
   const k = await kennelRepo.create({ kennel_name: 'AK', is_own_kennel: true });
   const kennel = await kennelRepo.getById(k.id);
@@ -371,7 +392,10 @@ test('Connect website: the token on this device only, the kennel filled in; Upda
   reply = (method, path) => (path === '/v1/bundle' ? { status: 200, body: { summary: { text: 'ok' }, addresses: answerAddresses, site: SITE } } : realReply(method, path));
   calls = [];
   const out = await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-test-1' });
-  assert.deepEqual(calls.map((c) => `${c.opts.method} ${c.url.pathname}`), ['GET /v1/link', 'POST /v1/bundle']);
+  // Published straight away by default (the owner's choice, 2026-11-18).
+  assert.deepEqual(calls.map((c) => `${c.opts.method} ${c.url.pathname}`), ['GET /v1/link', 'POST /v1/bundle', 'POST /v1/publish']);
+  assert.equal(calls[2].opts.headers.authorization, `Bearer ${TOKEN}`);
+  assert.deepEqual(out.published, { ok: true });
   assert.equal(calls[1].opts.headers.authorization, `Bearer ${TOKEN}`);
   assert.deepEqual(calls[1].body.dogs.map((d) => d.call_name).sort(), ['Gem', 'Willow']);
   assert.equal(out.filled, 1);

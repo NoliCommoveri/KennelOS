@@ -351,7 +351,8 @@ export function pushText(items, { hideNames = false, withKennel = false } = {}) 
   return {
     title: lines.length === 1 ? 'KennelOS' : `KennelOS: ${lines.length} new${allWaitlist ? ' on your waitlist' : ''}`,
     body: lines.slice(-4).join('\n'),
-    path: one ? `pages/${page}.html?id=${encodeURIComponent(items[0].entry_id)}` : 'pages/today.html',
+    // `from=alert`: the entry page takes in before it draws (review K12-4).
+    path: one ? `pages/${page}.html?id=${encodeURIComponent(items[0].entry_id)}${page === 'waitlist-entry' ? '&from=alert' : ''}` : 'pages/today.html',
     tag, count: lines.length,
   };
 }

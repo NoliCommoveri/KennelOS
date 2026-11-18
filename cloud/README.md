@@ -167,7 +167,7 @@ src/assist.js          assisted setup and help: the editions' /assist/* routes (
                        /manager/ (ops-token sign-in kept server-side in manager_sessions, 0026: Log out
                        ends it, /ops can end them all; installable, web push; files in assistApp.js and
                        assistIcons.js; its Templates tab is the template library, esignLibrary.js). Helper sessions are sessions.role = 'helper'; api.js refuses
-                       them the owner-only routes (OWNER_ONLY; taking over backing up is left open on
+                       them the owner-only routes (OWNER_ONLY, her alert and digest writes included; taking over backing up is left open on
                        purpose, and the server marks a helper backing device). Optional var PRO_APP_URL (where the
                        links open; default https://pro.kennelos.app). Migration 0020
 src/ops.js             /ops (a CSP that allows no script): sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,

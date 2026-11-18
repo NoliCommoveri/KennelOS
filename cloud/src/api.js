@@ -48,6 +48,10 @@ const OWNER_ONLY = new Set([
   'POST /auth/signout-others', 'DELETE /account', 'POST /account/email', 'DELETE /account/email',
   'POST /account/license-links/start', 'POST /account/license-links/verify', 'DELETE /account/license-links',
   'DELETE /vault', 'POST /vault/wraps', 'PUT /vault/wraps/recovery', 'POST /vault/handoffs', 'DELETE /sync',
+  // Her alerts and digest (review K12-8): a helper may read them and turn its own
+  // device's alerts off, never subscribe to her families' alerts or change them.
+  'PUT /notify', 'POST /notify/push/subscribe', 'POST /notify/push/test',
+  'POST /notify/digest', 'POST /notify/digest/verify', 'DELETE /notify/digest',
 ]);
 function ownerOnly(p, m) {
   if (OWNER_ONLY.has(`${m} ${p}`)) return true;

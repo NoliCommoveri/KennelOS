@@ -152,3 +152,14 @@ test('a week after a pup goes home, Today suggests a note; not before, and not f
   await saleRepo.update(s.id, { status: 'paid_in_full', balance_paid_date: daysAgo(10) });
   assert.equal((await followUps()).length, 0, 'not delivered yet');
 });
+
+test('a referral link typed without https:// is saved with it; one that can’t be a web address is refused (review K12-12)', async () => {
+  const { referralLinkInput } = await import('../shared/data/referralShare.js');
+  assert.equal(referralLinkInput('chewy.com/r/abc'), 'https://chewy.com/r/abc');
+  assert.equal(referralLinkInput(' https://www.chewy.com/r/abc '), 'https://www.chewy.com/r/abc');
+  assert.equal(referralLinkInput(''), '');
+  assert.equal(referralLinkInput('   '), '');
+  assert.equal(referralLinkInput('THORN30'), null);
+  assert.equal(referralLinkInput('javascript:alert(1)'), null);
+  assert.equal(referralLinkInput('ask me at the vet'), null);
+});

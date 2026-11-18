@@ -267,7 +267,7 @@ to the cloud unsealed).
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `furever_identity` (cloud; her Furever identity, on one own kennel for the whole program: `breederKey`, `kennelName`, `tagline`, `breederContact`, `breederVet`, `contentPack`, §27), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `payment_schedules` (her saved payment schedules, private, §21.3), `final_payment_methods` (text, private, §21.3), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date`; follows a first-date change while still the prefill), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date` (a new litter: today; a litter made from its pairing, the pairing's `expected_due_date`, else 63 days after its first date, else blank; on an Expected litter it is the expected date), `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), `portal_early_on` (cloud, §35.1: her puppy portal started before the contract), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), `payment_schedule[]` and `payments[]` (private, §21.3; `payments[].account_id` FK → Account, a list scan), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` only for `lease`/`co_own`/`foster`/`other`, `related_contact_id` for those and for `reservation` (its buyer, `BUYER_LINK_TYPES`; never a Companion partner), forced null otherwise (`contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. A `reservation` (a reservation agreement before there's a sale, with or without the waitlist) has no sale or stud service and carries `RESERVATION_FIELDS`: `reservation_litter_id` (FK → Litter, a scanned reference; null = Next available litter), `reservation_pref_sex` (`WAITLIST_PREF_SEX`, default `any` = Either), `reservation_pref_color` (trimmed text), `reservation_deposit_amount` (number or null), all null on every other type and pending in the sync registry (device-only). |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `shared_ref` (cloud; a test or title that came on a Dog Card: `<dog public id>:<the sender's event id>`, §36). No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
@@ -3267,7 +3267,8 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
   `startAssistLoops` approves the other side's every 5 s), only in the states the server
   allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
   as `device_erased`. Helpers are refused (`403 helper_not_allowed`, `api.js` `OWNER_ONLY`)
-  everything that changes her account itself, adding a passkey wrap included. A helper may
+  everything that changes her account itself, adding a passkey wrap included, and every
+  write to her alerts and digest (they may read them, and turn their own device's alerts off). A helper may
   take over backing up (to push her first backup); its label already reads "KennelOS support
   (…)", and the server marks it `helper: true` in `backingDevice` and the device list.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
@@ -3342,10 +3343,28 @@ hear about something Today already lists.
   proving itself with its subscription's auth secret, and reads the server's address from
   the `kennelos-notify` Cache Storage note (`cloudNotify` writes it; `activate` never purges
   it). Every alert uses one tag, so a newer one replaces the last. A tap opens the family's
-  page (one family), the contract (one contract alert) or Today. A device with alerts on re-sends its subscription once a day
+  page (one family, with `&from=alert`), the contract (one contract alert) or Today. A device with alerts on re-sends its subscription once a day
   on open (`refreshAlertsHere`, from `bootCloud`), so a subscription iPhone dropped comes
   back. iPhone/iPad need the app added to the Home Screen (iOS 16.4+); the card says so.
   Alerts stop for a device with no live session (sign out, erase).
+- **Whose alerts:** the note records the owner's `programId` when she turns alerts on, and
+  `refreshAlertsHere` re-subscribes only for that owner (a note without one is adopted by
+  the owner signed in). Sign-out (`cloudAuth.signOut`) and every erase, support's hand-back
+  included (`cloudDevices.eraseThisDevice`), call `forgetAlertsHere`: the server row, the
+  browser's subscription and the note go. A helper session reads the settings; the card
+  says they're hers to set, and the Worker refuses the writes (`OWNER_ONLY`). Reset App
+  keeps the sign-in, so it keeps alerts too. Before saying "on", the card asks the browser
+  (`alertsLiveHere`): notifications blocked, or a subscription the browser dropped, shows a
+  warning with Turn off (and Turn on again). **Turn on alerts** asks the permission straight
+  from the tap, before anything is awaited, as iPhone requires.
+- **Where the event lands:** what a family did reaches her records only through the device
+  that takes it in (`serverWork.js`: the backing device, or the lease holder of a syncing
+  program). `cloudNotify.takeInHere()` says whether this device is that one, and
+  `takeInHereText` words the answer; the card shows it under "Alerts are on". The entry page
+  opened `from=alert` runs `syncWaitlistOnline({ asked: true })` before it draws (at most
+  5 s), says where events land when this device isn't the one, and says "This family isn't on
+  this device yet" instead of "not found". Open, it redraws on `CLOUD_DATA_CHANGED_EVENT`
+  (debounced), waiting while she edits, a dialog is open or a field has focus.
 - **The email digest:** her readable address is kept on the server **only while it's on**
   (the one exception to "email hashes only"), with consent text at the switch. Her sign-in
   address is on at once; another gets a 6-digit code first. Daily or weekly (Mondays), after
@@ -3446,9 +3465,12 @@ Accounts (payment links, Stripe, contract-form links) are Pro too. Design:
 Chewy…) in the `accounts` table via `data/accountRepo.js`. A table of its own, not Contacts,
 and **program-wide** (not kennel-scoped).
 - **Your login** (`username`, `password` masked until Show, `customer_id`, `notes`):
-  **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
+  **private tier**, so they reach the cloud only inside the vault; they do ride file backups
+  and Dropbox pushes, and the form's hint says so.
 - **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
-  tier, meant to be handed out. `show_on_website` (cloud, Pro with a KennelPort address)
+  tier, meant to be handed out. The link is saved through `referralShare.referralLinkInput`:
+  one typed without a scheme gets `https://`, one that can't be a web address is refused, so
+  "Shown to families" never shows a link families won't get. `show_on_website` (cloud, Pro with a KennelPort address)
   puts the account on her website (§35, `siteExport.websiteProducts`) when it has a referral
   link, code or instructions (`hasReferral`), or is a transport account: others on
   Recommended products, transport ones (to a Worker listing the `transport` section, flagged
@@ -5131,8 +5153,23 @@ Lite and Demo show nothing and make no request. A Lite breeder can still have a 
 site, edited in KennelPort, with no link (KennelPort decision 27).
 
 KennelOS publishes, KennelPort displays. She marks what goes; nothing is sent until she
-presses **Update website**; what arrives lands in the website's draft, which she publishes in
-KennelPort Site Manager.
+presses **Update website** (or **Send and publish** on the website strip). Each send is
+published at once (`kennelportApi.publishSite`, KennelPort's `POST /v1/publish`, after the
+bundle), unless she unticks **Publish what I send straight away** on the Your website card
+(`settings.getWebsitePublishOnSend`, this device); then it lands in the draft for Site
+Manager's Publish. A publish goes live with the whole draft, her unpublished Site Manager
+edits included, and Site Manager's Undo publish steps it back. A KennelPort that refuses the
+publish (or doesn't have it) leaves the send in the draft and the result says so
+(`updateWebsite` → `published: { ok, text }`, or `null` when kept in the draft).
+- **The website strip** (`assets/websiteBanner.js`, Pro-only): on every page but Today, a
+  strip under `#app-nav` whenever a linked kennel's bundle differs from what this device last
+  sent (`pendingWebsiteChanges`): the first three changes, **Send and publish** (or **Send to
+  draft**), **See changes** (all of them, per kennel) and **Later**, which hides it until the
+  waiting changes differ (`settings.getWebsiteLaterFor`, a signature). Today shows the same as
+  a card (`#today-website`). It rechecks 1.5 s after each `CLOUD_DATA_CHANGED_EVENT`, so it
+  covers everything the bundle carries: dogs, litters and puppies, pairings, heats, extras and
+  prices, recommended products (Accounts), steps, How to pay, waitlist details. The portal
+  feed isn't counted (it sends itself); the expanded list says so.
 
 - **The four marks** (plain booleans, cloud, off by default): `Dog.show_on_website`,
   `Dog.heats_online`, `Pairing.show_on_website`, `Litter.show_on_website`. A litter with no
@@ -5303,7 +5340,13 @@ Nothing changes for any other kennel or breeder.
   `worker/src/portal/feed.js`), with `assertOnlyKeys` on every object (`*_KEYS`). Each
   family from their signed contract on: a sale of the kennel's, not archived, with a pup and
   a buyer, and a Sale contract linked to it, status Signed with its signed date
-  (`signedContractFor`). The family is the buyer contact (`id` its contact id, `name`,
+  (`signedContractFor`). **Or started early:** `Sale.portal_early_on` (the day she pressed
+  **Start puppy portal now**, cloud) sends an open sale's family before the contract, with
+  `contract_signed_on: null`; the date fills in once it's signed. An early sale that ends
+  before it was ever sent never goes; one that ends after goes with `voided`, as any other.
+  `earlyPortalState({ kennel, sale, contracts })` → `'offer'` | `'started'` | null (portal on,
+  sale open with pup and buyer, no signed contract) drives the button on the Sale page and the
+  waitlist family's Interact tab (`assets/portalEarlyUI.js`, one confirm). The family is the buyer contact (`id` its contact id, `name`,
   `emails`: the contact's and those they applied with, lower case, at most 4; `status_url`
   their newest status page). Each sale is a placement: `puppy_id` (the Dog id, as the
   website bundle sends pups), `puppy_name`, `contract_signed_on`, `go_home_on` (the pickup
@@ -5380,6 +5423,13 @@ Nothing changes for any other kennel or breeder.
   contact id, x: expiry ms, n: nonce }`, a dot, and its HMAC-SHA256 under the key. Not
   signed in: a sign-in link and the portal's own address. Companion: `companion.link:
   false`, no Companion link request (refused on the server too).
+  The other way, the portal's **Open your status page** opens the status page at
+  `/s/<token>#from=<t>`: `t` is the same token format, signed with the same key but over
+  `to-status:` and the body. `status.js` takes it off the address, posts `/f/from-portal`
+  (`familyActions.handleFromPortal`), and keeps the answer as a signed-in browser. The
+  server needs the link for this page's family (`f` = the entry's `portal.family_id`),
+  unexpired, used once (`wl_portal_handoffs`, the nonce's hash, kept a day), and her
+  portal on; it starts the same 90-day `wl_family_sessions` row a typed code gives.
 - **Furever** lists no pup of a kennel with the portal on (a line says why), and Kels's
   Pups are going home doesn't offer it for them.
 
