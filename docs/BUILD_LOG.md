@@ -5929,4 +5929,5 @@ No owner decisions needed; each fix follows the review's suggestion.
   `tests/portalFeed.test.js`. Checked in Chromium at 390 px: the strip on a dog page after an
   edit, Send and publish, the Today card; Start puppy portal now on a sale.
 - Docs: guide §35, §35.1 and the Sale row.
-- **Service worker:** two files added to `PRECACHE_URLS`; `CACHE_NAME` not bumped yet.
+- **Service worker:** two files added to `PRECACHE_URLS`; `CACHE_NAME` → `kennelos-shell-v156`
+  (owner's go-ahead), which also carries batch A and the merged `ccr-763e73db-r0a3qt` work.
