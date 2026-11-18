@@ -6092,3 +6092,20 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   recommendation and are open), and five phases. Phase 1 needs no schema change.
 - README doc map and Status. No code changed.
 - **Service worker:** no app file added or changed.
+
+## 2026-11-18: Program types plan (docs only)
+
+- **Owner's request:** the type of program a breeder runs should drive her view: a breeder
+  who shows needs show information close, one not breeding registered dogs doesn't need it,
+  stud services may be absent or a main income. Show breeders would use the line tools;
+  large commercial kennels likely wouldn't.
+- New `docs/KennelOS_Program_Types_Plan.md`: six types with each one's top six priorities
+  and where KennelOS stands (§1), the questions that cut across them (§2), what a type sets
+  (features, tabs, Home tiles, a dog's section order, line tools; one main type plus up to
+  two others; never locked) (§3), the gaps by type (§4), data and code (§5), decisions
+  D1–D6 (§6).
+- `docs/KennelOS_Line_Management_Plan.md` §3.6 now follows the types: Line tools on for
+  show, working and stud programs, off by default for family pet, doodle and large kennels;
+  warnings and Relatives always on.
+- README doc map and Status. No code changed.
+- **Service worker:** no app file added or changed.

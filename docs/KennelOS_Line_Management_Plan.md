@@ -181,11 +181,17 @@ event can still note a mentor's or judge's visit).
 
 ### 3.6 Who sees what (program types)
 
-From the program-types discussion: show/preservation and working breeders get everything;
-family pet breeders get the warnings, Relatives, colors and birth records with **Line
-tools** (traits, puppy scores, insights, finder) off by default in Setup › What you use;
-doodle programs get generations in Lines instead of trait grading (generation labels are a
-later addition). Warnings and Relatives are never switched off.
+Set by her program type (`docs/KennelOS_Program_Types_Plan.md` §3), never locked:
+- **Show / preservation, working / performance and stud programs:** everything, Line
+  tools on. These are the breeders who will use grading, the finder and line insights.
+- **Family pet breeders:** warnings, Relatives, colors and birth records; Line tools
+  (traits, puppy scores, insights, finder) off by default in Setup › What you use.
+- **Doodle and mixed-breed programs:** as family pet, with colors and coat genes to the
+  front; generation labels (F1, F1B, multigen) are a later addition Lines leaves room for.
+- **Large or licensed kennels:** Line tools off by default (the owner's read, 2026-11-18:
+  they are unlikely to use them); warnings and Relatives stay.
+
+Pairing warnings and Relatives are never switched off.
 
 ## 4. Data model
 

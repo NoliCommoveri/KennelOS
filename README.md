@@ -56,6 +56,7 @@ backup, carries a program from Lite to Pro.
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
 | A dog's titles as a field (bought champions, ancestors), with show tracking still working them out (plan) | `docs/KennelOS_Dog_Titles_Field_Plan.md` |
 | Line management: how every dog relates to every other (COI, shared ancestors, pairing warnings), traits, her own colors, birth records, what dogs carry, the pairing finder (plan) | `docs/KennelOS_Line_Management_Plan.md` |
+| Program types: the kind of program she runs (show, family pet, doodle, working, stud, large kennel) sets her tabs, Home and features; each type's top priorities (plan) | `docs/KennelOS_Program_Types_Plan.md` |
 | Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
 | Credits: one currency for passes, per-use services and add-ons, enforced on the server (plan) | `docs/KennelOS_Credits_Plan.md` |
 | Pages that settle at once (nothing moving mid-tap), a lighter shell, fewer reads and checks per page, and a read-only tour whose sample data clears itself (plan) | `docs/KennelOS_Load_Performance_Plan.md` |
@@ -89,7 +90,7 @@ backup, carries a program from Lite to Pro.
     built; next is Phase 3. Dog and Sale still shift as their sections fill in (no phase
     covers it).
   - Planned, not built: credits, security hardening, mail budget, voice, family help,
-    duplicate applications, assisted setup, line management.
+    duplicate applications, assisted setup, line management, program types.
 
 Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lines.
 
