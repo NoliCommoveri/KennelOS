@@ -40,6 +40,11 @@ the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identical
   bump the SW cache, or more changes coming?" One bump per session/shippable batch; once bumped,
   later edits in the session ride that version.
 
+## UI rule — buttons
+- No more than 2–3 buttons visible in any page header/view. Before adding an always-visible
+  button, put it in the page's dropdown (`.action-menu` + `wireActionMenu`, e.g. "More ▾",
+  "Manage ▾"), or add a dropdown if the page has none. See the guide's §13 "Page action buttons".
+
 ## Architecture non-negotiables
 - Multi-page static, ES modules, no SPA router, no CDN (vendor into `shared/vendor/`), offline after first load.
 - Pages → repos → Dexie. Pages never touch `db.*` or `localStorage` (use a repo / `settings.js`).

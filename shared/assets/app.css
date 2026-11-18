@@ -903,9 +903,11 @@ a.kt-loner:hover { color: var(--accent); }
   display: block; width: 100%; text-align: left; padding: 8px 10px;
   background: none; border: 0; border-radius: var(--radius-sm);
   font: inherit; color: var(--text); text-decoration: none; cursor: pointer;
+  white-space: nowrap;
 }
 .action-menu-list > a:hover, .action-menu-list > button:hover { background: var(--accent-soft); }
 .action-menu-list > hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
+.action-menu-list > [hidden] { display: none; }
 
 /* One-card-at-a-time pages (the Kennel page): a section dropdown above them. */
 .section-picker { max-width: 320px; margin-bottom: 14px; }

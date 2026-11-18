@@ -5,7 +5,7 @@ import { editionFlags } from '../data/editionConfig.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { createListView } from '../assets/listView.js';
 import { dogInScope } from '../data/kennelScope.js';
-import { badge, fmtDate, esc, param } from '../assets/ui.js';
+import { badge, fmtDate, esc, param, wireActionMenu } from '../assets/ui.js';
 import { websiteLinkOffered } from '../data/kennelportApi.js';
 import { descriptor, SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE, EVENT_TYPES, dogListOrder, dogStatusOrder, dogSexOrder } from '../data/vocab.js';
 import { eventRepo } from '../data/eventRepo.js';
@@ -151,7 +151,7 @@ async function init() {
   });
 }
 
-// "Log for several dogs": one event form listing the dogs at home (dogCare.homeDogs),
+// "Log events for several dogs" (More ▾): one event form listing the dogs at home (dogCare.homeDogs),
 // one event saved per ticked dog (eventForm's cascade, as a litter's "Log event for
 // whole litter"). Only active breeding dogs start ticked. Today's preventatives
 // nudge opens it with ?logEvent=preventative, ticking only the active breeding
@@ -167,13 +167,14 @@ async function openLogSeveral(type = null) {
   const label = (d) => `${d.call_name || 'Unnamed'}${d.sex ? ` (${descriptor(SEX, d.sex).label[0]})` : ''}${d.status !== 'active_breeding' ? ` · ${descriptor(DOG_STATUS, d.status).label}` : ''}`;
   openEventForm({
     subjectType: 'dog',
-    cascadeTitle: 'Log for several dogs',
+    cascadeTitle: 'Log events for several dogs',
     cascadeTargets: dogs.map((d) => ({ id: d.id, label: label(d) })),
     cascadeSelected: selected,
     prefill: known ? { event_type: known } : null,
     onSaved: back
   });
 }
+wireActionMenu(document.getElementById('dogs-more'));
 document.getElementById('btn-log-several')?.addEventListener('click', () => openLogSeveral());
 // Dog Cards (Shared Dogs Plan §3): Pro only; the page itself is dropped from Lite.
 const dogCardBtn = document.getElementById('btn-dog-card');
