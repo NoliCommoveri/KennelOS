@@ -180,6 +180,7 @@ export const CLOUD_FIELDS = {
         "payment_link_date",
         "payment_link_ref",
         "payment_link_url",
+        "portal_early_on",
         "registration_type",
         "sale_date",
         "sales_channel_account_id",

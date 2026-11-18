@@ -53,6 +53,8 @@ const PRECACHE_URLS = [
   'assets/waitlistFeeStep.js',
   'assets/websiteCard.js',
   'assets/websiteUpdateUI.js',
+  'assets/websiteBanner.js',
+  'assets/portalEarlyUI.js',
   'assets/kelsFindings.js',
   'assets/kelsFindUI.js',
   'assets/kelsUnderstandUI.js',

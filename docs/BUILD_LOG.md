@@ -5884,3 +5884,35 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Docs: guide (§30 notifications and assisted setup, §32 Accounts), Notifications plan and
   Assisted Setup plan (**Modified**), `cloud/README.md`, Remainder plan, `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-18: Website changes from anywhere, publish on send, puppy portals started early
+
+- **Owner's request:** an easier way to send website changes than Settings, a publish-now,
+  and puppy portals before the contract is signed. Decided with the owner: a strip on every
+  page plus a Today card; every send publishes (a setting can keep sends in the draft); early
+  portals are her choice per family, skipping only the signed contract.
+- **The website strip** (`assets/websiteBanner.js`, new, Pro-only: `proPages.js`,
+  `PRECACHE_URLS`): under the nav on every page but Today (a card there,
+  `#today-website`), whenever `pendingWebsiteChanges` has something: the first three
+  changes, Send and publish / Send to draft, See changes, Later (until the changes differ;
+  `settings.get/setWebsiteLaterFor`). Covers everything the bundle carries, extras and
+  recommended products included; portal updates send themselves and the list says so.
+- **Publish on send:** `kennelportApi.publishSite` (KennelPort's new `POST /v1/publish`)
+  after each bundle unless **Publish what I send straight away** is off on the Your website
+  card (`settings.get/setWebsitePublishOnSend`, device-only, default on). A refused or
+  missing publish leaves the send in the draft and says so. Kels no longer adds "It's in your
+  website's draft" after a send; the result line says which.
+- **Early puppy portal:** `Sale.portal_early_on` (new optional field, `syncRegistry` cloud,
+  `cloudFields.js` regenerated). `portalFeed.portalSales` carries an early sale while it's
+  open (or once sent), `contract_signed_on: null`; `earlyPortalState` drives **Start puppy
+  portal now** on the Sale page and the waitlist family's Interact tab
+  (`assets/portalEarlyUI.js`, new, shared, in `PRECACHE_URLS`).
+- **KennelPort, same day (its branch `ccr-1cb5defd-uvpej2`):** `POST /v1/publish`, and the
+  feed's `contract_signed_on` optional. **Merge KennelPort first:** until it's deployed, a
+  feed with an early family is refused whole by KennelPort, and publish falls back to the
+  draft.
+- Tests: `tests/websiteBanner.test.js` (new), `tests/siteExport.test.js`,
+  `tests/portalFeed.test.js`. Checked in Chromium at 390 px: the strip on a dog page after an
+  edit, Send and publish, the Today card; Start puppy portal now on a sale.
+- Docs: guide §35, §35.1 and the Sale row.
+- **Service worker:** two files added to `PRECACHE_URLS`; `CACHE_NAME` not bumped yet.

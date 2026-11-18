@@ -26,6 +26,8 @@ import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
+import { contractRepo } from '../data/contractRepo.js';
+import { earlyPortalState } from '../data/portalFeed.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText, groupedChargeList, saleExtraCharges } from '../data/extraCharges.js';
 import { pendingExtraRequests, familySale, pupBirthDate } from '../data/familyExtras.js';
@@ -169,6 +171,9 @@ async function reload() {
   // or their pick's while its deposit is pending.
   const sale = familySale(ctx.entry, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
   ctx.payments = sale ? await getSaleStatement(sale) : null;
+  // Their puppy portal before the contract (Pro with a KennelPort website, portal on).
+  const early = sale && editionFlags.websiteLink ? earlyPortalState({ kennel: ctx.kennel, sale, contracts: await contractRepo.getBySale(sale.id) }) : null;
+  ctx.portalEarly = early ? { state: early, sale } : null;
   ctx.paymentAccounts = editionFlags.accounts ? (await accountRepo.getAll({ includeArchived: true })).filter((a) => a.account_type === 'payment_service') : [];
   // Their money across the fee and the sale, for the Documents card (Payment Schedule plan §6.2).
   ctx.family = editionFlags.invoicing ? await loadFamilyAccount({ entryId: ctx.entry.id }) : null;
@@ -976,6 +981,16 @@ function wireDuplicates(root) {
 
 // Merge a duplicate application (picked, or `otherId` suggested). When this page's
 // entry is the one deleted, the kept one's page opens.
+async function onPortalEarly() {
+  const { startPortalEarly } = await import('../assets/portalEarlyUI.js');
+  const sale = ctx.portalEarly?.sale;
+  if (!sale) return;
+  if (await startPortalEarly(sale, { buyer: ctx.contact?.name || '', pup: ctx.dogsById.get(sale.dog_id)?.call_name || '' })) {
+    await reload();
+    renderAll();
+  }
+}
+
 async function onSameFamily(otherId = null) {
   const res = await sameFamilyDialog({ entryId: ctx.entry.id, otherId });
   if (!res) return;
@@ -2334,7 +2349,9 @@ function interactButtons(e) {
   const charges = !lost && endableSale(e) ? b('charges', 'Add charges…') : '';
   // Their live status page, as they see it signed in (only once it's online).
   const page = statusLinkFor(e, ctx.kennel) ? b('viewpage', 'View their page ↗') : '';
-  return lost + main + charges + end + b('communicate', 'Communicate…') + page;
+  // Their puppy portal before the contract is signed (assets/portalEarlyUI.js).
+  const early = ctx.portalEarly?.state === 'offer' ? b('portalearly', 'Start puppy portal now…') : '';
+  return lost + main + charges + end + early + b('communicate', 'Communicate…') + page;
 }
 
 function renderInteract() {
@@ -2352,6 +2369,7 @@ function renderInteract() {
     <section class="card">
       <h2 style="margin-top:0;">Do something</h2>
       <div class="pill-row">${interactButtons(e)}</div>
+      ${ctx.portalEarly?.state === 'started' ? `<p class="field-hint">Their puppy portal was started early, on ${esc(fmtDate(ctx.portalEarly.sale.portal_early_on))}. The contract's signed date fills in once it's signed.</p>` : ''}
       ${statusLinkFor(e, ctx.kennel) ? '<p class="field-hint" style="margin-bottom:0;"><strong>View their page</strong> publishes your latest changes, then opens their status page as they see it signed in. Its buttons work there, but nothing is sent.</p>' : ''}
     </section>`;
   wireRequests(pane);
@@ -2359,7 +2377,7 @@ function renderInteract() {
   wireSideSale(pane);
   wireSuggestions(pane);
   wireDuplicates(pane);
-  const handlers = { offlist: () => onFamilyPageOnly(true), onlist: () => onFamilyPageOnly(false), side: onSideSale, offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, undofee: onUndoFee, reapply: onReapply, restore: onRestore, endsale: onEndSale, charges: () => onAddCharges(), communicate: onCommunicate, viewpage: () => openStatusPage(ctx.entry, ctx.kennel) };
+  const handlers = { offlist: () => onFamilyPageOnly(true), onlist: () => onFamilyPageOnly(false), side: onSideSale, offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, undofee: onUndoFee, reapply: onReapply, restore: onRestore, endsale: onEndSale, charges: () => onAddCharges(), communicate: onCommunicate, viewpage: () => openStatusPage(ctx.entry, ctx.kennel), portalearly: onPortalEarly };
   pane.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });
