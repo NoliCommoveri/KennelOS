@@ -560,6 +560,10 @@ test('a family\'s extras pass field by field: names and dates only, and only wit
   assert.deepEqual(x.available, [{ id: 'tr', name: 'Puppy training', group: 'Training', description: 'Basics', open_from: '2026-10-20', open_until: null }]);
   assert.deepEqual(x.current, [{ id: 'c1', list_id: 'gold', name: 'Gold', group: '', can_cancel: false, cancel_until: null }]);
   assert.deepEqual(x.requests, [{ id: 'event-1', kind: 'add', list_id: 'tr', charge_id: null, name: 'Puppy training', requested_date: '2026-10-21', decided: null, decided_date: null }]);
+  assert.equal('links' in x, false);
+  const linked = extrasOf({ available: [{ id: 'tr', name: 'Puppy training', group: 'Training' }],
+    links: [{ group: 'Training', url: 'https://k.example/training', label: 'Training prices' }, { group: 'Puppy', url: 'https://k.example/p' }, { group: 'Photos', url: 'javascript:alert(1)' }, { group: '', url: 'https://k.example/x' }] });
+  assert.deepEqual(linked.links, [{ group: 'Training', url: 'https://k.example/training', label: 'Training prices' }, { group: 'Puppy', url: 'https://k.example/p', label: 'See details and pricing' }], "a group's link: https only, with its group and words");
   const p = projection();
   p.entries.cy.extras = { available: [{ id: 'tr', name: 'Puppy training' }] };
   p.kennel.extras_intro = 'Our extras';
@@ -570,6 +574,41 @@ test('a family\'s extras pass field by field: names and dates only, and only wit
   assert.equal(v.family.extras.available[0].name, 'Puppy training');
   assert.equal(v.kennel.extras_intro, 'Our extras');
   assert.equal('extras_info_url' in v.kennel, false, 'only an https link');
+});
+
+test("a parent's or an early litter's page on her website keeps `page: true`; a bare flag without a link doesn't", async () => {
+  const p = projection();
+  p.upcoming = [{ id: 'u1', kind: 'early_litter', label: 'Gem', public: true, family: true, photos_url: 'https://a.kennelport.com/litters/gem', page: true,
+    dam: { name: 'Juniper', photos_url: 'https://a.kennelport.com/dogs/juniper', page: true }, sire: { name: 'Ash', page: true } }];
+  p.litters.l1 = { ...p.litters.l1, photos_url: 'https://a.kennelport.com/litters/gem', page: true };
+  assert.equal(listView(p).available[0].page, true, 'an Available Puppies card keeps it too');
+  const u = listView(p).upcoming[0];
+  assert.equal(u.page, true);
+  assert.deepEqual([u.dam.photos_url, u.dam.page], ['https://a.kennelport.com/dogs/juniper', true]);
+  assert.equal('page' in u.sire, false);
+});
+
+test('her featured pup card: for families still waiting, only with an https link', () => {
+  const p = projection();
+  assert.equal('featured' in statusView(p, 'bo').kennel, false, 'not filled in: no card');
+  p.kennel.featured = { url: 'https://k.example/featured', label: '' };
+  assert.deepEqual(statusView(p, 'bo').kennel.featured, { url: 'https://k.example/featured', label: 'Meet our featured pup' });
+  assert.equal(statusView(p, 'dee').kennel.featured.url, 'https://k.example/featured', 'approved, still waiting');
+  assert.equal('featured' in statusView(p, 'cy').kennel, false, 'placed: not waiting');
+  p.kennel.featured = { url: 'javascript:alert(1)', label: 'x' };
+  assert.equal('featured' in statusView(p, 'bo').kennel, false, 'https only');
+});
+
+test('her logo: on the status page and the public list, an image data URL only', () => {
+  const p = projection();
+  p.kennel.logo = 'data:image/png;base64,iVBORw0KGgo=';
+  assert.equal(statusView(p, 'bo').kennel.logo, p.kennel.logo);
+  assert.equal(statusView(p, 'cy').kennel.logo, p.kennel.logo, 'a placed family too');
+  assert.equal(listView(p).kennel.logo, p.kennel.logo);
+  p.kennel.logo = 'javascript:alert(1)';
+  assert.equal('logo' in statusView(p, 'bo').kennel, false);
+  p.kennel.logo = 'data:image/svg+xml;utf8,<svg onload=alert(1)>';
+  assert.equal('logo' in listView(p).kennel, false, 'base64 only');
 });
 
 test("a family's pickup passes field by field; her standard location and the mile limits never do", async () => {

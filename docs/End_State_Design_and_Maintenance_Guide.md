@@ -1568,12 +1568,15 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   (`due` from `PLAN_DUE`: `at_weeks` (n = weeks old), `on_approval` (n = days after),
   `before_pickup` (n = days before), `with_balance`; percents add to 100).
   `Kennel.extra_charge_groups[]` = `{ name, request_from_weeks, request_until_weeks,
-  cancel_until_weeks, payment_plan }` holds each group's defaults; `chargeRules(item, groups)`
+  cancel_until_weeks, payment_plan, info_url?, info_label? }` holds each group's defaults,
+  `info_url` her own page about the group (https only, `groupInfoLink`) and `info_label` the
+  link's words (up to 80 characters; blank = `INFO_LABEL_DEFAULT`, "See details and pricing"); `chargeRules(item, groups)`
   gives an extra's own value where set, else its group's, and no plan reads as all with the
   balance. `requestWindow(item, groups, birthDate)` turns the ages into dates ("until N weeks"
   ends the day before the pup turns N weeks). Edited on the Kennel page's **Extra charges price
   list** section (`assets/priceListEditor.js`): a section per group with its name (renaming it
-  renames it for every extra in it) and **Rules for every extra in this group**, each extra a
+  renames it for every extra in it), **Details/marketing URL** and **Custom hyperlink display phrase** (with the waitlist) and
+  **Rules for every extra in this group**, each extra a
   name and price with **Details** (group, description, families can ask (with the waitlist),
   ages, boarding days, when it's paid), **+ New group**; saved through `readPriceList` (merges
   by id, so Kels's name-and-price form keeps the rest) and `readChargeGroups`. The rules and
@@ -2853,14 +2856,17 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   Dam) and Health testing, in that order, each only when published. The Dog page's Health-Test Summary card has **On family
   pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
   non-puppy, offered with the waitlist and the list online.
-  **Photos links:** a dog's `url` is published as `photos_url` only when its
-  `photos_online` is ticked (`waitlistProjection.dogPhotosLink`), on every parent family
-  pages show and on each published pup (`publicPup`: a turn's pups, their pick); a litter's
-  `photos_url` on its litter view and its early-litter Coming up item. Web addresses only
+  **Photos links:** a dog's `url` that is its page on her KennelPort website (`isWebsiteAddress`)
+  is published as `photos_url` with `page: true`, tick or not (the page is public), on every
+  parent family pages show and on each published pup (`pupLink`; `publicPup`: a turn's pups,
+  their pick); any other `url` only when its `photos_online` is ticked
+  (`waitlistProjection.dogPhotosLink`). A litter's `photos_url` on its litter view and its
+  early-litter Coming up item (`litterLink`, `page: true` when it's her site's page). Web addresses only
   (`photoLink`, http/https, 500 characters); no key when there's none. The Worker passes
   each through `familyPages.photosOf` (parents, litter cards, Coming up, a turn's litter and
   pups). The pages show links, never images (their CSP allows only their own images):
-  "Dam: Juniper (Photos)", "See the litter's photos", a heat's "Photos of Juniper", and under
+  a parent's name (with its titles) is itself the link ("Dam: **Juniper CH**"), a planned
+  heat's dam name too; "See the litter's photos" or, a page, "View litter on our website"; and under
   a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). A pup whose `url` is a page on
   her KennelPort website (`websiteAddress.isWebsiteAddress`: any kennelport.com address, or
   her kennel's `website` origin) links there whatever `photos_online` says (the page is
@@ -2921,8 +2927,23 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   beside the button (`fee_pay.fee`, K8-10).
   The public list's Available Puppies and Coming up cards center what's inside them
   (`#available, #upcoming` in `family.css`); their headings stay left like the page's other
-  folded cards. On the status page (`main.centered`) every card's heading and content are
-  centered. The section labels (Still Available, Already Reserved) are bold in title case,
+  folded cards. On the status page (`main.centered`) every card's content is centered; its
+  heading reads left, with the section's small line icon in a tinted chip (`icons.js`
+  `sectionIcon`: the icon and the section's kind, `data-kind`: puppies the accent, Coming up
+  gold, extras clay, payments blue) and the fold's chevron at the right. Each litter, pairing
+  or heat (`ul.plain.segs`) and each extras group (`.seg.xgroup`: its name, its link, then
+  its extras) is its own panel. A paw ornament under the greeting and a faint paw on Current
+  Position (`.place-card`) are the only ornaments. **Palettes** (`theme.js`, `html[data-theme]`
+  in `family.css`): Classic (the default, the app's colours), Ivory (forest green on warm
+  ivory, serif headings) and Blush (plum on soft rose), each with a dark version; a family
+  picks one under **Colors** at the status page's foot, kept in this browser's localStorage
+  (`kos-family-theme`), and the public list follows it. Embed mode's own colours still win
+  on her website.
+  **Her logo** (`Kennel.logo_data_url`, already a cloud field) tops the status page and the
+  public list: the projection carries it as `kennel.logo` when it's a base64 image data URL
+  of at most 300,000 characters (`waitlistProjection.familyLogo`), the Worker passes it the
+  same way (`familyPages.logoOf`), and `theme.js` `showLogo` draws it (on a small light card
+  in dark mode). The section labels (Still Available, Already Reserved) are bold in title case,
   like the cards' other labels, and an empty column's "None left" / "None"
   (`.pup-col-empty`) sits on the line of a pup's name in the next column.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
@@ -2971,11 +2992,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `open_until` from the pup's birth date (`pupBirthDate`: the dog's, else the litter's; an
   age rule with no birth date isn't offered), the sale's extras that came from one with
   `can_cancel` (not paid, not past its cancel age) and `cancel_until`, and their requests
-  (undecided, or decided within 30 days). Names and dates only, never a price. The kennel
+  (undecided, or decided within 30 days), and `links` = `[{ group, url, label }]`, the `info_url` of
+  each group with extras shown (left out when none). Names and dates only, never a price. The kennel
+  carries `featured` = `{ url, label }` from `waitlist_config.featured_url` (https only) and
+  `featured_label` (blank = `FEATURED_LABEL_DEFAULT`, "Meet our featured pup"), set under
+  **Featured pup page URL** in Waitlist settings: the Worker sends it only to a family still
+  waiting (applied, approved, active), and their page shows a **Featured pup** card, the
+  phrase as a button (new tab), before Available Puppies. It also
   carries `extras_intro` (`waitlist_config.extras_intro_text`, blank =
-  `EXTRAS_INTRO_DEFAULT`) and `extras_info_url` (`extras_info_url`, https only) while any
+  `EXTRAS_INTRO_DEFAULT`, "Each group below links to its details and prices…"; a saved copy of
+  the old default, `EXTRAS_INTRO_OLD_DEFAULT`, reads as the new) and `extras_info_url` (`extras_info_url`, https only) while any
   family has extras. Their page's **Extras** card shows her message, **See our extras and
-  prices** (new tab), the extras under her group headings with **Request** / **Cancel**.
+  prices** (new tab), the extras under her group headings with **Request** / **Cancel**, and
+  under a group with a link, her phrase (blank: **See details and pricing**) as a link (new tab).
   `extra_request` / `extra_cancel` events (the Worker checks them against `entry.extras`,
   dates included, one waiting per extra) become `entry.extra_requests` (`addExtraRequest`).
   Each is a Today nudge (`waitlist-extra-request`) and a row in the entry's Waiting for you:
@@ -5200,9 +5229,10 @@ KennelPort Site Manager.
   is never replaced silently: `websiteOffer` asks on the Your website card and after Kels's
   Update my website, **Use** or **Keep mine**, and a Keep mine is remembered on this device
   for that site address, `kept_website`, so a new address such as her own domain asks
-  again); and in `waitlist_config` `extras_info_url` (same rule), `website_feed`
+  again); and in `waitlist_config` `website_feed`
   when the site's waitlist page wants her list and it's online, and the site in
-  `embed_origins` when she has listed any.
+  `embed_origins` when she has listed any. `extras_info_url` is never filled from the site:
+  she links her own pages (one per extras group, `extra_charge_groups[].info_url`).
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect
   website with the code and a device name, what's marked, Update website, Disconnect this
   device; a kennel picker with several own kennels), and Kels's **Update my website**.

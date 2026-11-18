@@ -144,12 +144,13 @@ test('a parent\'s registered name, pedigree and health testing sit behind an inf
   assert.match(heat, /<strong>Juniper CGC<\/strong> <button type="button" class="info-bubble"/, 'a planned heat\'s dam gets the bubble by its name');
 });
 
-test('photos links: on a parent, a litter card and a planned heat, escaped, opening in a new tab', () => {
+test("photos links: a parent's name is its link (a planned heat's dam too), a litter card's line; escaped, opening in a new tab", () => {
   const dam = { name: 'Juniper', titles: [], photos_url: 'https://photos.example/j?a=1&b="2"' };
-  assert.match(parentsLine(dam, { name: 'Ash', titles: [] }), /Dam: Juniper \(<a class="photos-link" href="https:\/\/photos\.example\/j\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Photos<\/a>\) · Sire: Ash</);
+  assert.match(parentsLine(dam, { name: 'Ash', titles: [] }), /Dam: <a class="photos-link" href="https:\/\/photos\.example\/j\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Juniper<\/a> · Sire: Ash</);
+  assert.match(parentsLine({ ...dam, name: '<b>J</b>', titles: ['CH'] }, null), /rel="noopener noreferrer">&lt;b&gt;J&lt;\/b&gt; CH<\/a>/, 'name and titles escaped inside the link');
   const card = availableItemHtml({ label: 'Juniper × Ash', dam, sire: { name: 'Ash' }, photos_url: 'https://photos.example/litter', pups_available: 1 });
   assert.match(card, /See the litter&#39;s photos/);
-  assert.match(upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' }), /Photos of Juniper/);
+  assert.match(upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' }), /<strong><a class="photos-link" href="https:\/\/photos\.example\/j[^"]*"[^>]*>Juniper<\/a><\/strong>/);
   assert.equal(photosLink('javascript:alert(1)'), '');
   assert.equal(availableItemHtml({ label: 'X', pups_available: 0 }).includes('photos'), false);
 });

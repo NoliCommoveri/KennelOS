@@ -345,14 +345,12 @@ test('the address rules: fill blanks and KennelPort\'s own, never what she typed
   ]);
 });
 
-test('kennel settings the link fills: website, extras link, the feed when the list is online, the embed sites when she listed any', () => {
-  assert.deepEqual(link.kennelChanges({ website: '', waitlist_config: {} }, SITE), {
-    website: SITE.website,
-    waitlist_config: { extras_info_url: SITE.extras_info_url }
-  });
+test('kennel settings the link fills: website, the feed when the list is online, the embed sites when she listed any; never the extras link', () => {
+  assert.deepEqual(link.kennelChanges({ website: '', waitlist_config: {} }, SITE), { website: SITE.website });
   assert.equal(link.kennelChanges({ website: 'https://mykennel.com', waitlist_config: { extras_info_url: 'https://mykennel.com/extras' } }, SITE), null, 'never what she typed');
-  const c = link.kennelChanges({ website: SITE.website, waitlist_config: { online: true, extras_info_url: SITE.extras_info_url, embed_origins: ['https://mykennel.com'] } }, SITE);
-  assert.deepEqual(c, { waitlist_config: { online: true, extras_info_url: SITE.extras_info_url, embed_origins: ['https://mykennel.com', 'https://akbostons.kennelport.com'], website_feed: true } });
+  assert.equal(link.kennelChanges({ website: SITE.website, waitlist_config: { extras_info_url: 'https://akbostons.kennelport.com/old-extras' } }, SITE), null, 'the extras link is hers alone, even one on the site');
+  const c = link.kennelChanges({ website: SITE.website, waitlist_config: { online: true, embed_origins: ['https://mykennel.com'] } }, SITE);
+  assert.deepEqual(c, { waitlist_config: { online: true, embed_origins: ['https://mykennel.com', 'https://akbostons.kennelport.com'], website_feed: true } });
 });
 
 test('Connect website: the token on this device only, the kennel filled in; Update website sends, fills photos links; Unlink there forgets it here', async () => {

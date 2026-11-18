@@ -249,7 +249,7 @@ const parentOf = (d) => {
   const reg = regOf(d?.registered_name);
   const ped = pedigreeOf(d?.pedigree);
   return {
-    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url),
+    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url), ...pageOf(d),
     ...(reg ? { registered_name: reg } : {}), ...(ped ? { pedigree: ped } : {}),
   };
 };
@@ -278,7 +278,7 @@ function upcomingRow(u) {
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
-    ...photosOf(u.photos_url),
+    ...photosOf(u.photos_url), ...pageOf(u),
   };
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
@@ -367,7 +367,7 @@ function litterCard(id, l) {
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
     dam: parentOf(l.dam),
-    ...photosOf(l.photos_url),
+    ...photosOf(l.photos_url), ...pageOf(l),
   };
 }
 
@@ -379,7 +379,7 @@ export function listView(projection) {
   return {
     // apply_open: she takes applications online, so the list links to her form.
     // intro: her message under the page's heading, as her device rendered it.
-    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection) },
+    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection), ...logoOf(projection) },
     as_of: projection.as_of ?? null,
     rows: publicRows(projection),
     selected: selectedRows(projection),
@@ -477,7 +477,7 @@ export function transportOf(projection) {
 }
 
 // A family's extras as her device published them, field by field (no prices
-// ever pass). → { available, current, requests } or null.
+// ever pass). → { available, current, requests, links? } or null.
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function extrasOf(x) {
   if (!x || typeof x !== 'object') return null;
@@ -490,7 +490,11 @@ export function extrasOf(x) {
     current: arr(x.current).map((c) => ({ id: id(c?.id), list_id: id(c?.list_id) || null, name: str(c?.name, 120), group: str(c?.group, 80), can_cancel: c?.can_cancel === true, cancel_until: date(c?.cancel_until) })).filter((c) => c.id && c.name),
     requests: arr(x.requests).map((r) => ({ id: id(r?.id), kind: r?.kind === 'cancel' ? 'cancel' : 'add', list_id: id(r?.list_id) || null, charge_id: id(r?.charge_id) || null, name: str(r?.name, 120), requested_date: date(r?.requested_date), decided: ['approved', 'declined'].includes(r?.decided) ? r.decided : null, decided_date: date(r?.decided_date) })).filter((r) => r.id),
   };
-  return out.available.length || out.current.length || out.requests.length ? out : null;
+  if (!(out.available.length || out.current.length || out.requests.length)) return null;
+  // Her page for a group, linked under its extras: https only.
+  const links = arr(x.links).slice(0, 30).map((l) => ({ group: str(l?.group, 80), url: typeof l?.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(l.url) ? l.url : '', label: str(l?.label, 80).trim() || 'See details and pricing' })).filter((l) => l.group && l.url);
+  if (links.length) out.links = links;
+  return out;
 }
 
 // A family's pickup section as her device published it, field by field. Her
@@ -631,12 +635,21 @@ export function portalOf(projection, e, now = new Date()) {
   return { only: p.only === true || Boolean(pickupOn && pickupOn < localDay(projection.kennel?.time_zone, now)) };
 }
 
+// Her logo as her device published it: a base64 image data URL only, at most
+// 300,000 characters (her kennel settings' cap). → { logo } or {}.
+const LOGO_URL = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+export const logoOf = (projection) => {
+  const v = projection.kennel?.logo;
+  return typeof v === 'string' && v.length <= 300_000 && LOGO_URL.test(v) ? { logo: v } : {};
+};
+
 export function statusView(projection, entryId, now = new Date()) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
   const kennel = {
     name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null,
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
+    ...logoOf(projection),
   };
   const family = { name: e.name ?? '', status: e.status };
   // A family page only (Waitlist Fixes Plan E3): its words never mention a waitlist.
@@ -720,6 +733,11 @@ export function statusView(projection, entryId, now = new Date()) {
   // "Message us on Facebook" (Waitlist Spec §11): a Messenger link to her own Page, nothing else.
   const messenger = projection.kennel?.messenger;
   if (typeof messenger === 'string' && /^https:\/\/m\.me\/[A-Za-z0-9._-]{1,100}$/.test(messenger)) kennel.messenger = messenger;
+  // Her featured pup page, its own card for a family still waiting: https only.
+  const featured = projection.kennel?.featured;
+  if (featured && typeof featured.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(featured.url)) {
+    kennel.featured = { url: featured.url, label: (typeof featured.label === 'string' ? featured.label.trim().slice(0, 80) : '') || 'Meet our featured pup' };
+  }
   const litters = projection.litters || {};
   const offers = (e.offers || []).map((o) => {
     const l = litters[o.litter_id] || {};

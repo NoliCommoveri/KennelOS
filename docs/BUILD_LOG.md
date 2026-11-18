@@ -5726,3 +5726,99 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Guide (Notifications, §32), Notifications plan §1 **Modified**, Integrations plan §0
   **Modified**, `cloud/README.md`.
 - **Service worker:** no app file added or renamed; `CACHE_NAME` → `kennelos-shell-v153`.
+
+## 2026-11-18: A link for each extras group on the status page
+
+- Owner: link the status page's extras to her own custom pages, a different page per group,
+  set where the group is, not in a hidden setting.
+- Each group on the Kennel page's **Extra charges price list** has **Details/marketing
+  URL (optional)** under its name (with the waitlist on): an https link, kept as
+  `Kennel.extra_charge_groups[].info_url` (`extraCharges.groupInfoLink`; `readChargeGroups`
+  refuses a non-https one). No new table, index or synced field: it rides the private
+  `extra_charge_groups`.
+- `familyExtrasView` adds `links: [{ group, url }]` for the groups with extras on the family's
+  page; the Worker's `extrasOf` passes them field by field (https only, at most 30), and the
+  status page's Extras card shows **See details and pricing** (new tab) under that group's
+  extras. The kennel-wide **See our extras and prices** button stays.
+- Tests: `tests/extraCharges.test.js`, `cloud/tests/familyPages.test.js`.
+- Guide §21.2 and the family-requests part, Family Requests plan **Modified**.
+- **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask).
+- Cloud: no migration. `cloud/public/family/status.js` changes, so it reaches families when
+  the Worker deploys.
+- Then, the owner: the field is **Details/marketing URL**, and each group may word its own
+  link, **Custom hyperlink display phrase** (`extra_charge_groups[].info_label`, up to 80
+  characters; blank = "See details and pricing"), carried in `links[].label`.
+
+## 2026-11-18: Status page links to her website: litters, dams and sires, a featured pup; no extras prefill
+
+- Owner: she's hiding her site's extras page and splitting it in two, so the extras link is
+  never filled from the site; litters prefill; link dam/sire pages; a featured pup page.
+- `kennelportLink.kennelChanges` no longer sets `waitlist_config.extras_info_url`. A value it
+  filled before stays until she clears it (Waitlist settings).
+- A dam's or sire's `url` that is its page on her website is its link on family pages,
+  tick or not, `page: true` (`parentView` now uses `pupLink`), shown as "(Their page)" and,
+  on a heat, "See Juniper on our website". An early litter under Coming up uses
+  `litterLink`, so its page reads **View litter on our website**, as Available Puppies now
+  does too (`litterHtml` takes `page`). The Worker passes `page` on parents and Coming up.
+- **Featured pup page URL** and **Custom hyperlink display phrase** in Waitlist settings
+  (`waitlist_config.featured_url` / `featured_label`, https only; blank phrase = "Meet our
+  featured pup"). Only when the URL is filled in: `kennel.featured` in the projection, sent
+  by the Worker only to families still waiting, drawn as its own **Featured pup** card before
+  Available Puppies.
+- Tests: `tests/siteExport.test.js`, `tests/waitlistProjection.test.js`,
+  `cloud/tests/familyPages.test.js`. Guide §29 and §35.
+- **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask). Cloud: no
+  migration; `cloud/public/family/common.js` and `status.js` change.
+- Then, the owner: a parent's name is its link, not "(Their page)" or "(Photos)" after it
+  (her photos link is the dog's page anyway); a planned heat's dam name too, in place of
+  "Photos of Juniper" (`common.js` `nameLink`, `litterHtml` `nameHtml`).
+- Checked in a browser (the status page with sample data, 390px and desktop): every parent
+  name links to its dog page. Found and fixed: the Worker dropped `page` on an Available
+  Puppies card (`familyPages.js` litter card), so it read "See the litter's photos".
+- Checked the Extras card in a browser with two groups (Training, Photo/video add-ons), each
+  with its link: both open their pages. Each group is now a `.xgroup` with 24px before the
+  next, so a group's link no longer sits against the next heading (`family.css`).
+- Then, the owner: a divider between groups (`.xgroup + .xgroup`: a 2px line, heavier than
+  the 1px lines between extras, with room above and below).
+
+## 2026-11-18: The family status page's look: panels, section icons, three palettes
+
+- Owner: an extras group should clearly be its own thing with its link going to all of
+  them; litters in one section should read apart; a softer, more intentional look
+  (ChatGPT's mock as direction: icons by headings, softer cards, sparing paws), matching
+  the waitlist side, with a choice of three palettes for families.
+- Each extras group is a panel: its name, its link right under it (› to all of them), then
+  its extras. Each litter in Available Puppies, and each pairing or heat in Coming up, is
+  its own panel (`ul.plain.segs`; the public list too). A litter's name is in the heading
+  face (`.litter-name`).
+- `cloud/public/family/icons.js` (new): line icons drawn in-house, `sectionIcon(title)` →
+  icon and kind; `card` / `openCard` put it in a tinted chip by the heading, chevron right.
+  Softer cards (12–14px corners, a light shadow), a paw ornament under the greeting
+  (`status.html`), a faint paw on Current Position.
+- `cloud/public/family/theme.js` (new): Classic (default, the app's colours), Ivory, Blush,
+  each light and dark (`html[data-theme]`), picked under **Colors** at the status page's
+  foot and kept in localStorage; `list.js` applies it too. Embed mode keeps its own colours.
+- Checked in a browser: both a waiting and a placed family's page in all three palettes,
+  light and dark, at 390px, and at desktop width.
+- Tests: no new ones (look only); the suites pass. One run had `the sealed part opens only
+  with the vault key it was made with` fail once and pass on rerun (unrelated, flaky).
+- Cloud: no migration; the Worker deploy carries it. **Service worker:** `CACHE_NAME` →
+  `kennelos-shell-v154` (the owner said bump), for the session's app changes (the price
+  list's group link and phrase, the featured pup settings).
+
+## 2026-11-18: Her logo on the family pages; the extras message points at the group links
+
+- Owner: yes to both.
+- The extras message's default is now "We offer several paid extras to our families. Each
+  group below links to its details and prices, so have a look before you choose."
+  (`EXTRAS_INTRO_DEFAULT`). A saved copy of the old default reads as the new
+  (`EXTRAS_INTRO_OLD_DEFAULT`, in the projection and the settings box). The settings hint
+  says each group can link to its own page.
+- Her logo (`Kennel.logo_data_url`, already `cloud` in the sync registry) goes out with her
+  waitlist as `kennel.logo` (base64 image data URL, at most 300,000 characters,
+  `familyLogo`), the Worker passes it to the status page and the public list (`logoOf`), and
+  it sits above the greeting, on a small light card in dark mode. The pages' CSP already
+  allows `img-src data:`; an SVG in an `<img>` never runs script.
+- Tests: `tests/waitlistProjection.test.js`, `cloud/tests/familyPages.test.js`.
+- Checked in a browser: a sample logo in Classic light and Ivory dark at 390px.
+- **Service worker:** rides `kennelos-shell-v154` (bumped this session, not yet on `main`).
