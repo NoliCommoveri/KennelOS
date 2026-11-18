@@ -6073,3 +6073,12 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
     checks start after the 3 s license wait and finish outside the window.
 - Docs: `build/README.md` (Load check), the plan's status and Phase 0 note, README Status.
 - **Service worker:** no app file added or changed (a test and a build script).
+
+## 2026-11-18: Dogs page — Puppies grouped by disposition; Website ✓ column
+- **Puppies tab** is sectioned by disposition, in order Available, Placed, Undecided (incl.
+  unset), Health hold, Keeping; within each section sex then name A→Z (`dogListOrder`,
+  replacing the newest-first DOB sort).
+- **All tabs:** Disposition is now plain text (no badge) and a `collapse` column, so on a phone
+  it moves into the row's details. A new always-visible **Website** column shows ✓ when
+  `show_on_website` is set; it renders only where `websiteLinkOffered()` (as the dog page does).
+- Docs: End-State guide (Dogs page order). **Service worker:** no file added or renamed.

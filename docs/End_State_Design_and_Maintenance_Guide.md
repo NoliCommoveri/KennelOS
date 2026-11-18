@@ -604,8 +604,12 @@ The Dogs page's **All dogs** list is ordered by `vocab.dogListOrder`: status in 
 order (Puppy, Active breeding, Retired breeding, Pet home, For Sale, Deceased, External
 reference), then sex in `SEX` order (Male, Female, Unknown), then name A→Z (call name, else
 registered name); a missing status, sex or name sorts last at its level. Its Status and Sex
-columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The other tabs keep
-their own order.
+columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The **Puppies** tab
+is sectioned by disposition (Available, Placed, Undecided, Health hold, Keeping; unset reads as
+Undecided), each section in `dogListOrder` (sex, then name). The other tabs keep their own
+order. On every tab Disposition is a plain-text column that collapses into the row's details on
+a phone, and where the website link is offered (`websiteLinkOffered`) an always-visible
+**Website** column shows ✓ for a dog with `show_on_website`.
 
 `screening_test` (a fecal, a heartworm test, brucellosis…: `test`, `result`, Normal or
 abnormal, the vet) is a routine vet check, deliberately not a test-bearing type: it never
