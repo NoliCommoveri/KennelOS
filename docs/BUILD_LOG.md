@@ -5931,3 +5931,18 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Docs: guide §35, §35.1 and the Sale row.
 - **Service worker:** two files added to `PRECACHE_URLS`; `CACHE_NAME` → `kennelos-shell-v156`
   (owner's go-ahead), which also carries batch A and the merged `ccr-763e73db-r0a3qt` work.
+
+## 2026-11-18: Plan for load performance and the tour's sample data
+
+- **Owner's request:** pages take up to two seconds to settle, and a late banner moves buttons
+  mid-tap; and the tour's sample data must not outlive the tour. Decided with the owner
+  (D1): the tour is read-only and its seed clears itself.
+- New `docs/KennelOS_Load_Performance_Plan.md`: what's slow, measured on `main` at `69105af`
+  (§1). That covers: the nav with no reserved height, held in Pro behind a Lemon Squeezy
+  validate on every page; the website strip at 1.5 s; Today's late cards above Reminders;
+  `app.js` at 56 modules / 893 KB and Today at 98 / 1,684 KB; repeated full-table reads in
+  `computeNudges`; per-page network checks; the 15 MB precache; and how the seed outlives
+  the tour. Seven phases (0–6), each with files, tests and docs. Decisions D2–D11: the owner
+  took every recommendation, so all are made; next is Phase 0. No server change, no migration.
+- README doc map and Status. No code changed.
+- **Service worker:** no app file added or changed.

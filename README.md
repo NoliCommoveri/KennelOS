@@ -57,6 +57,7 @@ backup, carries a program from Lite to Pro.
 | A dog's titles as a field (bought champions, ancestors), with show tracking still working them out (plan) | `docs/KennelOS_Dog_Titles_Field_Plan.md` |
 | Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
 | Credits: one currency for passes, per-use services and add-ons, enforced on the server (plan) | `docs/KennelOS_Credits_Plan.md` |
+| Pages that settle at once (nothing moving mid-tap), a lighter shell, fewer reads and checks per page, and a read-only tour whose sample data clears itself (plan) | `docs/KennelOS_Load_Performance_Plan.md` |
 | Making KennelOS harder to copy: repo visibility, licenses, minified builds, hosting (plan) | `docs/KennelOS_Security_Hardening_Plan.md` |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
@@ -82,8 +83,9 @@ backup, carries a program from Lite to Pro.
     steps (`docs/KennelOS_Website_Contract_Plan.md`). A breeder's own domain is added by hand
     to `WEBSITE_ORIGINS` in `cloud/wrangler.toml`.
   - Duplicates: Kels's Tidy up checks only dogs, contacts and waitlist applications.
-  - Planned, not built: credits, security hardening, mail budget, voice, family help,
-    duplicate applications, assisted setup.
+  - Planned, not built: load performance and the read-only tour (all decided; next is
+    Phase 0), credits, security hardening, mail budget, voice, family help, duplicate
+    applications, assisted setup.
 
 Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lines.
 
