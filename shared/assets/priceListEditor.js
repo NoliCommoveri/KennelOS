@@ -3,7 +3,8 @@
 // "Training"), each a name and a price with optional details (a line families
 // see, whether families can ask for it, the pup's age window, boarding days, a
 // payment plan, whether it's paid on its own dates, never on a sale's payment
-// schedule), and each group's defaults that its extras follow unless they set their own. The group an extra is in is the section it sits in, so renaming a
+// schedule), each group's defaults that its extras follow unless they set their own,
+// and each group's own page, linked under its extras on a family's status page. The group an extra is in is the section it sits in, so renaming a
 // group renames it for all of its extras.
 //
 // priceListHtml(kennel, { familyRequests }) → the card's inner HTML;
@@ -81,6 +82,9 @@ function groupHtml(group, items, { familyRequests, groups }, named = group !== U
   return `<div class="xc-group" data-named="${named ? '1' : ''}" style="margin:12px 0 4px;">
       ${named
         ? `<div class="field" style="margin-bottom:4px;"><label>Group</label><input class="xcg-name" type="text" value="${esc(group)}" placeholder="e.g. Training" style="font-weight:600;"></div>
+           ${familyRequests ? `<div class="field" style="margin-bottom:4px;"><label>Your page about this group (optional)</label>
+             <input class="xcg-url" type="url" inputmode="url" autocomplete="url" value="${esc(rules.info_url || '')}" placeholder="https://yourkennel.com/training">
+             <span class="field-hint">On a family's status page, a <strong>See details and pricing</strong> link under this group's extras opens this page in a new tab.</span></div>` : ''}
            <details class="xcg-rules" style="margin-bottom:4px;"><summary class="faint">Rules for every extra in this group</summary>
              ${familyRequests ? windowFields(rules, 'Ages families can ask for these and cancel them. An extra with its own ages uses those instead.') : ''}
              <div class="field" style="margin-top:8px;"><label>When they're paid</label>${planFields(rules.payment_plan, 'Blank: all with the balance. An extra with its own plan uses that instead.')}</div>
@@ -200,7 +204,7 @@ export function readPriceListForm(root, { familyRequests = false } = {}) {
     if (sec.dataset.named && !name && filled.length) return { rows: [], groups: [], error: 'Give each group a name, or move its extras to "Not in a group".' };
     if (sec.dataset.named && name) {
       const rules = sec.querySelector('.xcg-rules');
-      groups.push({ name, ...(familyRequests ? readWindows(rules) : {}), payment_plan: readPlan(rules), own_due_dates: rules.querySelector('.xcg-own').checked });
+      groups.push({ name, ...(familyRequests ? { ...readWindows(rules), info_url: sec.querySelector('.xcg-url').value.trim() } : {}), payment_plan: readPlan(rules), own_due_dates: rules.querySelector('.xcg-own').checked });
     }
     for (const el of secRows) {
       const d = el.querySelector('.xc-details');

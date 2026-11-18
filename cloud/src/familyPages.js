@@ -477,7 +477,7 @@ export function transportOf(projection) {
 }
 
 // A family's extras as her device published them, field by field (no prices
-// ever pass). → { available, current, requests } or null.
+// ever pass). → { available, current, requests, links? } or null.
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function extrasOf(x) {
   if (!x || typeof x !== 'object') return null;
@@ -490,7 +490,11 @@ export function extrasOf(x) {
     current: arr(x.current).map((c) => ({ id: id(c?.id), list_id: id(c?.list_id) || null, name: str(c?.name, 120), group: str(c?.group, 80), can_cancel: c?.can_cancel === true, cancel_until: date(c?.cancel_until) })).filter((c) => c.id && c.name),
     requests: arr(x.requests).map((r) => ({ id: id(r?.id), kind: r?.kind === 'cancel' ? 'cancel' : 'add', list_id: id(r?.list_id) || null, charge_id: id(r?.charge_id) || null, name: str(r?.name, 120), requested_date: date(r?.requested_date), decided: ['approved', 'declined'].includes(r?.decided) ? r.decided : null, decided_date: date(r?.decided_date) })).filter((r) => r.id),
   };
-  return out.available.length || out.current.length || out.requests.length ? out : null;
+  if (!(out.available.length || out.current.length || out.requests.length)) return null;
+  // Her page for a group, linked under its extras: https only.
+  const links = arr(x.links).slice(0, 30).map((l) => ({ group: str(l?.group, 80), url: typeof l?.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(l.url) ? l.url : '' })).filter((l) => l.group && l.url);
+  if (links.length) out.links = links;
+  return out;
 }
 
 // A family's pickup section as her device published it, field by field. Her

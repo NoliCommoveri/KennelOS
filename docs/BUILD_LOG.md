@@ -5726,3 +5726,22 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Guide (Notifications, §32), Notifications plan §1 **Modified**, Integrations plan §0
   **Modified**, `cloud/README.md`.
 - **Service worker:** no app file added or renamed; `CACHE_NAME` → `kennelos-shell-v153`.
+
+## 2026-11-18: A link for each extras group on the status page
+
+- Owner: link the status page's extras to her own custom pages, a different page per group,
+  set where the group is, not in a hidden setting.
+- Each group on the Kennel page's **Extra charges price list** has **Your page about this
+  group (optional)** under its name (with the waitlist on): an https link, kept as
+  `Kennel.extra_charge_groups[].info_url` (`extraCharges.groupInfoLink`; `readChargeGroups`
+  refuses a non-https one). No new table, index or synced field: it rides the private
+  `extra_charge_groups`.
+- `familyExtrasView` adds `links: [{ group, url }]` for the groups with extras on the family's
+  page; the Worker's `extrasOf` passes them field by field (https only, at most 30), and the
+  status page's Extras card shows **See details and pricing** (new tab) under that group's
+  extras. The kennel-wide **See our extras and prices** button stays.
+- Tests: `tests/extraCharges.test.js`, `cloud/tests/familyPages.test.js`.
+- Guide §21.2 and the family-requests part, Family Requests plan **Modified**.
+- **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask).
+- Cloud: no migration. `cloud/public/family/status.js` changes, so it reaches families when
+  the Worker deploys.

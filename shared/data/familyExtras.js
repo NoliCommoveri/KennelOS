@@ -78,7 +78,8 @@ export function familyCancel(charge, item, groups, birthDate, today) {
 // (its price list), `birthDate` the pup's. → null when there's nothing to show, else
 // { available: [{ id, name, group, description, open_from, open_until }],
 //   current: [{ id, list_id, name, group, can_cancel, cancel_until }],
-//   requests: [{ id, kind, list_id, charge_id, name, requested_date, decided, decided_date }] }
+//   requests: [{ id, kind, list_id, charge_id, name, requested_date, decided, decided_date }],
+//   links?: [{ group, url }] }  her page for a group shown above, linked under its extras
 // No prices or amounts, ever (plan D1).
 export function familyExtrasView({ entry, sale, kennel, birthDate = null, today }) {
   if (!sale || !isOpenSale(sale)) return null;
@@ -105,7 +106,9 @@ export function familyExtrasView({ entry, sale, kennel, birthDate = null, today 
     .filter((r) => r && r.requested_date && r.decided !== 'closed' && (!r.decided || (r.decided_date && addDaysToYMD(r.decided_date, EXTRA_REQUEST_SHOWN_DAYS) >= today)))
     .map((r) => ({ id: r.id, kind: r.kind, list_id: r.list_id || null, charge_id: r.charge_id || null, name: r.name || '', requested_date: r.requested_date, decided: r.decided || null, decided_date: r.decided_date || null }));
   if (!available.length && !current.length && !requests.length) return null;
-  return { available, current, requests };
+  const shown = new Set([...available, ...current].map((x) => x.group.toLowerCase()).filter(Boolean));
+  const links = groups.filter((g) => g.info_url && shown.has(g.name.toLowerCase())).map((g) => ({ group: g.name, url: g.info_url }));
+  return { available, current, requests, ...(links.length ? { links } : {}) };
 }
 
 // A request added to the entry's list (once per id), oldest dropped past the cap.

@@ -78,6 +78,10 @@ changes.
 - `extras_info_url`: a link to her own web page with the packages and prices. It must be an
   `https://` address. The status page shows it as **See our extras and prices**, opening in
   a new tab (`target="_blank" rel="noopener noreferrer"`).
+- **Modified:** each group of her price list may also carry its own page
+  (`Kennel.extra_charge_groups[].info_url`, https only), set under the group's name on the
+  Extra charges price list; the status page shows **See details and pricing** under that
+  group's extras, opening in a new tab.
 - `extras_intro_text`: her message above the list, e.g. "We offer several paid extras to our
   families. Please click the link below to see the details before making your selection
   below." Blank = that sentence as the default.
