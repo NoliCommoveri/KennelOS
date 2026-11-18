@@ -599,6 +599,18 @@ test('her featured pup card: for families still waiting, only with an https link
   assert.equal('featured' in statusView(p, 'bo').kennel, false, 'https only');
 });
 
+test('her logo: on the status page and the public list, an image data URL only', () => {
+  const p = projection();
+  p.kennel.logo = 'data:image/png;base64,iVBORw0KGgo=';
+  assert.equal(statusView(p, 'bo').kennel.logo, p.kennel.logo);
+  assert.equal(statusView(p, 'cy').kennel.logo, p.kennel.logo, 'a placed family too');
+  assert.equal(listView(p).kennel.logo, p.kennel.logo);
+  p.kennel.logo = 'javascript:alert(1)';
+  assert.equal('logo' in statusView(p, 'bo').kennel, false);
+  p.kennel.logo = 'data:image/svg+xml;utf8,<svg onload=alert(1)>';
+  assert.equal('logo' in listView(p).kennel, false, 'base64 only');
+});
+
 test("a family's pickup passes field by field; her standard location and the mile limits never do", async () => {
   const { pickupOf } = await import('../src/familyPages.js');
   const x = pickupOf({

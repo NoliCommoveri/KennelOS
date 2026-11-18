@@ -657,3 +657,16 @@ test('her featured pup page: only when filled in (https), with her phrase or the
   assert.equal(withConfig({ featured_url: 'https://k.example/featured', featured_label: ' Say hi to Opal ' }).featured.label, 'Say hi to Opal');
   assert.match(waitlistConfigProblem({ featured_url: 'k.example/featured' }), /featured pup page link/);
 });
+
+test("her logo rides to her family pages: an image data URL only, within her settings' size", async () => {
+  const { EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT } = await import('../shared/data/waitlistRules.js');
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  const k = (logo) => buildProjection({ ...fixture(), kennel: { ...kennel, logo_data_url: logo } }).kennel;
+  assert.equal(k(png).logo, png);
+  assert.equal('logo' in k(''), false, 'none: absent');
+  assert.equal('logo' in k('https://example.com/logo.png'), false, 'a data URL only');
+  assert.equal('logo' in k('data:text/html;base64,PHNjcmlwdD4='), false, 'an image only');
+  assert.equal('logo' in k(`data:image/png;base64,${'A'.repeat(300_001)}`), false, 'too big: absent');
+  assert.match(EXTRAS_INTRO_DEFAULT, /Each group below links/);
+  assert.notEqual(EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT);
+});

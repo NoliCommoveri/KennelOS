@@ -25,7 +25,7 @@ import {
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
 import { sectionIcon } from './icons.js';
-import { wireThemePicker } from './theme.js';
+import { wireThemePicker, showLogo } from './theme.js';
 
 // The palette this browser's family chose, before anything draws (theme.js).
 wireThemePicker();
@@ -1534,6 +1534,7 @@ async function load() {
   state.preview = v.preview?.until ? v.preview : null;
   state.session = !state.preview && v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
+  showLogo($('kennel-logo'), v.kennel);
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
   // A family page only (never on the waitlist): no "Waitlist" in the heading.
   $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;

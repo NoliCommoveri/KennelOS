@@ -40,7 +40,7 @@ import { creditsOf, allocateCredits, feeCharge } from './receivedCredits.js';
 import { familyPickupView } from './familyPickup.js';
 import { backOutReasons, backOutPolicyText } from './backOut.js';
 import { standardLocation } from './pickupSlots.js';
-import { EXTRAS_INTRO_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, extrasInfoLink } from './waitlistRules.js';
+import { EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, extrasInfoLink } from './waitlistRules.js';
 import { portalEntryView, portalOn } from './portalFeed.js';
 import { familyPaymentsView } from './paymentSchedule.js';
 import { titlesByDogId, titleAbbrs } from './dogTitles.js';
@@ -111,6 +111,15 @@ export function photoLink(v) {
 }
 export const dogPhotosLink = (dog) => (dog && dog.photos_online ? photoLink(dog.url) : null);
 const withPhotos = (url) => (url ? { photos_url: url } : {});
+
+// Her logo as family pages may show it: a base64 image data URL (PNG, JPEG, WebP, GIF
+// or SVG, which an <img> never runs), at most FAMILY_LOGO_MAX characters; else null.
+export const FAMILY_LOGO_MAX = 300_000;
+const LOGO_URL = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+export function familyLogo(kennel) {
+  const v = String(kennel?.logo_data_url || '');
+  return v.length <= FAMILY_LOGO_MAX && LOGO_URL.test(v) ? v : null;
+}
 
 // A pup's link as family pages show it: its page on her KennelPort website when its
 // `url` is one (Update website fills it; the page is public anyway, so no
@@ -701,6 +710,9 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     kennel: {
       public_id: kennel.public_id,
       name: kennel.kennel_name || '',
+      // Her logo at the top of her family pages (owner, 2026-11-18): an image data URL
+      // as her kennel settings keep it (at most LOGO_MAX_CHARS); none = absent.
+      ...(familyLogo(kennel) ? { logo: familyLogo(kennel) } : {}),
       // The message under her public list's heading (publicIntroText).
       intro: publicIntroText(config, kennel.kennel_name || ''),
       time_zone: orNull(kennel.time_zone),
@@ -753,7 +765,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       } : {}),
       // Only while some family has extras to see.
       ...(Object.values(entryViews).some((v) => v.extras) ? {
-        extras_intro: (config.extras_intro_text || '').trim() || EXTRAS_INTRO_DEFAULT,
+        extras_intro: ((t) => (!t || t === EXTRAS_INTRO_OLD_DEFAULT ? EXTRAS_INTRO_DEFAULT : t))((config.extras_intro_text || '').trim()),
         ...(extrasInfoLink(config.extras_info_url) ? { extras_info_url: extrasInfoLink(config.extras_info_url) } : {})
       } : {}),
       // Her featured pup page, its own card on a waiting family's page (new tab).

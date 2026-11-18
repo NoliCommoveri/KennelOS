@@ -442,3 +442,8 @@ ul.plain.segs > li + li, .seg + .seg { margin-top: 12px; }
 .theme-pick .sw-classic { background: linear-gradient(135deg, #f6f7f9 50%, #2f6f4f 50%); }
 .theme-pick .sw-ivory { background: linear-gradient(135deg, #f4efe4 50%, #2e5a42 50%); }
 .theme-pick .sw-blush { background: linear-gradient(135deg, #f8f1f1 50%, #7a3f5e 50%); }
+/* Her logo above the greeting: modest, on its own. */
+.kennel-logo { display: block; margin: 4px auto 10px; max-width: min(200px, 60vw); max-height: 84px; object-fit: contain; }
+/* In dark mode a logo (made for a light page) sits on a small light card. */
+@media (prefers-color-scheme: dark) { .kennel-logo { background: #fbf9f4; padding: 8px 12px; border-radius: 12px; } }
+html.embedded.theme-light .kennel-logo { background: none; padding: 0; }

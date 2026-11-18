@@ -2938,7 +2938,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   ivory, serif headings) and Blush (plum on soft rose), each with a dark version; a family
   picks one under **Colors** at the status page's foot, kept in this browser's localStorage
   (`kos-family-theme`), and the public list follows it. Embed mode's own colours still win
-  on her website. The section labels (Still Available, Already Reserved) are bold in title case,
+  on her website.
+  **Her logo** (`Kennel.logo_data_url`, already a cloud field) tops the status page and the
+  public list: the projection carries it as `kennel.logo` when it's a base64 image data URL
+  of at most 300,000 characters (`waitlistProjection.familyLogo`), the Worker passes it the
+  same way (`familyPages.logoOf`), and `theme.js` `showLogo` draws it (on a small light card
+  in dark mode). The section labels (Still Available, Already Reserved) are bold in title case,
   like the cards' other labels, and an empty column's "None left" / "None"
   (`.pup-col-empty`) sits on the line of a pup's name in the next column.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
@@ -2995,7 +3000,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   waiting (applied, approved, active), and their page shows a **Featured pup** card, the
   phrase as a button (new tab), before Available Puppies. It also
   carries `extras_intro` (`waitlist_config.extras_intro_text`, blank =
-  `EXTRAS_INTRO_DEFAULT`) and `extras_info_url` (`extras_info_url`, https only) while any
+  `EXTRAS_INTRO_DEFAULT`, "Each group below links to its details and prices…"; a saved copy of
+  the old default, `EXTRAS_INTRO_OLD_DEFAULT`, reads as the new) and `extras_info_url` (`extras_info_url`, https only) while any
   family has extras. Their page's **Extras** card shows her message, **See our extras and
   prices** (new tab), the extras under her group headings with **Request** / **Cancel**, and
   under a group with a link, her phrase (blank: **See details and pricing**) as a link (new tab).

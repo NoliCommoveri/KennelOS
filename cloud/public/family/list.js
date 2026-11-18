@@ -7,7 +7,7 @@
 import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 import { EMBEDDED, setupEmbed, outward } from './embedded.js';
-import { applyTheme, savedTheme } from './theme.js';
+import { applyTheme, savedTheme, showLogo } from './theme.js';
 
 // The palette a family chose on their status page, if this browser has one.
 applyTheme(savedTheme());
@@ -90,6 +90,7 @@ async function load() {
   }
   const { kennel, as_of: asOf, rows, selected = [], available = [], upcoming = [] } = res.body;
   document.title = `${kennel.name} Waitlist`;
+  showLogo($('kennel-logo'), kennel);
   $('title').textContent = `${kennel.name} Waitlist`;
   if (kennel.name) $('footer').textContent = `For questions or concerns, please contact ${kennel.name}.`;
   // Her message under the heading (plain text; line breaks kept by the CSS).

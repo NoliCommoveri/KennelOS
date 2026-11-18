@@ -87,7 +87,10 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
 // The default message above the extras on a family's status page (the owner's wording).
 export const FEATURED_LABEL_DEFAULT = 'Meet our featured pup';
 export const FEATURED_LABEL_MAX = 80;
-export const EXTRAS_INTRO_DEFAULT = 'We offer several paid extras to our families. Please click the link below to see the details before making your selection below.';
+// Each group of her extras links to its own page (2026-11-18), so the default points
+// at those. The old default, if it was ever saved as her own words, reads as the new.
+export const EXTRAS_INTRO_DEFAULT = 'We offer several paid extras to our families. Each group below links to its details and prices, so have a look before you choose.';
+export const EXTRAS_INTRO_OLD_DEFAULT = 'We offer several paid extras to our families. Please click the link below to see the details before making your selection below.';
 // Her extras page link, when it's a usable https address; else ''.
 export const extrasInfoLink = (v) => (/^https:\/\/[^\s"'<>]{1,500}$/i.test(String(v || '').trim()) ? String(v).trim() : '');
 

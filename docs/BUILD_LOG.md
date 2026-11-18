@@ -5805,3 +5805,20 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Cloud: no migration; the Worker deploy carries it. **Service worker:** `CACHE_NAME` →
   `kennelos-shell-v154` (the owner said bump), for the session's app changes (the price
   list's group link and phrase, the featured pup settings).
+
+## 2026-11-18: Her logo on the family pages; the extras message points at the group links
+
+- Owner: yes to both.
+- The extras message's default is now "We offer several paid extras to our families. Each
+  group below links to its details and prices, so have a look before you choose."
+  (`EXTRAS_INTRO_DEFAULT`). A saved copy of the old default reads as the new
+  (`EXTRAS_INTRO_OLD_DEFAULT`, in the projection and the settings box). The settings hint
+  says each group can link to its own page.
+- Her logo (`Kennel.logo_data_url`, already `cloud` in the sync registry) goes out with her
+  waitlist as `kennel.logo` (base64 image data URL, at most 300,000 characters,
+  `familyLogo`), the Worker passes it to the status page and the public list (`logoOf`), and
+  it sits above the greeting, on a small light card in dark mode. The pages' CSP already
+  allows `img-src data:`; an SVG in an `<img>` never runs script.
+- Tests: `tests/waitlistProjection.test.js`, `cloud/tests/familyPages.test.js`.
+- Checked in a browser: a sample logo in Classic light and Ivory dark at 390px.
+- **Service worker:** rides `kennelos-shell-v154` (bumped this session, not yet on `main`).

@@ -38,7 +38,7 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { waitlistPolicies, validatePolicies, newPolicy, POLICY_LIMITS } from '../data/waitlistForm.js';
 import { policyStarters, policyHint, basisChanges } from '../data/waitlistPolicies.js';
 import { qaListHtml, wireQaList } from '../assets/qaListEditor.js';
@@ -605,10 +605,10 @@ function featuredSettings(c) {
 function extrasSettings(c) {
   return `<div class="field field-wide">
       <label for="wl-extras-intro">Extras: your message to families</label>
-      <textarea id="wl-extras-intro" rows="3" placeholder="${esc(EXTRAS_INTRO_DEFAULT)}">${esc(c.extras_intro_text || '')}</textarea>
+      <textarea id="wl-extras-intro" rows="3" placeholder="${esc(EXTRAS_INTRO_DEFAULT)}">${esc(c.extras_intro_text === EXTRAS_INTRO_OLD_DEFAULT ? '' : c.extras_intro_text || '')}</textarea>
       <label for="wl-extras-url" style="margin-top:6px;">Your page with the extras' details and prices</label>
       <input id="wl-extras-url" type="url" inputmode="url" autocomplete="url" value="${esc(c.extras_info_url || '')}" placeholder="https://yourkennel.com/extras">
-      <span class="field-hint">Families whose pup is picked see your message, a <strong>See our extras and prices</strong> button that opens this page in a new tab, then the extras they can ask for, by name. Prices never show on their page. Choose which extras they can ask for on the Extra charges price list.</span>
+      <span class="field-hint">Families whose pup is picked see your message, a <strong>See our extras and prices</strong> button that opens this page in a new tab (only if you fill it in), then the extras they can ask for, by name, in your groups. Each group can link to its own page: set it under the group's name on the Extra charges price list, where you also choose which extras they can ask for. Prices never show on their page.</span>
     </div>`;
 }
 

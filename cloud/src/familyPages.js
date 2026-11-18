@@ -379,7 +379,7 @@ export function listView(projection) {
   return {
     // apply_open: she takes applications online, so the list links to her form.
     // intro: her message under the page's heading, as her device rendered it.
-    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection) },
+    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection), ...logoOf(projection) },
     as_of: projection.as_of ?? null,
     rows: publicRows(projection),
     selected: selectedRows(projection),
@@ -635,12 +635,21 @@ export function portalOf(projection, e, now = new Date()) {
   return { only: p.only === true || Boolean(pickupOn && pickupOn < localDay(projection.kennel?.time_zone, now)) };
 }
 
+// Her logo as her device published it: a base64 image data URL only, at most
+// 300,000 characters (her kennel settings' cap). → { logo } or {}.
+const LOGO_URL = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+export const logoOf = (projection) => {
+  const v = projection.kennel?.logo;
+  return typeof v === 'string' && v.length <= 300_000 && LOGO_URL.test(v) ? { logo: v } : {};
+};
+
 export function statusView(projection, entryId, now = new Date()) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
   const kennel = {
     name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null,
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
+    ...logoOf(projection),
   };
   const family = { name: e.name ?? '', status: e.status };
   // A family page only (Waitlist Fixes Plan E3): its words never mention a waitlist.
