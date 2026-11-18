@@ -5839,4 +5839,4 @@ No owner decisions needed; each fix follows the review's suggestion.
   Delivered goes portal-only), `cloud/tests/familyPortal.test.js` (no date switch).
 - Docs: End-State guide §35.1.
 - Cloud: no migration; the Worker deploy carries it. **Service worker:** no file added;
-  `CACHE_NAME` not bumped yet (asked).
+  `CACHE_NAME` → `kennelos-shell-v155` (the owner said bump).
