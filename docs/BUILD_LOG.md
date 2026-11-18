@@ -5840,6 +5840,20 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Docs: End-State guide §35.1.
 - Cloud: no migration; the Worker deploy carries it. **Service worker:** no file added;
   `CACHE_NAME` → `kennelos-shell-v155` (the owner said bump).
+
+## 2026-11-18: from her puppy portal to the status page, signed in
+
+- KennelPort's portal now opens a family's status page signed in, before pickup, so
+  payments, extras and pickup need no code: `/s/<token>#from=<t>`, a one-time 10-minute
+  link in KennelPort's handoff format, signed with the shared portal key over
+  `to-status:` and the body (so it never works the other way).
+- `cloud/public/family/status.js` reads `#from=`, takes it off the address and posts
+  `/f/from-portal` (`familyActions.handleFromPortal`): this page's family only, unexpired,
+  once, her portal on; it starts the same 90-day family session as a typed code.
+- **Cloud migration 0029** (`wl_portal_handoffs`: the hashes of used links; retention
+  drops them after a day; deleted with the account). Additive.
+- Tests: `cloud/tests/familyPortal.test.js` (two new). Docs: End-State guide §35.1.
+- Service worker: no app file changed (`status.js` is the cloud Worker's page), no bump.
 ## 2026-11-18: Plan for the review's remaining findings
 
 - New `docs/KennelOS_Review_Remainder_Plan.md`: 32 open findings (K12-4, K14-3, K1-4 the S2s)

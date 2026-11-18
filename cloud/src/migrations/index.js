@@ -39,6 +39,7 @@ import syncBaseSeq from './0025_sync_base_seq.sql';
 import failedChangesManagerSessions from './0026_failed_changes_manager_sessions.sql';
 import esignLibrary from './0027_esign_library.sql';
 import notifyContract from './0028_notify_contract.sql';
+import portalToStatus from './0029_portal_to_status.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -69,4 +70,5 @@ export const MIGRATIONS = [
   { id: '0026', name: 'failed_changes_manager_sessions', sql: failedChangesManagerSessions },
   { id: '0027', name: 'esign_library', sql: esignLibrary },
   { id: '0028', name: 'notify_contract', sql: notifyContract },
+  { id: '0029', name: 'portal_to_status', sql: portalToStatus },
 ];

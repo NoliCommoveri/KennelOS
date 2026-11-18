@@ -134,3 +134,48 @@ test('no Companion link request while her portal is on', async () => {
   const on = await call(env, 'POST', '/f/act', { body: { session: bo, status_token: tok('b'), action: 'companion_request' } });
   assert.equal(on.status, 200, 'other families as before');
 });
+
+// KennelPort's "Open your status page" (its portal/feed.js makeStatusToken): the
+// same shape as the link above, signed over "to-status:" and the body.
+async function fromPortalToken(familyId, { key = KEY, x = Date.now() + 10 * 60000, n = 'c'.repeat(32), prefix = 'to-status:' } = {}) {
+  const body = btoa(JSON.stringify({ f: familyId, x, n })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${body}.${await hmacHex(key, `${prefix}${body}`)}`;
+}
+const fromPortal = (env, token, t) => call(env, 'POST', '/f/from-portal', { body: { status_token: token, t } });
+
+test('/f/from-portal: her portal\'s link signs the family in on their status page for 90 days, once', async () => {
+  const { env } = await setup();
+  const t = await fromPortalToken('contact-ann');
+  const res = await fromPortal(env, tok('a'), t);
+  assert.equal(res.status, 200);
+  const out = await res.json();
+  assert.equal(out.public_id, KENNEL);
+  assert.equal(out.status_token, tok('a'));
+  assert.match(out.session, /^[0-9a-f]{64}$/);
+  const days = (Date.parse(out.expires_at) - Date.now()) / 86400000;
+  assert.ok(days > 89.9 && days <= 90, 'the same 90 days a typed code gives');
+  // The session acts like one from a code: it opens the portal again, say.
+  assert.equal((await portal(env, out.session, tok('a'))).status, 200);
+  assert.equal(JSON.stringify(env.DB.raw.prepare('SELECT * FROM wl_portal_handoffs').all()).includes('c'.repeat(32)), false, 'only a hash is kept');
+  // Once only.
+  const again = await fromPortal(env, tok('a'), t);
+  assert.equal(again.status, 403);
+  assert.equal((await again.json()).error, 'link_used');
+});
+
+test('/f/from-portal: refused for another family\'s page, an old, forged or other-way link, or with her portal off', async () => {
+  const { env, publish } = await setup();
+  const bad = async (token, t, why) => assert.equal((await fromPortal(env, token, t)).status >= 400, true, why);
+  await bad(tok('b'), await fromPortalToken('contact-ann', { n: 'd'.repeat(32) }), 'Ann\'s link on Bo\'s page');
+  await bad(tok('a'), await fromPortalToken('contact-bo', { n: 'e'.repeat(32) }), 'a link for another family');
+  await bad(tok('a'), await fromPortalToken('contact-ann', { n: 'f'.repeat(32), x: Date.now() - 1000 }), 'expired');
+  await bad(tok('a'), await fromPortalToken('contact-ann', { n: '1'.repeat(32), x: Date.now() + 60 * 60000 }), 'too far ahead');
+  await bad(tok('a'), await fromPortalToken('contact-ann', { n: '2'.repeat(32), key: 'cd'.repeat(32) }), 'another key');
+  await bad(tok('a'), await fromPortalToken('contact-ann', { n: '3'.repeat(32), prefix: '' }), 'the status page\'s own link format, the other way');
+  await bad(tok('a'), 'nonsense', 'not a link');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM wl_family_sessions').get().n, 2, 'no session from any of them (two from setup)');
+  const p = projection();
+  delete p.server;
+  await publish(p);
+  await bad(tok('a'), await fromPortalToken('contact-ann', { n: '4'.repeat(32) }), 'portal off');
+});

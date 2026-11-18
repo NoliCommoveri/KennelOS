@@ -163,6 +163,8 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs - 2 * DAY)),
     env.DB.prepare(`DELETE FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?`).bind(iso(nowMs - 2 * DAY)),
     env.DB.prepare('DELETE FROM wl_family_sessions WHERE expires_at < ?').bind(iso(nowMs)),
+    // The portal's one-time links back to a status page live 10 minutes; a day is plenty.
+    env.DB.prepare('DELETE FROM wl_portal_handoffs WHERE used_at < ?').bind(iso(nowMs - DAY)),
     // Live sync (Phase 2 plan §6.3): old tombstones, and records of sync turned off a while ago.
     ...syncRetentionStatements(env, nowMs),
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
