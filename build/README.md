@@ -130,6 +130,49 @@ domain + DNS configured** — otherwise its deploy job fails while the editions 
 To deploy manually instead of waiting for CI: run `node build/assemble.mjs`, then push
 `dist/<edition>/` as the `main` branch of the matching publish repo.
 
+## Next channel (a test build of what's coming)
+
+`next-pro.kennelos.app` runs an unreleased build of Pro, so new work can be seen and tested
+without touching the live editions. Pro only for now.
+
+```
+node build/assemble.mjs pro --channel next    # -> dist/next-pro/
+```
+
+- **Branch:** work for the next release merges into the long-lived `next` branch.
+  `.github/workflows/deploy-next.yml` runs the tests and publishes every push to `next` to
+  `NoliCommoveri/kennelos-next-pro` (GitHub Pages, `next-pro.kennelos.app`). `main` keeps
+  deploying the live editions (`deploy.yml`) and is never built as a channel.
+- **What the build changes** (`build/nextChannel.mjs`, after the normal assembly, the way
+  `--final` works): `cloudUrl` and `kennelportUrl` become the staging servers the config
+  already names (`devCloudUrl`, `devKennelportUrl`); Pro's license gate is off (no key, no
+  activation used); the nav's edition tag reads **Next**; the installed app and the tab are
+  named "KennelOS Pro Next"; the cache name gets `-next`; a `robots.txt` keeps search engines
+  out. No banner. Each rewrite checks its anchor and the build fails if the config would
+  still name a production server (`tests/nextChannel.test.js`).
+- **Why its own origin:** IndexedDB, localStorage and the service worker belong to an
+  origin, so a next build's data and its schema upgrades (new `db.version(N)` blocks) never
+  reach a live database. Never serve a next build under a path of a live origin.
+- **Staging lets it in:** the staging Worker's `EXTRA_APP_ORIGINS` lists
+  `https://next-pro.kennelos.app`; production never sets it (`cloud/tests/config.test.js`).
+- **Test data:** export a backup from the live app and import it on next (a copy; the
+  original is untouched), or start fresh. Import/Export's Danger zone resets it.
+- **Things that still reach real services:** anything the app connects to directly rather
+  than through our server, such as Dropbox and Google Drive, and staging's email when its
+  `RESEND_API_KEY` secret is set (`cloud/src/mail.js` sends through Resend whenever the key
+  is there, even with `DEV_OUTBOX` on). Don't connect real accounts on next, and keep
+  staging's Resend key unset while a copied program with real families is on next.
+- **Schema on next:** a `db.version(N)` block on next has only reached test devices, so it
+  can still change before release; if it does, testers reset their test data. Once merged to
+  `main` it is shipped and frozen.
+- **Releasing:** open a PR from `next` into `main`; the usual service-worker cache bump
+  rides with it. Fixes made on `main` are merged back into `next`.
+- **Setup (once, by hand):** create `NoliCommoveri/kennelos-next-pro`, give the
+  `EDITIONS_DEPLOY_PAT` token Contents read/write on it, turn on Pages with the custom domain
+  `next-pro.kennelos.app`, and add the DNS record (a CNAME to `nolicommoveri.github.io`).
+  In Cloudflare's Workers Builds, have the staging Worker build from `next` so server changes
+  are tested there before production (which keeps building from `main`).
+
 ## The final build (if KennelOS ends)
 
 The terms promise that if KennelOS ends, Lite and Pro get a final version that needs no

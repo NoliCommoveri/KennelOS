@@ -65,7 +65,11 @@ fallthrough = true
 # takes TEST-MODE purchases only, production live ones. Until LS_STORE_ID, a
 # product id and the LEMONSQUEEZY_WEBHOOK_SECRET secret are set, the webhook
 # answers 503 and /ops says what's missing.
+# EXTRA_APP_ORIGINS: staging only. App origins beyond lite./pro. allowed to call this
+# Worker: the next-channel test build (build/nextChannel.mjs), which talks only to staging.
+# Production must NOT set it (cloud/tests/config.test.js checks).
 [vars]
+EXTRA_APP_ORIGINS = "https://next-pro.kennelos.app"
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 MAIL_FAMILY_DOMAIN = "mail.kennelos.app"
 FAMILY_PAGES_ORIGIN = "https://kennelos-api-staging.admin-kennelos.workers.dev"

@@ -6125,3 +6125,24 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   noted: a `measured` trait scale; traits on pedigree-only Dog rows or a separate
   pedigree-traits table; hand-entered production facts for outside dogs.
 - No code changed. **Service worker:** no app file added or changed.
+
+## 2026-11-18: The next channel: a test build of Pro at next-pro.kennelos.app
+
+- **Owner's request:** a segregated next release to see and test what's being built without
+  touching production. Decided with the owner: Pro only, license gate off, `next-` names,
+  no banner (the nav's edition tag reads "Next" instead).
+- New `build/nextChannel.mjs` and `node build/assemble.mjs pro --channel next` (→
+  `dist/next-pro/`): staging cloud and KennelPort URLs, the license gate off, the "Next" tag,
+  the name "KennelOS Pro Next", a `-next` cache name, `robots.txt`. Fails the build if the
+  config would still name a production server.
+- New `.github/workflows/deploy-next.yml`: pushes to the `next` branch run the tests and
+  publish to `NoliCommoveri/kennelos-next-pro` (`next-pro.kennelos.app`). `deploy.yml` is
+  unchanged.
+- Cloud: `lib/cors.js` takes `env` and allows `EXTRA_APP_ORIGINS` (comma-separated), set in
+  the staging Worker's `[vars]` only, to `https://next-pro.kennelos.app`.
+- Tests: `tests/nextChannel.test.js`; `cloud/tests/config.test.js` (staging lists next-pro
+  and matches deploy-next.yml, production never sets it); `cloud/tests/worker.test.js`
+  (the preflight with and without it). `node --test`: 2238 pass.
+- Docs: `build/README.md` "Next channel" (setup steps for the owner, test data, what still
+  reaches real services, schema on next, releasing), `cloud/README.md`, README build line.
+- App source unchanged. **Service worker:** no app file added or changed.

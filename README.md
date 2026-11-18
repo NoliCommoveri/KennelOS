@@ -100,4 +100,5 @@ Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lin
 python3 -m http.server 8000      # then open http://localhost:8000/shared/  (never file://)
 node --test                      # all tests, Node ≥ 22, no dependencies
 node build/assemble.mjs          # → dist/{lite,pro,demo}/
+node build/assemble.mjs pro --channel next   # → dist/next-pro/ (the test build; build/README.md)
 ```

@@ -40,6 +40,16 @@ test('wrangler.toml: a daily retention cron, and the staging outbox switch', () 
   assert.match(toml, /name\s*=\s*"kennelos-api-staging"/, 'DEV_OUTBOX may only ride along with the staging Worker');
 });
 
+test('next channel: only the STAGING Worker lets next-pro call it, and it matches deploy-next.yml', () => {
+  const next = readFileSync(here('../../.github/workflows/deploy-next.yml'), 'utf8');
+  const domain = next.match(/domain:\s*(\S+)/)?.[1];
+  assert.equal(domain, 'next-pro.kennelos.app');
+  const extra = stagingToml.match(/^EXTRA_APP_ORIGINS\s*=\s*"([^"]*)"/m)?.[1];
+  assert.ok(extra, 'staging [vars] lists EXTRA_APP_ORIGINS');
+  assert.deepEqual(extra.split(',').map((s) => s.trim()), [`https://${domain}`]);
+  assert.doesNotMatch(productionToml, /EXTRA_APP_ORIGINS/, 'production must never let a test build in');
+});
+
 test('wrangler.toml: production is its own Worker on api.kennelos.app, with no staging outbox', () => {
   assert.ok(productionToml, 'an [env.production] section');
   assert.doesNotMatch(productionToml, /DEV_OUTBOX/, 'production must never show codes on /ops');
