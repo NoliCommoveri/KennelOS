@@ -5731,8 +5731,8 @@ No owner decisions needed; each fix follows the review's suggestion.
 
 - Owner: link the status page's extras to her own custom pages, a different page per group,
   set where the group is, not in a hidden setting.
-- Each group on the Kennel page's **Extra charges price list** has **Your page about this
-  group (optional)** under its name (with the waitlist on): an https link, kept as
+- Each group on the Kennel page's **Extra charges price list** has **Details/marketing
+  URL (optional)** under its name (with the waitlist on): an https link, kept as
   `Kennel.extra_charge_groups[].info_url` (`extraCharges.groupInfoLink`; `readChargeGroups`
   refuses a non-https one). No new table, index or synced field: it rides the private
   `extra_charge_groups`.

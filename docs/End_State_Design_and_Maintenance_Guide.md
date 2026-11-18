@@ -1574,7 +1574,7 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   balance. `requestWindow(item, groups, birthDate)` turns the ages into dates ("until N weeks"
   ends the day before the pup turns N weeks). Edited on the Kennel page's **Extra charges price
   list** section (`assets/priceListEditor.js`): a section per group with its name (renaming it
-  renames it for every extra in it), **Your page about this group** (with the waitlist) and
+  renames it for every extra in it), **Details/marketing URL** (with the waitlist) and
   **Rules for every extra in this group**, each extra a
   name and price with **Details** (group, description, families can ask (with the waitlist),
   ages, boarding days, when it's paid), **+ New group**; saved through `readPriceList` (merges

@@ -82,7 +82,7 @@ function groupHtml(group, items, { familyRequests, groups }, named = group !== U
   return `<div class="xc-group" data-named="${named ? '1' : ''}" style="margin:12px 0 4px;">
       ${named
         ? `<div class="field" style="margin-bottom:4px;"><label>Group</label><input class="xcg-name" type="text" value="${esc(group)}" placeholder="e.g. Training" style="font-weight:600;"></div>
-           ${familyRequests ? `<div class="field" style="margin-bottom:4px;"><label>Your page about this group (optional)</label>
+           ${familyRequests ? `<div class="field" style="margin-bottom:4px;"><label>Details/marketing URL (optional)</label>
              <input class="xcg-url" type="url" inputmode="url" autocomplete="url" value="${esc(rules.info_url || '')}" placeholder="https://yourkennel.com/training">
              <span class="field-hint">On a family's status page, a <strong>See details and pricing</strong> link under this group's extras opens this page in a new tab.</span></div>` : ''}
            <details class="xcg-rules" style="margin-bottom:4px;"><summary class="faint">Rules for every extra in this group</summary>
