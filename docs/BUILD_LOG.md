@@ -6022,3 +6022,53 @@ so. No server change, no migration, no schema change, no new record field.
   §"The guided tour is per-edition"; the plan's status and Modified notes; README Status.
 - **Service worker:** `assets/todayCloudCard.js` and `data/recordDetach.js` added to
   `PRECACHE_URLS`; `CACHE_NAME` not bumped (waiting on the owner).
+
+## 2026-11-18: Load performance Phase 0 — load budgets and the load check
+
+Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's Phase 0
+**Modified:** note.
+
+- **New `tests/loadBudget.test.js`** (in `node --test`): each entry's static graph (`app.js`'s
+  plus the page's script) stays within a module and KB budget. Measured now:
+  - app.js 57 / 918 KB;
+  - Today 100 / 1,723;
+  - Dogs 64 / 1,014;
+  - Dog 76 / 1,194;
+  - Litter 97 / 1,525;
+  - Sale 84 / 1,353;
+  - Waitlist 102 / 1,721;
+  - Waitlist entry 114 / 2,034;
+  - Kels 129 / 2,129.
+
+  Budgets are those plus a little; Phase 3 lowers them. The "never statically from app.js"
+  list is a to-do test until Phase 3 (today `app.js` still reaches `sampleData.js`, the tour,
+  first run, the setup modal and its parser, and the license gate).
+- **New `build/loadCheck.mjs`** (by hand; `build/README.md`): Playwright on `dist/pro` and
+  `dist/lite` at 390 px, with the sample packet as her own records and Lemon Squeezy answered
+  3 s late. It reports, per page: nav time, first paint, layout shift and what moved, tables
+  read in full more than once, and store calls. `--root` measures another checkout.
+- **Baseline**, `main` (`5f73da0`, before Phases 1–2) → this branch, the same run
+  (`--root`), Pro / Lite:
+  - **Nav drawn (ms):** Pro ~3,100 → 100–130 on every page; Lite ~100 both.
+  - **Layout shift:**
+
+    | Page | Pro (main → now) | Lite (main → now) |
+    |---|---|---|
+    | Today | 0.68 → 0.0004 | 0.99 → 0.0004 |
+    | Dogs | 0.10 → 0.03 | 0.04 → 0 |
+    | Dog | 0.31 → 0.11 | 0.15 → 0.02 |
+    | Sale | 0.16 → 0.12 | 0.08 → 0.06 |
+
+    Run to run they vary by a few hundredths. What's left on Dog and Sale is their own
+    sections filling in.
+  - **Lemon Squeezy calls over the four pages:** 4 → 1.
+  - **Full table reads, Pro, watched 9 s** (Phases 3–4's work):
+    - Today: 47 → 47 (kennels ×11, contacts ×6, sales ×6, dogs ×5, litters ×4…);
+    - Dogs: 16 → 15;
+    - Dog: 23 → 22;
+    - Sale: 27 → 26.
+
+    With the default 2 s window `main` looks lower on Today (44), only because its background
+    checks start after the 3 s license wait and finish outside the window.
+- Docs: `build/README.md` (Load check), the plan's status and Phase 0 note, README Status.
+- **Service worker:** no app file added or changed (a test and a build script).

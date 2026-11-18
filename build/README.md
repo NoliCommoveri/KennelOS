@@ -77,6 +77,22 @@ publishes nothing.
    actually exist in the artifact (so `cache.addAll`, which is atomic, can never fail on
    an excluded path).
 
+## Load check (by hand)
+
+`node build/loadCheck.mjs` (after `node build/assemble.mjs`) opens Pro and Lite from
+`dist/` in Playwright's Chromium at 390 × 800, with a program on the device (the edition's
+sample packet, kept as her own records) and, in Pro, an activated license whose Lemon
+Squeezy check is answered `--delay` ms late (3000 by default; no other request leaves the
+machine). On Today, Dogs, a dog and a sale it prints when the nav was drawn, first paint,
+the layout shift after it (and what moved most), every table read in full more than once
+(counted under IndexedDB), and the store calls. `--edition pro|lite`, `--settle <ms>` (how
+long to keep watching, default 2000), `--json`, and `--root <checkout>` to measure another
+checkout's `dist/` the same way. It's not part of `node --test` and changes nothing; it
+needs Playwright and its Chromium (`npx playwright install chromium` where they aren't
+there). The numbers vary a little run to run: compare two checkouts in the same session.
+What each page loads before anything runs is pinned by `tests/loadBudget.test.js`, which is
+in `node --test` (Load Performance plan Phase 0).
+
 ## Deploy
 
 Each edition deploys to **its own origin** (a subdomain), so its IndexedDB stays
