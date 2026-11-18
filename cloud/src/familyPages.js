@@ -610,9 +610,9 @@ function feeDueOf(d) {
 
 // Her puppy portal on KennelPort (KennelPort's Puppy_Parent_Portal_Plan.md 3.4),
 // for this family: { only } while her device says their signed, live sale is in the
-// portal; `only` once the portal has taken over (her device says so, or the pickup
-// day her device published has passed in her time zone: the switch never waits for
-// her device). null without the portal's one-tap link on the server.
+// portal; `only` once her device says the sale is closed (Delivered). Never on a
+// date alone: an open sale past its pickup day still has pickup, extras and
+// payments on this page. null without the portal's one-tap link on the server.
 export function localDay(tz, now = new Date()) {
   try {
     const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -628,11 +628,10 @@ export function portalLink(projection) {
   if (!s || !https(s.handoff_url) || typeof s.handoff_key !== 'string' || !/^[0-9a-f]{64}$/.test(s.handoff_key)) return null;
   return { url: https(s.url) ? s.url : null, handoff_url: s.handoff_url, key: s.handoff_key, minutes: Math.min(10, Math.max(1, Number(s.minutes) || 10)) };
 }
-export function portalOf(projection, e, now = new Date()) {
+export function portalOf(projection, e) {
   const p = e?.portal;
   if (!p || typeof p !== 'object' || typeof p.family_id !== 'string' || !portalLink(projection)) return null;
-  const pickupOn = typeof p.pickup_on === 'string' && YMD_RE.test(p.pickup_on) ? p.pickup_on : null;
-  return { only: p.only === true || Boolean(pickupOn && pickupOn < localDay(projection.kennel?.time_zone, now)) };
+  return { only: p.only === true };
 }
 
 // Her logo as her device published it: a base64 image data URL only, at most
@@ -654,8 +653,8 @@ export function statusView(projection, entryId, now = new Date()) {
   const family = { name: e.name ?? '', status: e.status };
   // A family page only (Waitlist Fixes Plan E3): its words never mention a waitlist.
   if (e.page_only === true) family.page_only = true;
-  // Her puppy portal: once it has taken over, their page is only its link.
-  const portal = portalOf(projection, e, now);
+  // Her puppy portal: once their sale is closed, their page is only its link.
+  const portal = portalOf(projection, e);
   if (portal) {
     family.portal = portal;
     const url = portalLink(projection).url;

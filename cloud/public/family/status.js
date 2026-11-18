@@ -607,8 +607,8 @@ function parentsFields(f) {
 
 // --- Her puppy portal (KennelPort's Puppy_Parent_Portal_Plan.md 3.4) -------------------
 // From their signed contract on: Open your puppy portal, one tap (their sign-in here
-// signs them in there). Once the portal has taken over (pickup), it's all this page
-// shows: Your puppy portal.
+// signs them in there). Once their sale is closed (Delivered), it's all this page
+// shows: Your puppy portal. Until then pickup, extras and payments stay here.
 
 function portalHtml(f) {
   const p = f.portal;
@@ -618,7 +618,7 @@ function portalHtml(f) {
   const title = p.only ? 'Your puppy portal' : 'Your puppy portal is ready';
   const intro = p.only
     ? `<p class="mt0">Your puppy's records, vet visit, first weeks and messages with ${esc(kennel)} are in your puppy portal now.</p>`
-    : `<p class="mt0">Your puppy's records, the go-home checklist and the first weeks are in your puppy portal. Keep using this page for your pickup, extras and anything you ask ${esc(kennel)} before pickup.</p>`;
+    : `<p class="mt0">Your puppy's records, the go-home checklist and the first weeks are in your puppy portal. Keep using this page for your pickup, extras, payments and anything you ask ${esc(kennel)} until your puppy's sale is complete.</p>`;
   let action;
   if (signedIn()) {
     action = '<div class="actions"><button type="button" class="primary" data-act="portal">Open your puppy portal</button></div>';
@@ -1119,7 +1119,7 @@ function mineHtml() {
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
   if (!f.portal?.only) parts.push(policiesBanner(f));
-  // Picked up: the portal has taken over, and this page is only its link.
+  // Sale closed: the portal has taken over, and this page is only its link.
   if (f.portal?.only) {
     parts.push(portalHtml(f));
     return parts.join('');
