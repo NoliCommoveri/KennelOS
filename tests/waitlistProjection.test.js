@@ -563,6 +563,18 @@ test("a pup's page on her website is its link, tick or not; another link only wi
   assert.deepEqual([m.pups.find((d) => d.id === 'p2').photos_url, 'page' in m.pups.find((d) => d.id === 'p2')], ['https://photos.example/p2', false]);
 });
 
+test("a dam's or sire's page on her website is its link, tick or not (`page: true`)", () => {
+  const f = fixture();
+  f.kennel = { ...f.kennel, website: 'https://www.akbostons.com/' };
+  f.dogs = f.dogs.map((d) => ({
+    dam: { ...d, url: 'https://akbostons.kennelport.com/dogs/juniper' }, // KennelPort page, not ticked
+    sire: { ...d, url: 'https://photos.example/ash' } // not her website, not ticked
+  }[d.id] || d));
+  const l = buildProjection(f).litters['lit-1'];
+  assert.deepEqual([l.dam.photos_url, l.dam.page], ['https://akbostons.kennelport.com/dogs/juniper', true]);
+  assert.equal('photos_url' in l.sire, false, 'another link still needs her tick');
+});
+
 test("a litter's page on her website is marked `page: true`; a photos link she set is not", () => {
   const f = fixture();
   f.kennel = { ...f.kennel, website: 'https://www.akbostons.com/' };
@@ -634,4 +646,14 @@ test('her waitlist policies are published (never her editing notes), with "I\'ve
   assert.equal(box.link, 'policies');
   assert.equal(box.required, true);
   assert.equal(JSON.stringify(p).includes('basis'), false);
+});
+
+test('her featured pup page: only when filled in (https), with her phrase or the default', async () => {
+  const { waitlistConfigProblem } = await import('../shared/data/waitlistRules.js');
+  const withConfig = (c) => buildProjection({ ...fixture(), kennel: { ...kennel, waitlist_config: { ...kennel.waitlist_config, ...c } } }).kennel;
+  assert.equal('featured' in withConfig({}), false, 'blank: no card');
+  assert.equal('featured' in withConfig({ featured_url: 'http://k.example/featured' }), false, 'https only');
+  assert.deepEqual(withConfig({ featured_url: 'https://k.example/featured' }).featured, { url: 'https://k.example/featured', label: 'Meet our featured pup' });
+  assert.equal(withConfig({ featured_url: 'https://k.example/featured', featured_label: ' Say hi to Opal ' }).featured.label, 'Say hi to Opal');
+  assert.match(waitlistConfigProblem({ featured_url: 'k.example/featured' }), /featured pup page link/);
 });

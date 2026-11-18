@@ -576,6 +576,27 @@ test('a family\'s extras pass field by field: names and dates only, and only wit
   assert.equal('extras_info_url' in v.kennel, false, 'only an https link');
 });
 
+test("a parent's or an early litter's page on her website keeps `page: true`; a bare flag without a link doesn't", async () => {
+  const p = projection();
+  p.upcoming = [{ id: 'u1', kind: 'early_litter', label: 'Gem', public: true, family: true, photos_url: 'https://a.kennelport.com/litters/gem', page: true,
+    dam: { name: 'Juniper', photos_url: 'https://a.kennelport.com/dogs/juniper', page: true }, sire: { name: 'Ash', page: true } }];
+  const u = listView(p).upcoming[0];
+  assert.equal(u.page, true);
+  assert.deepEqual([u.dam.photos_url, u.dam.page], ['https://a.kennelport.com/dogs/juniper', true]);
+  assert.equal('page' in u.sire, false);
+});
+
+test('her featured pup card: for families still waiting, only with an https link', () => {
+  const p = projection();
+  assert.equal('featured' in statusView(p, 'bo').kennel, false, 'not filled in: no card');
+  p.kennel.featured = { url: 'https://k.example/featured', label: '' };
+  assert.deepEqual(statusView(p, 'bo').kennel.featured, { url: 'https://k.example/featured', label: 'Meet our featured pup' });
+  assert.equal(statusView(p, 'dee').kennel.featured.url, 'https://k.example/featured', 'approved, still waiting');
+  assert.equal('featured' in statusView(p, 'cy').kennel, false, 'placed: not waiting');
+  p.kennel.featured = { url: 'javascript:alert(1)', label: 'x' };
+  assert.equal('featured' in statusView(p, 'bo').kennel, false, 'https only');
+});
+
 test("a family's pickup passes field by field; her standard location and the mile limits never do", async () => {
   const { pickupOf } = await import('../src/familyPages.js');
   const x = pickupOf({

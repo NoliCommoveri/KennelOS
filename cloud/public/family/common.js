@@ -197,8 +197,9 @@ export function infoBubble(d) {
   return info ? ` <button type="button" class="info-bubble" data-dog-info="${esc(JSON.stringify(info))}" aria-label="About ${esc(info.name || 'this dog')}" title="Registered name, pedigree and health testing">i</button>` : '';
 }
 
-// A parent's name and titles, its info bubble, then its photos link when it has one.
-const parentHtml = (d) => `${esc(parentText(d))}${infoBubble(d)}${d?.photos_url ? ` (${photosLink(d.photos_url)})` : ''}`;
+// A parent's name and titles, its info bubble, then its link when it has one: its
+// page on her website ("Their page"), else its photos.
+const parentHtml = (d) => `${esc(parentText(d))}${infoBubble(d)}${d?.photos_url ? ` (${photosLink(d.photos_url, d.page ? 'Their page' : 'Photos')})` : ''}`;
 
 // The info bubble's popup: the parent's registered name, pedigree and health
 // testing, each only when published. Close, a backdrop tap and Escape close it.
@@ -254,9 +255,9 @@ export function parentsLine(dam, sire) {
 // One litter (or pairing) the same way everywhere a family sees one (decided
 // 2026-10-08): the breed, its name, its parents, its dates, the litter's photos
 // link (`photos`, when she set one), then any extra lines.
-export function litterHtml({ breed = null, name = '', nameAfter = '', dam = null, sire = null, when = '', photos = null, extra = '' }) {
+export function litterHtml({ breed = null, name = '', nameAfter = '', dam = null, sire = null, when = '', photos = null, page = false, extra = '' }) {
   return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong>${nameAfter}</div>
-    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, 'See the litter\'s photos')}</div>` : ''}${extra}`;
+    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, page ? 'View litter on our website' : 'See the litter\'s photos')}</div>` : ''}${extra}`;
 }
 
 // A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
@@ -281,10 +282,10 @@ export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is app
 export function upcomingItemHtml(u, extra = '') {
   if (u.kind === 'planned_heat') {
     const month = fmtMonthYear(u.expected_month);
-    const damPhotos = u.dam?.photos_url ? `<div class="small">${photosLink(u.dam.photos_url, `Photos of ${u.dam.name || 'the dam'}`)}</div>` : '';
+    const damPhotos = u.dam?.photos_url ? `<div class="small">${photosLink(u.dam.photos_url, `${u.dam.page ? 'See' : 'Photos of'} ${u.dam.name || 'the dam'}${u.dam.page ? ' on our website' : ''}`)}</div>` : '';
     return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, nameAfter: infoBubble(u.dam), when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: damPhotos + extra });
   }
-  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, extra });
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, page: u.page === true, extra });
 }
 
 // Under a Coming up list: plans can change, and heat months are estimates.
@@ -363,7 +364,7 @@ export function pupLinksHtml(l, pups = []) {
 // One litter with open picks (Available Puppies), the same on the public list and a
 // family's page; `extra` adds lines under it.
 export function availableItemHtml(l, extra = '') {
-  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, extra: `${pupColumnsHtml(l)}${extra}` });
+  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, page: l.page === true, extra: `${pupColumnsHtml(l)}${extra}` });
 }
 
 export function upcomingListHtml(rows) {

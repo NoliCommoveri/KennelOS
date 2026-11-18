@@ -249,7 +249,7 @@ const parentOf = (d) => {
   const reg = regOf(d?.registered_name);
   const ped = pedigreeOf(d?.pedigree);
   return {
-    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url),
+    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url), ...pageOf(d),
     ...(reg ? { registered_name: reg } : {}), ...(ped ? { pedigree: ped } : {}),
   };
 };
@@ -278,7 +278,7 @@ function upcomingRow(u) {
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
-    ...photosOf(u.photos_url),
+    ...photosOf(u.photos_url), ...pageOf(u),
   };
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
@@ -724,6 +724,11 @@ export function statusView(projection, entryId, now = new Date()) {
   // "Message us on Facebook" (Waitlist Spec §11): a Messenger link to her own Page, nothing else.
   const messenger = projection.kennel?.messenger;
   if (typeof messenger === 'string' && /^https:\/\/m\.me\/[A-Za-z0-9._-]{1,100}$/.test(messenger)) kennel.messenger = messenger;
+  // Her featured pup page, its own card for a family still waiting: https only.
+  const featured = projection.kennel?.featured;
+  if (featured && typeof featured.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(featured.url)) {
+    kennel.featured = { url: featured.url, label: (typeof featured.label === 'string' ? featured.label.trim().slice(0, 80) : '') || 'Meet our featured pup' };
+  }
   const litters = projection.litters || {};
   const offers = (e.offers || []).map((o) => {
     const l = litters[o.litter_id] || {};

@@ -5748,3 +5748,24 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Then, the owner: the field is **Details/marketing URL**, and each group may word its own
   link, **Custom hyperlink display phrase** (`extra_charge_groups[].info_label`, up to 80
   characters; blank = "See details and pricing"), carried in `links[].label`.
+
+## 2026-11-18: Status page links to her website: litters, dams and sires, a featured pup; no extras prefill
+
+- Owner: she's hiding her site's extras page and splitting it in two, so the extras link is
+  never filled from the site; litters prefill; link dam/sire pages; a featured pup page.
+- `kennelportLink.kennelChanges` no longer sets `waitlist_config.extras_info_url`. A value it
+  filled before stays until she clears it (Waitlist settings).
+- A dam's or sire's `url` that is its page on her website is its link on family pages,
+  tick or not, `page: true` (`parentView` now uses `pupLink`), shown as "(Their page)" and,
+  on a heat, "See Juniper on our website". An early litter under Coming up uses
+  `litterLink`, so its page reads **View litter on our website**, as Available Puppies now
+  does too (`litterHtml` takes `page`). The Worker passes `page` on parents and Coming up.
+- **Featured pup page URL** and **Custom hyperlink display phrase** in Waitlist settings
+  (`waitlist_config.featured_url` / `featured_label`, https only; blank phrase = "Meet our
+  featured pup"). Only when the URL is filled in: `kennel.featured` in the projection, sent
+  by the Worker only to families still waiting, drawn as its own **Featured pup** card before
+  Available Puppies.
+- Tests: `tests/siteExport.test.js`, `tests/waitlistProjection.test.js`,
+  `cloud/tests/familyPages.test.js`. Guide §29 and §35.
+- **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask). Cloud: no
+  migration; `cloud/public/family/common.js` and `status.js` change.

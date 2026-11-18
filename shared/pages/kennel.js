@@ -38,7 +38,7 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { waitlistPolicies, validatePolicies, newPolicy, POLICY_LIMITS } from '../data/waitlistForm.js';
 import { policyStarters, policyHint, basisChanges } from '../data/waitlistPolicies.js';
 import { qaListHtml, wireQaList } from '../assets/qaListEditor.js';
@@ -541,7 +541,7 @@ ${online ? readySettings(c) : ''}`)}
           <label class="check-inline"><input id="wl-show-programs" type="checkbox"${c.public_show_programs ? ' checked' : ''}> Show program icons on the public list</label>
           <span class="field-hint">A family in a program you gave an icon (Waitlist programs) shows that icon to the left of their number; tapping it shows the program's description for families, so others can see why they're ahead. The program's name never shows, and programs without an icon stay private. In the list copied as text, the icon is an emoji with its description below the list.</span>
         </div>
-${online ? upcomingSwitches(c) + parentTestsSetting(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
+${online ? upcomingSwitches(c) + featuredSettings(c) + parentTestsSetting(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
 ${group('messages', 'Messages to families', online ? '"Almost your turn" and the emails families get' : 'The "Almost your turn" message', `
         <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
           <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
@@ -584,6 +584,18 @@ function facebookSettings(c) {
       <input id="wl-fb-page" type="url" inputmode="url" autocomplete="url" value="${esc(c.facebook_page || '')}" placeholder="facebook.com/yourkennel">
       <span class="field-hint">A facebook.com or m.me address.</span>
       <span class="field-hint">Messages sent there stay in Messenger. They aren't added to the family's entry, and they don't count as a reply to an offer.</span>
+    </div>`;
+}
+
+// Her featured pup page (a custom page on her website): its own small card on the
+// status page of every family still waiting, with her words for the link.
+function featuredSettings(c) {
+  return `<div class="field field-wide">
+      <label for="wl-featured-url">Featured pup page URL (optional)</label>
+      <input id="wl-featured-url" type="url" inputmode="url" autocomplete="url" value="${esc(c.featured_url || '')}" placeholder="https://yourkennel.com/featured">
+      <label for="wl-featured-label" style="margin-top:6px;">Custom hyperlink display phrase (optional)</label>
+      <input id="wl-featured-label" type="text" maxlength="${FEATURED_LABEL_MAX}" value="${esc(c.featured_label || '')}" placeholder="${esc(FEATURED_LABEL_DEFAULT)}">
+      <span class="field-hint">Families still waiting see a <strong>Featured pup</strong> card on their status page with this phrase as a button that opens the page in a new tab. Blank phrase: <strong>${esc(FEATURED_LABEL_DEFAULT)}</strong>. Blank URL: no card.</span>
     </div>`;
 }
 
@@ -750,6 +762,11 @@ async function onSaveWaitlist() {
     }));
     const text = q('#wl-bo-text').value.trim();
     waitlist_config.back_out_policy_text = text === BACK_OUT_POLICY_TEXT_DEFAULT ? '' : text;
+  }
+  if (q('#wl-featured-url')) {
+    waitlist_config.featured_url = q('#wl-featured-url').value.trim();
+    const label = q('#wl-featured-label').value.trim();
+    waitlist_config.featured_label = label === FEATURED_LABEL_DEFAULT ? '' : label;
   }
   if (q('#wl-extras-intro')) {
     const intro = q('#wl-extras-intro').value.trim();

@@ -990,6 +990,14 @@ function transportHtml() {
   return card('Getting your pup home', `<p class="small muted mt0">If you live too far to pick up your puppy, these are the transport options our families have used.</p><ul class="plain">${items}</ul>`);
 }
 
+// Her featured pup page (a custom page on her website), for a family still waiting:
+// its own small card, her words on the button, opened in a new tab.
+function featuredHtml() {
+  const x = state.v.kennel.featured;
+  if (!x?.url) return '';
+  return card('Featured pup', `<div class="actions mt0"><a class="button secondary" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label || 'Meet our featured pup')}</a></div>`);
+}
+
 // "Message us on Facebook" (Waitlist Spec §11), when she switched it on: a link
 // to her own Page in Messenger. Nothing about it comes back here.
 function messengerHtml() {
@@ -1175,6 +1183,7 @@ function mineHtml() {
       </dl>
       ${placeActions(f)}`));
     parts.push(whelpNotesHtml(f));
+    parts.push(featuredHtml());
 
     if (v.litters.length) {
       // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
@@ -1183,8 +1192,9 @@ function mineHtml() {
       parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
-  } else if (canAct()) {
-    parts.push(card('', placeActions(f)));
+  } else {
+    if (canAct()) parts.push(card('', placeActions(f)));
+    parts.push(featuredHtml());
   }
 
   parts.push(card('What you asked for', prefsHtml(f) + privateNameHtml(f)));

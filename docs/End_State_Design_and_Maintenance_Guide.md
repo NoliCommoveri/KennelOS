@@ -2856,14 +2856,17 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   Dam) and Health testing, in that order, each only when published. The Dog page's Health-Test Summary card has **On family
   pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
   non-puppy, offered with the waitlist and the list online.
-  **Photos links:** a dog's `url` is published as `photos_url` only when its
-  `photos_online` is ticked (`waitlistProjection.dogPhotosLink`), on every parent family
-  pages show and on each published pup (`publicPup`: a turn's pups, their pick); a litter's
-  `photos_url` on its litter view and its early-litter Coming up item. Web addresses only
+  **Photos links:** a dog's `url` that is its page on her KennelPort website (`isWebsiteAddress`)
+  is published as `photos_url` with `page: true`, tick or not (the page is public), on every
+  parent family pages show and on each published pup (`pupLink`; `publicPup`: a turn's pups,
+  their pick); any other `url` only when its `photos_online` is ticked
+  (`waitlistProjection.dogPhotosLink`). A litter's `photos_url` on its litter view and its
+  early-litter Coming up item (`litterLink`, `page: true` when it's her site's page). Web addresses only
   (`photoLink`, http/https, 500 characters); no key when there's none. The Worker passes
   each through `familyPages.photosOf` (parents, litter cards, Coming up, a turn's litter and
   pups). The pages show links, never images (their CSP allows only their own images):
-  "Dam: Juniper (Photos)", "See the litter's photos", a heat's "Photos of Juniper", and under
+  "Dam: Juniper (Photos)" or, a page, "(Their page)"; "See the litter's photos" or, a page,
+  "View litter on our website"; a heat's "Photos of Juniper" or "See Juniper on our website"; and under
   a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). A pup whose `url` is a page on
   her KennelPort website (`websiteAddress.isWebsiteAddress`: any kennelport.com address, or
   her kennel's `website` origin) links there whatever `photos_online` says (the page is
@@ -2976,6 +2979,11 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `can_cancel` (not paid, not past its cancel age) and `cancel_until`, and their requests
   (undecided, or decided within 30 days), and `links` = `[{ group, url, label }]`, the `info_url` of
   each group with extras shown (left out when none). Names and dates only, never a price. The kennel
+  carries `featured` = `{ url, label }` from `waitlist_config.featured_url` (https only) and
+  `featured_label` (blank = `FEATURED_LABEL_DEFAULT`, "Meet our featured pup"), set under
+  **Featured pup page URL** in Waitlist settings: the Worker sends it only to a family still
+  waiting (applied, approved, active), and their page shows a **Featured pup** card, the
+  phrase as a button (new tab), before Available Puppies. It also
   carries `extras_intro` (`waitlist_config.extras_intro_text`, blank =
   `EXTRAS_INTRO_DEFAULT`) and `extras_info_url` (`extras_info_url`, https only) while any
   family has extras. Their page's **Extras** card shows her message, **See our extras and
@@ -5205,9 +5213,10 @@ KennelPort Site Manager.
   is never replaced silently: `websiteOffer` asks on the Your website card and after Kels's
   Update my website, **Use** or **Keep mine**, and a Keep mine is remembered on this device
   for that site address, `kept_website`, so a new address such as her own domain asks
-  again); and in `waitlist_config` `extras_info_url` (same rule), `website_feed`
+  again); and in `waitlist_config` `website_feed`
   when the site's waitlist page wants her list and it's online, and the site in
-  `embed_origins` when she has listed any.
+  `embed_origins` when she has listed any. `extras_info_url` is never filled from the site:
+  she links her own pages (one per extras group, `extra_charge_groups[].info_url`).
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect
   website with the code and a device name, what's marked, Update website, Disconnect this
   device; a kennel picker with several own kennels), and Kels's **Update my website**.
