@@ -134,9 +134,9 @@ src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 
                        run or her publish in between writes nothing; emails go only after it lands.
                        Events made_by 'server'; a publish that hasn't seen them is refused (409
                        events_pending). The hourly run reads the kennels' ids, then one body at a time
-src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_Plan.md, migration 0018):
-                       notifyEvent (called by familyActions, familyPages' application confirm and
-                       serverMoves) records an item and sends payload-free web push (VAPID ES256 via
+src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_Plan.md, migrations 0018, 0028):
+                       notifyEvent (called by familyActions, familyPages' application confirm,
+                       serverMoves, and integrations' webhook for e-sign contract events) records an item and sends payload-free web push (VAPID ES256 via
                        Web Crypto; only to real push services; 404/410 prune) to devices with a live
                        session; POST /notify/push/pending (no bearer: the subscription's auth secret)
                        says what to show; /notify settings, subscribe/unsubscribe/test; the email

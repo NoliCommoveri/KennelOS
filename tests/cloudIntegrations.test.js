@@ -149,6 +149,28 @@ test('no connection: her device asks nothing of the server', async () => {
   assert.deepEqual(calls, []);
 });
 
+test('a connection made on another device (support\'s helper in an assist): her next app open finds it and applies', async () => {
+  const programId = await breeder();
+  await vendorSays(programId, [
+    { providerEventId: 'e1', kind: 'contract.signed', recordType: 'contract', recordId: records.contract.id, data: { date: '2026-11-12' } }
+  ]);
+  // This device never ran a connect flow: its count is 0, so the poll asks nothing.
+  assert.equal(settings.getIntegrationsState().connections, 0);
+  assert.equal(await ci.syncIntegrationEvents(), null);
+  assert.equal((await contractRepo.getById(records.contract.id)).status, 'sent');
+  // An app open asks for the connections, then reads the events.
+  assert.deepEqual(await ci.syncOnOpen(), { applied: 1, review: 0, skipped: 0 });
+  assert.equal(settings.getIntegrationsState().connections, 1);
+  assert.equal((await contractRepo.getById(records.contract.id)).status, 'signed');
+});
+
+test('an app open with no connection anywhere: one question, no event read', async () => {
+  await breeder();
+  calls.length = 0;
+  assert.equal(await ci.syncOnOpen(), null);
+  assert.deepEqual(calls, ['GET /integrations/connections']);
+});
+
 test('the backing device applies what the vendor reported; a stale one waits on Today', async () => {
   const programId = await breeder();
   await vendorSays(programId, [

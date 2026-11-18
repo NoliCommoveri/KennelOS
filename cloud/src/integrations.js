@@ -16,6 +16,7 @@
 //
 // Never logged: a token, a hook secret, a webhook body (cloud/README.md).
 import { requirePro } from './license.js';
+import { CONTRACT_EVENT_WHATS, notifyEvent } from './notify.js';
 import { limitBucket } from './ratelimit.js';
 import { randomHex, sha256Hex } from './lib/crypto.js';
 import { fail, json } from './lib/http.js';
@@ -212,11 +213,18 @@ export async function handleHook(request, env, url, now = new Date()) {
 
   const events = ((await adapter.toEvents(payload, connection, env)) || []).map(cleanEvent).filter(Boolean);
   if (events.length) {
-    await env.DB.batch(events.map((e) => env.DB.prepare(
+    const landed = await env.DB.batch(events.map((e) => env.DB.prepare(
       `INSERT OR IGNORE INTO int_events (program_id, connection_id, provider, provider_event_id, kind, record_type, record_id, payload, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(connection.program_id, connection.id, connection.provider, e.providerEventId, e.kind, e.recordType, e.recordId,
       JSON.stringify(e.payload), now.toISOString())));
+    // Her alerts / digest, once per event: a redelivered webhook inserts nothing.
+    for (const [i, e] of events.entries()) {
+      const what = CONTRACT_EVENT_WHATS[e.kind];
+      if (what && e.recordType === 'contract' && landed[i]?.meta?.changes) {
+        await notifyEvent(env, { programId: connection.program_id, kind: 'contract', what, entryId: e.recordId }, now);
+      }
+    }
   }
   return json({ ok: true, received: events.length });
 }
