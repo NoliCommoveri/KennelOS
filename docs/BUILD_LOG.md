@@ -5778,3 +5778,5 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Checked the Extras card in a browser with two groups (Training, Photo/video add-ons), each
   with its link: both open their pages. Each group is now a `.xgroup` with 24px before the
   next, so a group's link no longer sits against the next heading (`family.css`).
+- Then, the owner: a divider between groups (`.xgroup + .xgroup`: a 2px line, heavier than
+  the 1px lines between extras, with room above and below).
