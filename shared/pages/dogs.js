@@ -126,7 +126,7 @@ async function init() {
       { header: 'DOB', sortable: true, sortFn: dobAscUndatedLast, collapse: true, cell: (d) => d.date_of_birth ? esc(fmtDate(d.date_of_birth)) : '<span class="faint">—</span>' },
       { header: 'Status', sortable: true, sortFn: dogStatusOrder, cell: (d) => badge(DOG_STATUS, d.status) },
       { header: 'Disposition', sortable: true, sortFn: dispositionAsc, collapse: true, cell: (d) => d.disposition ? esc(descriptor(DISPOSITION, d.disposition).label) : '<span class="faint">—</span>' },
-      ...(websiteLinkOffered() ? [{ header: 'Website', sortable: true, sortFn: websiteFirst, cell: (d) => d.show_on_website ? '<span title="Shown on website" aria-label="Shown on website">✓</span>' : '' }] : [])
+      ...(websiteLinkOffered() ? [{ header: 'Website', className: 'col-center', sortable: true, sortFn: websiteFirst, cell: (d) => d.show_on_website ? '<span title="Shown on website" aria-label="Shown on website">✓</span>' : '' }] : [])
     ],
     onRowClick: (d) => { location.href = `dog.html?id=${encodeURIComponent(d.id)}`; },
     load: (o) => dogRepo.getAll(o),

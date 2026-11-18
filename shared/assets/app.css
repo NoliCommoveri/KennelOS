@@ -1091,6 +1091,7 @@ a.kt-loner:hover { color: var(--accent); }
 .range-custom[hidden] { display: none; }
 .range-custom input { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 14px; }
 table.data td.num { white-space: nowrap; }
+table.data th.col-center, table.data td.col-center { text-align: center; }
 table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--border-strong); border-bottom: 0; }
 .print-header { display: none; }
 

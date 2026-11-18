@@ -6081,4 +6081,5 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
 - **All tabs:** Disposition is now plain text (no badge) and a `collapse` column, so on a phone
   it moves into the row's details. A new always-visible **Website** column shows ✓ when
   `show_on_website` is set; it renders only where `websiteLinkOffered()` (as the dog page does).
+- The ✓ is centered under its header: a listView column's `className` now also goes on its `<th>`, with a `col-center` class.
 - Docs: End-State guide (Dogs page order). **Service worker:** no file added or renamed.
