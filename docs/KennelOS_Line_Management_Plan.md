@@ -7,8 +7,9 @@
 > COI and pairing warnings) needs no schema change and is worth doing before the UI
 > redesign; Phases 2–5 add four tables and are designed for the redesign's hub screens.
 >
-> **Decisions:** D4 and D5's "her own color list" are the owner's (2026-11-18). The rest
-> (§5) carry a recommendation and wait on the owner.
+> **Decisions:** D4, D13 and D5's "her own color list" are the owner's (2026-11-18). The
+> rest (§5) carry a recommendation and wait on the owner. §8 records a consideration that
+> isn't a requirement yet (traits of outside parents and ancestors).
 >
 > Prototype: the forest-look prototype (Design notes) draws Lines, a pair check, the
 > pairing finder, a dog's Relatives, Traits and Genetics, a litter's Births and Score
@@ -68,8 +69,19 @@ stored: per the reference-registry principle, relationships are derived queries.
 - **Pedigree depth**: for each dog, the share of ancestors known per generation. Unknown
   ancestors count as unrelated, so a COI is a floor; every COI says what it's based on
   ("6.3%, 4 generations known, 75% of the 4th"), and a thin pedigree is flagged (D1).
-- A **genomic COI** she typed in (`recorded_coi`, method genomic) is shown beside the
-  pedigree one, never replaced.
+- **A COI she knows overrides the calculated one** (D13, owner 2026-11-18), for when she
+  hasn't entered every generation or has a COI DNA test:
+  - **A dog's own COI:** `Dog.recorded_coi` (`{ value, method }`, methods genomic,
+    pedigree, registry, other, as today) is the COI shown for that dog, labelled with its
+    method, with the calculated one beside it ("Calculated 3.1% from 2 generations"). It
+    also stands in for that dog's inbreeding in the kinship (`f(a, a) = ½(1 + F_a)`), so
+    figures for its relatives use it.
+  - **A pairing's COI:** new `Pairing.recorded_coi`, same shape, for a figure from a
+    registry's or a lab's trial-mating tool. It is the litter COI the pair check, the
+    pairing form and the D1 warnings use; the calculated one is shown beside it.
+  - A wide gap between the two is pointed out ("Your 9.8% is well above the 3.1% worked
+    out from what's entered: generations are probably missing"), and the thin-pedigree
+    note isn't shown when a recorded COI covers the pair.
 - **Cost:** memoised `f` over a few hundred dogs is instant; views compute only the pairs
   they show (the Lines grid: her males × her females).
 
@@ -198,7 +210,7 @@ Pairing warnings and Relatives are never switched off.
 | Change | Detail |
 |---|---|
 | New tables (a new `db.version(N)` block, only these) | `trait_definitions: 'id, breed, is_archived'`, `dog_traits: 'id, dog_id, trait_id, [dog_id+trait_id], is_archived'`, `colors: 'id, kind, is_archived'`, `birth_records: 'id, litter_id, dog_id, is_archived'`. Phases 2 and 3 ship them; if they ship apart, each its own version block. |
-| New plain fields (no block) | Dog `color_id`, `marking_ids[]`; Litter `csection_reason`, `dam_complications[]`; WaitlistEntry `pref_color_ids[]`; `genetic_test` details `markers[]`. |
+| New plain fields (no block) | Pairing `recorded_coi` `{ value, method }` (the shape `Dog.recorded_coi` has); Dog `color_id`, `marking_ids[]`; Litter `csection_reason`, `dam_complications[]`; WaitlistEntry `pref_color_ids[]`; `genetic_test` details `markers[]`. |
 | Vocab (`data/vocab.js`) | `TRAIT_SCALE`, `COAT_LOCI`, `MARKER_RESULT`, `LITTER_CSECTION_REASON`, `DAM_COMPLICATION`, `PUP_DEATH_CAUSE`. |
 | Repos (one thin repo each) | `traitDefinitionRepo`, `dogTraitRepo` (upsert by dog + trait), `colorRepo`, `birthRecordRepo`; writes call `settings.markDataChanged()`. |
 | `referenceRegistry.js` | `dog_traits.dog_id` → dogs, `dog_traits.trait_id` → trait_definitions, `birth_records.litter_id` → litters, `birth_records.dog_id` → dogs, `birth_records.color_id` / `marking_ids` → colors, `dogs.color_id` / `marking_ids` → colors, `waitlist_entries.pref_color_ids` → colors. |
@@ -223,6 +235,7 @@ Pairing warnings and Relatives are never switched off.
 | D10 | Small numbers | Always show counts; a pattern needs two occurrences; under three litters a rate reads "too few to say". | Open |
 | D11 | Old color text | `color_markings` stays as display text; a Kels tidy-up maps it to her list for her to confirm. | Open |
 | D12 | COI depth | Every known generation (no cap), with depth shown. | Open |
+| D13 | A COI she knows | Allowed, for a dog (`Dog.recorded_coi`, from a genomic test, the registry or a full pedigree) and for a pairing (`Pairing.recorded_coi`, from a trial-mating tool). It overrides the calculated COI for display and warnings, labelled with its source; the calculated one is still shown. | **Owner, 2026-11-18** |
 
 ## 6. Phases
 
@@ -231,6 +244,9 @@ Pairing warnings and Relatives are never switched off.
   ancestors, pedigree depth. Tests: `tests/kinship.test.js` (parent/child = 25% litter
   COI, full siblings 25%, half siblings 12.5%, first cousins 6.25%, an inbred common
   ancestor, unknown parents, a cycle in imported data).
+- Recorded COIs (D13): a dog's `recorded_coi` in the kinship and on display; `Pairing.recorded_coi`
+  on the pairing form (value and method), used by the warnings; the gap note. Tests: an
+  override replaces the figure the warning reads; the calculated one is still returned.
 - Pairing form: relationship, COI and D1/D2 warnings in `updateWarnings()`; the Pairings
   list and a dog's pairings show the warning pill; Today raises a planned pairing over the
   line.
@@ -272,3 +288,28 @@ Pairing warnings and Relatives are never switched off.
 - Importing lab files (Embark and others): a later integrations item; markers are typed in.
 - Photos of dogs for grading.
 - Generation labels for doodle programs (F1, F1B, multigen): Lines leaves room for them.
+
+## 8. Considerations recorded (not requirements yet)
+
+### 8.1 Traits of parents and ancestors that aren't her dogs (2026-11-18)
+Raised by a breeder buying a pup specifically from a dam with several large litters: what
+she knows about a pup's outside parents and ancestors should count, even when they aren't
+KennelOS dogs with full records. Examples: the dam's litters were 7, 9 and 10; the sire's
+adult size is 12 lb.
+
+What it would take, to decide when this becomes a requirement:
+- **Measured facts, not only grades.** Litter size and adult weight are numbers with a unit,
+  not a 1–5 grade or a deviation from the standard. That suggests a third trait scale
+  (`measured`: a number and a unit) or a separate kind of fact.
+- **Where they live**, one of:
+  - **On the trait tables**, for any Dog row. Ancestors entered for the pedigree are already
+    Dog rows: pedigree-only dogs (`pedigree_only: true`, guide: dogRepo) are left out of
+    every roster, list, report and the Lite cap and only show on the pedigree. Traits on
+    them would need no new table; their dog page would show the traits.
+  - **A separate pedigree-traits table** for ancestors without full KennelOS records, kept
+    out of everything but the pedigree, the pair check and the insights.
+- **Production facts for outside dams and sires** (litter sizes, C-sections, colors
+  produced), entered by hand rather than coming from birth records, so the production view
+  and the finder can weigh a line she didn't breed ("her dam's line averages 9 pups").
+- **Where it's entered:** on the pedigree, for the ancestor; and when she adds a bought pup,
+  "What do you know about the parents?"

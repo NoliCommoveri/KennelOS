@@ -6109,3 +6109,19 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   warnings and Relatives always on.
 - README doc map and Status. No code changed.
 - **Service worker:** no app file added or changed.
+
+## 2026-11-18: Line management and program types: owner decisions (docs only)
+
+- **Program types D1 (owner):** large or licensed kennels stay a type; none of their gaps
+  (compliance, staff roles) are built yet.
+- **Line management D13 (owner):** a COI she knows overrides the calculated one: a dog's
+  `recorded_coi` (genomic test, registry, full pedigree) for that dog and in the kinship,
+  and a new `Pairing.recorded_coi` (a trial-mating figure) for the litter, used by the
+  warnings; the calculated figure stays visible and a wide gap is pointed out. §3.1, §4,
+  §5 and Phase 1 updated.
+- **Recorded as a consideration, not a requirement** (Line Management §8.1): traits and
+  production facts of outside parents and ancestors (a dam's litter sizes, a sire's adult
+  weight), raised by a breeder buying a pup from a dam with several large litters. Options
+  noted: a `measured` trait scale; traits on pedigree-only Dog rows or a separate
+  pedigree-traits table; hand-entered production facts for outside dogs.
+- No code changed. **Service worker:** no app file added or changed.

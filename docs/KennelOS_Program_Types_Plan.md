@@ -11,7 +11,8 @@
 > view: a breeder who shows a lot needs show information close; one not breeding
 > registered dogs doesn't need it at all; stud services may be absent or a main income;
 > show breeders would use the line tools and large commercial kennels likely wouldn't.
-> The rest (§6) wait on the owner.
+> D1 is the owner's too: large kennels stay a type, with none of their gaps built yet. The
+> rest (§6) wait on the owner.
 >
 > Prototype: Setup › How you breed, and "View as" in the prototype bar, switch the sample
 > program between types.
@@ -95,8 +96,9 @@ Many dogs, sometimes several breeds, staff, a state or USDA license.
 | 5 | Financials and taxes | Built |
 | 6 | Selling at volume | Built |
 
-Whether to serve this type at all is the owner's call (D1). Its biggest needs are new
-(compliance, staff roles), and it is the type least likely to use the line tools.
+It stays a type, and none of its gaps are built until a real user asks (D1, owner). Its
+biggest needs are new (compliance, staff roles), and it is the type least likely to use
+the line tools.
 
 ## 2. Questions that cut across the types
 
@@ -150,7 +152,7 @@ Pairing warnings and a dog's Relatives are never switched off by a type.
 
 | # | Question | Recommendation | Status |
 |---|---|---|---|
-| D1 | Serve large or licensed kennels | Yes, as a type, but build none of its gaps until a real user asks; line tools off by default | Open |
+| D1 | Serve large or licensed kennels | Yes, as a type; build none of its gaps yet; line tools off by default | **Owner, 2026-11-18** |
 | D2 | One type or several | One main plus up to two others | Open |
 | D3 | What a type sets | Features, tabs, Home tiles, section order; never locks anything | Open |
 | D4 | Changing type later | Asks before resetting her own switches | Open |
