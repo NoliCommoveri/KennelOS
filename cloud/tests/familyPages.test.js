@@ -562,8 +562,8 @@ test('a family\'s extras pass field by field: names and dates only, and only wit
   assert.deepEqual(x.requests, [{ id: 'event-1', kind: 'add', list_id: 'tr', charge_id: null, name: 'Puppy training', requested_date: '2026-10-21', decided: null, decided_date: null }]);
   assert.equal('links' in x, false);
   const linked = extrasOf({ available: [{ id: 'tr', name: 'Puppy training', group: 'Training' }],
-    links: [{ group: 'Training', url: 'https://k.example/training' }, { group: 'Photos', url: 'javascript:alert(1)' }, { group: '', url: 'https://k.example/x' }] });
-  assert.deepEqual(linked.links, [{ group: 'Training', url: 'https://k.example/training' }], "a group's link: https only, with its group");
+    links: [{ group: 'Training', url: 'https://k.example/training', label: 'Training prices' }, { group: 'Puppy', url: 'https://k.example/p' }, { group: 'Photos', url: 'javascript:alert(1)' }, { group: '', url: 'https://k.example/x' }] });
+  assert.deepEqual(linked.links, [{ group: 'Training', url: 'https://k.example/training', label: 'Training prices' }, { group: 'Puppy', url: 'https://k.example/p', label: 'See details and pricing' }], "a group's link: https only, with its group and words");
   const p = projection();
   p.entries.cy.extras = { available: [{ id: 'tr', name: 'Puppy training' }] };
   p.kennel.extras_intro = 'Our extras';

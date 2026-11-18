@@ -1568,13 +1568,14 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   (`due` from `PLAN_DUE`: `at_weeks` (n = weeks old), `on_approval` (n = days after),
   `before_pickup` (n = days before), `with_balance`; percents add to 100).
   `Kennel.extra_charge_groups[]` = `{ name, request_from_weeks, request_until_weeks,
-  cancel_until_weeks, payment_plan, info_url? }` holds each group's defaults, and
-  `info_url` her own page about the group (https only, `groupInfoLink`); `chargeRules(item, groups)`
+  cancel_until_weeks, payment_plan, info_url?, info_label? }` holds each group's defaults,
+  `info_url` her own page about the group (https only, `groupInfoLink`) and `info_label` the
+  link's words (up to 80 characters; blank = `INFO_LABEL_DEFAULT`, "See details and pricing"); `chargeRules(item, groups)`
   gives an extra's own value where set, else its group's, and no plan reads as all with the
   balance. `requestWindow(item, groups, birthDate)` turns the ages into dates ("until N weeks"
   ends the day before the pup turns N weeks). Edited on the Kennel page's **Extra charges price
   list** section (`assets/priceListEditor.js`): a section per group with its name (renaming it
-  renames it for every extra in it), **Details/marketing URL** (with the waitlist) and
+  renames it for every extra in it), **Details/marketing URL** and **Custom hyperlink display phrase** (with the waitlist) and
   **Rules for every extra in this group**, each extra a
   name and price with **Details** (group, description, families can ask (with the waitlist),
   ages, boarding days, when it's paid), **+ New group**; saved through `readPriceList` (merges
@@ -2973,13 +2974,13 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `open_until` from the pup's birth date (`pupBirthDate`: the dog's, else the litter's; an
   age rule with no birth date isn't offered), the sale's extras that came from one with
   `can_cancel` (not paid, not past its cancel age) and `cancel_until`, and their requests
-  (undecided, or decided within 30 days), and `links` = `[{ group, url }]`, the `info_url` of
+  (undecided, or decided within 30 days), and `links` = `[{ group, url, label }]`, the `info_url` of
   each group with extras shown (left out when none). Names and dates only, never a price. The kennel
   carries `extras_intro` (`waitlist_config.extras_intro_text`, blank =
   `EXTRAS_INTRO_DEFAULT`) and `extras_info_url` (`extras_info_url`, https only) while any
   family has extras. Their page's **Extras** card shows her message, **See our extras and
   prices** (new tab), the extras under her group headings with **Request** / **Cancel**, and
-  under a group with a link, **See details and pricing** (new tab).
+  under a group with a link, her phrase (blank: **See details and pricing**) as a link (new tab).
   `extra_request` / `extra_cancel` events (the Worker checks them against `entry.extras`,
   dates included, one waiting per extra) become `entry.extra_requests` (`addExtraRequest`).
   Each is a Today nudge (`waitlist-extra-request`) and a row in the entry's Waiting for you:

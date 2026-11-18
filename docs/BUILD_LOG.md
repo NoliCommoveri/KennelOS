@@ -5745,3 +5745,6 @@ No owner decisions needed; each fix follows the review's suggestion.
 - **Service worker:** no app file added or renamed; `CACHE_NAME` not bumped (ask).
 - Cloud: no migration. `cloud/public/family/status.js` changes, so it reaches families when
   the Worker deploys.
+- Then, the owner: the field is **Details/marketing URL**, and each group may word its own
+  link, **Custom hyperlink display phrase** (`extra_charge_groups[].info_label`, up to 80
+  characters; blank = "See details and pricing"), carried in `links[].label`.

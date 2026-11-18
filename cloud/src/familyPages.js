@@ -492,7 +492,7 @@ export function extrasOf(x) {
   };
   if (!(out.available.length || out.current.length || out.requests.length)) return null;
   // Her page for a group, linked under its extras: https only.
-  const links = arr(x.links).slice(0, 30).map((l) => ({ group: str(l?.group, 80), url: typeof l?.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(l.url) ? l.url : '' })).filter((l) => l.group && l.url);
+  const links = arr(x.links).slice(0, 30).map((l) => ({ group: str(l?.group, 80), url: typeof l?.url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(l.url) ? l.url : '', label: str(l?.label, 80).trim() || 'See details and pricing' })).filter((l) => l.group && l.url);
   if (links.length) out.links = links;
   return out;
 }

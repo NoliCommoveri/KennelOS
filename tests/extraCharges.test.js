@@ -390,7 +390,10 @@ test("a group's own page is linked under its extras on a family's status page, h
   const entry = { contact_id: 'c1', kennel_id: 'k1' };
   const sale = { id: 's1', kennel_id: 'k1', buyer_contact_id: 'c1', status: 'deposit_paid', extra_charges: [] };
   const v = familyExtrasView({ entry, sale, kennel, birthDate: '2026-09-01', today: '2026-10-20' });
-  assert.deepEqual(v.links, [{ group: 'training', url: 'https://k.example/training' }], 'only a group with extras on their page');
+  assert.deepEqual(v.links, [{ group: 'training', url: 'https://k.example/training', label: 'See details and pricing' }], 'only a group with extras on their page');
+  const worded = familyExtrasView({ entry, sale, kennel: { ...kennel, extra_charge_groups: [{ name: 'Training', info_url: 'https://k.example/training', info_label: ' Training packages and prices ' }] }, birthDate: '2026-09-01', today: '2026-10-20' });
+  assert.equal(worded.links[0].label, 'Training packages and prices', 'her own words for the link');
+  assert.equal(kennelChargeGroups({ extra_charge_groups: [{ name: 'A', info_label: 'x'.repeat(100) }] })[0].info_label.length, 80);
   const none = familyExtrasView({ entry, sale, kennel: { ...kennel, extra_charge_groups: [] }, birthDate: '2026-09-01', today: '2026-10-20' });
   assert.equal('links' in none, false);
 });
