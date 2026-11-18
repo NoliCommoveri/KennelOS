@@ -192,6 +192,11 @@ during the trial the subscription is `on_trial` and the key validates as `active
 shows full Pro with no trial-specific UI. If a trial lapses without converting, the key expires
 like any other and the yearly grace window (below) applies before the wall.
 
+- **When the store is asked (Load Performance plan D6, built):** the app draws first, from the
+  stored verdict, and asks Lemon Squeezy in the background at most once per browsing session and
+  again after 6 hours, with a 5-second timeout that counts as offline. A stored verdict that walls
+  always asks before walling, so a renewal unlocks on the next load. A refunded or released key
+  walls at the next session or within 6 hours, not on the next page.
 - **Activate (first run, online):** Pro asks for the key → `POST /v1/licenses/activate` → on
   success, store the activation record locally (via `settings.js`) with the returned expiry.
 - **Offline-first, honored — grace window scales with the billing interval:** don't demand
@@ -378,6 +383,14 @@ smaller packet sized to exactly the **6-dog cap** (with 2 of the 10 allowed litt
 (the demo kennel reads as "at the limit") — and a step catalog that visits only Lite's pages and
 weaves in **Pro-promo cards** pitching what Pro unlocks. (The Demo edition never runs the tour —
 its boot returns before the wizard hooks — so this is a Lite-vs-Pro split.)
+
+**The tour is read-only, and its sample data can't outlive it** (Load Performance plan D1–D5,
+built). While the sample kennel is loaded, Lite and Pro refuse every save the way the Demo does
+(the same lever, with the tour's own words), so nothing of hers ever points at a sample record.
+The seed lives only while the tour is active, in the browsing session that loaded it; any other
+page load clears it and kennel setup follows. Once a device has a program of its own, "Take the
+tour" opens the Demo in a new tab (from Lite too, saying the Demo shows Pro); the tour is never
+seeded beside real records.
 
 ---
 

@@ -20,6 +20,9 @@ before(async () => {
   ({ eventRepo } = await import('../shared/data/eventRepo.js'));
   const { seedSampleData } = await import('../shared/data/sampleData.js');
   await seedSampleData();
+  // The sample packet as a fixture of real records: without its manifest, so the
+  // tour's read-only guard (demoMode.assertWritable) lets these tests write.
+  (await import('../shared/data/settings.js')).removeSampleDataManifest();
   const kennels = [...tables.kennels.rows.values()].filter((k) => k.is_own_kennel);
   kennelId = kennels[0].id;
   const dogs = [...tables.dogs.rows.values()];

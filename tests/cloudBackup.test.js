@@ -66,7 +66,10 @@ test('a seeded sample packet produces an empty snapshot (sample data is never ba
 test('real records added beside the sample are the only ones kept, projected to the cloud tier', async () => {
   await seedSampleData();
   put('contacts', { ...base('c0'), name: 'Outside Owner' });
-  const dog = await dogRepo.create({ call_name: 'Real Dog', sex: 'male', breed: 'Boxer', status: 'external', ownership_type: 'external', owner_contact_id: 'c0', notes: 'keep me local' });
+  // The tour is read-only now; an old seed (or a synced-in row) can still sit
+  // beside real records, which is what this pins.
+  const { withSeedAllowed } = await import('../shared/data/demoMode.js');
+  const dog = await withSeedAllowed(() => dogRepo.create({ call_name: 'Real Dog', sex: 'male', breed: 'Boxer', status: 'external', ownership_type: 'external', owner_contact_id: 'c0', notes: 'keep me local' }));
   const { envelope } = await cb.buildCloudSnapshot();
   assert.deepEqual(envelope.collections.dogs.map((d) => d.id), [dog.id]);
   assert.ok(!('notes' in envelope.collections.dogs[0]));

@@ -17,6 +17,9 @@ before(async () => {
   ({ CapExceededError } = await import('../shared/data/repoBase.js'));
   const { seedSampleData } = await import('../shared/data/sampleData.js');
   await seedSampleData();
+  // The sample packet as a fixture of real records: without its manifest, so the
+  // tour's read-only guard (demoMode.assertWritable) lets these tests write.
+  (await import('../shared/data/settings.js')).removeSampleDataManifest();
   onFile = await dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true });
   kennelId = [...tables.kennels.rows.values()].find((k) => k.is_own_kennel).id;
 });

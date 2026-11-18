@@ -26,12 +26,12 @@ const MARKED = {
   'shared/data/assistantSync.js': 1, // KennelAssistant event import
   'shared/data/importExport.js': 8,  // restoreBackup replace, file merge (rows, re-keyed device secrets), cloud-merge, vault-merge, a sync join's pairs (rows, device secrets)
   'shared/data/recordMerge.js': 2,   // merging two records: re-keying what named the duplicate, then deleting it
-  'shared/data/cloud/syncLost.js': 5 // Put mine back (a local edit, marked); the others are the device-only sync_lost table
+  'shared/data/cloud/syncLost.js': 5, // Put mine back (a local edit, marked); the others are the device-only sync_lost table
+  'shared/data/recordDetach.js': 2   // removing a set of records and detaching what points at them (the tour's sample data, leftover tour records): marked when a real record changed
 };
 
 // File → { sites, why }. Writers that deliberately don't mark the backup dirty.
 const EXEMPT = {
-  'shared/data/sampleData.js': { sites: 14, why: 'clearing sample data: sample rows are never in a snapshot' },
   'shared/data/appReset.js': { sites: 1, why: 'Reset App: an emptied program must never be pushed (plan §3.3, §3.5)' },
   'shared/data/cloud/vaultKeyStore.js': { sites: 6, why: 'the device-only vault key, pairing request and unsaved recovery code (device_secrets): not kennel data, never in a snapshot' },
   'shared/data/stripeKeyStore.js': { sites: 2, why: 'her Stripe restricted key on this device only (device_secrets, Integrations plan §4): not kennel data, never in a snapshot' },

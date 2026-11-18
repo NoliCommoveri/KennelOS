@@ -5946,3 +5946,130 @@ No owner decisions needed; each fix follows the review's suggestion.
   took every recommendation, so all are made; next is Phase 0. No server change, no migration.
 - README doc map and Status. No code changed.
 - **Service worker:** no app file added or changed.
+
+## 2026-11-18: Load performance Phases 1 and 2 — nothing moves after first paint; a read-only tour
+
+Built from `docs/KennelOS_Load_Performance_Plan.md` (owner's request: review the plan, then
+build Phases 1 and 2). Where the build departed from the plan, its **Modified:** notes say
+so. No server change, no migration, no schema change, no new record field.
+
+- **Phase 1 (D6, D7):**
+  - `#app-nav` reserves its 52 px (`app.css`). `app.js` draws the nav first, before the
+    license gate and every wait. The kennel name and switcher draw from a stored copy
+    (`settings.navKennels`), corrected after their reads.
+  - The Pro gate decides from the stored verdict (`license.cachedLicense`) and asks Lemon
+    Squeezy in the background at most once a session and every 6 h (`licenseCheckDue`,
+    `askLicenseStore`), with a 5 s timeout (`LICENSE_TIMEOUT_MS`). A walling verdict still asks
+    first.
+  - New `settings.dataChangedAt` (`markDataChanged`, and live sync's `noteDataChanged`).
+  - The website strip keeps its last compare (`settings.websiteStrip`), is drawn from it in the
+    first paint by `app.js` / `today.js`, and compares again only when records changed, the day
+    turned, or `kennelportLinkStore` dropped it.
+  - Today paints every card in one frame. Its cloud card is new `assets/todayCloudCard.js`
+    (settings only; `cloudBackupUI` loads on a press). Service notices already fetched this
+    session draw at boot.
+- **Phase 2 (D1–D5):**
+  - `demoMode.assertWritable` throws `TourModeError` (a `DemoModeError`) while the tour's seed
+    is loaded; `isTourMode` / `isReadOnly` / `readOnlyWhy`. The `isDemo()` write-skips became
+    `isReadOnly()`. Website and Stripe connects are guarded too.
+  - `settings.hasSampleData` (moved from `sampleData.js`, which re-exports it).
+  - The seed lives only while the tour is active, in its own session
+    (`markTourSeededThisSession`, `tourSeedExpired`). `app.js` clears it otherwise
+    (`sampleDataUI.autoClearTourSeed`) and reloads once; a failed clear shows a strip with
+    Try again.
+  - The banner says "Leave the tour". Finish and Skip clear and reload into kennel setup. Kels
+    doesn't start tasks during the tour. A restore, an import, a sync join or a vault merge
+    clears the seed first (`importExport.leaveTourFirst`). The migrations wait until the seed
+    is gone.
+  - New `editionConfig.tourUrl` (all four; nulled by the final build): "Take the tour ↗" in
+    the More menu and in Settings opens the Demo once there's no seed.
+  - New `data/recordDetach.js` (`planDetach`, `removeDetaching`, `detachRow`) over new
+    `referenceRegistry.REFERENCES_BY_TABLE`, `refIdsOf` and `findReferencingRows`.
+    `clearSampleData` uses it (D4): kennel links move to her kennel, waiting for kennel setup
+    when there's none; other links are cleared; a one-time notice lists them.
+    `archiveConflicting` and `promptClearSampleData` are gone.
+  - Kels's Tidy up gets **Leftover tour records** (`tidyRules.tourLeftoverFindings`, D5).
+  - The tour's intro copy (shared and Lite) no longer mentions the yellow banner.
+- **Found and fixed on the way:**
+  - the old clear never checked contacts (a real sale's sample buyer was deleted out from
+    under it);
+  - it queried unindexed `scan` registry fields, which throws, and the tour's exit swallowed
+    that;
+  - the strip's inline `display:flex` beat `hidden`, so a hidden strip stayed as an empty
+    padded bar.
+- **Tests:**
+  - new `tests/tourMode.test.js`;
+  - additions to `tests/licenseRevalidate.test.js` and `tests/websiteBanner.test.js`;
+  - `tests/cloudDirty.test.js`: `recordDetach.js` marked, `sampleData.js` no longer writes
+    directly;
+  - `memoryDb` compound `anyOf`;
+  - four suites that used the seed as a fixture drop its manifest (or open the seed window)
+    before writing beside it;
+  - 2,221 pass.
+- **Checked in Chromium** at 390 px against `dist/pro` with Lemon Squeezy delayed 3 s:
+  - the nav lands in 0.14–0.26 s (was ~3.45 s); the page no longer drops when it arrives;
+  - Today's layout shift 0.29 → 0.0004;
+  - no store calls after the session's first;
+  - a released key walls in the background;
+  - Lite's tour refuses writes, keeps its seed across pages in its own session, and clears in
+    a new tab into kennel setup, then the menu links to the Demo;
+  - Pro's Skip clears and shows kennel setup;
+  - an old contaminated seed asks for a kennel, moves her dog to it, clears the sample sire
+    and shows the notice;
+  - the Demo is unchanged.
+- Docs: guide §0, §0.2 (now "Read-only: the Demo, and the guided tour"), §0.3, §11 (Settings,
+  Sample data, First run, Guided tour), §30, §33 (Tidy up), §35; editions plan §Licensing and
+  §"The guided tour is per-edition"; the plan's status and Modified notes; README Status.
+- **Service worker:** `assets/todayCloudCard.js` and `data/recordDetach.js` added to
+  `PRECACHE_URLS`; `CACHE_NAME` → `kennelos-shell-v157` (owner's go-ahead, after Phase 0),
+  which carries Phases 0–2.
+
+## 2026-11-18: Load performance Phase 0 — load budgets and the load check
+
+Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's Phase 0
+**Modified:** note.
+
+- **New `tests/loadBudget.test.js`** (in `node --test`): each entry's static graph (`app.js`'s
+  plus the page's script) stays within a module and KB budget. Measured now:
+  - app.js 57 / 918 KB;
+  - Today 100 / 1,723;
+  - Dogs 64 / 1,014;
+  - Dog 76 / 1,194;
+  - Litter 97 / 1,525;
+  - Sale 84 / 1,353;
+  - Waitlist 102 / 1,721;
+  - Waitlist entry 114 / 2,034;
+  - Kels 129 / 2,129.
+
+  Budgets are those plus a little; Phase 3 lowers them. The "never statically from app.js"
+  list is a to-do test until Phase 3 (today `app.js` still reaches `sampleData.js`, the tour,
+  first run, the setup modal and its parser, and the license gate).
+- **New `build/loadCheck.mjs`** (by hand; `build/README.md`): Playwright on `dist/pro` and
+  `dist/lite` at 390 px, with the sample packet as her own records and Lemon Squeezy answered
+  3 s late. It reports, per page: nav time, first paint, layout shift and what moved, tables
+  read in full more than once, and store calls. `--root` measures another checkout.
+- **Baseline**, `main` (`5f73da0`, before Phases 1–2) → this branch, the same run
+  (`--root`), Pro / Lite:
+  - **Nav drawn (ms):** Pro ~3,100 → 100–130 on every page; Lite ~100 both.
+  - **Layout shift:**
+
+    | Page | Pro (main → now) | Lite (main → now) |
+    |---|---|---|
+    | Today | 0.68 → 0.0004 | 0.99 → 0.0004 |
+    | Dogs | 0.10 → 0.03 | 0.04 → 0 |
+    | Dog | 0.31 → 0.11 | 0.15 → 0.02 |
+    | Sale | 0.16 → 0.12 | 0.08 → 0.06 |
+
+    Run to run they vary by a few hundredths. What's left on Dog and Sale is their own
+    sections filling in.
+  - **Lemon Squeezy calls over the four pages:** 4 → 1.
+  - **Full table reads, Pro, watched 9 s** (Phases 3–4's work):
+    - Today: 47 → 47 (kennels ×11, contacts ×6, sales ×6, dogs ×5, litters ×4…);
+    - Dogs: 16 → 15;
+    - Dog: 23 → 22;
+    - Sale: 27 → 26.
+
+    With the default 2 s window `main` looks lower on Today (44), only because its background
+    checks start after the 3 s license wait and finish outside the window.
+- Docs: `build/README.md` (Load check), the plan's status and Phase 0 note, README Status.
+- **Service worker:** no app file added or changed (a test and a build script).

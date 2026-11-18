@@ -10,7 +10,7 @@
 // with contacts, kennels, stud services, contracts and external dogs. Run through
 // Lite's repos that trips the cap (litterRepo.create throws on the 3rd litter) and
 // the seed aborts PART-WAY — before the manifest is written — leaving orphan dogs
-// with no "Clear Sample Data" banner. And the shared tour then navigates to
+// with no manifest to clear them by. And the shared tour then navigates to
 // Pro-only pages that 404 in the Lite build. So Lite gets:
 //   • a smaller packet: exactly 6 counting dogs (i.e. AT the dog cap, which also
 //     sets up the "upgrade for unlimited" pitch) + 2 litters (well under the
@@ -305,7 +305,7 @@ export const WIZARD_STEPS = [
   {
     id: 'tour-intro', kind: 'tour-intro', button: 'Start the tour →',
     title: 'Meet Thornfield Kennels',
-    body: 'We’ve loaded a small sample kennel — Thornfield Kennels — with a few dogs, two litters and some records already filled in so you have something real to explore. None of it is yours: once you finish the tour we’ll clear it for you, and if you wander off on your own a yellow “Clear Sample Data” banner stays at the top so you can reset to a blank slate whenever you like. This is KennelOS Lite, the free edition, so the tour sticks to what Lite does — and points out a few things Pro adds as we go.'
+    body: 'We’ve loaded a small sample kennel — Thornfield Kennels — with a few dogs, two litters and some records already filled in so you have something real to explore. None of it is yours, and nothing you change is saved: it’s all here to look at. When you finish the tour, or leave it with Skip tour, we’ll clear it for you and you start your own. This is KennelOS Lite, the free edition, so the tour sticks to what Lite does — and points out a few things Pro adds as we go.'
   },
 
   // --- Today -------------------------------------------------------------

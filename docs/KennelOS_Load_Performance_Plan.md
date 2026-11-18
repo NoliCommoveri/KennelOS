@@ -1,6 +1,6 @@
 # KennelOS — Load performance and the tour's sample data: plan
 
-> Status: **plan, nothing built.** Pages are slow to settle: on load the nav, the website
+> Status: **Phases 0, 1 and 2 built** (2026-11-18; 1 and 2 first); Phases 3–6 not built. Pages were slow to settle: on load the nav, the website
 > strip and Today's top cards appear late and push buttons down mid-tap. This plan fixes
 > that first (Phase 1), then makes the tour's sample data unable to outlive the tour
 > (Phase 2: a read-only tour with auto-clear). After that it trims what every page loads
@@ -8,7 +8,7 @@
 > (Phase 5), and builds and caches smarter (Phase 6). Phase 0 adds the measurements and
 > guard tests first. No server change and no migration anywhere in the plan.
 >
-> **All decisions are made** (§2; the owner, 2026-11-18). Next: Phase 0.
+> **All decisions are made** (§2; the owner, 2026-11-18). Next: Phase 3.
 
 ## 1. What's slow today (measured on `main` at `69105af`)
 
@@ -162,6 +162,22 @@ owner's go-ahead for one `CACHE_NAME` bump. A new or renamed app file goes into
 
   Documented in `build/README.md`.
 - **Record** the baseline numbers in BUILD_LOG.
+- **Modified:** built after Phases 1 and 2, so the budgets start at the numbers after them
+  (each page about one module and 20–30 KB over §1.2), and the baseline in BUILD_LOG is
+  `main` before them against this build, run the same way (`--root`). As built:
+  - a page's graph is `app.js`'s plus its own script's, as §1.2 measured it;
+  - the budgets have a little room (two modules, a few tens of KB), so unrelated work doesn't
+    fail them by a file;
+  - the "never statically" list is in the test now, as a to-do until Phase 3 (it reports
+    what `app.js` still reaches without failing);
+  - `loadCheck.mjs` serves `dist/` itself, gives the device the edition's sample packet as
+    real records, counts reads under IndexedDB rather than in a wrapped Dexie (so it sees
+    every reader), blocks every outside request but Lemon Squeezy's, and takes `--root`,
+    `--settle` and `--json`.
+  - Found by it: **Dog and Sale still shift** after first paint (about 0.1 in Pro: the
+    profile, payments and timeline sections filling in one after another), less than before
+    (0.31 and 0.16 on `main`) but not none, as Phase 1's check asked. They're the pages' own
+    sections, which no phase here covers.
 
 ### Phase 1 — Nothing moves after the first paint
 **Files:** `shared/app.js`, `shared/assets/app.css`, `shared/assets/licenseGate.js`,
@@ -199,6 +215,28 @@ owner's go-ahead for one `CACHE_NAME` bump. A new or renamed app file goes into
   Squeezy delayed.
 - **Docs:** guide §0.3 (Pro license gate), §3 (the `app.js` shell boot), §35 (website
   strip); editions plan §Licensing (when the store is asked).
+- **Modified:** as built,
+  - a stored verdict that walls (with a record) still asks the store before walling, with the
+    5 s timeout, so a renewal unlocks on the next load; only a verdict that lets her in is
+    checked in the background;
+  - Today paints **every** card in one frame, not only nudges and reminders, and "Loading…" is
+    its own element, shown once the top cards are drawn and removed in that frame (otherwise the
+    lower cards and the placeholder moved);
+  - the website strip also compares on a new day (its bundle counts from today's date) and when
+    `kennelportLinkStore` links, sends, hears from the site or unlinks (which drop the kept
+    answer), and Send now loads the kennel by its kept id. The strip's box is a CSS class
+    (`website-banner-strip`) so the shell and the module draw the same one;
+  - the cloud card is `assets/todayCloudCard.js` (new, in `PRECACHE_URLS`); the one database
+    answer it needs (unsaved recovery code) is kept in settings from the last look;
+  - live sync writes `dataChangedAt` through `noteDataChanged()`, which doesn't mark the backup
+    dirty;
+  - checked before `loadCheck.mjs` existed, with a one-off Playwright run against
+    `dist/pro` at 390 px with Lemon Squeezy delayed 3 s on an empty program (Phase 0's
+    numbers, on a full one, are in BUILD_LOG). Before → after: the nav appears at
+    ~3.45 s → 0.14–0.26 s; the 52 px drop of the whole page when the nav arrived is gone; Today's
+    layout shift 0.29 → 0.0004 (the kennel name's first ever draw); Lemon Squeezy calls over 4
+    pages in one session 4 → 0 after the session's first. Dogs (0.03) and Dog (0.006) keep
+    small shifts of their own page content, the same as before; not in this phase.
 
 ### Phase 2 — The tour's sample data can't outlive the tour (D1–D5)
 **Files:** `shared/data/demoMode.js`, `shared/data/repoBase.js`, `shared/data/fileRepo.js`,
@@ -251,6 +289,31 @@ owner's go-ahead for one `CACHE_NAME` bump. A new or renamed app file goes into
   - the Tidy up rule finds archived leftovers by name.
 - **Docs:** guide §11 (Sample data, First run, Guided tour) and §0 (the read-only guard now
   serves the tour as well as Demo); editions plan §"The Demo edition".
+- **Modified:** as built,
+  - the "Clear Sample Data" control and the Guided tour section are on **Settings**, not
+    Import/Export (this plan's file list was out of date): Settings has Restart the guided
+    tour, Leave the tour, and, once there's no seed, the Demo link;
+  - read-only needed more than the guard: about fifteen places skipped a write or an outside
+    action with `isDemo()` (Furever's prefill saved on page load, e-sign, Stripe connect,
+    Google Drive, Companion templates, the picks preview, the waitlist tidy, the portal feed).
+    They check `isReadOnly()` (Demo or tour) and say why with `readOnlyWhy()`. Connecting a
+    website or Stripe also calls `assertWritable()`, so the sample kennel can't reach her
+    real website or Stripe;
+  - D3 needed its own setting, `editionConfig.tourUrl` (all four copies): Pro's `demoUrl`
+    would have turned on Lite's outbound edition links in Pro's nav. The final build nulls it;
+  - D2's session mark is set by `onboardingUI` after either edition's seed (Lite seeds with its
+    own function), and holds the manifest's `seededAt`;
+  - D4 is a generic `data/recordDetach.js` over the reference registries
+    (`REFERENCES_BY_TABLE`, `findReferencingRows`), not a mode of the old check. The old check
+    never looked at contacts (a real sale's sample buyer was deleted out from under it) and
+    queried unindexed `scan` fields (it would have thrown on them). An event or expense about a
+    sample record keeps its details, about nothing. D4's wait for a kennel: while a seed is
+    loaded the setup gate is off, so the cleanup opens the required kennel setup itself, with a
+    line saying why, and lets its save through the guard;
+  - D5 also takes archived litters and breedings whose parents are both leftover dogs (else
+    they'd be left pointing at nothing);
+  - the tour no longer offers the old "Clear sample data" dry run: `promptClearSampleData` is
+    gone with `archiveConflicting`.
 
 ### Phase 3 — A lighter shell
 **Files:** `shared/app.js`, `shared/assets/ui.js`, `shared/assets/kennelSetupUI.js`,
@@ -331,9 +394,9 @@ owner's go-ahead for one `CACHE_NAME` bump. A new or renamed app file goes into
 
 | Phase | What the breeder notices | Size | Decisions it carries out |
 |---|---|---|---|
-| 0 | Nothing | Small | — |
-| 1 | Buttons stop moving; the Pro nav is there at once | Medium | D6, D7 |
-| 2 | The tour can't leave Thornfield behind; old leftovers are cleaned up | Medium | D1–D5 |
+| 0 (built) | Nothing | Small | — |
+| 1 (built) | Buttons stop moving; the Pro nav is there at once | Medium | D6, D7 |
+| 2 (built) | The tour can't leave Thornfield behind; old leftovers are cleaned up | Medium | D1–D5 |
 | 3 | Every page starts faster, Today most | Medium | — |
 | 4 | Today and data changes are quicker on big programs | Small | D11 |
 | 5 | Fewer requests per tap; less battery and data | Small | D6, D8 |
