@@ -6073,3 +6073,22 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
     checks start after the 3 s license wait and finish outside the window.
 - Docs: `build/README.md` (Load check), the plan's status and Phase 0 note, README Status.
 - **Service worker:** no app file added or changed (a test and a build script).
+
+## 2026-11-18: Line management plan (docs only)
+
+- **Owner's request:** every dog related to every other dog in the program, with the
+  ancestors they share; warnings for close pairings (today's pairing form checks only sex
+  and same dog); traits graded in their own tables as a long-lived view of the dog, not as
+  events; pairing recommendations and what the program is missing; breeding outcomes as
+  structure (colors, abnormalities, C-sections) so they can be evaluated, including what an
+  untested dog must carry from the colors it throws; her own color list as an enforced
+  dropdown asked at birth, with the standard coat genes shipped; light trait scores on pups
+  before go-home.
+- New `docs/KennelOS_Line_Management_Plan.md`: what's there today (§2), the design (§3:
+  derived kinship, COI, relationship names, shared ancestors and pedigree depth; tables
+  `trait_definitions`, `dog_traits`, `colors`, `birth_records`; DNA per marker; derived
+  coat genetics; production and line insights; the pairing finder), the data model (§4),
+  decisions D1–D12 (D4, and her own color list in D5, are the owner's; the rest have a
+  recommendation and are open), and five phases. Phase 1 needs no schema change.
+- README doc map and Status. No code changed.
+- **Service worker:** no app file added or changed.
