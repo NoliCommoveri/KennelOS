@@ -6074,6 +6074,27 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
 - Docs: `build/README.md` (Load check), the plan's status and Phase 0 note, README Status.
 - **Service worker:** no app file added or changed (a test and a build script).
 
+## 2026-11-18: Dogs page — Puppies grouped by disposition; Website ✓ column
+- **Puppies tab** is sectioned by disposition, in order Available, Placed, Undecided (incl.
+  unset), Health hold, Keeping; within each section sex then name A→Z (`dogListOrder`,
+  replacing the newest-first DOB sort).
+- **All tabs:** Disposition is now plain text (no badge) and a `collapse` column, so on a phone
+  it moves into the row's details. A new always-visible **Website** column shows ✓ when
+  `show_on_website` is set; it renders only where `websiteLinkOffered()` (as the dog page does).
+- The ✓ is centered under its header: a listView column's `className` now also goes on its `<th>`, with a `col-center` class.
+- Docs: End-State guide (Dogs page order). **Service worker:** no file added or renamed.
+
+## 2026-11-18: Dogs page — More ▾ menu; a three-button rule
+- Dogs page header now shows ✨ Add your dogs with Kels, + Add Dog and **More ▾**. More holds,
+  in groups: Log events for several dogs (renamed from "Log for several dogs"), ✨ Check in on
+  my dogs | Family tree | Add dogs from a card (Pro), Import pedigrees.
+- `.action-menu-list > [hidden]` so an edition-hidden menu item stays hidden.
+- Shared `.action-menu`: items stay on one line; `wireActionMenu` opens the list left-aligned when right-aligned would run off the screen (a wrapped button on a phone).
+- New app-wide rule (owner's): no more than 2–3 buttons in view; extra actions go in a dropdown.
+  Recorded in the End-State guide §13 and CLAUDE.md.
+- **Service worker:** no file added or renamed.
+- **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v158` for this session's Dogs page batch.
+
 ## 2026-11-18: Line management plan (docs only)
 
 - **Owner's request:** every dog related to every other dog in the program, with the
