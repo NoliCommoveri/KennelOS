@@ -367,7 +367,7 @@ function litterCard(id, l) {
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
     dam: parentOf(l.dam),
-    ...photosOf(l.photos_url),
+    ...photosOf(l.photos_url), ...pageOf(l),
   };
 }
 

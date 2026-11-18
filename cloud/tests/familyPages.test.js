@@ -580,6 +580,8 @@ test("a parent's or an early litter's page on her website keeps `page: true`; a 
   const p = projection();
   p.upcoming = [{ id: 'u1', kind: 'early_litter', label: 'Gem', public: true, family: true, photos_url: 'https://a.kennelport.com/litters/gem', page: true,
     dam: { name: 'Juniper', photos_url: 'https://a.kennelport.com/dogs/juniper', page: true }, sire: { name: 'Ash', page: true } }];
+  p.litters.l1 = { ...p.litters.l1, photos_url: 'https://a.kennelport.com/litters/gem', page: true };
+  assert.equal(listView(p).available[0].page, true, 'an Available Puppies card keeps it too');
   const u = listView(p).upcoming[0];
   assert.equal(u.page, true);
   assert.deepEqual([u.dam.photos_url, u.dam.page], ['https://a.kennelport.com/dogs/juniper', true]);

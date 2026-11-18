@@ -5772,3 +5772,6 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Then, the owner: a parent's name is its link, not "(Their page)" or "(Photos)" after it
   (her photos link is the dog's page anyway); a planned heat's dam name too, in place of
   "Photos of Juniper" (`common.js` `nameLink`, `litterHtml` `nameHtml`).
+- Checked in a browser (the status page with sample data, 390px and desktop): every parent
+  name links to its dog page. Found and fixed: the Worker dropped `page` on an Available
+  Puppies card (`familyPages.js` litter card), so it read "See the litter's photos".
