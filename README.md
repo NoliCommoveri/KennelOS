@@ -50,6 +50,7 @@ backup, carries a program from Lite to Pro.
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
 | Sending dogs between breeders (Dog Cards, live updates) | `docs/KennelOS_Shared_Dogs_Plan.md` |
 | A review of the whole app, run over several sessions | `docs/KennelOS_Review_Plan.md` (findings in `docs/review/`) |
+| Fixing the review's remaining findings (everything open outside K15), in nine batches (plan) | `docs/KennelOS_Review_Remainder_Plan.md` |
 | Fixing what the waitlist reviews found, with Pup selected, Already Reserved and family pages without the list (plan) | `docs/KennelOS_Waitlist_Fixes_Plan.md` |
 | Several due dates on a sale (payment schedules, payments received), and the invoices, receipts, contracts and family pages that use them (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
@@ -73,7 +74,8 @@ backup, carries a program from Lite to Pro.
     sets who signs, the breeder the kind) is for the owner to confirm.
   - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
     (counting wrong code guesses per code) and one live Mapbox try of the address checks.
-    The review's other open findings are in `docs/review/FIX_PRIORITIES.md`.
+    The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
+    (nine batches, seven owner decisions R1–R7); none built yet.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
     (live updates) waits on owner decisions.
   - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own

@@ -5822,3 +5822,15 @@ No owner decisions needed; each fix follows the review's suggestion.
 - Tests: `tests/waitlistProjection.test.js`, `cloud/tests/familyPages.test.js`.
 - Checked in a browser: a sample logo in Classic light and Ivory dark at 390px.
 - **Service worker:** rides `kennelos-shell-v154` (bumped this session, not yet on `main`).
+
+## 2026-11-18: Plan for the review's remaining findings
+
+- New `docs/KennelOS_Review_Remainder_Plan.md`: 32 open findings (K12-4, K14-3, K1-4 the S2s)
+  in nine batches A–I, each with its files, fixes, failing tests to write first and docs.
+  Seven owner decisions (R1–R7) with recommendations: `status_date` and `furever_pack` sync
+  tier, the saved-logins wording, a co-own's life stage on Delivered, refund fields on a Sale,
+  an update notice, the per-pup pack layout, a re-runnable chunked recovery restore.
+- Rechecked against `main` at `6aacb16`: K6-13, K7-13, K7-10 and K6b-9 are already built;
+  K13-13 is partly covered by Kels's account health check.
+- README doc map and Status, `FIX_PRIORITIES.md` pointer. No code changed.
+- **Service worker:** no app file added or changed.

@@ -17,6 +17,10 @@ confusing, silent, slow, or broken on a phone; **S4** latent.
 
 ---
 
+> **Next:** every finding still open here, apart from K15 and K16, is planned in
+> `docs/KennelOS_Review_Remainder_Plan.md` (batches A–I). That plan also records that
+> K6-13, K7-13, K7-10 and K6b-9, still listed as open in §2 below, are built.
+
 ## 1. Where each document stands
 
 *Updated 2026-11-16 after steps 1–11, step 3 (Waitlist Fixes step 5) and Waitlist Fixes
