@@ -2705,8 +2705,10 @@ the list on to the next turn included, or none do. The scope must be an `async` 
 network or a timer, and an action another one calls joins its transaction.
 `tests/waitlistAtomic.test.js` holds every new export to it (or a read-only list).
 Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
-one contact rule: the same email or phone first, then the same or a near name; never
-automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
+one contact rule: the same email or phone first, then the same or a near name; a fee of 0
+goes straight to `active`), `saveEntryEdits` (the family page's Edit: the entry's fields,
+and once linked their name, email, phone and address on their contact, only what changed,
+both or neither), decline, fee received (sets the place
 in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, move place
 (`setPositionAnchor`).
 - **Undo windows (7 days, `REMOVAL_UNDO_DAYS`), for a mistap:** a removal, automatic or hers
@@ -2828,6 +2830,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **View their page ↗**, shown once the family has a link online, below),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
+- **One person, one set of details (owner, 2026-11-19).** A family's name, email, phone and
+  address are their contact's once the entry has one (`waitlistRules.familyDetails`); that is
+  what every email, sign-in code, contract, sale, invoice and the portal read. The family page
+  (`waitlist-entry`) shows them under Details (Name links to their contact page) and edits them
+  under **Their details** at the top of Edit (`actions.saveEntryEdits`); nothing on screen says
+  where they are stored. Once linked, the application's own name, email and phone answers are
+  neither shown nor offered (they stay stored with the answers); City / state stays an answer.
+  Before a contact, the details are the application's and Edit changes the answers. A new
+  application whose email is exactly one live contact's (`waitlistRules.contactForEmail`, case
+  and spaces aside; two sharing it → none) is linked at intake: online
+  (`cloudWaitlist` inbox), typed in (`waitlist-entry` New) and CSV import; other matches are
+  still only offered at approval.
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write. **Non-Waitlist Sales…** shows
@@ -5514,7 +5528,8 @@ Nothing changes for any other kennel or breeder.
   `earlyPortalState({ kennel, sale, contracts })` → `'offer'` | `'started'` | null (portal on,
   sale open with pup and buyer, no signed contract) drives the button on the Sale page and the
   waitlist family's Interact tab (`assets/portalEarlyUI.js`, one confirm). The family is the buyer contact (`id` its contact id, `name`,
-  `emails`: the contact's and those they applied with, lower case, at most 4; `status_url`
+  `emails`: their current address only, lower case (the contact's; only while it has none,
+  the one they last applied with), so an address she has changed stops getting them in; `status_url`
   their newest status page). Each sale is a placement: `puppy_id` (the Dog id, as the
   website bundle sends pups), `puppy_name`, `contract_signed_on`, `go_home_on` (the pickup
   event's date, else `familyPickup.pickupFrom`: the ready date or after a training stay),

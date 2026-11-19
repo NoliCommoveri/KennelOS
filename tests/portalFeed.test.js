@@ -48,7 +48,7 @@ test('a family from their signed contract on, field by field, with nothing priva
   assert.equal(feed.families.length, 1, 'Lane\'s contract is only sent, not signed: not yet');
   const f = feed.families[0];
   assert.deepEqual(Object.keys(f), FAMILY_KEYS);
-  assert.deepEqual(f.emails, ['reed@example.com', 'reeds@example.com']);
+  assert.deepEqual(f.emails, ['reed@example.com'], 'their current address only: the one they applied with no longer gets them in');
   assert.equal(f.status_url, `https://apply.kennelos.app/s/${'f'.repeat(64)}`);
   const p = f.placements[0];
   assert.deepEqual(Object.keys(p), PLACEMENT_KEYS);

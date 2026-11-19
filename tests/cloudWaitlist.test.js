@@ -251,6 +251,22 @@ test('taking applications online: the form is published with its key, and a conf
   assert.equal((await cw.syncWaitlistOnline()).inbox.taken, 0, 'taken in once');
 });
 
+test('an online application from an email she already has joins that person at once', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const k = await thornfield();
+  const jenah = await contactRepo.create({ name: 'Jenah Reyes', email: 'JENAH.R@example.com', phone: '555-0100' });
+  await applyOnline(k.public_id, { name: 'Jenah', email: 'jenah.r@example.com', answers: { phone: '555-0142' }, prefs: { pref_sex: 'female', ready_timing: 'asap' } });
+  assert.equal((await cw.syncWaitlistOnline()).inbox.taken, 1);
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.application?.email === 'jenah.r@example.com');
+  assert.equal(entry.status, 'applied');
+  assert.equal(entry.contact_id, jenah.id, 'one person, one set of details');
+  assert.equal(entry.application.phone, '555-0142', 'what they typed stays with their answers');
+});
+
 test('a reset phone fetches what the server still holds and fills in answers a backup without private backup lost', async () => {
   await breeder();
   const k0 = await putOnline();
