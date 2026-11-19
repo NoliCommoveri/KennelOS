@@ -14,7 +14,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 - Nothing yet: `next` is the same as `main`.
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
-warnings; no schema change), the UI redesign (forest-look prototype), program types.
+warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
+prototype is `docs/design/forest-look-prototype.html`), program types.
 
 ## Log
 
@@ -22,7 +23,17 @@ Append one entry per batch merged into `next`, newest last, in the build log's f
 (`## YYYY-MM-DD: title`, what changed, files, tests, service worker). At bring-in these
 entries move to `docs/BUILD_LOG.md` and this section is emptied.
 
-(none yet)
+## 2026-11-19: The UI redesign's plan, and the prototype in the repo
+
+- The forest-look prototype (the owner's artifact "KennelOS Forest Look", 2026-11-18) is
+  copied to `docs/design/forest-look-prototype.html`, so builds are checked against a
+  fixed copy.
+- `docs/KennelOS_UI_Redesign_Plan.md`: what moves where, phases 0–9, and the fidelity
+  rule (every style value comes from the prototype; departures need the owner's yes and
+  go in `docs/design/departures.md`), checked by a token test and a Playwright style
+  comparison. Seven decisions (D1–D7) wait on the owner.
+- README's doc map gains the plan's row. Docs only: no code, tests or service-worker
+  change.
 
 ## Guide changes waiting
 
