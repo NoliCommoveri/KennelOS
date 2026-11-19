@@ -159,18 +159,22 @@ and queue entries.
 - Open litters share one turn order, and a litter that opens joins it (§16.1), so the estimate
   counts the families ahead of this one in that order. Open now: the projection's
   `turn_queue`. Her next planned litter: the projection's `next_opening` (`{ litter_id, date,
-  time, queue: [{ entry_id, pups, planned }] }`), the same walk with that litter counted open.
+  time, queue: [{ entry_id, dog_ids, planned }] }`), the same walk with that litter counted open.
 - On the Worker, `serverMoves.turnEstimate(projection, entryId, now)`: starting at the end of the
   turn open now (or now, or when picks open), each family ahead uses its full time, one
   `turnDue` after another (hours and waking hours, or days, with closed days). → `{ at, next,
-  opening, opens_at, short }`. `familyPages.statusView` gives the page `family.turn_estimate`
-  (`at`, `next`, `short`, `opens_at`): a time, never who is ahead or how many.
+  opening, opens_at }`. `familyPages.statusView` gives the page `family.turn_estimate`
+  (`at`, `next`, `opens_at`): a time, never who is ahead or how many.
+- **Only for a family who could get a pup** (owner, 2026-11-19: don't tell #100 their turn
+  could come when there are 6 pups): walking the order, the turn holder's pick (or one of
+  their pups) and then each family ahead who'd take one of the pups this family wants (still
+  available now) takes one; a family left with none gets no estimate. It's worked out from the
+  projection as it is when the page loads, so it changes with every turn and every pick.
 - The status page's Current Position card shows "Your turn could come by about Tue, Nov 25,
   7:00 PM CST (in 6 days 2 hr)" with "If every family ahead of you uses their full time; it comes
   sooner when families pass. … An estimate, not a promise." It shows "You're next in line" when
   nobody is ahead and no turn is open, "Your turn could start when picks open" when they're
-  first for the planned litter, and "Puppies may be chosen before your turn comes" when the
-  families ahead are as many as the pups they'd take (`short`).
+  first for the planned litter.
 - No estimate while their own turn is open, for a family not in either order (paused, not
   listening, "Not this litter" to all of it, no matching pup), for a planned litter she doesn't
   show on family pages (T4), past 200 families ahead, or for a kennel with no time zone.

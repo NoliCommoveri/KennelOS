@@ -219,10 +219,13 @@ export function openTurns(projection, { includeDirect = false } = {}) {
 // When this family's turn could come (Waitlist Timers plan Phase 3): every family
 // ahead of them in the one turn order (open litters share it; her next planned
 // litter joins it when it opens) using its full time, one after another, from the
-// end of the turn open now (or now, or when picks open). → null, or { at (epoch ms),
+// end of the turn open now (or now, or when picks open). Only for a family who could
+// still get a pup: walking the order, each family ahead who'd take one of the pups
+// this family wants (still available now) takes one, the turn holder's pick first; a
+// family left with none gets no estimate (owner, 2026-11-19). Worked out from the
+// projection as it is now, so it changes with each turn. → null, or { at (epoch ms),
 // next (no one ahead and nothing open: they're next to be offered), opening (it
-// counts from her planned opening), opens_at, short (as many families ahead as pups
-// they'd take) }. Never who is ahead, nor how many.
+// counts from her planned opening), opens_at }. Never who is ahead, nor how many.
 const ESTIMATE_MAX_AHEAD = 200;
 export function turnEstimate(projection, entryId, now = new Date()) {
   const k = projection.kennel || {};
@@ -233,15 +236,18 @@ export function turnEstimate(projection, entryId, now = new Date()) {
   const nowMs = now.getTime();
   const len = { respondDays: Number(k.respond_days) || 3, ...(Number(k.turn_hours) ? { respondHours: Number(k.turn_hours) } : {}) };
   const step = (ms) => { const due = turnDue(projection, len, localNow(new Date(ms), tz)); return zonedInstant(due.date, due.time, tz) ?? ms; };
-  const ends = openTurns(projection).map((t) => zonedInstant(t.respondBy, t.respondByTime, tz)).filter((x) => x != null);
+  const turns = openTurns(projection);
+  const ends = turns.map((t) => zonedInstant(t.respondBy, t.respondByTime, tz)).filter((x) => x != null);
   const openEnd = ends.length ? Math.max(...ends) : null;
   const queue = projection.turn_queue || [];
   const i = queue.findIndex((q) => q.entry_id === entryId);
-  let base; let ahead; let pups; let opensAt = null;
+  const queueDogs = (q) => (Array.isArray(q.dog_ids) ? q.dog_ids : Object.values(q.litters || {}).flat());
+  let base; let ahead; let wanted; let before; let opensAt = null;
   if (i >= 0) {
     base = Math.max(openEnd ?? nowMs, nowMs);
     ahead = i;
-    pups = new Set(Object.values(queue[i].litters || {}).flat()).size;
+    wanted = queueDogs(queue[i]);
+    before = queue.slice(0, i).map(queueDogs);
   } else {
     const n = projection.next_opening;
     const j = n && Array.isArray(n.queue) ? n.queue.findIndex((q) => q.entry_id === entryId) : -1;
@@ -252,12 +258,27 @@ export function turnEstimate(projection, entryId, now = new Date()) {
     if (opensAt == null || opensAt <= nowMs) return null;
     base = Math.max(opensAt, openEnd ?? 0);
     ahead = j;
-    pups = Number(n.queue[j].pups) || 0;
+    wanted = queueDogs(n.queue[j]);
+    before = n.queue.slice(0, j).map(queueDogs);
   }
   if (ahead > ESTIMATE_MAX_AHEAD) return null;
+  // Could a pup they want still be there when their turn comes?
+  const available = new Set(Object.values(projection.litters || {}).flatMap((l) => (l?.pups || []).map((d) => d.id)));
+  const left = new Set(wanted.filter((id) => available.has(id)));
+  for (const t of turns) {
+    if (t.picked) { left.delete(t.picked); continue; }
+    const theirs = t.offers.flatMap((o) => o.eligible_dog_ids || []).find((id) => left.has(id));
+    if (theirs) left.delete(theirs);
+  }
+  for (const dogs of before) {
+    if (!left.size) break;
+    const theirs = dogs.find((id) => left.has(id));
+    if (theirs) left.delete(theirs);
+  }
+  if (!left.size) return null;
   let at = base;
   for (let x = 0; x < ahead; x++) at = step(at);
-  return { at, next: i === 0 && openEnd == null, opening: opensAt != null, opens_at: opensAt, short: ahead > 0 && ahead >= pups };
+  return { at, next: i === 0 && openEnd == null, opening: opensAt != null, opens_at: opensAt };
 }
 
 // A turn with no pup left in it: no pick, and none of the pups its rows listed is

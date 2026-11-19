@@ -6379,3 +6379,17 @@ the old address, with no warning.
 - **Service worker:** no file added or renamed; `CACHE_NAME` bumped to `kennelos-shell-v161`
   (owner's go-ahead), so installed copies pick up the timers. The family pages ship with the
   Worker (Workers Builds).
+
+## 2026-11-19: The turn estimate only for families who could get a pup
+
+- Owner: don't tell #100 their turn could come in 100 days when there are 6 pups.
+  `serverMoves.turnEstimate` now walks the turn order with the pups this family wants (available
+  now): the turn holder's pick (or one of their pups) and each family ahead who'd take one of
+  them takes one, and a family left with none gets no estimate. Worked out when the page loads,
+  so it follows every turn and pick. `next_opening.queue` rows carry `dog_ids` (was a count);
+  the "Puppies may be chosen before your turn" line and `short` are gone.
+- Tests: `serverMoves.test.js` (6 pups and 100 families: the sixth hears, the seventh doesn't; a
+  pick taking the last pup), `waitlistTimers.test.js` (one pup, two families). `node --test`: 2291
+  pass, 1 todo; `cd cloud && npm test`: 404 pass. Screenshots in Chromium of the family turn
+  card, the estimate, Coming up's "Picks open in", the public list and her picks panel.
+- Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.

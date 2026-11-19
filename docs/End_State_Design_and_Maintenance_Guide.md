@@ -2376,11 +2376,13 @@ restored into Lite keeps its waitlist rows, dormant.
 - **The turn estimate** (Phase 3): open litters share one turn order, and a litter that
   opens joins it, so a family's estimate counts the families ahead of them in it: the
   projection's `turn_queue`, or `next_opening` (`{ litter_id, date, time, queue: [{
-  entry_id, pups, planned }] }`: the same walk with her soonest planned litter counted open).
+  entry_id, dog_ids, planned }] }`: the same walk with her soonest planned litter counted open).
   `serverMoves.turnEstimate(projection, entryId, now)` starts at the end of the open turn (or
-  now, or the planned opening) and adds one full turn (`turnDue`) per family ahead. →
-  `{ at, next, opening, opens_at, short }`; `familyPages.statusView` puts `at`, `next`,
-  `short` and `opens_at` on `family.turn_estimate`, never who is ahead or how many. The
+  now, or the planned opening) and adds one full turn (`turnDue`) per family ahead. Only
+  when a pup could be left for them: walking the order, the holder's pick (or one of their
+  pups) and each family ahead who'd take one of the pups this family wants (available now)
+  takes one; none left, no estimate. → `{ at, next, opening, opens_at }`;
+  `familyPages.statusView` puts `at`, `next` and `opens_at` on `family.turn_estimate`, never who is ahead or how many. The
   status page's Current Position card shows it. None during their own turn, outside both
   orders, for a planned litter she doesn't show on family pages, past 200 ahead, or with no
   time zone.

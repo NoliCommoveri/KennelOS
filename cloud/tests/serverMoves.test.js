@@ -451,10 +451,16 @@ test('the estimate: every family ahead in the one turn order using its full time
   const bo = timers.turnEstimate(p, 'bo', now);
   assert.equal(new Date(bo.at).toISOString(), '2026-10-12T05:00:00.000Z');
   assert.equal(bo.next, false);
-  assert.equal(bo.short, false);
+  // Cy wants only Pip 2; Ann (holding the turn) and Bo could both take it first.
+  assert.equal(timers.turnEstimate(p, 'cy', now), null, 'no pup could be left for them: no estimate');
+  // A third pup, which Cy also wants and nobody ahead does: now it could be theirs.
+  p.litters.l1.pups.push({ id: 'p3' });
+  p.turn_queue[1].litters = { l1: ['p2', 'p3'] };
   const cy = timers.turnEstimate(p, 'cy', now);
   assert.equal(new Date(cy.at).toISOString(), '2026-10-16T05:00:00.000Z', 'after Bo\'s 3 days');
-  assert.equal(cy.short, true, 'one pup they\'d take, one family ahead');
+  // Ann picks Pip 3: gone, and Cy is left with nothing again.
+  p.entries.ann.offers[0].picked_dog_id = 'p3';
+  assert.equal(timers.turnEstimate(p, 'cy', now), null);
   assert.equal(timers.turnEstimate(p, 'dee', now), null, 'not on the list yet');
   p.kennel.time_zone = null;
   assert.equal(timers.turnEstimate(p, 'bo', now), null, 'no kennel clock, no estimate');
@@ -466,13 +472,16 @@ test('the estimate with turns in hours, and from her next planned opening', () =
   p.entries.ann.offers[0].respond_by_time = '19:00';
   Object.assign(p.kennel, { turn_hours: 24, awake_from: '08:00', awake_until: '21:00' });
   const now = new Date('2026-10-12T15:00:00Z');
+  p.litters.l1.pups.push({ id: 'p3' });
+  p.turn_queue[1].litters = { l1: ['p3'] };
   assert.equal(new Date(timers.turnEstimate(p, 'bo', now).at).toISOString(), '2026-10-13T00:00:00.000Z');
   assert.equal(new Date(timers.turnEstimate(p, 'cy', now).at).toISOString(), '2026-10-14T00:00:00.000Z');
 
   // Nothing open; her next litter is planned to open Oct 20 at 7 pm.
   p.entries.ann.offers = [];
   p.turn_queue = [];
-  p.next_opening = { litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: [{ entry_id: 'bo', pups: 2, planned: true }, { entry_id: 'cy', pups: 1, planned: true }] };
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }, { id: 'q2' }] };
+  p.next_opening = { litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true }] };
   assert.equal(timers.turnEstimate(p, 'bo', now), null, 'only for a planned litter she shows on family pages');
   p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
   const bo = timers.turnEstimate(p, 'bo', now);
@@ -480,6 +489,14 @@ test('the estimate with turns in hours, and from her next planned opening', () =
   assert.equal(bo.opens_at, bo.at);
   assert.equal(new Date(timers.turnEstimate(p, 'cy', now).at).toISOString(), '2026-10-22T00:00:00.000Z');
   assert.equal(timers.turnEstimate(p, 'cy', new Date('2026-10-21T01:00:00Z')), null, 'once the planned time has passed, the open order counts');
+  // Six pups, a hundred families who all want them: #7 on hears nothing (owner, 2026-11-19).
+  const pups = ['a', 'b', 'c', 'd', 'e', 'f'];
+  p.litters.l2.pups = pups.map((id) => ({ id }));
+  p.next_opening.queue = Array.from({ length: 100 }, (_, n) => ({ entry_id: `f${n}`, dog_ids: pups, planned: true }));
+  for (let n = 0; n < 100; n++) p.entries[`f${n}`] = { name: `F ${n}`, status: 'active', offers: [] };
+  assert.ok(timers.turnEstimate(p, 'f5', now), 'the sixth family could still get one');
+  assert.equal(timers.turnEstimate(p, 'f6', now), null);
+  assert.equal(timers.turnEstimate(p, 'f99', now), null);
 });
 
 test('picks due to open: one alert to her on the run that holds the planned time', async () => {
@@ -499,7 +516,9 @@ test('the family\'s page gets the estimate as a time (never a count) and each de
   const p = projection();
   const now = new Date('2026-10-10T15:00:00Z');
   const cy = statusView(p, 'cy', now);
-  assert.deepEqual(cy.family.turn_estimate, { at: '2026-10-16T05:00:00.000Z', next: false, short: true });
+  assert.equal(cy.family.turn_estimate, undefined, 'only Pip 2 for them, and two families ahead who could take it');
+  const bo = statusView(p, 'bo', now);
+  assert.deepEqual(bo.family.turn_estimate, { at: '2026-10-12T05:00:00.000Z', next: false });
   const ann = statusView(p, 'ann', now);
   assert.equal(ann.family.turn_estimate, undefined);
   assert.equal(ann.offers[0].respond_by_at, '2026-10-12T05:00:00.000Z');

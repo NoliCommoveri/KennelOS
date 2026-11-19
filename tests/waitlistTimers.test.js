@@ -212,16 +212,24 @@ test('the projection: her planned opening for the server\'s alert, and the turn 
     litters: [await litterRepo.getById(L.id)], dogs: await dogRepo.getAll(), contacts: [], today: '2026-11-19'
   });
   assert.deepEqual(p.litters[L.id].planned_open, { date: '2026-11-30', time: '19:00' });
+  const [pip] = (await dogRepo.getAll()).filter((d) => d.litter_id === L.id);
   assert.deepEqual(p.next_opening, { litter_id: L.id, date: '2026-11-30', time: '19:00', queue: [
-    { entry_id: ids.lee, pups: 1, planned: true }, { entry_id: ids.kim, pups: 1, planned: true }
+    { entry_id: ids.lee, dog_ids: [pip.id], planned: true }, { entry_id: ids.kim, dog_ids: [pip.id], planned: true }
   ] });
   const item = p.upcoming.find((u) => u.litter_id === L.id);
   assert.equal(item.picks_expected_time, '19:00');
   // …and the family's page: when picks open, and Kim's estimate after Lee's 24 hours.
   const { statusView } = await import('../cloud/src/familyPages.js');
   const now = new Date('2026-11-19T18:00:00Z');
-  const kim = statusView(p, ids.kim, now);
+  assert.equal(statusView(p, ids.kim, now).family.turn_estimate, undefined, 'one pup, and Lee first: nothing for Kim');
+  assert.equal(statusView(p, ids.lee, now).family.turn_estimate.at, '2026-12-01T01:00:00.000Z', 'Lee: when picks open, 7:00 pm Chicago');
+  // A second pup: Kim could get one, after Lee's 24 hours.
+  await dogRepo.create({ call_name: 'Pia', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', litter_id: L.id, disposition: 'available', kennel_id: K.id });
+  const p2 = buildProjection({
+    kennel, entries: await waitlistEntryRepo.getByKennel(K.id), offers: await waitlistOfferRepo.getByKennel(K.id),
+    litters: [await litterRepo.getById(L.id)], dogs: await dogRepo.getAll(), contacts: [], today: '2026-11-19'
+  });
+  const kim = statusView(p2, ids.kim, now);
   assert.equal(kim.family.turn_estimate.at, '2026-12-02T01:00:00.000Z', 'Dec 1, 7:00 pm Chicago');
-  assert.equal(kim.family.turn_estimate.short, true);
   assert.equal(kim.upcoming.find((u) => u.litter_id === L.id).picks_expected_at, '2026-12-01T01:00:00.000Z');
 });

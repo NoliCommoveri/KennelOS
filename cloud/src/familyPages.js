@@ -730,7 +730,7 @@ export function statusView(projection, entryId, now = new Date()) {
   const est = e.status === 'active' ? turnEstimate(projection, entryId, now) : null;
   if (est) {
     family.turn_estimate = {
-      at: new Date(est.at).toISOString(), next: est.next, short: est.short,
+      at: new Date(est.at).toISOString(), next: est.next,
       ...(est.opens_at != null ? { opens_at: new Date(est.opens_at).toISOString() } : {}),
     };
   }

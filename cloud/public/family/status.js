@@ -501,7 +501,8 @@ function prefPlaceLabel(field, prefs) {
   return `for ${(prefs.colors || []).join(', ')}`;
 }
 // When their turn could come (Waitlist Timers plan Phase 3), worked out by the
-// server: every family ahead using its full time. Shown as a time, never a count.
+// server: every family ahead using its full time, and only while a pup they want
+// could still be there for them. Shown as a time, never a count.
 function momentText(iso) {
   const tz = state.v.kennel.time_zone || undefined;
   try {
@@ -519,7 +520,7 @@ function estimateHtml(f) {
     : `<strong>Your turn could come by about ${esc(momentText(t.at))}</strong>`;
   return `<div class="estimate">
     <p class="small mt8">${head} (${countdownHtml(t.at, { label: 'in', done: 'any time now' })}).</p>
-    <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}${t.short ? 'Puppies may be chosen before your turn comes. ' : ''}An estimate, not a promise.</p>
+    <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}An estimate, not a promise.</p>
   </div>`;
 }
 

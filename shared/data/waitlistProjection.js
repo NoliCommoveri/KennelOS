@@ -596,7 +596,9 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     const queue = [];
     for (const e of rankedList(live, kennel.id, programsById)) {
       const { offer } = splitPrepassed(e, turnLittersFor(e, kennelOffers, withPlanned, dogs, sales, opts));
-      if (offer.length) queue.push({ entry_id: e.id, pups: new Set(offer.flatMap((x) => x.eligibleDogs.map((d) => d.id))).size, planned: offer.some((x) => x.litter.id === planned.l.id) });
+      // The pups they'd pick from: the server walks the order with them, so a family whose
+      // pups would all be taken before their turn gets no estimate.
+      if (offer.length) queue.push({ entry_id: e.id, dog_ids: [...new Set(offer.flatMap((x) => x.eligibleDogs.map((d) => d.id)))].sort(), planned: offer.some((x) => x.litter.id === planned.l.id) });
     }
     nextOpening = { litter_id: planned.l.id, date: planned.at.date, time: planned.at.time || null, queue };
   }
