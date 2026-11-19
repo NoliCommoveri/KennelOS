@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A and C built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); B waits on R1 and R6; D–I not started. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A, B and C built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); D–I not started. R1 and R6 are the owner's (2026-11-19, as recommended). Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -110,6 +110,11 @@ Rules for every batch:
 `furever/data/contentPackFetch.js`, `shared/data/syncRegistry.js`,
 `cloud/src/lib/cloudFields.js` (regenerated).
 
+- **Modified (built 2026-11-19):** each pup's folder sits beside the litter's under the
+  unshared root, not inside it (a sub-folder inherits the litter folder's link share, so it
+  could be listed from there), and `pupManifests` is kept on the litter's `furever_pack` and in
+  each family's seed, not in the litter manifest (which every family reads). R1's `status_date`
+  half was classified with it, so K1-5 is done.
 - **Publish (R6):** a litter publish writes the sire's and dam's documents to the litter
   folder and manifest. Each pup's own documents go into `<litter folder>/<pup id>/` with
   that pup's own `pack.json`. The litter manifest gains `pupManifests: { [pupId]: { fileId,

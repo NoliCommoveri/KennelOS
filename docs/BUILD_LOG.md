@@ -6218,3 +6218,36 @@ Review Remainder plan batch C (K1-4, K2-7, K2-11, K2-12). No owner decision need
   the duplicates card (dogs at scale); Review Remainder plan status; `FIX_PRIORITIES.md`.
 - **Service worker:** no app file added, renamed or removed.
 
+## 2026-11-19: Review batch B: per-pup Furever packs, and two fields to the cloud
+
+Review Remainder plan batch B (K14-3, K1-5). **Owner decisions** (2026-11-19, as
+recommended): R1, `litters.furever_pack` and `dogs.status_date` are cloud fields; R6, the next
+publish moves every pup to its own pack and trashes the old shared files.
+- **Publish** (`data/fureverContentPack.js`): a litter's folder and manifest hold only the
+  sire's and dam's documents. Each pup's own go in its own folder (`Litter — <nickname> —
+  <pup>`), beside the litter's under the unshared root, with its own `pack.json` (scope `pup`)
+  at the litter's version; pointers in `furever_pack.pupManifests`. A pup document from before
+  (no `folderId`) is uploaded again into its pup's folder and the old copy trashed, and the
+  console then says to send each family its Furever link again. **Modified** from the plan:
+  the pup folders aren't inside the litter's (a sub-folder inherits its link share), and
+  `pupManifests` is on the pointer and in each seed, not in the litter manifest.
+- **Seed** (`data/fureverSeedExport.js`, `packagePointer` exported): a litter pointer carries
+  only this pup's `pupManifestFileId` / `pupManifestResourceKey`.
+- **Furever** (`furever/data/contentPackFetch.js`, `contentPackRepo.js`): reads the pup's own
+  manifest beside the litter's; skips a fetch only at the same version and pup manifest, so a
+  resend that adds one fetches again; an older litter pack is still filtered to this pup.
+- **Console** (`pages/furever.js`): the confirmation covers the sire's and dam's documents and
+  contracts; a pup's own other documents need none. The litter card's hint says a pup's
+  documents go in a pack only its family is sent.
+- **Cloud fields:** `furever_pack` (litters) and `status_date` (dogs) in `syncRegistry.js`;
+  `cloud/src/lib/cloudFields.js` regenerated.
+- Tests: new `tests/fureverPupPacks.test.js` (a fake Google Drive: the litter manifest holds
+  only the parents', family B's seed and the litter manifest hold no id of pup A's, pup
+  folders aren't in the shared one, a republish over an old pack moves and trashes, an empty
+  pup manifest, the kennel pack unchanged); `tests/fureverData.test.js` (own pack plus the
+  parents', a resend adding the pup pack, an old-shape pack, an unreachable pup pack).
+  `node --test`: 2256 pass, 1 todo; `cd cloud && npm test`: 390 pass.
+- Docs: End-State guide §27.1 and the Dog and Litter field rows, the Content Package Fetch
+  Mechanism (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added, renamed or removed (KennelOS or Furever).
+
