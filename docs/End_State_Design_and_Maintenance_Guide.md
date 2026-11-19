@@ -1139,6 +1139,21 @@ A cache-first app-shell service worker, so the app installs and works offline.
   → update `PRECACHE_URLS` in the same edit. Bump `CACHE_NAME` once per shippable batch,
   **after asking the user** (the rule is spelled out in `CLAUDE.md`).
   `tests/serviceWorker.test.js` checks the precache against the files on disk.
+- **A new version reaching an open page** (`assets/appShell.js`, loaded lazily by `app.js`'s
+  `registerServiceWorker`): `install` calls `skipWaiting()` and `activate` calls
+  `clients.claim()`, so a new version takes over open pages at once. On `controllerchange`
+  (`watchForUpdates`) a page with no open `.modal-overlay` and no typing since it loaded
+  reloads itself; otherwise it shows a strip, "KennelOS was updated. Save anything you're
+  working on, then Reload", and is never reloaded over unsaved work. The first install
+  claiming a page that had no worker is ignored. A lazy `import()` in `app.js` (and Today's
+  website banner) that fails to load ends in `moduleFailed`, which shows the same strip for
+  a module error (a `SyntaxError` for a missing export, or a failed module fetch) while
+  online, and nothing for any other error.
+- **Durable storage** (`appShell.askPersistenceWhenKept`): `navigator.storage.persist()` is
+  asked once (`settings.wasPersistRequested`), when there's something to keep: at once on a
+  load that already holds a kennel or a dog, else on the first `CLOUD_DATA_CHANGED_EVENT`
+  (her first saved record). Never in the Demo or the tour. Kels's account health
+  (`storage-persist`, §33) asks again while the browser still says no.
 
 ---
 
@@ -2101,6 +2116,21 @@ helper's phone (log events against a synced dog list).
   control and completes the OAuth round-trip itself. **Every page that mounts it needs its
   URL registered as a Redirect URI** (list in `docs/LAUNCH_CHECKLIST.md`).
 - Dropbox calls are cross-origin, so the service worker never caches them.
+- **An expired or revoked grant** (the refresh answered `invalid_grant`, 400 or 401) forgets
+  the tokens (`disconnectDropbox`), fires `DROPBOX_CHANGED_EVENT` (the connect control redraws
+  as not connected and the page re-renders) and throws `DropboxExpiredError`, "Your Dropbox
+  connection has expired. Connect again." A network failure keeps the connection.
+- **The backup push is guarded by revision** (`dropboxUploadJson(path, obj, { guard, force })`):
+  the file's `rev` as this device last pushed it or restored from it is kept per path
+  (`settings` `dropbox.revs`); a guarded upload is an `update` of that rev, or an `add` when
+  this device has never seen the file, so a file another phone pushed since fails with
+  `DropboxConflictError`, "A newer backup is already in Dropbox. Pull it first, or push anyway."
+  Import/Export offers both (Push anyway is `force`, an overwrite). A pull counts as seen only
+  once she restores from it (`noteDropboxRestored`), never on a preview. The feed and outbox
+  have one writer each and stay overwrites.
+- Import/Export's "Last backup" adds "N days ago. Back up again." past account health's
+  `EXPORT_MAX_DAYS`, and its restore preview warns when the file's `exported_at` is older
+  than her newest record here (`importExport.newestRecordAt`, `backupIsBehind`).
 
 ### Three files, one writer each (`data/assistantSync.js`, `DROPBOX_PATHS`)
 Keep this invariant; it's what makes the scheme conflict-free.
@@ -2157,9 +2187,21 @@ Local, offline file storage behind three surfaces:
   `document_url` is a separate link field.
 - **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-`assets/documentModal.js` is the shared add/edit and view dialog. Its `storeDocumentFile`
-(a PDF as-is, photos built into one PDF) and `createDocument` (filed under the dog's
-kennel) are the save, used by Kels's Add dogs too (§33).
+`assets/documentModal.js` is the shared add/edit and view dialog. Its `buildDocumentFile`
+(a PDF as-is, photos built into one PDF) and `fileDocument` (built, then filed under the
+dog's kennel) are the save, used by Kels's Add dogs (§33), the vet visit and the health test
+forms too. **A file is written with its document or not at all:** `documentRepo.createWithFile`
+checks the document and its kennel (`assertOwnKennel`, whose no-kennel message is
+`PICK_KENNEL_MESSAGE`, "Pick one of your kennels at the top first, then save again.") before
+anything is written, then writes the file and the document in one transaction;
+`updateWithFile` writes a new file, the document and the old file's removal in one
+transaction. The PDF is built before the transaction (anything but IndexedDB would end it).
+The pedigree import files its kept PDFs the same way. A receipt's replaced or removed file
+goes only after the expense saved (`receiptCapture`'s `afterSave`).
+
+**Files nothing uses** (`fileRepo.unused`, `removeUnused`): a `files` row no document or
+expense names, archived ones included. Import/Export's Duplicates scan lists them with their
+size and a Remove (`duplicateScanUI`), which checks again before deleting.
 
 **Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
 `blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
@@ -3546,8 +3588,14 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **Assisted setup and help** (`data/cloud/cloudAssist.js`, `assets/cloudAssistUI.js`;
   `docs/KennelOS_Assisted_Setup_Plan.md`): KennelOS support's device signs in to a user's
   account as a **helper** through a one-time link (`?assist=<token>`, read in `app.js`
-  before the license gate, which a helper device skips). Its session (`role: 'helper'`,
-  `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
+  before the license gate). The gate skips only for a helper the server confirmed
+  (`cloudAssist.helperSkipsLicenseGate`): a session token, `role: 'helper'`, and
+  `helperConfirmedFor` equal to its `programId`, the server's own answer, cached with the
+  session by `setHelperSession` (the redeem answer) and by `assistState()` (a `role:
+  'helper'` from `GET /assist/state`). A helper session without it asks `GET /assist/state`
+  at the gate; signed out, offline or any other answer fails closed to the ordinary gate, so
+  a role typed into the stored session doesn't lift the wall. The cloud modules load only
+  when the session says helper. Its session (`role: 'helper'`, `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
   vault and sync once per program (in setup, after checking `entitlement()` finds her Pro
   purchase: sync needs it) or joins her (when she asked for help). `redeemAssistLink`
   refuses a link for another program on a device that holds any record
@@ -5580,7 +5628,8 @@ publish (or doesn't have it) leaves the send in the draft and the result says so
   backup or the cloud: each device connects once.
 - **`data/kennelportLink.js`**: `connectWebsite` (the code → token, then the kennel's
   settings), `updateWebsite` (license check first, `licenseOk`: a lapsed Pro sends nothing;
-  support's helper device, which has no license of its own, passes like the app's gate; then the
+  support's helper device, which has no license of its own, passes like the app's gate, only on
+  a confirmed helper session (`settings.isConfirmedHelperSession`, §30); then the
   site's facts, the bundle, and the answer applied), `disconnectWebsite` (this device only).
   A `not_linked` answer (Unlink in KennelPort) forgets the token. What an answer fills, by
   `addressChanges` and `kennelChanges`: a dog's `url` and a litter's `photos_url` with its
@@ -5685,7 +5734,10 @@ Nothing changes for any other kennel or breeder.
   today, or for a released sale up to its end day, so a returned pup's next home's records
   never reach the family; newest 40) and
   `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
-  never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
+  never an amount), and `vet` (`placementVet`: the vet on the pup's newest vet visit up to
+  the same day, its Vet contact's name, phone and address, else the vet typed on the
+  visit; otherwise her vet; left out when there's neither, so KennelPort keeps what it
+  has). Her vet (`herVet`, the top-level `vet`): the Vet contact she names most on her own dogs'
   vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
   address. `removed`: families, placements and health records it stood for last time
   and not now (`known`, kept on the link row), so a deleted sale or event, or a contract
@@ -5693,7 +5745,9 @@ Nothing changes for any other kennel or breeder.
   it's released (voided, cancelled, returned) even once its contract is voided, so the
   portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
   go-home or last edit; after that a delivered one rests (not removed), and a released one
-  (voided, cancelled, returned) goes in `removed`. Never sent: an amount, a
+  (voided, cancelled, returned) goes in `removed`. A Delivered sale it sent that she has
+  since archived rests at once (`portalSales` `resting`), never `removed`; an archived sale
+  that wasn't Delivered is removed. Never sent: an amount, a
   family's phone or postal address, contract terms, sale notes, vet findings.
 - **`data/portalFeedSync.js`** sends it on its own, from a device linked to the site
   (`startPortalFeed`, from `app.js`) that may (`mayFeedHere`: with her cloud program on, only
@@ -5786,12 +5840,20 @@ updates the same dogs.
   titles earned) with date, title and the type's cloud detail keys (`cloudDetailKeys`). Up to
   `ANCESTOR_GENERATIONS` (4) above each dog. Never notes, contacts, money, litters, other events,
   documents, plans or row ids. `tests/dogCard.test.js` pins it.
+- **Card version:** `decodeDogCard` refuses a `cardVersion` above `DOG_CARD_VERSION`, in
+  `inspectBackup`'s words ("made by a newer version of KennelOS … Update the app"): a newer
+  card may mean something this build would read wrongly. Unknown keys of the same version are
+  dropped.
 - **Preview** (`previewDogCard`, writes nothing): the sending kennel by Kennel Card rules
   (`previewKennelCard`; one of hers refuses the card); each dog sent as `create`, `update`
   (`dogChanges` plus how many tests and titles are new or changed), `unchanged` or `adopt` (she
   has it as a pedigree-only ancestor from an earlier card); look-alikes she may link to (same
   registration number, else registered name, else call name, sex and breed; only dogs with no
-  public id); ancestors as a count. Each dog's `problem` (`cardDogProblem`: a birthday in the
+  public id); ancestors as a count, with **look-alike ancestors** apart (`ancestors.lookalike`,
+  `ancestors.candidates`): a dog of hers with no public id and no registration number whose
+  registered name is the card ancestor's by `dogSearch.nameKey` (titles, case, punctuation
+  and spacing set aside), offered with the same "Same as my …" picker, never matched by
+  itself. Each dog's `problem` (`cardDogProblem`: a birthday in the
   future, a death before birth, what the dog repo would refuse) and, on an update,
   `mineNewer` (`mineIsNewer`: her copy changed after the card's `issuedAt`). Two of her dogs
   holding one of the card's ids refuses the card, naming them, until she merges them.
@@ -5805,8 +5867,9 @@ updates the same dogs.
   else `findOrCreateOutside`. New dogs are **co-owned** with a contact (picked, or a new one
   affiliated with the sending kennel) in one of her own kennels, **Lives with** them or her, or
   **external**, owned by that contact in the sending kennel. Ancestors become pedigree-only dogs
-  unless she has them by public id or the same registry and number (then only her blanks are
-  filled). An existing dog gets only the card's non-blank `DOG_FIELDS`, status only to
+  unless she has them by public id or the same registry and number, or she picked one of the
+  offered look-alikes (`choices.ancestors[publicId].linkToId`; anything else refuses the card,
+  `ancestorsLinked`). Then only her blanks are filled. An existing dog gets only the card's non-blank `DOG_FIELDS`, status only to
   Deceased, and a breeder kennel only when hers is blank; ownership, her kennel, co-owners,
   lives with, notes and everything else stay hers. Sire and dam are set only where hers are
   blank. Tests and titles match by `events.shared_ref` and are updated in place; one the sender

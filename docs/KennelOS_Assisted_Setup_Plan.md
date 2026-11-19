@@ -88,7 +88,8 @@ A helper session is a session on her account with `role = 'helper'` and the labe
 license links, turning the vault off, replacing the recovery wrap, adding or removing a passkey,
 making handoff codes, turning sync off everywhere, erasing devices, and changing her alerts or
 digest or subscribing to them (**Modified:** review K12-8; a helper may read them). On support's device the
-license gate is skipped: the server's own Pro checks use her account's entitlement. Its website checks
+license gate is skipped: the server's own Pro checks use her account's entitlement (**Modified:** review K05-11;
+only for a helper session the server confirmed, never a role stored alone). Its website checks
 skip it too: support can Connect website (with a code from KennelPort, which an editor of
 her site can make) and Update website. That link is the helper device's own: it is wiped with
 the device, and each of her devices connects with its own code.

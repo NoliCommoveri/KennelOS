@@ -6578,3 +6578,102 @@ nudge) is built as recommended and waits on the owner's confirmation.
   README doc map, tests README.
 - **Service worker:** `CACHE_NAME` v162 → v163 (this session's batch: the listen-only lock and
   free changes reach devices); no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batch H: updates reaching open pages, storage asked when there's something to keep, the helper gate on the server's word
+
+Review Remainder plan §3 H (K13-10, K13-13, K5-11). The owner also confirmed R3, R4 and R7 as
+built, and the local measurement for R7 (no run against a production copy).
+- **K13-10 (R5):** new `shared/assets/appShell.js`, loaded lazily by `app.js`. On
+  `controllerchange` a page with no open modal and no typing since it loaded reloads itself;
+  otherwise a strip says "KennelOS was updated. Save anything you're working on, then Reload".
+  The first install claiming a page is ignored. `app.js`'s lazy imports (Stripe links, Jotform
+  keys, portal feed, website banner, waitlist actions) and Today's website banner end in
+  `moduleFailed`, which shows the same strip for a module error while online.
+- **K13-13:** `navigator.storage.persist()` is asked once her first record is saved
+  (`CLOUD_DATA_CHANGED_EVENT`), or at once on a load that already holds a kennel or dog; never
+  in the Demo or the tour (`askPersistenceWhenKept`).
+- **K5-11:** the Pro licence gate skips only for a confirmed helper session
+  (`settings.isConfirmedHelperSession`: token, `role: 'helper'`, `helperConfirmedFor` =
+  `programId`). `setHelperSession` stores the redeem answer; `assistState()` stores a
+  `role: 'helper'` answer; `cloudAssist.helperSkipsLicenseGate` asks `GET /assist/state` once
+  for a session without it, and fails closed. `kennelportLink.licenseOk` uses the same check
+  (it had the same bypass).
+- Tests: new `tests/appShell.test.js` (idle reload, typed or modal → strip, first claim
+  ignored, module errors only, persistence not before the first record / once / at once with
+  records); `tests/cloudClient.test.js` (forged sessions walled, a real helper passes with no
+  request, an older helper session asks once and keeps the answer, an owner never skips);
+  `tests/siteExport.test.js` (a role alone no longer passes `licenseOk`). `node --test`: 2345
+  pass, 1 todo. Checked in Chromium: a first visit to `/shared/` doesn't call `persist()`, the
+  first data change does; a typed page shows the strip on `controllerchange`; on the built Pro
+  edition a forged `role: 'helper'` session with the network blocked paints the wall (before
+  the fix it didn't). The app.js load budget holds at 940 KB with no room left.
+- Docs: End-State guide §12 (updates reaching open pages, durable storage), §30 (assisted
+  setup's gate), the KennelPort link's licence check; Review Remainder plan (status, H
+  **Modified**); Assisted Setup plan (**Modified:** K05-11); `FIX_PRIORITIES.md` K05 and K13
+  rows; README Status.
+- **Service worker:** `assets/appShell.js` added to `PRECACHE_URLS` (not Pro-only); no
+  `CACHE_NAME` bump yet.
+
+## 2026-11-19: Review batch E: document files saved whole, Dropbox that says when it's expired or behind, Dog Card ancestors she typed in
+
+Review Remainder plan §3 E (K2-8, K2-9, K2-10, K2-13, K2-14).
+- **K2-8:** `documentRepo.createWithFile` checks the document and its kennel before anything is
+  written, then writes the file and the document in one transaction; `updateWithFile` writes the
+  new file, the document and the old file's removal together. Every place that files a document
+  uses them (`documentModal.fileDocument` / `buildDocumentFile` replace `storeDocumentFile` /
+  `createDocument`; Kels's Add dogs, the vet visit and health test forms, the pedigree import).
+  The receipt field removes a replaced file only after the expense saved (`afterSave`).
+  `assertOwnKennel`'s no-kennel message (and the Dog repo's) is `PICK_KENNEL_MESSAGE`, "Pick one
+  of your kennels at the top first, then save again." Import/Export's Duplicates scan lists
+  **Files nothing uses** (`fileRepo.unused` / `removeUnused`) with size and Remove.
+- **K2-9:** a refresh grant Dropbox refuses (`invalid_grant`, 400, 401) disconnects, fires
+  `DROPBOX_CHANGED_EVENT` (the connect control redraws) and says "Your Dropbox connection has
+  expired. Connect again." "Last backup" adds "N days ago. Back up again." past 14 days.
+- **K2-13:** the Dropbox backup push is guarded by the file's revision (`update` of the known
+  rev, `add` when never seen); a conflict asks Pull it first / Push anyway. A pull counts as seen
+  only after a restore from it (`noteDropboxRestored`). The restore preview warns when the
+  backup is older than her newest record (`newestRecordAt`, `backupIsBehind`).
+- **K2-10:** a card ancestor whose registered name matches (by `dogSearch.nameKey`) one of hers
+  with no public id and no registration number is counted apart and offered the "Same as my …"
+  picker (`ancestors.candidates`, `choices.ancestors`, `ancestorsLinked`); never automatic.
+- **K2-14:** `decodeDogCard` refuses a `cardVersion` above `DOG_CARD_VERSION`.
+- Tests: new `tests/documentFiles.test.js`, `tests/dropbox.test.js`; `tests/dogCard.test.js`
+  (lookalike offered, linked only when picked, a pick not offered refused; a v2 card refused).
+  Load budgets: app.js 940 → 945 KB, today 1770 → 1775, waitlist-entry 2080 → 2085 (this
+  batch's data-layer code). `node --test`: 2356 pass, 1 todo. Checked in Chromium (real
+  IndexedDB): a no-kennel save stores no file; an edit whose document write fails keeps the old
+  file and stores no new one; the Duplicates card at 390 px lists a stranded file and Remove
+  deletes it. Not tried against real Dropbox (the stubbed API stands in; that Dropbox exposes
+  `Dropbox-API-Result` to the page is assumed from its CORS rules).
+- Docs: End-State guide §26 (expired grant, guarded push, Last backup, restore preview age),
+  §26.1 (files saved with their document, Files nothing uses), §36 (card version, look-alike
+  ancestors); Shared Dogs plan §3.4 (**Modified**); Review Remainder plan (status, E
+  **Modified**); `FIX_PRIORITIES.md` K02 row; README Status; tests README.
+- **Service worker:** no file added or renamed (`PRECACHE_URLS` unchanged); no `CACHE_NAME`
+  bump yet.
+
+## 2026-11-19: The puppy portal feed: each placement's vet, and an archived Delivered sale rests
+
+KennelOS's half of KennelPort's `docs/plans/portal-kept-pups.md` ("KennelOS's half").
+- `placements[].vet` (`{ clinic, doctor, phone, address }`, 120/120/40/200): `placementVet`
+  takes the vet on the pup's newest vet visit up to today (a released sale's end day): its
+  Vet contact's name, phone and address, else the vet typed on the visit; otherwise her vet
+  (`herVet`). Left out when there's neither, so KennelPort keeps what the placement has. A
+  resting placement isn't sent, so its vet freezes there. The top-level `vet` is unchanged.
+  `doctor` is always null (KennelOS records no separate doctor).
+- From the review: a Delivered sale the feed sent and she has since archived rests (kept in
+  `known`, never sent, never `removed`); an archived sale that wasn't Delivered still goes as
+  removed.
+- **Needs KennelPort first:** KennelPort refuses the unknown `vet` key with a 400 until its
+  change is on its `main`. Release this only after that.
+- Tests: `tests/portalFeed.test.js` (the pup's own vet, a typed vet, her vet as fallback, left
+  out with none, future and archived visits ignored; the archived Delivered sale rests, an
+  archived open sale is removed). `node --test`: 2358 pass, 1 todo. Load budget: litter 1570 → 1575 KB.
+- Docs: End-State guide §35.1.
+- **Service worker:** no file added; no `CACHE_NAME` bump yet.
+
+## 2026-11-19: Service worker cache v164
+
+- `CACHE_NAME` v163 → v164, for this session's batch: review batches H and E and the portal
+  feed's placement vet reach installed devices. `PRECACHE_URLS` gained `assets/appShell.js`
+  (batch H).
