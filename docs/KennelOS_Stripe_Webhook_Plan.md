@@ -21,13 +21,15 @@ finds out the link was paid only when KennelOS is open (`checkStripePayments`, a
 
 ## The promise (owner, 2026-11-19): this is the rule, word for word in effect
 
-When a family's turn opens, they have the scheduled time (24 hours) to select a pup and pay
-the deposit. They can switch their selected pup up until the deadline. When the deadline
+When a family's turn opens, they get her window to select a pup and pay the deposit. The
+window is her configuration, never hard-coded: `respond_days` (a program can override it with
+`respond_days_override`), counted on her open days, which sets the turn's `respond_by_date`.
+One day is a typical setting. They can switch their selected pup up until the deadline. When the deadline
 passes:
 - **deposit received** → the pup selected at the deadline is locked in for them;
 - **deposit not received** → their pup is released and available to the next family.
 
-So, with auto offers on, the turn **stays open for exactly its scheduled time**. Nothing
+So, with auto offers on, the turn **stays open for exactly her window**, until its `respond_by_date`. Nothing
 closes it early, and a payment doesn't close it. **At the deadline** the server checks the
 payment: if it was received, it takes the pup selected at that moment, reserves it, and opens
 the next family's turn. If it wasn't, the turn closes as today (`no_deposit`): the pup is
