@@ -252,6 +252,19 @@ test('a confirmed application is an alert', async () => {
   assert.equal((await pending(env)).body.body, 'New application from Cy D.');
 });
 
+test('a change that applied by itself is a digest line, never an alert (Free Changes plan Q4)', async () => {
+  const { env, s } = await setup();
+  await subscribe(env, s);
+  await api(env, s, 'POST', '/notify/digest', { email: 'breeder@example.com', tz: 'UTC' });
+  const programId = env.DB.raw.prepare('SELECT id FROM programs').get().id;
+  await notifyEvent(env, { programId, kind: 'request', what: 'pref_change_free', name: 'Ann Lee', kennel: 'Thornfield Kennels', entryId: 'ann', push: false });
+  assert.equal(pushes.length, 0, 'no alert');
+  assert.equal(count(env, 'notify_items'), 1, 'kept for the digest');
+  assert.equal(itemLine({ kind: 'request', what: 'pref_change_free', name: 'Ann L.' }), 'Ann L. changed their answers');
+  await notifyEvent(env, { programId, kind: 'application', what: 'application', name: 'Cy Day', kennel: 'Thornfield Kennels', entryId: 'cy' });
+  assert.equal((await pending(env)).body.body, 'New application from Cy D.', 'a later alert leaves the free change out');
+});
+
 // --- The digest ----------------------------------------------------------------------------
 
 test('the digest: her sign-in address is on at once; another needs its code', async () => {
