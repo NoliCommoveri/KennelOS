@@ -6167,3 +6167,18 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
 - Docs: `build/README.md` "Next channel" (setup steps for the owner, test data, what still
   reaches real services, schema on next, releasing), `cloud/README.md`, README build line.
 - App source unchanged. **Service worker:** no app file added or changed.
+
+## 2026-11-19: The next release's own record; the next build refreshes per commit
+
+- **Owner's request:** a new session should know what's on `next`, and next-release work
+  stays out of the build log and the End-State guide until it's brought in.
+- New `docs/NEXT.md` (the copy on `origin/next` counts): what's on `next` now, its log, the
+  guide changes waiting, and the bring-in steps.
+- CLAUDE.md: a "Next release" section (which work goes on `next`, branching and PRs into
+  `next`, records only in `docs/NEXT.md`, no cache bumps on `next`, schema and migrations on
+  `next`, bringing it in), and session start leaves `next` out of the unmerged-work count.
+- README: doc map row and a Status line pointing at `docs/NEXT.md`.
+- `build/nextChannel.mjs`: the next build's cache name is `-next-<commit>` (GITHUB_SHA in
+  CI, `local` otherwise), so each deploy refreshes testers' caches. `tests/nextChannel.test.js`
+  updated; `build/README.md` "Next channel".
+- **Service worker:** no app file added or changed.

@@ -203,7 +203,7 @@ function assemble(edition, release, final, channel) {
     const cfgPath = join(dest, 'data', 'editionConfig.js');
     writeFileSync(cfgPath, nextEditionConfig(readFileSync(cfgPath, 'utf8'), edition));
     const swPath = join(dest, 'sw.js');
-    const nx = nextServiceWorker(readFileSync(swPath, 'utf8'), edition);
+    const nx = nextServiceWorker(readFileSync(swPath, 'utf8'), edition, (process.env.GITHUB_SHA || '').slice(0, 7) || 'local');
     writeFileSync(swPath, nx.text);
     sw.cacheName = nx.cacheName;
     rewriteManifest(dest, edition, NEXT_NAMES[edition]);
