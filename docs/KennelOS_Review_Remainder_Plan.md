@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A to D built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E–I not started. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A to D and G built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E, F, H and I not started. R4 is built as recommended and waits on her confirmation. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -254,6 +254,11 @@ app batch.
 **Files:** `shared/pages/invoice.html`, `shared/pages/sale.js`, `shared/data/incomeView.js`,
 `shared/data/saleRepo.js`, `shared/data/syncRegistry.js`, the Kels returns answer.
 
+- **Modified (built 2026-11-19):** a refund is offered on a Returned or **Cancelled** sale
+  that isn't lost (`vocab.canRecordRefund`), not on a Voided one: a voided sale and a health
+  return already count nothing, so a refund there would take income below zero. The refund
+  fields are `private` like `price`, so `cloudFields.js` didn't change. The items table no
+  longer overflowed at 320 px, so only the wrap went in.
 - **K10-9:** `.inv-actions { flex-wrap: wrap }`, and check the items table at 320 px.
 - **K10-10:** "You net" is computed from the ledger's parts for the sale (`incomeView`): price,
   extras, fees charged back, fee credits. If a part can't be known on the form preview, the

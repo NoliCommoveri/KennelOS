@@ -6408,3 +6408,35 @@ the old address, with no warning.
   first; the page names the litter). `node --test`: 2294 pass, 1 todo; `cd cloud && npm test`:
   407 pass. A list of 200 families and 6 planned litters takes about 5 ms a page.
 - Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.
+
+## 2026-11-19: Review batch G: money on the Sale and invoice pages
+
+Review Remainder plan batch G (K10-9, K10-10, K10-11), on `main`. Each finding rechecked on
+the code first: all three still stood. R4 (two refund fields) is built as recommended and waits
+on the owner's confirmation.
+- **K10-9** (`pages/invoice.html`): `.inv-actions` wraps. In Chromium the invoice was 437 px
+  wide at 390 and 402 at 320 (Back cut off on the left, Send payment link on the right); now
+  390 and 320. The items table no longer overflowed at 320 px, even with five-figure amounts
+  and long extra names, so nothing else changed.
+- **K10-11 (R4)** (`data/vocab.js`, `data/saleRepo.js`, `data/incomeView.js`,
+  `pages/sale.js`): `Sale.refund_amount` / `refund_date`, optional, private like `price`
+  (`syncRegistry`; `cloudFields.js` unchanged). `vocab.canRecordRefund`: Returned or Cancelled
+  and not a lost sale. `saleRepo` refuses a negative amount or a malformed date and clears both
+  on any other status. `incomeView.refundComponents` takes the refund off as one negative
+  `refund` line (new `INCOME_COMPONENTS` entry, **Refunds**) on its date, capped at what the
+  sale earned. The Sale form shows **Refunded** and **Refund date** (the date required with an
+  amount); the view shows Refunded. Kels's answer on cancelled and returned sales says where a
+  refund goes. **Modified** from the plan: Cancelled rather than Voided (a voided sale already
+  counts nothing).
+- **K10-10** (`data/incomeView.js`, `pages/sale.js`): **You net** on the Sale page is
+  `getSaleNet`, the sale's ledger row (`getIncomeRows({ saleId })`) plus the credited
+  application fee: the review's sale reads $3,060, not $2,910. The form's live line is now
+  "Price after the fee".
+- Tests: new `tests/saleRefunds.test.js` (10 of its 11 failed before). `node --test`: 2278
+  pass, 1 todo. `node build/assemble.mjs` builds every edition. Checked in Chromium at 390 px:
+  the invoice has no sideways scroll; on the Sale page the refund fields come and go with the
+  status and reason, a refund without a date is stopped, and You net reads $3,060 and then
+  $2,060 after a $1,000 refund.
+- Docs: End-State guide (Sale fields, sale status rules, §21 income, §21.1 You net), Payment
+  Schedule plan §7 (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).

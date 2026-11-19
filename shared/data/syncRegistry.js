@@ -254,7 +254,9 @@ export const SYNC_REGISTRY = Object.freeze({
       'extra_charges',
       // Its payment schedule and the payments received (Payment Schedule plan §3.1,
       // §3.2, D5): money, private like price.
-      'payment_schedule', 'payments'
+      'payment_schedule', 'payments',
+      // A refund on a sale that ended (review K10-11, R4): money, private like price.
+      'refund_amount', 'refund_date'
     ],
     pending: []
   },
