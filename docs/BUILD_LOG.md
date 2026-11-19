@@ -6729,3 +6729,32 @@ K16 left.
   note; `FIX_PRIORITIES.md` §1; README Status.
 - **Service worker:** `assets/deleteBlockers.js` added to `PRECACHE_URLS`; no `CACHE_NAME`
   bump yet.
+
+## 2026-11-19: The Delete wizard: test records that point at each other
+
+A breeder built a test contact, litter, pup, sale and contract and couldn't delete any of
+them, since each one's Delete is refused while the others point at it. Owner decisions
+(2026-11-19): it starts from the refused Delete's note; every record made with it starts
+ticked and she unticks anything real; one summary and a red "Delete N records" protect it;
+it goes on `main`.
+- `data/linkedDelete.js`: `gatherLinked` (the set, from one record), `planLinkedDelete` (counts,
+  history, what only loses a link), `runLinkedDelete`. Records that point at the set join;
+  records the set points at join only when everything else that uses them was made at the
+  same time. A record starts ticked only when it was added within 3 days of the start
+  (`WINDOW_DAYS`), and the search goes on only through ticked records, so her real dam, sire
+  and vet are listed unticked, with why. Own history (events, expenses, documents, files) goes
+  with each record; records kept lose their links (`recordDetach.removeDetaching`), and a kept
+  document's link to a deleted contract is cleared (`documentRepo.unlinkContract`). Up to 200
+  records at a time.
+- `assets/linkedDeleteUI.js`: the two-step modal. `assets/deleteBlockers.js`: the note's
+  "All a mistake or a test? Delete it with its linked records…" link on the dog, litter,
+  contact, pairing, sale and application pages (hidden in Demo and the tour), loading the
+  wizard only on the tap, so no page's load budget changed.
+- Tests: `tests/linkedDelete.test.js` (her case from each of the five records; a test litter
+  with two test pups; a real dam never pulled in; the plan; the delete; unticking keeps a
+  record and clears its link). `node --test`: 2376 pass, 1 todo. Clicked through in Chromium
+  at 390 px: from the test contact, five records ticked, the real vet, dam and sire unticked,
+  "Delete 5 records", and only the real ones left.
+- Docs: End-State guide §7.
+- **Service worker:** `data/linkedDelete.js` and `assets/linkedDeleteUI.js` added to
+  `PRECACHE_URLS`; no `CACHE_NAME` bump yet.

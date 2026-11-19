@@ -293,7 +293,10 @@ async function renderHeaderActions() {
   if (ctx.mode === 'new' || !ctx.original) return;
   const c = ctx.original;
   const blockers = await contactRepo.getDeleteBlockers(c.id);
-  showDeleteBlockers(els.headerActions, blockers, { what: 'this contact' });
+  showDeleteBlockers(els.headerActions, blockers, {
+    linked: { table: 'contacts', id: c.id, onDone: () => { location.href = 'contacts.html'; } },
+    what: 'this contact'
+  });
   const delTitle = blockers.length
     ? 'Still in use: see the note below'
     : 'Permanently delete this contact.';

@@ -599,6 +599,24 @@ and it is blocked while anything points at the record.
   another dog × 1). Archive it instead: …" (a Lite dog: remove it from the program). A tooltip
   alone can't be reached on a phone. `ReferenceBlockedError` names the entity in the same way
   (`repoBase.ENTITY_LABELS`: "this application"), never the table.
+- **The Delete wizard** (`data/linkedDelete.js`, `assets/linkedDeleteUI.js`), for records that
+  were all a mistake or a test and point at each other (a test contact, its sale, the pup, the
+  litter, the contract). The detail pages' note offers "All a mistake or a test? Delete it with
+  its linked records…" (not in Demo or the tour). `gatherLinked(table, id)` starts from a
+  contact, dog, litter, pairing, sale, stud service, contract, application, offer or
+  do-not-sell listing (`NODE_TABLES`) and walks the registries both ways: records that point
+  at one in the set join, and records one in the set points at join when what else uses them
+  (of those kinds) was made at the same time. A record starts ticked only when it was added
+  within `WINDOW_DAYS` (3) of the one she started from; the search goes on only through ticked
+  records, so a real dam, sire or vet is listed unticked with why ("added more than 3 days
+  apart", "other records use it too"), and her other litters are never reached. Kennels,
+  accounts and waitlist programs are never offered. She unticks anything real, then
+  `planLinkedDelete` shows the counts, the records' own history going with them (events and
+  expenses about them, a dog's documents, their files) and the records that stay and only lose
+  a link. `runLinkedDelete` deletes in one `recordDetach.removeDetaching` transaction (marked
+  for the cloud, so sync deletes them on her other devices), clears a kept document's link to
+  a deleted contract, and the page tells the server to drop a deleted online application. Hard
+  delete can't be undone: nothing is deleted before the red "Delete N records".
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every

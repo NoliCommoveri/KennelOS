@@ -865,6 +865,7 @@ async function renderHeaderActions() {
   const del = document.getElementById('btn-delete');
   if (!blockers.length) del.onclick = doDelete;
   showDeleteBlockers(els.headerActions, blockers, {
+    linked: { table: 'dogs', id: d.id, onDone: () => { location.href = 'dogs.html'; } },
     what: 'this dog',
     alt: editionFlags.manualDogArchive
       ? 'Archive it instead: it keeps its history and drops out of your lists.'

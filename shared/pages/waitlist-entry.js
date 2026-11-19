@@ -2141,7 +2141,10 @@ async function renderHeaderActions() {
   if (ctx.mode === 'new') return;
   const e = ctx.entry;
   const blockers = await waitlistEntryRepo.getDeleteBlockers(e.id);
-  showDeleteBlockers(els.headerActions, blockers, { what: 'this application' });
+  showDeleteBlockers(els.headerActions, blockers, {
+    what: 'this application',
+    linked: { table: 'waitlist_entries', id: e.id, onDone: () => { location.href = `waitlist.html?kennel=${encodeURIComponent(e.kennel_id)}`; } }
+  });
   const delTitle = blockers.length
     ? 'Still in use: see the note under the header'
     : 'Permanently delete this entry (for a mistake).';

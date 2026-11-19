@@ -497,7 +497,10 @@ async function renderHeaderActions() {
   if (ctx.mode === 'new' || !ctx.original) return;
   const l = ctx.original;
   const blockers = await litterRepo.getDeleteBlockers(l.id);
-  showDeleteBlockers(els.headerActions, blockers, { what: 'this litter' });
+  showDeleteBlockers(els.headerActions, blockers, {
+    linked: { table: 'litters', id: l.id, onDone: () => { location.href = 'litters.html'; } },
+    what: 'this litter'
+  });
   const delTitle = blockers.length
     ? 'Still in use: see the note below'
     : 'Permanently delete this record.';

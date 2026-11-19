@@ -738,7 +738,10 @@ async function renderHeaderActions() {
   const s = ctx.original;
   const archiveLabel = s.is_archived ? 'Unarchive' : 'Archive';
   const blockers = await saleRepo.getDeleteBlockers(s.id);
-  showDeleteBlockers(els.headerActions, blockers, { what: 'this sale' });
+  showDeleteBlockers(els.headerActions, blockers, {
+    linked: { table: 'sales', id: s.id, onDone: () => { location.href = 'sales.html'; } },
+    what: 'this sale'
+  });
   const delTitle = blockers.length
     ? 'Still in use: see the note below'
     : 'Permanently delete this record.';

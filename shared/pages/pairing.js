@@ -263,7 +263,10 @@ async function renderHeaderActions() {
   if (ctx.mode === 'new' || !ctx.original) return;
   const p = ctx.original;
   const blockers = await pairingRepo.getDeleteBlockers(p.id);
-  showDeleteBlockers(els.headerActions, blockers, { what: 'this pairing' });
+  showDeleteBlockers(els.headerActions, blockers, {
+    linked: { table: 'pairings', id: p.id, onDone: () => { location.href = 'pairings.html'; } },
+    what: 'this pairing'
+  });
   const delTitle = blockers.length
     ? 'Still in use: see the note below'
     : 'Permanently delete this record.';

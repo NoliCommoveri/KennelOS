@@ -7,6 +7,7 @@
 // Accounts uses).
 import { esc } from './ui.js';
 import { blockerList } from '../data/repoBase.js';
+import { isReadOnly } from '../data/demoMode.js';
 
 export const ARCHIVE_INSTEAD = 'Archive it instead: it keeps its history and drops out of your lists.';
 
@@ -24,7 +25,9 @@ export function blockedDeleteNoteHtml(blockers, opts) {
 
 // Put the note under the page header that holds `actionsEl` (the header's
 // buttons), replacing an earlier one; with no blockers, take it away.
-export function showDeleteBlockers(actionsEl, blockers, opts) {
+// `linked: { table, id, onDone }` adds "Delete it with its linked records…",
+// which opens the Delete wizard (assets/linkedDeleteUI.js, loaded on the tap).
+export function showDeleteBlockers(actionsEl, blockers, opts = {}) {
   if (!actionsEl) return;
   const header = actionsEl.closest('.page-header') || actionsEl;
   const old = header.nextElementSibling;
@@ -35,5 +38,17 @@ export function showDeleteBlockers(actionsEl, blockers, opts) {
   p.className = 'delete-blocked-note';
   p.setAttribute('role', 'note');
   p.textContent = text;
+  if (opts.linked && !isReadOnly()) { // Demo and the tour can't delete
+    const { table, id, onDone } = opts.linked;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'link-button';
+    btn.textContent = 'All a mistake or a test? Delete it with its linked records…';
+    btn.addEventListener('click', async () => {
+      const { openLinkedDelete } = await import('./linkedDeleteUI.js');
+      openLinkedDelete(table, id, { onDone });
+    });
+    p.append(' ', btn);
+  }
   header.after(p);
 }
