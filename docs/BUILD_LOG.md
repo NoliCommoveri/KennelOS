@@ -6576,5 +6576,5 @@ nudge) is built as recommended and waits on the owner's confirmation.
 - Docs: End-State guide §29 (Free changes, family actions, answer log, notifications, Today
   table), Waitlist Spec §15.9 (**Modified**), the plan (status, decisions, **Modified**),
   README doc map, tests README.
-- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged); no `CACHE_NAME`
-  bump yet.
+- **Service worker:** `CACHE_NAME` v162 → v163 (this session's batch: the listen-only lock and
+  free changes reach devices); no app file added or renamed (`PRECACHE_URLS` unchanged).
