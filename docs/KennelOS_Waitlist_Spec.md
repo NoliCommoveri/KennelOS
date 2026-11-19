@@ -329,6 +329,11 @@ no windows of its own.
   *Jane Smith* (existing contact)"** when the email or name matches someone in Contacts.
   Matching follows the CSV import rules: offered, never automatic. Email is the natural
   key; names compare case-insensitive and trimmed.
+  **Modified (2026-11-19, owner):** an application whose email is exactly one existing
+  contact's is linked to that contact when it arrives (online, typed in or imported), so one
+  person keeps one set of details; other matches are still only offered. Once linked, the
+  family's page shows and edits the contact's name, email, phone and address, and the
+  application's own copies are no longer shown (End-State guide §29).
 - **Her actions:**
   - **Approve:** creates or links the Contact (`contact_type` gains `buyer`). The entry
     becomes `approved`, and the family is automatically sent the fee request (§5.3).

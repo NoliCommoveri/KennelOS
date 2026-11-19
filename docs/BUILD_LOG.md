@@ -6281,3 +6281,28 @@ owner's confirmation.
 - **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v159` for review batches B, C and D
   (owner's go-ahead), so installed copies pick up the import, duplicate-scan and Furever changes.
 
+
+## 2026-11-19: One person, one set of details on the waitlist family page
+
+The owner's rule: a family's name, email, phone and address are one set, edited where she
+works with them, the same everywhere, with nothing on screen about where it's stored. Before
+this, Edit on a linked family's page changed the application's copy, which nothing reads once a
+contact exists: a corrected email still had the next "It's your turn" and sign-in codes going to
+the old address, with no warning.
+- **The family page** (`pages/waitlist-entry.js`): once linked, Details shows Name (to their
+  contact page), Email, Phone and Address from the contact, and Edit opens with **Their
+  details**, saved by the new `waitlistActions.saveEntryEdits` (contact and entry in one
+  transaction, only what changed). The application's name, email and phone answers aren't shown
+  or offered then; the "Name, email and phone are what they applied with" hint is gone.
+- **Joining the person they already are:** `waitlistRules.contactForEmail` links a new
+  application to the one live contact with exactly that email, online (`cloud/cloudWaitlist.js`),
+  typed in (New application) and CSV import (`csvImport.js`). **Modified:** Waitlist Spec §5.2
+  ("never automatic") for an exact email.
+- **Old addresses stop working:** the portal feed's `emails` is the family's current address only
+  (`portalFeed.emailsOf`), not every address they ever applied with. Status-page codes already
+  went to the current one (`entryEmail`).
+- Tests: new `tests/familyDetails.test.js`; `csvImport` and `cloudWaitlist` (an email she already
+  has joins that person), `portalFeed` (one address). `node --test`: 2267 pass, 1 todo. Checked in
+  Chromium: Edit on a linked family saves the new email to the contact and the page shows one set.
+- Docs: End-State guide §29 (actions, the rule) and §35.1 (`emails`), Waitlist Spec §5.2.
+- **Service worker:** no file added or renamed; `CACHE_NAME` not bumped (asked).
