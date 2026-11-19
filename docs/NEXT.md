@@ -31,7 +31,9 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - `docs/KennelOS_UI_Redesign_Plan.md`: what moves where, phases 0–9, and the fidelity
   rule (every style value comes from the prototype; departures need the owner's yes and
   go in `docs/design/departures.md`), checked by a token test and a Playwright style
-  comparison. Seven decisions (D1–D7) wait on the owner.
+  comparison. The owner took every recommendation for D1–D7 (dark mode built, one page
+  per hub, fonts after first paint, no planned placeholders, released together, family
+  pages keep their themes, synced settings listed for her before Setup).
 - README's doc map gains the plan's row. Docs only: no code, tests or service-worker
   change.
 

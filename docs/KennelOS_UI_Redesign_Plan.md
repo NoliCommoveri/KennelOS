@@ -10,8 +10,7 @@
 > changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
-> **Decisions:** the fidelity rule in §2 is the owner's (2026-11-19). D1–D7 (§8) wait on
-> the owner.
+> **Decisions:** the fidelity rule in §2 and D1–D7 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
 
@@ -200,24 +199,25 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
 - The UI rule on buttons holds: the prototype's headers carry at most one action plus the
   search and back buttons.
 
-## 8. Decisions waiting on the owner
+## 8. Decisions (owner, 2026-11-19)
 
 - **D1. Dark mode.** The prototype has it (following the device, plus a forced theme);
-  today's app doesn't. Recommend building it, since it's in the approved design.
+  today's app doesn't. **Decided: build it**, since it's in the approved design.
 - **D2. Where Setup's answers are stored.** The Design notes propose program-wide answers
   on the kennel record (so they sync) and device-only ones in `settings.js`. Moving a
-  setting into synced data is a privacy decision (`syncRegistry.js`), so each one is listed
-  for the owner before phase 7.
+  setting into synced data is a privacy decision (`syncRegistry.js`). **Decided: each
+  setting that would move into synced data is listed for the owner, and she answers before
+  phase 7 starts.**
 - **D3. Hub addresses.** A page per section screen, or one page per hub with the section in
-  the address (`dog.html?id=…#history`). Recommend one page per hub.
+  the address (`dog.html?id=…#history`). **Decided: one page per hub.**
 - **D4. Fonts and load budgets.** The two font families add weight to the first load;
   `build/loadCheck.mjs`'s budgets are raised to fit, or the fonts load after first paint
   with matching fallback metrics so nothing moves (Load Performance plan Phase 1).
-  Recommend the second.
-- **D5. Planned placeholders.** Recommend they never ship: the "Planned: hidden" view is
+  **Decided: load after first paint, with matching fallback metrics.**
+- **D5. Planned placeholders.** **Decided: they never ship.** the "Planned: hidden" view is
   the build target; each feature's own plan builds its tile or row.
 - **D6. Order of the switch.** All phases land on `next` and are released together, or
-  the shell and tokens are released first. Recommend together: half the app in the old look
-  is worse than either.
-- **D7. Furever and the family pages.** Not in the prototype; recommend they keep their own
-  themes.
+  the shell and tokens are released first. **Decided: together**: half the app in the old
+  look is worse than either.
+- **D7. Furever and the family pages.** Not in the prototype. **Decided: they keep their
+  own themes.**
