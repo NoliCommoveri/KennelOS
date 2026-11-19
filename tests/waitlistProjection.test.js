@@ -8,7 +8,7 @@ import { serverEmailTemplates } from '../shared/data/waitlistEmails.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildProjection, entryEmail, titlesByDog, parentTestsShown, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
-import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons, publicIntroText, PUBLIC_INTRO_DEFAULT } from '../shared/data/waitlistRules.js';
+import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons, publicIntroText, PUBLIC_INTRO_DEFAULT, statusPopupTexts, STATUS_POPUP_DEFAULTS } from '../shared/data/waitlistRules.js';
 
 const TODAY = '2026-10-08';
 const K = 'kennel-1';
@@ -64,7 +64,7 @@ test('the projection has exactly its allow-listed parts', () => {
   assert.equal(p.format, PROJECTION_FORMAT);
   assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'public_selected', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
-    public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
+    public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), status_popups: statusPopupTexts({}), time_zone: 'America/Chicago',
     respond_days: 3, open_days: null, closed_dates: [], max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
@@ -669,4 +669,15 @@ test("her logo rides to her family pages: an image data URL only, within her set
   assert.equal('logo' in k(`data:image/png;base64,${'A'.repeat(300_001)}`), false, 'too big: absent');
   assert.match(EXTRAS_INTRO_DEFAULT, /Each group below links/);
   assert.notEqual(EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT);
+});
+
+test('her status page pop-up words: the defaults, her own, and an empty box to turn one off', () => {
+  assert.deepEqual(statusPopupTexts({}), STATUS_POPUP_DEFAULTS);
+  const mine = statusPopupTexts({ status_popups: { open: '  Nearly there!  ', skipped: '' } });
+  assert.equal(mine.open, 'Nearly there!');
+  assert.equal(mine.skipped, '', 'off');
+  assert.equal(mine.soon, STATUS_POPUP_DEFAULTS.soon);
+  assert.deepEqual(Object.keys(mine), ['soon', 'soon_far', 'open', 'open_far', 'skipped']);
+  const p = buildProjection({ ...fixture(), kennel: { ...kennel, waitlist_config: { ...kennel.waitlist_config, status_popups: { soon: 'Hi from [Kennel]' } } } });
+  assert.equal(p.kennel.status_popups.soon, 'Hi from [Kennel]', 'filled in by the server');
 });

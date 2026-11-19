@@ -6482,3 +6482,33 @@ nudge) is built as recommended and waits on the owner's confirmation.
   loads 1,221 KB (the timers' additions to `waitlistRules.js` and batch F's Dog changes), one
   over; each alone was under.
 - `node --test`: 2315 pass, 1 todo; `cd cloud && npm test`: 407 pass.
+
+## 2026-11-19: Status page pop-ups replace the turn estimate
+
+- The owner withdrew the Waitlist Timers plan's Phase 3. "Your turn could come by…" is gone
+  (`serverMoves.turnEstimate`, `family.turn_estimate`, the Current Position card's estimate).
+- A pop-up on opening the status page, one per visit, closed with **Got it**; her preview shows
+  it too. `familyPages.statusPopup` picks it: `turn` ("Choose your pup! Time left to pick and
+  pay:" in big bold words, "Thanks for choosing! Time left to pay:" after a pick, "Time's up.
+  Waiting on [kennel]." at zero), `open`, `soon`, `open_far`, `soon_far`, `skipped`. None while
+  paused or held, with no litter, for a side sale, or with her box empty. Decided with the owner:
+  skipped includes families who match no pup; a new "may" message (`soon_far`) before picks
+  open; `open` also between turns; the turn pop-up changes after a pick.
+- Her words: `waitlist_config.status_popups` (Waitlist settings → Messages to families →
+  Status page pop-ups; `waitlistRules.STATUS_POPUP_DEFAULTS`, `statusPopupTexts`), published
+  as the projection's `kennel.status_popups`; the Worker fills [Kennel] and [opening soon/open].
+- `serverMoves.turnReach` replaces the estimate's pup walk. Testing several litters at once
+  found three faults, all fixed: a family ahead was counted taking a pup from each litter
+  (now one walk, one pup per family, litters in opening order), "Not this litter" on a born
+  litter was ignored, and a family who'd said "Not this litter" to every open litter read as
+  in line.
+- Tests: new `tests/statusPopupScenarios.test.js` (11 layouts: litters weeks apart, close
+  together, overlapping, three litters, passes, no response, no match, listen-only, days and
+  hours), the pop-up and reach tests in `cloud/tests/serverMoves.test.js`,
+  `tests/waitlistTimers.test.js`, `tests/waitlistProjection.test.js`. The Litter page's load
+  budget 1560 → 1570 KB (the default words, 1,561). `node --test`: 2324 pass, 1 todo;
+  `cd cloud && npm test`: 404 pass. Checked in Chromium at 390 px: the turn pop-up before and
+  after a pick, `open`, `open_far`, Got it closing it.
+- Docs: End-State guide §29, the Timers plan (**Modified**), README doc map.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
