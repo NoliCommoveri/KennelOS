@@ -10,7 +10,7 @@
 > changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
-> **Decisions:** the fidelity rule in §2 and D1–D7 (§8) are the owner's (2026-11-19).
+> **Decisions:** the fidelity rule in §2 and D1–D8 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
 
@@ -221,3 +221,26 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   look is worse than either.
 - **D7. Furever and the family pages.** Not in the prototype. **Decided: they keep their
   own themes.**
+- **D8. One person, one page.** **Decided: a person's details live in one place and she
+  works with that person on one page.** There is no applicant page apart from the person's
+  page: a waitlist family, an application, a row in People and a sale's buyer all open the
+  same page, and their applications, place in line, offers, sales, contracts and payments show
+  there as parts of that person. Their name, email, phone and address appear once on it, and
+  changing them there changes them everywhere (emails, sign-in codes, contracts, sales,
+  invoices, the portal).
+  - **Never two sets.** No screen shows a second set of details that looks like it should
+    do something but doesn't. What a family first typed on an application is part of their
+    answers, never a competing name, email or phone.
+  - **Her terms, not ours.** Breeders aren't expected to understand how records are stored,
+    and no screen explains it. The screens are designed to fit how she thinks about people,
+    so they look like the data was built that way.
+  - **Change it where she is.** Where she'd reasonably believe a page is the place to change
+    something (an applicant's email, on that applicant's page), it is. She's never sent to
+    another page to change it.
+  - **The prototype.** It draws Waitlist families and Business › People as separate screens;
+    this rule wins, as an approved departure (§2.4), listed in `docs/design/departures.md`.
+    Phases 5 and 6 build the one person page; both tabs lead to it.
+  - **Why.** The waitlist family page edited the application's copy of name, email and phone
+    while emails, codes and contracts read the contact's, so a corrected email changed
+    nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
+    show and edit the contact's details; the redesign removes the split.

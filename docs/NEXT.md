@@ -37,6 +37,15 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - README's doc map gains the plan's row. Docs only: no code, tests or service-worker
   change.
 
+## 2026-11-19: D8, one person, one page
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D8** (the owner's): no applicant page apart
+  from the person's page; one set of name, email, phone and address, shown once and changed
+  where she is; never a second set that looks editable but isn't; no screen explains how
+  records are stored. The prototype's separate Waitlist family and People screens are an
+  approved departure (`docs/design/departures.md`). The live-app stopgap is on `main`.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
