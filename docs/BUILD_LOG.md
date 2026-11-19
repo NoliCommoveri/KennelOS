@@ -6510,5 +6510,5 @@ nudge) is built as recommended and waits on the owner's confirmation.
   `cd cloud && npm test`: 404 pass. Checked in Chromium at 390 px: the turn pop-up before and
   after a pick, `open`, `open_far`, Got it closing it.
 - Docs: End-State guide §29, the Timers plan (**Modified**), README doc map.
-- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+- **Service worker:** `CACHE_NAME` v161 → v162 (Waitlist settings' pop-up words reach devices); no app file added or renamed (`PRECACHE_URLS` unchanged).
 
