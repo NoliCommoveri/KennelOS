@@ -6307,3 +6307,15 @@ the old address, with no warning.
 - Docs: End-State guide §29 (actions, the rule) and §35.1 (`emails`), Waitlist Spec §5.2.
 - **Service worker:** no file added or renamed; `CACHE_NAME` bumped to `kennelos-shell-v160`
   (owner's go-ahead), so installed copies pick up the family page change.
+
+## 2026-11-19: Plan for the Stripe webhook on waitlist deposits
+
+- New `docs/KennelOS_Stripe_Webhook_Plan.md`, for `main`. With KennelOS closed, a family's
+  paid Stripe deposit should keep their turn open and their pup held (the hourly server
+  moves currently close a picked turn at its deadline as `no_deposit` even when it was paid).
+  It should also show the deposit as received on their status page and be recorded through
+  `confirmDeposit` on her next open. The owner's decisions are S1–S4 (a paid deposit, not a
+  signature; her own Stripe account holds the endpoint, and the Worker keeps only its sealed
+  signing secret; device catch-up on open is fine while the pup stays held). O1–O4 are still
+  open.
+- README: doc map row and Status line. Docs only: no code, tests or service-worker change.
