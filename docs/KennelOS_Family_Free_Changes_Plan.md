@@ -186,8 +186,8 @@ its own or waits for her.
    Waitlist Spec §15.7/§15.9 **Modified** notes. `PRECACHE_URLS` only if a file is added
    (none planned).
 
-Where it's built (`main` or `next`) is the owner's call. It's next-release-sized, so
-`next` is the natural place.
+**Built on `main`** (owner, 2026-11-19), then brought to `next` the usual way (merge `main`
+into `next`). It needs a `CACHE_NAME` bump on `main` when it ships, asked for as usual.
 
 ## 8. Questions for the owner
 
