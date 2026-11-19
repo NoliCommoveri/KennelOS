@@ -48,6 +48,7 @@ import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js'
 import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor, previewUntil } from './waitlist.js';
 import { handleAct, handleMessage, handlePortal, handleFromPortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
+import { isTimeOfDay, zonedInstant, turnReach } from './serverMoves.js';
 import { fail, json, readJson } from './lib/http.js';
 import { isWebsiteOrigin } from './lib/cors.js';
 
@@ -273,12 +274,19 @@ function pricesOf(p) {
   return { by_registration: by, deposit };
 }
 
-function upcomingRow(u) {
+// The moment as ISO, for a countdown on the page (Waitlist Timers plan Phase 2), or null.
+const instantISO = (date, time, tz) => { const ms = zonedInstant(date, time, tz); return ms == null ? null : new Date(ms).toISOString(); };
+
+// `tz`: the kennel's time zone, for when picks open as a moment.
+function upcomingRow(u, tz = null) {
   const parent = parentOf;
   return {
     id: u.id, kind: u.kind, label: u.label ?? '', breed: u.breed ?? null, sire: parent(u.sire), dam: parent(u.dam),
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
+    ...(isTimeOfDay(u.picks_expected_time) ? { picks_expected_time: u.picks_expected_time } : {}),
+    // When picks open, as a moment: the time she set, else the start of that day.
+    ...(u.kind === 'early_litter' && u.picks_expected_date ? { picks_expected_at: instantISO(u.picks_expected_date, isTimeOfDay(u.picks_expected_time) ? u.picks_expected_time : '00:00', tz) } : {}),
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
     ...photosOf(u.photos_url), ...pageOf(u),
   };
@@ -386,7 +394,7 @@ export function listView(projection) {
     rows: publicRows(projection),
     selected: selectedRows(projection),
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
-    upcoming: upcomingOf(projection, 'public').map(upcomingRow),
+    upcoming: upcomingOf(projection, 'public').map((u) => upcomingRow(u, projection.kennel?.time_zone || null)),
   };
 }
 
@@ -644,6 +652,58 @@ export const logoOf = (projection) => {
   return typeof v === 'string' && v.length <= 300_000 && LOGO_URL.test(v) ? { logo: v } : {};
 };
 
+// The pop-up a waiting family sees on opening their status page (owner, 2026-11-19),
+// one per visit, closed with "Got it":
+//   turn      they hold a turn (the page counts down to its deadline; fixed words)
+//   open      picks open, and a pup they want should still be there when their turn
+//             comes (also between turns: her chosen wording either way)
+//   soon      a born litter she shows on family pages, picks not open yet, they're
+//             in line for it, and a pup they want should be there (or no opening day
+//             is planned yet, so no order: they match it and didn't say "Not this litter")
+//   open_far  picks open and they're in line, but the pups they want may run out first
+//   soon_far  that born litter, but its pups may run out before their turn
+//   skipped   there's a litter (picks open, or born and shown) and they're in line for
+//             none of it: "Not this litter", their turn there used, other parents
+//             chosen, or no pup matching what they asked for
+// in that order. None for a family paused or holding off ("ready later"), nor with
+// no litter at all. Her words come from the projection (kennel.status_popups; '' =
+// that pop-up is off), [Kennel] and [opening soon/open] filled in here.
+// → null, { kind: 'turn', turn_id }, or { kind, text }.
+const POPUP_TEXT_MAX = 1000;
+export function statusPopup(projection, entryId) {
+  const e = projection.entries?.[entryId];
+  if (!e || e.status !== 'active') return null;
+  const turn = (e.offers || []).find((o) => !o.direct);
+  if (turn) return { kind: 'turn', turn_id: String(turn.turn_id || turn.id) };
+  if (e.paused_until || e.ready_from) return null;
+  const reach = turnReach(projection, entryId) || { open: null, planned: {} };
+  const litters = projection.litters || {};
+  const openLitters = Object.values(litters).filter((l) => l && l.picks_open && (l.pups || []).length);
+  const mine = e.upcoming || {};
+  const born = upcomingOf(projection, 'family').filter((u) => u.kind === 'early_litter' && u.litter_id && !litters[u.litter_id]?.picks_open);
+  // A born litter with a planned opening counts where they're in its turn order (which
+  // leaves out "Not this litter", other parents and no matching pup); one with no day
+  // planned yet, where they match it and haven't said "Not this litter".
+  const planned = new Set((Array.isArray(projection.openings) ? projection.openings : []).map((x) => x?.litter_id));
+  const prepassed = new Set((e.prepasses || []).map((x) => x?.litter_id).filter(Boolean));
+  const bornReach = born.flatMap((u) => {
+    if (planned.has(u.litter_id)) return typeof reach.planned[u.litter_id] === 'boolean' ? [reach.planned[u.litter_id]] : [];
+    return mine[u.id]?.waiting !== false && mine[u.id]?.match === true && !prepassed.has(u.litter_id) ? [true] : [];
+  });
+  let kind = null;
+  if (reach.open === true) kind = 'open';
+  else if (bornReach.includes(true)) kind = 'soon';
+  else if (reach.open === false) kind = 'open_far';
+  else if (bornReach.length) kind = 'soon_far';
+  else if (openLitters.length || born.length) kind = 'skipped';
+  if (!kind) return null;
+  const texts = projection.kennel?.status_popups;
+  const raw = texts && typeof texts[kind] === 'string' ? texts[kind] : '';
+  const name = String(projection.kennel?.name || '').trim() || 'us';
+  const text = raw.replace(/\[kennel\]/gi, name).replace(/\[opening soon\/open\]/gi, openLitters.length ? 'open' : 'opening soon').trim().slice(0, POPUP_TEXT_MAX);
+  return text ? { kind, text } : null;
+}
+
 export function statusView(projection, entryId, now = new Date()) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
@@ -718,6 +778,9 @@ export function statusView(projection, entryId, now = new Date()) {
   }
   family.fee_due = feeDueOf(family.fee_due);
   family.credits = creditsOf(e.credits);
+  // The pop-up on opening the page (owner, 2026-11-19): which message, never a place.
+  const popup = statusPopup(projection, entryId);
+  if (popup) family.popup = popup;
   // Asked for at the end of the application: their Pay button until they've paid.
   if (e.status === 'applied' && !e.fee_paid_online) {
     const pay = feePayFor(projection, entryId);
@@ -757,6 +820,10 @@ export function statusView(projection, entryId, now = new Date()) {
       prices: pricesOf(l.prices),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
+      // Its time, kennel time (Waitlist Timers plan); null = 11:59 pm.
+      ...(typeof o.respond_by_time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(o.respond_by_time) ? { respond_by_time: o.respond_by_time } : {}),
+      // The deadline as a moment, for the page's countdown (Waitlist Timers plan Phase 2).
+      respond_by_at: instantISO(o.respond_by_date, o.respond_by_time, projection.kennel?.time_zone || null),
       picked_dog_id: o.picked_dog_id ?? null,
       // Sending the deposit: her payment instructions, and once they've picked, the
       // deposit on their sale (or her listed one).
@@ -783,7 +850,7 @@ export function statusView(projection, entryId, now = new Date()) {
   }));
   const mine = e.upcoming || {};
   const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
-    ...upcomingRow(u), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
+    ...upcomingRow(u, projection.kennel?.time_zone || null), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
     // A planned heat is no litter yet: nothing to wait for or pass on.
     waiting: u.kind !== 'planned_heat' && mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];

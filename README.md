@@ -61,6 +61,8 @@ backup, carries a program from Lite to Pro.
 | Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
 | Credits: one currency for passes, per-use services and add-ons, enforced on the server (plan) | `docs/KennelOS_Credits_Plan.md` |
 | Pages that settle at once (nothing moving mid-tap), a lighter shell, fewer reads and checks per page, and a read-only tour whose sample data clears itself (plan) | `docs/KennelOS_Load_Performance_Plan.md` |
+| Waitlist timers: turns in hours ending in families' waking hours, and countdowns to picks opening and a turn's deadline (the turn estimate was replaced by status page pop-ups, End-State guide §29) | `docs/KennelOS_Waitlist_Timers_Plan.md` |
+| Stripe webhook for waitlist deposits: the turn runs its full time, and at the deadline a received deposit locks in the selected pup while KennelOS is closed (plan) | `docs/KennelOS_Stripe_Webhook_Plan.md` |
 | Making KennelOS harder to copy: repo visibility, licenses, minified builds, hosting (plan) | `docs/KennelOS_Security_Hardening_Plan.md` |
 | What's on the `next` branch (the next release, at next-pro.kennelos.app) and its log until it's brought in | `docs/NEXT.md` (the copy on `origin/next`) |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
@@ -80,8 +82,9 @@ backup, carries a program from Lite to Pro.
   - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
     (counting wrong code guesses per code) and one live Mapbox try of the address checks.
     The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
-    (nine batches, seven owner decisions R1–R7): batches A to D built; E–I next. R7 (the
-    re-runnable restore) is built as recommended and waits on the owner's yes.
+    (nine batches, seven owner decisions R1–R7): batches A to D, F and G built; E, H and I
+    next. R3 (a delivered pup's life stage), R4 (refund fields) and R7 (the re-runnable
+    restore) are built as recommended and wait on the owner's yes.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
     (live updates) waits on owner decisions.
   - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own
@@ -95,7 +98,8 @@ backup, carries a program from Lite to Pro.
   - Next release: the `next` branch publishes a Pro test build at next-pro.kennelos.app; what's
     on it is in `docs/NEXT.md` on that branch.
   - Planned, not built: credits, security hardening, mail budget, voice, family help,
-    duplicate applications, assisted setup, line management, program types.
+    duplicate applications, assisted setup, line management, program types, the Stripe
+    webhook for waitlist deposits (owner questions open).
 
 Add new history to `docs/BUILD_LOG.md`, not here. Keep this section to a few lines.
 

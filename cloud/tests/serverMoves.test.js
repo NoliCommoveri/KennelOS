@@ -79,8 +79,8 @@ const events = (env) => env.DB.raw.prepare("SELECT seq, entry_id, kind, payload,
 const mails = (env) => env.DB.raw.prepare('SELECT id, kind, to_email, subject, body FROM wl_messages ORDER BY rowid').all().map((r) => ({ ...r }));
 
 test('dates are the kennel\'s; templates fill like her device\'s', () => {
-  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'America/Chicago'), { date: '2026-10-11', hour: 23 });
-  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'Not/AZone'), { date: '2026-10-12', hour: 4 });
+  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'America/Chicago'), { date: '2026-10-11', hour: 23, time: '23:30' });
+  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'Not/AZone'), { date: '2026-10-12', hour: 4, time: '04:30' });
   assert.equal(addDays('2026-12-30', 5), '2027-01-04');
   assert.equal(DAILY_CRON, '17 3 * * *');
   const f = fillTemplate(TEMPLATES.offer, { kennelName: 'T', family: 'Ann', litters: ['A', 'B'], respondBy: '2026-10-20' });
@@ -370,4 +370,172 @@ test('a kennel with no time zone has no deadline closed or reminded by the serve
   assert.deepEqual(await runKennel(env, row(env), { now: NOW, origin: 'o' }), { closed: 0, offered: 0, reminders: 0 });
   assert.equal(count(env, 'wl_events'), 0);
   assert.equal(mails(env).length, 0);
+});
+
+// --- Deadlines at a time of day (Waitlist Timers plan) ---------------------------------
+
+const timers = await import('../src/serverMoves.js');
+
+// Ann's turn ends at 7:00 pm Chicago on Oct 12 (00:00 UTC Oct 13); turns are 24 hours,
+// waking hours 8 am–9 pm.
+async function timed() {
+  const out = await published();
+  const p = stored(out.env);
+  p.entries.ann.offers[0].respond_by_date = '2026-10-12';
+  p.entries.ann.offers[0].respond_by_time = '19:00';
+  Object.assign(p.kennel, { turn_hours: 24, awake_from: '08:00', awake_until: '21:00' });
+  p.turn_queue[0].respond_hours = 24;
+  out.env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  return out;
+}
+
+test('a deadline at 7:00 pm: open at 6:30 pm, closed on the 7:00 pm run; the next turn ends 24 hours later', async () => {
+  const before = await timed();
+  assert.equal((await runKennel(before.env, row(before.env), { now: new Date('2026-10-12T23:30:00Z'), origin: 'o' })).closed, 0, '6:30 pm: still open');
+  const { env } = await timed();
+  const c = await runKennel(env, row(env), { now: new Date('2026-10-13T00:00:00Z'), origin: 'o' });
+  assert.equal(c.closed, 1);
+  assert.equal(c.offered, 1);
+  const ev = events(env);
+  assert.equal(ev[0].payload.respond_by_time, '19:00');
+  assert.equal(ev[1].payload.offered_date, '2026-10-12');
+  assert.equal(ev[1].payload.respond_by_date, '2026-10-13');
+  assert.equal(ev[1].payload.respond_by_time, '19:00');
+  assert.equal(stored(env).entries.bo.offers[0].respond_by_time, '19:00');
+  const offer = mails(env).find((m) => m.kind === 'offer');
+  assert.match(offer.body, /choose by October 13, 2026 at 7:00 pm/);
+});
+
+test('hours deadlines: rounded up to the half hour, kept in waking hours, closed days skipped', () => {
+  const awake = { from: 8 * 60, until: 21 * 60 };
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '19:13' }, 24, null, [], awake), { date: '2026-10-13', time: '19:30' });
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '02:00' }, 24, null, [], awake), { date: '2026-10-13', time: '08:00' }, 'before waking hours: their start');
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '22:00' }, 24, null, [], awake), { date: '2026-10-14', time: '08:00' }, 'after them: the next morning');
+  // Sunday Oct 18 closed: Saturday 7 pm + 24 h runs Saturday's 5 hours, then Monday's 19.
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-17', time: '19:00' }, 24, [1, 2, 3, 4, 5, 6], [], awake), { date: '2026-10-19', time: '19:00' });
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '19:00' }, 24, null, ['2026-10-13'], awake), { date: '2026-10-14', time: '19:00' }, 'a closed date too');
+});
+
+test('the last reminder of a timed turn: 3 hours before, never before waking hours', () => {
+  const k = { awake_from: '08:00', awake_until: '21:00' };
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: '19:00' }, k), '2026-10-12T16:00');
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: '09:00' }, k), '2026-10-11T20:00', 'the evening before');
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: null }, k), null, 'a day deadline keeps the morning one');
+  assert.equal(fillTemplate(TEMPLATES.offer, { family: 'Ann', litters: ['A'], respondBy: '2026-10-20', respondByTime: '07:30' }).body, 'Hi Ann, choose by October 20, 2026 at 7:30 am.');
+});
+
+test('a timed turn reminds them 3 hours before its deadline, once', async () => {
+  const early = await timed();
+  assert.equal((await runKennel(early.env, row(early.env), { now: new Date('2026-10-12T20:30:00Z'), origin: 'o' })).reminders, 0, '3:30 pm: not yet (the fee is not due)');
+  const { env } = await timed();
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T21:00:00Z'), origin: 'o' })).reminders, 1, '4:00 pm');
+  assert.match(mails(env).find((m) => m.kind === 'offer_reminder').body, /ends October 12, 2026 at 7:00 pm/);
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T21:30:00Z'), origin: 'o' })).reminders, 0, 'once');
+});
+
+// --- Countdowns, and whether a family's turn reaches them (the status page's pop-up) ---
+
+test('a kennel wall time as a moment, across daylight saving and odd offsets', () => {
+  assert.equal(new Date(timers.zonedInstant('2026-11-21', '19:00', 'America/Chicago')).toISOString(), '2026-11-22T01:00:00.000Z');
+  assert.equal(new Date(timers.zonedInstant('2026-06-21', '19:00', 'America/Chicago')).toISOString(), '2026-06-22T00:00:00.000Z');
+  assert.equal(new Date(timers.zonedInstant('2026-10-11', null, 'America/Chicago')).toISOString(), '2026-10-12T05:00:00.000Z', 'no time: the end of the day');
+  assert.equal(new Date(timers.zonedInstant('2026-11-21', '08:00', 'Asia/Kathmandu')).toISOString(), '2026-11-21T02:15:00.000Z');
+  assert.equal(timers.zonedInstant('', '08:00', 'UTC'), null);
+});
+
+const POPUPS = {
+  soon: 'Soon, from [Kennel].', soon_far: 'Soon, maybe.', open: 'Nearly over!', open_far: 'Open, maybe.',
+  skipped: 'Deposits are [opening soon/open]; ask [Kennel].',
+};
+
+test('reach: walking the one turn order, does a pup they want stay for them?', () => {
+  const p = projection();
+  // Ann holds the turn on Pip 1 and Pip 2; Bo is first in line, Cy second.
+  assert.equal(timers.turnReach(p, 'ann'), null, 'holding a turn');
+  assert.deepEqual(timers.turnReach(p, 'bo'), { open: true, planned: {} });
+  // Cy wants only Pip 2; Ann (holding the turn) and Bo could both take it first.
+  assert.equal(timers.turnReach(p, 'cy').open, false);
+  // A third pup, which Cy also wants and nobody ahead does: now it could be theirs.
+  p.litters.l1.pups.push({ id: 'p3' });
+  p.turn_queue[1].litters = { l1: ['p2', 'p3'] };
+  assert.equal(timers.turnReach(p, 'cy').open, true);
+  // Ann picks Pip 3: gone, and Cy is left with nothing again.
+  p.entries.ann.offers[0].picked_dog_id = 'p3';
+  assert.equal(timers.turnReach(p, 'cy').open, false);
+  assert.equal(timers.turnReach(p, 'dee'), null, 'not on the list yet');
+  // Six pups on a planned litter, a hundred families who all want them (owner, 2026-11-19).
+  const pups = ['a', 'b', 'c', 'd', 'e', 'f'];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: pups.map((id) => ({ id })) };
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: Array.from({ length: 100 }, (_, n) => ({ entry_id: `f${n}`, dog_ids: pups, planned: true })) }];
+  for (let n = 0; n < 100; n++) p.entries[`f${n}`] = { name: `F ${n}`, status: 'active', offers: [] };
+  assert.deepEqual(timers.turnReach(p, 'f5'), { open: null, planned: { l2: true } }, 'the sixth family could still get one');
+  assert.deepEqual(timers.turnReach(p, 'f6').planned, { l2: false });
+});
+
+test('the pop-up: which message a family sees on opening their page', async () => {
+  const { statusView, statusPopup } = await import('../src/familyPages.js');
+  const p = projection();
+  p.kennel.status_popups = POPUPS;
+  const now = new Date('2026-10-10T15:00:00Z');
+  // Holding the turn: the countdown pop-up, by its turn.
+  assert.deepEqual(statusView(p, 'ann', now).family.popup, { kind: 'turn', turn_id: 't1' });
+  assert.equal(statusView(p, 'ann', now).offers[0].respond_by_at, '2026-10-12T05:00:00.000Z');
+  // Picks open, and their turn should come (whether or not anyone is choosing right now).
+  assert.deepEqual(statusView(p, 'bo', now).family.popup, { kind: 'open', text: 'Nearly over!' });
+  assert.equal(statusView(p, 'bo', now).family.turn_estimate, undefined, 'no turn estimate any more');
+  // …but the pups Cy wants should be gone first.
+  assert.deepEqual(statusPopup(p, 'cy'), { kind: 'open_far', text: 'Open, maybe.' });
+  // Not in line on the open litter (passed, "Not this litter", or no match): skipped.
+  p.turn_queue = p.turn_queue.slice(0, 1);
+  assert.deepEqual(statusPopup(p, 'cy'), { kind: 'skipped', text: 'Deposits are open; ask Thornfield Kennels.' });
+  // A born litter she shows on family pages, picks not open yet, that Cy matches, comes first.
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }] };
+  p.upcoming = [{ id: 'u2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  p.entries.cy.upcoming = { u2: { waiting: true, match: true } };
+  assert.deepEqual(statusPopup(p, 'cy'), { kind: 'soon', text: 'Soon, from Thornfield Kennels.' }, 'no planned opening day yet: soon');
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1'], planned: true }] }];
+  assert.equal(statusPopup(p, 'cy').kind, 'soon', 'Bo gets a pup of the open litter first, so its one pup stays for Cy');
+  p.litters.l1.pups = [{ id: 'p1' }];
+  assert.equal(statusPopup(p, 'cy').kind, 'soon_far', 'Ann holds the open litter\'s one pup: Bo is first for the new one');
+  // "Not this litter" on it (or other parents chosen): out of its turn order, skipped again.
+  p.entries.cy.upcoming = { u2: { waiting: false, match: true } };
+  p.openings[0].queue = p.openings[0].queue.filter((q) => q.entry_id !== 'cy');
+  assert.equal(statusPopup(p, 'cy').kind, 'skipped');
+  // With only that born litter, deposits are "opening soon".
+  p.litters.l1.picks_open = false;
+  assert.equal(statusPopup(p, 'cy').text, 'Deposits are opening soon; ask Thornfield Kennels.');
+  // Paused or holding off: none. Her empty box: none.
+  p.entries.cy.paused_until = '2026-12-01';
+  assert.equal(statusPopup(p, 'cy'), null);
+  delete p.entries.cy.paused_until;
+  p.kennel.status_popups = { ...POPUPS, skipped: '' };
+  assert.equal(statusPopup(p, 'cy'), null);
+  // No litter at all: none.
+  p.litters = {};
+  p.upcoming = [];
+  p.kennel.status_popups = POPUPS;
+  assert.equal(statusPopup(p, 'cy'), null);
+  assert.equal(statusPopup(p, 'dee'), null, 'not on the list yet');
+});
+
+test('the pop-up skips a side sale, and an old projection without her words shows none', async () => {
+  const { statusPopup } = await import('../src/familyPages.js');
+  const p = projection();
+  p.entries.bo.offers = [{ id: 's1', turn_id: 's1', litter_id: 'l1', respond_by_date: '2026-10-15', eligible_dog_ids: ['p2'], picked_dog_id: 'p2', direct: true }];
+  p.kennel.status_popups = POPUPS;
+  assert.notEqual(statusPopup(p, 'bo')?.kind, 'turn');
+  delete p.kennel.status_popups;
+  assert.equal(statusPopup(p, 'bo'), null);
+});
+
+test('picks due to open: one alert to her on the run that holds the planned time', async () => {
+  const { env } = await published();
+  const p = stored(env);
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'p9' }], planned_open: { date: '2026-10-12', time: '19:00' } };
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  const at = new Date('2026-10-13T00:00:00Z'); // 7:00 pm Chicago
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T23:30:00Z'), origin: 'o', cron: true })).picks_due ?? 0, 0, '6:30 pm: not yet');
+  assert.equal((await runKennel(env, row(env), { now: at, origin: 'o' })).picks_due ?? 0, 0, 'never from a family\'s pass');
+  assert.equal((await runKennel(env, row(env), { now: at, origin: 'o', cron: true })).picks_due, 1);
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-13T00:30:00Z'), origin: 'o', cron: true })).picks_due ?? 0, 0, 'the next run: once');
 });

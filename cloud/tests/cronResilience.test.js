@@ -9,7 +9,7 @@ const { DAILY_CRON } = await import('../src/index.js');
 const { runRetention } = await import('../src/retention.js');
 
 // Run a cron to the end, collecting what it logs.
-async function cron(env, cronExpr) {
+async function cron(env, cronExpr, scheduledTime) {
   const logs = [];
   const errors = [];
   const [log, error] = [console.log, console.error];
@@ -17,7 +17,7 @@ async function cron(env, cronExpr) {
   console.error = (...a) => errors.push(a.join(' '));
   try {
     const waits = [];
-    await worker.scheduled({ cron: cronExpr }, env, { waitUntil: (p) => waits.push(p) });
+    await worker.scheduled({ cron: cronExpr, ...(scheduledTime != null ? { scheduledTime } : {}) }, env, { waitUntil: (p) => waits.push(p) });
     await Promise.all(waits);
   } finally {
     console.log = log;
@@ -46,7 +46,7 @@ test('K4-3: the waitlist read failing leaves the other hourly jobs running', asy
   const env = await makeEnv();
   seedDueEmailChange(env);
   failing(env, /FROM wl_projection/);
-  const { logs, errors } = await cron(env, '7 * * * *');
+  const { logs, errors } = await cron(env, '0,30 * * * *');
   assert.ok(errors.some((e) => e.startsWith('waitlist moves failed')), 'the failure is logged');
   for (const job of ['email changes', 'digests', 'esign copies', 'esign previews']) {
     assert.ok(logs.some((l) => l.startsWith(job)), `${job} still ran`);
@@ -101,4 +101,17 @@ test('K4-12: a throw before the router answers JSON with CORS, not a bare except
   try { res = await call(env, 'GET', '/list/abc'); } finally { console.error = error; }
   assert.equal(res.status, 500);
   assert.deepEqual(await res.json(), { error: 'internal' });
+});
+
+test('Waitlist Timers T3: the :30 run is the waitlist moves only; :00 runs every hourly job', async () => {
+  const env = await makeEnv();
+  const half = await cron(env, '0,30 * * * *', Date.parse('2026-11-19T18:30:00Z'));
+  assert.ok(half.logs.some((l) => l.startsWith('waitlist moves')), 'moves at :30');
+  for (const job of ['email changes', 'digests', 'esign copies', 'esign previews']) {
+    assert.ok(!half.logs.some((l) => l.startsWith(job)), `${job} waits for :00`);
+  }
+  const top = await cron(env, '0,30 * * * *', Date.parse('2026-11-19T19:00:00Z'));
+  for (const job of ['waitlist moves', 'email changes', 'digests', 'esign copies', 'esign previews']) {
+    assert.ok(top.logs.some((l) => l.startsWith(job)), `${job} at :00`);
+  }
 });

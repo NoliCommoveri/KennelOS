@@ -34,18 +34,19 @@ export function isTimeZone(tz) {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
 }
 
-// → { date: 'YYYY-MM-DD', hour } for `now` in `timeZone` (UTC when it isn't one).
+// → { date: 'YYYY-MM-DD', hour, time: 'HH:MM' } for `now` in `timeZone` (UTC when it isn't one).
 export function localNow(now, timeZone) {
   let parts;
   try {
     parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timeZone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+      timeZone: timeZone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     }).formatToParts(now);
   } catch {
     return localNow(now, 'UTC');
   }
   const get = (t) => parts.find((p) => p.type === t)?.value;
-  return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) % 24 };
+  const hour = Number(get('hour')) % 24;
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, hour, time: `${String(hour).padStart(2, '0')}:${get('minute')}` };
 }
 
 export function addDays(ymd, days) {
@@ -74,6 +75,83 @@ export function addOpenDays(ymd, days, openDays, closedDates = []) {
   return at;
 }
 
+// --- Deadlines at a time of day (Waitlist Timers plan §4; pure) ----------------------
+// A copy of the app's waitlistRules rules (a test pins the two): a row's deadline is
+// respond_by_date + respond_by_time ('HH:MM', kennel time; none = 11:59 pm), compared
+// as 'YYYY-MM-DDTHH:MM' keys with '24:00' for no time.
+
+export const isTimeOfDay = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const toMinutes = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const fromMinutes = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+export const deadlineKey = (date, time) => (date ? `${date}T${isTimeOfDay(time) ? time : '24:00'}` : '');
+const nowKey = (local) => `${local.date}T${isTimeOfDay(local.time) ? local.time : '00:00'}`;
+
+// The moment a kennel wall time happens: `date` + `time` ('HH:MM'; none = the end of
+// that day) in `timeZone` (UTC when it isn't one). → epoch ms, or null with no date.
+// What the countdowns tick toward (Waitlist Timers plan Phase 2); the app's
+// dateUtils.zonedInstant is a copy.
+export function zonedInstant(date, time, timeZone) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date ?? ''));
+  if (!m) return null;
+  const t = isTimeOfDay(time) ? time : '24:00';
+  const wall = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(t.slice(0, 2)), Number(t.slice(3)));
+  const offset = (ts) => {
+    const l = localNow(new Date(ts), timeZone);
+    const [y, mo, d] = l.date.split('-').map(Number);
+    return Date.UTC(y, mo - 1, d, Number(l.time.slice(0, 2)), Number(l.time.slice(3))) - Math.floor(ts / 60000) * 60000;
+  };
+  const first = wall - offset(wall);
+  return wall - offset(first);
+}
+
+// Her families' waking hours from the projection's kennel, in minutes.
+export function awakeHours(kennel) {
+  const ok = (t) => isTimeOfDay(t) && toMinutes(t) % 30 === 0;
+  let from = ok(kennel?.awake_from) ? toMinutes(kennel.awake_from) : 8 * 60;
+  let until = ok(kennel?.awake_until) ? toMinutes(kennel.awake_until) : 21 * 60;
+  if (from >= until) { from = 8 * 60; until = 21 * 60; }
+  return { from, until };
+}
+
+// `hours` from `at` ({ date, time }), counted only on her open days, rounded up to
+// the half hour, kept in waking hours (before: their start that day; after: their
+// start on her next open day). → { date, time }. waitlistRules.hoursDeadline's copy.
+export function hoursDeadline(at, hours, openDays, closedDates, awake = { from: 8 * 60, until: 21 * 60 }) {
+  const nextOpen = (d) => addOpenDays(d, 1, openDays, closedDates);
+  const isOpen = (d) => nextOpen(addDays(d, -1)) === d;
+  let date = at.date;
+  let m = isTimeOfDay(at.time) ? toMinutes(at.time) : awake.from;
+  if (!isOpen(date)) { date = nextOpen(date); m = 0; }
+  let left = Math.max(1, Math.round(Number(hours) || 0)) * 60;
+  while (left > 1440 - m) { left -= 1440 - m; date = nextOpen(date); m = 0; }
+  m += left;
+  m = Math.ceil(m / 30) * 30;
+  if (m < awake.from) m = awake.from;
+  else if (m > awake.until) { date = nextOpen(date); m = awake.from; }
+  return { date, time: fromMinutes(m) };
+}
+
+// A turn offered now (`local`: localNow's) to the queue's next family. → { date, time|null }.
+export function turnDue(projection, next, local) {
+  const k = projection.kennel || {};
+  if (next.respondHours != null) return hoursDeadline(local, next.respondHours, k.open_days, k.closed_dates, awakeHours(k));
+  return { date: addOpenDays(local.date, next.respondDays, k.open_days, k.closed_dates), time: null };
+}
+
+// Is a turn (openTurns' shape) past its deadline at `local`?
+export const isPastDeadline = (t, local) => Boolean(t.respondBy) && nowKey(local) >= deadlineKey(t.respondBy, t.respondByTime);
+
+// From when a turn with a time gets its last reminder: 3 hours before its deadline,
+// never before waking hours start that day (else the evening before, an hour before
+// waking hours end). → a key, or null for a turn with no time.
+export function lastReminderKey(t, kennel) {
+  if (!t.respondBy || !isTimeOfDay(t.respondByTime)) return null;
+  const awake = awakeHours(kennel);
+  const at = toMinutes(t.respondByTime) - 180;
+  if (at >= awake.from) return `${t.respondBy}T${fromMinutes(at)}`;
+  return `${addDays(t.respondBy, -1)}T${fromMinutes(Math.max(awake.from, awake.until - 60))}`;
+}
+
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
 
 // --- Her templates (pure) -----------------------------------------------------------
@@ -86,12 +164,18 @@ export function longDate(ymd) {
 }
 const joinNames = (xs) => (xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-export function fillTemplate(template, { kennelName, family, litters = [], respondBy = null, payBy = null }) {
+export function timeLabel(t) {
+  if (!isTimeOfDay(t)) return '';
+  const h = Number(t.slice(0, 2));
+  return `${h % 12 || 12}:${t.slice(3)} ${h < 12 ? 'am' : 'pm'}`;
+}
+
+export function fillTemplate(template, { kennelName, family, litters = [], respondBy = null, respondByTime = null, payBy = null }) {
   const values = {
     'kennel name': kennelName || 'Our kennel',
     family: family || 'there',
     litter: joinNames(litters.filter(Boolean)) || 'our litter',
-    'respond by': respondBy ? longDate(respondBy) : 'the date on your status page',
+    'respond by': respondBy ? `${longDate(respondBy)}${isTimeOfDay(respondByTime) ? ` at ${timeLabel(respondByTime)}` : ''}` : 'the date on your status page',
     position: 'on the list',
     'pay by': payBy ? ` by ${longDate(payBy)}` : '',
     request: '',
@@ -118,16 +202,91 @@ export function openTurns(projection, { includeDirect = false } = {}) {
     for (const o of e.offers || []) {
       if (o.direct && !includeDirect) continue;
       const turnId = o.turn_id || o.id;
-      if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, offeredDate: o.offered_date, picked: null });
+      if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, respondByTime: isTimeOfDay(o.respond_by_time) ? o.respond_by_time : null, offeredDate: o.offered_date, picked: null });
       const t = out.get(turnId);
       t.offers.push(o);
-      // The turn's deadline is its latest row's, as on her device (turnRespondBy).
-      if ((o.respond_by_date || '') > (t.respondBy || '')) t.respondBy = o.respond_by_date;
+      // The turn's deadline is its latest row's, as on her device (turnDeadline).
+      if (deadlineKey(o.respond_by_date, o.respond_by_time) > deadlineKey(t.respondBy, t.respondByTime)) {
+        t.respondBy = o.respond_by_date;
+        t.respondByTime = isTimeOfDay(o.respond_by_time) ? o.respond_by_time : null;
+      }
       if (o.picked_dog_id) t.picked = o.picked_dog_id;
     }
   }
   return [...out.values()];
 }
+
+// Whether this family's turn should reach them before the pups they want run out
+// (owner, 2026-11-19; it picks the status page's pop-up, familyPages.statusPopup).
+// One walk through her litters as they open, each family getting at most one pup:
+// first the litters open now (the turns open now, each holder's pick or one of their
+// pups, then `turn_queue` in order), then each planned litter in the order it opens
+// (`projection.openings`: that opening's whole order, the families already given a pup
+// left out). Each family takes one of the pups they could have; where that could be
+// one this family wants, it is (so it never promises too much), else another. When
+// this family's turn comes in a stage, a pup they want left = yes for it, and the walk
+// ends (they'd have their pup); none left = no, and the walk goes on to the next
+// litter. Worked out from the projection as it is now, so it changes with every turn
+// and every pick.
+// → null (not waiting: no such family, not active, or holding a turn), else
+// { open: true | false | null (not in line on the open litters),
+//   planned: { [litter_id]: true | false } (each planned litter whose turn order they're
+//   in, up to the one they'd get a pup from) }. Never who is ahead, nor how many.
+export function turnReach(projection, entryId) {
+  const e = projection.entries?.[entryId];
+  if (!e || e.status !== 'active' || (e.offers || []).some((o) => !o.direct)) return null;
+  const queueDogs = (q) => (Array.isArray(q.dog_ids) ? q.dog_ids : Object.values(q.litters || {}).flat());
+  const available = new Set(Object.values(projection.litters || {}).flatMap((l) => (l?.pups || []).map((d) => d.id)));
+  const served = new Set();
+  let wanted = new Set();
+  // One family's turn: their pick, else one of their pups, one we want if it can be.
+  const take = (who, dogs, picked = null) => {
+    if (served.has(who)) return;
+    const mine = picked && available.has(picked) ? picked
+      : dogs.find((id) => available.has(id) && wanted.has(id)) ?? dogs.find((id) => available.has(id));
+    if (mine == null) return;
+    available.delete(mine);
+    served.add(who);
+  };
+  // A stage: its order, up to this family's turn. → true | false | null (not in it).
+  const stage = (queue) => {
+    let mineAt = -1;
+    // A row with nothing to offer them ("Not this litter" on all of it) isn't a place in line.
+    queue.forEach((q, i) => { if (mineAt < 0 && q.entry_id === entryId && queueDogs(q).length) mineAt = i; });
+    for (const [i, q] of queue.entries()) {
+      if (i === mineAt) {
+        if (!queueDogs(q).some((id) => available.has(id))) return false;
+        served.add(entryId);
+        return true;
+      }
+      take(q.entry_id, queueDogs(q));
+    }
+    return null;
+  };
+  // What this family wants, across every stage they're in: a family ahead takes one of
+  // those where it could.
+  const mineIn = (queue) => queue.find((q) => q.entry_id === entryId && queueDogs(q).length);
+  const openings = (Array.isArray(projection.openings) ? projection.openings : []).slice(0, OPENINGS_WALKED);
+  const queue = Array.isArray(projection.turn_queue) ? projection.turn_queue : [];
+  wanted = new Set([mineIn(queue), ...openings.map((n) => mineIn(Array.isArray(n?.queue) ? n.queue : []))].filter(Boolean).flatMap(queueDogs));
+  for (const t of openTurns(projection)) take(t.entryId, t.offers.flatMap((o) => o.eligible_dog_ids || []), t.picked);
+  const open = stage(queue);
+  const planned = {};
+  if (open !== true) {
+    for (const n of openings) {
+      if (typeof n?.litter_id !== 'string') continue;
+      const q = (Array.isArray(n.queue) ? n.queue : []);
+      const mine = mineIn(q);
+      // Their turn in this stage counts only where it's for this litter (not only
+      // the ones open before it).
+      const r = stage(mine && !mine.planned ? q.filter((x) => x !== mine) : q);
+      if (mine?.planned && r != null) planned[n.litter_id] = r;
+      if (r === true) break;
+    }
+  }
+  return { open, planned };
+}
+const OPENINGS_WALKED = 6;
 
 // A turn with no pup left in it: no pick, and none of the pups its rows listed is
 // still among its litter's available pups. Her device ends such a turn, never as a
@@ -173,7 +332,10 @@ export function nextFromQueue(projection, { skip = new Set(), held = new Set() }
       const ids = (dogIds || []).filter((id) => available.has(id) && !held.has(id));
       if (ids.length) rows.push({ litter_id: litterId, dog_ids: ids });
     }
-    if (rows.length) return { entryId: q.entry_id, rows, respondDays: Number(q.respond_days) || Number(projection.kennel?.respond_days) || 3 };
+    if (rows.length) {
+      const hours = Number(q.respond_hours) || Number(projection.kennel?.turn_hours) || null;
+      return { entryId: q.entry_id, rows, respondDays: Number(q.respond_days) || Number(projection.kennel?.respond_days) || 3, ...(hours ? { respondHours: hours } : {}) };
+    }
   }
   return null;
 }
@@ -183,7 +345,8 @@ export function giveTurn(projection, entryId, turn) {
   const e = projection.entries[entryId];
   e.offers = turn.rows.map((r) => ({
     id: r.offer_id, turn_id: turn.turn_id, litter_id: r.litter_id, offered_date: turn.offered_date,
-    respond_by_date: turn.respond_by_date, eligible_dog_ids: [...r.dog_ids], picked_dog_id: null,
+    respond_by_date: turn.respond_by_date, ...(isTimeOfDay(turn.respond_by_time) ? { respond_by_time: turn.respond_by_time } : {}),
+    eligible_dog_ids: [...r.dog_ids], picked_dog_id: null,
   }));
   // During their turn a family sees "It's your turn!" for their number (§16.9), and
   // the public list shows their row as "Currently deciding" (familyPages.listView,
@@ -265,8 +428,9 @@ function offerNext(run, { skip, cause, causeSeq = null }) {
   const { projection, today } = run;
   const next = nextFromQueue(projection, { skip, held: run.held });
   if (!next) return false;
+  const due = turnDue(projection, next, run.local || { date: today, time: null });
   const turn = {
-    turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: addOpenDays(today, next.respondDays, projection.kennel?.open_days, projection.kennel?.closed_dates),
+    turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: due.date, ...(due.time ? { respond_by_time: due.time } : {}),
     rows: next.rows.map((r) => ({ offer_id: crypto.randomUUID(), ...r })),
   };
   queueEvent(run, {
@@ -278,16 +442,17 @@ function offerNext(run, { skip, cause, causeSeq = null }) {
   // The offer's email is keyed on its turn: only the run whose batch landed sends it.
   run.emails.push({
     id: `srv-offer-${turn.turn_id}`, entryId: next.entryId, kind: 'offer',
-    facts: { litters: litterLabels(projection, turn.rows.map((r) => r.litter_id)), respondBy: turn.respond_by_date },
+    facts: { litters: litterLabels(projection, turn.rows.map((r) => r.litter_id)), respondBy: turn.respond_by_date, respondByTime: due.time },
   });
   return true;
 }
 
 // Everything due for one published kennel now. → { closed, offered, reminders }
-export async function runKennel(env, row, { now = new Date(), origin } = {}) {
+export async function runKennel(env, row, { now = new Date(), origin, cron = false } = {}) {
   const projection = JSON.parse(row.body);
   const counts = { closed: 0, offered: 0, reminders: 0 };
-  const { date: today, hour } = localNow(now, projection.kennel?.time_zone);
+  const local = localNow(now, projection.kennel?.time_zone);
+  const { date: today, hour } = local;
   const at = now.toISOString();
   const through = Number(projection.events_through) || 0;
   const pending = (await env.DB.prepare(
@@ -300,7 +465,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
   // Families waiting on her device for something they did: never moved around by the server.
   const busy = new Set(pending.filter((p) => ['pick', 'pass', 'leave'].includes(p.kind)).map((p) => p.entry_id));
   const held = new Set((await env.DB.prepare('SELECT dog_id FROM wl_holds WHERE public_id = ?').bind(row.public_id).all()).results.map((r) => r.dog_id));
-  const run = { env, row, projection, today, at, held, writes: [], after: [], emails: [] };
+  const run = { env, row, projection, today, local, at, held, writes: [], after: [], emails: [] };
 
   // 1. A family passed or left on their page, and she ticked that moment.
   for (const p of pending) {
@@ -323,12 +488,12 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
   const zoned = isTimeZone(projection.kennel?.time_zone);
   if (!zoned && openTurns(projection).length) console.log('waitlist moves: kennel has no time zone, deadlines left to her device');
   for (const t of zoned ? openTurns(projection) : []) {
-    if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
+    if (!isPastDeadline(t, local) || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
     const trigger = t.picked ? 'no_deposit' : 'no_response';
     if (!autoOn(projection, trigger)) continue;
     queueEvent(run, {
       entryId: t.entryId, kind: 'server_close',
-      payload: { turn_id: t.turnId, offer_ids: t.offers.map((o) => o.id), litter_ids: t.offers.map((o) => o.litter_id), respond_by_date: t.respondBy, trigger, picked_dog_id: t.picked },
+      payload: { turn_id: t.turnId, offer_ids: t.offers.map((o) => o.id), litter_ids: t.offers.map((o) => o.litter_id), respond_by_date: t.respondBy, ...(t.respondByTime ? { respond_by_time: t.respondByTime } : {}), trigger, picked_dog_id: t.picked },
     });
     run.writes.push(env.DB.prepare(`DELETE FROM wl_holds WHERE public_id = ? AND entry_id = ? AND ${AT_VERSION}`)
       .bind(row.public_id, t.entryId, row.public_id, row.version));
@@ -338,7 +503,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     counts.closed++;
     run.emails.push({
       id: `srv-closed-${t.turnId}`, entryId: t.entryId, kind: 'deadline_passed',
-      facts: { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy },
+      facts: { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy, respondByTime: t.respondByTime },
     });
     // The offer's cause is this close, the batch's last event so far.
     if (offerNext(run, { skip: new Set([...busy, t.entryId]), cause: 'deadline' })) counts.offered++;
@@ -361,20 +526,41 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     for (const m of run.emails) await emailOnce(env, row, projection, { ...m, origin }, now);
   }
 
+  // 2b. Picks she planned to open now (Waitlist Timers plan Phase 2): an alert to her,
+  // on the scheduled run whose half hour holds the planned time (so once), never a
+  // family's. Opening stays hers.
+  if (cron && zoned) {
+    for (const l of Object.values(projection.litters || {})) {
+      const p = l?.planned_open;
+      if (!p || l.picks_open || !isTimeOfDay(p.time) || !(l.pups || []).length) continue;
+      const at = zonedInstant(p.date, p.time, projection.kennel.time_zone);
+      if (at != null && at <= now.getTime() && now.getTime() - at < 30 * 60000) {
+        await notifyEvent(env, { programId: row.program_id, kind: 'turn', what: 'picks_due', kennel: projection.kennel?.name }, now);
+        counts.picks_due = (counts.picks_due || 0) + 1;
+      }
+    }
+  }
+
   // 3. Reminders, each once (its id). They write nothing but the message.
-  if (zoned && projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
+  // A turn with a time (Waitlist Timers plan T9) gets its last one 3 hours before its
+  // deadline (lastReminderKey), at any hour; everything else waits for the morning.
+  const morning = hour >= MORNING_HOUR;
+  if (zoned && projection.kennel?.reminders !== false) {
     for (const t of openTurns(projection, { includeDirect: true })) {
-      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy || turnIsEmpty(projection, t)) continue;
+      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || isPastDeadline(t, local) || turnIsEmpty(projection, t)) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);
-      const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy };
+      const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy, respondByTime: t.respondByTime };
       // The halfway one catches up on any later day; the last-day one is only true
       // on its day (a turn past its last day has ended).
-      const when = today === t.respondBy ? 'last' : (span >= 2 && today >= addDays(t.offeredDate, Math.floor(span / 2)) ? 'half' : null);
+      const lastFrom = lastReminderKey(t, projection.kennel);
+      const last = lastFrom ? nowKey(local) >= lastFrom : (morning && today === t.respondBy);
+      const half = morning && span >= 2 && today >= addDays(t.offeredDate, Math.floor(span / 2)) && today < t.respondBy;
+      const when = last ? 'last' : (half ? 'half' : null);
       if (!when) continue;
       const r = await emailOnce(env, row, projection, { id: `srv-remind-${t.turnId}-${when}`, entryId: t.entryId, kind: 'offer_reminder', facts, origin }, now);
       if (r === 'sent') counts.reminders++;
     }
-    for (const [entryId, e] of Object.entries(projection.entries || {})) {
+    for (const [entryId, e] of Object.entries(morning ? projection.entries || {} : {})) {
       if (!OPEN.includes(e.status)) continue;
       const due = e.fee_due?.due_date;
       // From the open day before it's due (her closed days skipped) through the due
@@ -426,7 +612,7 @@ export async function runWaitlistMoves(env, { now = new Date() } = {}) {
     try {
       const row = await env.DB.prepare('SELECT public_id, program_id, version, body FROM wl_projection WHERE public_id = ?').bind(publicId).first();
       if (!row) continue; // unpublished since the ids were read
-      const c = await runKennel(env, row, { now, origin });
+      const c = await runKennel(env, row, { now, origin, cron: true });
       totals.closed += c.closed;
       totals.offered += c.offered;
       totals.reminders += c.reminders;

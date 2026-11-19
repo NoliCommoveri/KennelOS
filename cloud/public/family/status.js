@@ -18,7 +18,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
+  esc, fmtDate, money, fetchJson, loadError, countdownHtml, startCountdowns, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
   SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog,
   policiesHtml, policyAbout, openPolicy
 } from './common.js';
@@ -54,7 +54,7 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set() };
+const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set(), popupShown: false };
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
@@ -303,14 +303,21 @@ function turnHtml(rows) {
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
-  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  // The turn's deadline: the row with the latest date and time (no time = 11:59 pm).
+  const dueKey = (o) => (o.respond_by_date ? `${o.respond_by_date}T${o.respond_by_time || '24:00'}` : '');
+  const dueRow = [...rows].sort((a, b) => dueKey(b).localeCompare(dueKey(a)))[0];
+  const respondBy = dueRow?.respond_by_date || '';
+  const respondByTime = dueRow?.respond_by_time || null;
+  // Your turn ends in… (Waitlist Timers plan Phase 2), under the deadline line.
+  const endsIn = dueRow?.respond_by_at
+    ? `<p class="small mt0">${countdownHtml(dueRow.respond_by_at, { label: 'Your turn ends in', done: `Time's up. Waiting on ${kennel}.` })}</p>` : '';
   // Once they've picked: what to send, by when, and how (her payment instructions),
   // until her deposit request (contract, invoice) reaches them.
   const depositBlock = () => {
     const o = rows.find((r) => r.picked_dog_id) || rows.find((r) => r.id === sentPick?.payload.offer_id) || rows[0];
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
-    const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    const deadline = deadlineText(respondBy, v.kennel.time_zone, respondByTime);
     // Their application fee and their credit pay part (or all) of it: the sale's
     // figures once her device records the pick, their credits as a whole before.
     const { credit, toSend, less } = depositAfterCredits(amount, o.picked_dog_id ? o : null);
@@ -325,7 +332,7 @@ function turnHtml(rows) {
         <h3>Sending your deposit</h3>
         ${amount != null ? `<p class="big mt0">${esc(price(credit > 0 ? toSend : amount))}</p>` : ''}
         ${credit > 0 ? `<p class="small mt0 muted">Deposit ${esc(price(amount))}, less ${esc(less)}.</p>` : ''}
-        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
+        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>${endsIn}` : ''}
         ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
         <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
         ${policyLink('Our policy on picking and deposits', ['deposit', 'pick'])}
@@ -352,7 +359,7 @@ function turnHtml(rows) {
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${showsDeadline ? '' : policyLink('Before you choose: our policies on picking and passing', ['pick', 'pass', 'turn'])}
-    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone, respondByTime))}</strong></p>${endsIn}` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -1345,7 +1352,7 @@ async function onClick(ev) {
       // pay the deposit" from the offer, and the deposit for this pup's sex when she lists one.
       const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
       const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
-      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
+      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone, offer?.respond_by_time).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
       const cr = depositAfterCredits(dep);
       const depText = dep == null ? '' : cr.credit > 0
         ? ` of ${price(dep)}: you send ${price(cr.toSend)}, after your ${cr.less.replace(' (your credit)', '')}`
@@ -1512,12 +1519,80 @@ function selectTab(which) {
   $('public').hidden = mine;
 }
 
+// --- The pop-up on opening the page (owner, 2026-11-19) ------------------------------
+// One per visit, after the first render, closed with "Got it" (Escape too). Her
+// preview ("View their page") shows it as the family sees it. The server picks it
+// (familyPages.statusPopup): her words for where they stand, or, holding a turn,
+// the time left in big numbers.
+
+// "7 hours 23 minutes", "1 day 4 hours", "23 minutes", "under a minute"; '' once passed.
+function timeLeftWords(at, now = Date.now()) {
+  const left = Math.floor((at - now) / 1000);
+  if (!(left > 0)) return '';
+  const unit = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const d = Math.floor(left / 86400);
+  const h = Math.floor((left % 86400) / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  if (d > 0) return `${unit(d, 'day')}${h ? ` ${unit(h, 'hour')}` : ''}`;
+  if (h > 0) return `${unit(h, 'hour')}${m ? ` ${unit(m, 'minute')}` : ''}`;
+  return m > 0 ? unit(m, 'minute') : 'under a minute';
+}
+
+// The turn pop-up's words now: before a pick, after one, and once time is up.
+function turnPopupHtml(rows, at) {
+  const kennel = state.v.kennel.name;
+  const left = Number.isFinite(at) ? timeLeftWords(at) : '';
+  if (Number.isFinite(at) && !left) return `<h2 id="sp-title">Time's up.</h2><p class="muted">Waiting on ${esc(kennel)}.</p>`;
+  const picked = rows.some((o) => o.picked_dog_id);
+  const head = picked ? 'Thanks for choosing!' : 'Choose your pup!';
+  const label = picked ? 'Time left to pay:' : 'Time left to pick and pay:';
+  return `<h2 id="sp-title">${head}</h2>${left ? `<p class="mt0">${label}</p><p class="popup-time">${esc(left)}.</p>` : ''}`;
+}
+
+function showPopup() {
+  const p = state.v?.family?.popup;
+  if (!p || !p.kind) return;
+  let body = '';
+  let tick = null;
+  if (p.kind === 'turn') {
+    const rows = (state.v.offers || []).filter((o) => String(o.turn_id ?? o.id) === p.turn_id);
+    if (!rows.length) return;
+    const at = Math.max(...rows.map((o) => Date.parse(o.respond_by_at || '')).filter(Number.isFinite));
+    body = turnPopupHtml(rows, at);
+    if (Number.isFinite(at)) tick = () => turnPopupHtml(rows, at);
+  } else if (p.text) {
+    body = `<h2 id="sp-title">${esc(state.v.kennel.name || 'A note for you')}</h2><p class="pre">${esc(p.text)}</p>`;
+  }
+  if (!body) return;
+  const before = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal status-popup${p.kind === 'turn' ? ' turn' : ''}" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+      <div data-sp="body">${body}</div>
+      <div class="modal-actions"><button type="button" class="primary" data-sp="close">Got it</button></div>
+    </div>`;
+  const slot = overlay.querySelector('[data-sp="body"]');
+  const timer = tick ? setInterval(() => { const next = tick(); if (slot.innerHTML !== next) slot.innerHTML = next; }, 1000) : null;
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(); } };
+  const done = () => {
+    if (timer) clearInterval(timer);
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+  };
+  overlay.querySelector('[data-sp="close"]').addEventListener('click', done);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-sp="close"]').focus();
+}
+
 function render() {
   // Keep the sections they opened open (card()).
   for (const d of $('mine').querySelectorAll('details[data-key]')) {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
+  startCountdowns(); // picks open in…, your turn ends in…
   $('signin-slot').innerHTML = previewBanner() || signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
@@ -1552,6 +1627,7 @@ async function load() {
   // A family page only (never on the waitlist): no "Waitlist" in the heading.
   $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
+  if (!state.popupShown) { state.popupShown = true; showPopup(); }
 
   if (!wired) {
     wired = true;

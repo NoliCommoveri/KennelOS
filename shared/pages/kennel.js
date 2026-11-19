@@ -38,7 +38,7 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES, TURN_HOURS_MAX, timeLabel, HALF_HOURS, STATUS_POPUP_DEFAULTS, STATUS_POPUP_MAX, statusPopupTexts } from '../data/waitlistRules.js';
 import { waitlistPolicies, validatePolicies, newPolicy, POLICY_LIMITS } from '../data/waitlistForm.js';
 import { policyStarters, policyHint, basisChanges } from '../data/waitlistPolicies.js';
 import { qaListHtml, wireQaList } from '../assets/qaListEditor.js';
@@ -510,8 +510,19 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
           <div id="wl-closed" class="pill-row">${closedDateChips(liveClosedDates(closedDates(c), todayYMD()))}</div>
           <div class="pill-row" style="margin-top:6px;align-items:center;"><input id="wl-closed-new" type="date" style="width:auto;"><button type="button" class="btn btn-sm" data-act="closed-add">Add date</button></div>
           <span class="field-hint">Any day you're closed, for any reason: skipped like a closed weekday. A date drops off the list by itself a week after it passes.</span></div>
-        <div class="field"><label>Days to accept and pay the deposit</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}">
+        <div class="field"><label for="wl-turn-unit">How long a turn lasts</label><select id="wl-turn-unit">
+            <option value="days"${c.turn_hours == null ? ' selected' : ''}>Days (ends at 11:59 pm)</option>
+            <option value="hours"${c.turn_hours != null ? ' selected' : ''}>Hours (ends at a time of day)</option></select>
+          <span class="field-hint">Hours: a turn ends that many hours after it's offered, on the half hour, inside your families' waking hours. Offered at 7:00 pm with 24 hours, it ends at 7:00 pm the next day.</span></div>
+        <div class="field" data-turn-unit="days"${c.turn_hours != null ? ' hidden' : ''}><label>Days to accept and pay the deposit</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}">
           <span class="field-hint">From the offer. A pup they pick is held until then; no deposit in time counts as no response.</span></div>
+        <div class="field" data-turn-unit="hours"${c.turn_hours == null ? ' hidden' : ''}><label for="wl-turn-hours">Hours to accept and pay the deposit</label><input id="wl-turn-hours" type="number" min="1" max="${TURN_HOURS_MAX}" step="1" value="${esc(c.turn_hours ?? 24)}">
+          <span class="field-hint">From the offer, counting only the days you do business. A pup they pick is held until then; no deposit in time counts as no response. A program's longer window counts its days as 24 hours each.</span></div>
+        <div class="field field-wide" data-turn-unit="hours"${c.turn_hours == null ? ' hidden' : ''}><label for="wl-awake-from">Families' waking hours</label>
+          <div class="pill-row" style="align-items:center;"><select id="wl-awake-from" style="width:auto;">${halfHourOptions(c.awake_from)}</select> to <select id="wl-awake-until" style="width:auto;">${halfHourOptions(c.awake_until)}</select></div>
+          <span class="field-hint">A deadline that would fall outside these hours moves to when they start: the same morning, or the morning of your next open day. Your time zone's clock.</span></div>
+        <div class="field"><label for="wl-picks-time">Usual time picks open</label><select id="wl-picks-time"><option value="">No time set</option>${halfHourOptions(c.picks_open_time)}</select>
+          <span class="field-hint">On a litter's accept deposits date, your time zone. Families see a countdown to it; a litter can set its own on its page.</span></div>
         <div class="field"><label>Passes before removal</label><input id="wl-passes" type="number" min="1" step="1" value="${esc(c.max_passes)}"></div>
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
@@ -521,7 +532,7 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
         </div>
         <div class="field field-wide"><label>Offer the next family automatically when…</label>
           ${WAITLIST_AUTO_OFFER_TRIGGER.map((t) => `<label class="check-inline"><input type="checkbox" data-wl-auto="${esc(t.value)}"${c.auto_offer_on.includes(t.value) ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}
-          <span class="field-hint">Unticked: you make that offer yourself, with "Offer to them" or "Offer a litter…"; the app just tells you who's next.${isWaitlistOnlineOffered() ? ' With your list online, KennelOS also does the ticked ones while your phone is off: a turn whose last day has passed is closed as no response (or no deposit), and a family\'s pass or leaving on their status page moves the turn on; the next family in line is offered and emailed. Your phone records it all at its next update.' : ''}</span>
+          <span class="field-hint">Unticked: you make that offer yourself, with "Offer to them" or "Offer a litter…"; the app just tells you who's next.${isWaitlistOnlineOffered() ? ' With your list online, KennelOS also does the ticked ones while your phone is off: a turn whose deadline has passed is closed as no response (or no deposit), and a family\'s pass or leaving on their status page moves the turn on; the next family in line is offered and emailed. Your phone records it all at its next update.' : ''}</span>
         </div>
 `)}
 ${group('passing', 'Passing & readiness', online ? 'Reasons families give, and "Ready now?"' : 'Reasons families give when they pass', `
@@ -542,11 +553,11 @@ ${online ? readySettings(c) : ''}`)}
           <span class="field-hint">A family in a program you gave an icon (Waitlist programs) shows that icon to the left of their number; tapping it shows the program's description for families, so others can see why they're ahead. The program's name never shows, and programs without an icon stay private. In the list copied as text, the icon is an emoji with its description below the list.</span>
         </div>
 ${online ? upcomingSwitches(c) + featuredSettings(c) + parentTestsSetting(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
-${group('messages', 'Messages to families', online ? '"Almost your turn" and the emails families get' : 'The "Almost your turn" message', `
+${group('messages', 'Messages to families', online ? '"Almost your turn", status page pop-ups and the emails families get' : 'The "Almost your turn" message', `
         <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
           <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
           <span class="field-hint">Sent from the Almost your turn… button to families whose turn is coming up. The first line is the email subject. [Kennel Name] becomes ${esc(k.kennel_name)}. Clear it to go back to the default.</span></div>
-${online ? emailTemplateSettings(c) : ''}`)}
+${online ? statusPopupSettings(c) + emailTemplateSettings(c) : ''}`)}
       ${online ? group('backout', 'Backing out', 'Reasons, your deposit policy, what families read', backOutSettings(c)) : ''}
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -556,6 +567,27 @@ ${online ? emailTemplateSettings(c) : ''}`)}
 // on the public list and on family pages, all off until she ticks one. Shown
 // with the parents' call names and titles and her dates.
 // "Ready now?" unanswered (Waitlist Spec §16.7): her rule, and the days.
+// The pop-up a waiting family sees on opening their status page (owner, 2026-11-19):
+// her words for each moment. A box left as the default keeps following it; an empty
+// box turns that pop-up off. The turn holder's countdown pop-up isn't worded here.
+const STATUS_POPUP_KINDS = [
+  { kind: 'soon', label: 'Picks opening soon, and their turn should come', hint: 'A born litter they match, picks not open yet, and enough pups for them.' },
+  { kind: 'soon_far', label: 'Picks opening soon, but pups may run out first', hint: 'A born litter they match, picks not open yet, with more families ahead who\'d take their pups than pups.' },
+  { kind: 'open', label: 'Picks open, and their turn should come', hint: 'Shown whether another family is choosing right now or between turns, as long as a pup they want should be left for them.' },
+  { kind: 'open_far', label: 'Picks open, but pups may run out first', hint: 'More families ahead who\'d take their pups than pups left.' },
+  { kind: 'skipped', label: 'Not being offered this litter', hint: 'They said "Not this litter", used or passed their turn on it, chose other parents, or no pup matches what they asked for.' }
+];
+function statusPopupSettings(c) {
+  const texts = statusPopupTexts(c);
+  return `<div class="field field-wide"><label>Status page pop-ups</label>
+      <span class="field-hint">When a waiting family opens their status page, one of these pops up (closed with "Got it"), whichever fits them best. A family holding a turn sees the time they have left to pick and pay instead. <strong>[Kennel]</strong> becomes your kennel's name; <strong>[opening soon/open]</strong> becomes "opening soon" or "open". Empty a box to turn that pop-up off. Paused families see none.</span>
+      ${STATUS_POPUP_KINDS.map(({ kind, label, hint }) => `<details style="margin:6px 0;"><summary>${esc(label)}</summary>
+        <div class="field" style="margin-top:6px;"><textarea style="min-height:90px;" maxlength="${STATUS_POPUP_MAX}" data-popup="${esc(kind)}">${esc(texts[kind])}</textarea>
+          <span class="field-hint">${esc(hint)}${texts[kind] ? '' : ' Off: no pop-up for this.'}</span></div>
+      </details>`).join('')}
+    </div>`;
+}
+
 // Her wording for the emails families get once the list is online (W2 step 6;
 // data/waitlistEmails.js). One folded block per email; a field left as the
 // default (or cleared) keeps following the default.
@@ -675,6 +707,12 @@ function parentTestsSetting(c) {
 }
 
 // Her closed dates as removable chips (data-closed holds the date).
+// Every half hour of the day as <option>s, `selected` chosen (waking hours).
+function halfHourOptions(selected) {
+  return HALF_HOURS
+    .map((t) => `<option value="${t}"${t === selected ? ' selected' : ''}>${esc(timeLabel(t))}</option>`).join('');
+}
+
 function closedDateChips(dates) {
   return dates.length ? dates.map((d) => `<span class="badge badge-neutral" data-closed="${esc(d)}" style="margin:2px 4px 2px 0;">${esc(fmtDate(d))} <button type="button" class="btn btn-sm" data-act="closed-remove" aria-label="Remove ${esc(fmtDate(d))}" style="padding:0 6px;margin-left:4px;">✕</button></span>`).join('')
     : '<span class="faint">None yet.</span>';
@@ -702,6 +740,11 @@ async function onSaveWaitlist() {
     fee_credit_toward: q('#wl-credit-toward').value,
     fee_due_days: num('#wl-fee-days'),
     respond_days: num('#wl-respond'),
+    // Turns in hours (Waitlist Timers plan): null = days.
+    turn_hours: q('#wl-turn-unit').value === 'hours' ? num('#wl-turn-hours') : null,
+    awake_from: q('#wl-awake-from').value,
+    awake_until: q('#wl-awake-until').value,
+    picks_open_time: q('#wl-picks-time').value || null,
     max_passes: num('#wl-passes'),
     payment_instructions: q('#wl-instructions').value.trim(),
     ...(q('#wl-fee-when') ? { fee_link_when: q('#wl-fee-when').value } : {}),
@@ -734,6 +777,15 @@ async function onSaveWaitlist() {
     }
     waitlist_config.email_templates = Object.keys(templates).length ? templates : null;
     waitlist_config.email_reminders = q('#wl-reminders').checked;
+  }
+  if (els.config.querySelector('[data-popup]')) {
+    // Only what differs from the default is stored ('' = off), so a default stays the default.
+    const popups = {};
+    for (const el of els.config.querySelectorAll('[data-popup]')) {
+      const value = el.value.trim();
+      if (value !== STATUS_POPUP_DEFAULTS[el.dataset.popup]) popups[el.dataset.popup] = value;
+    }
+    waitlist_config.status_popups = Object.keys(popups).length ? popups : null;
   }
   if (q('#wl-fb-on')) {
     const page = q('#wl-fb-page').value.trim();
@@ -1148,6 +1200,10 @@ function wireConfig() {
   if (saveWaitlist) saveWaitlist.addEventListener('click', onSaveWaitlist);
   // Closed dates: added and removed here, saved with the rest.
   const closedList = () => [...els.config.querySelectorAll('[data-closed]')].map((x) => x.dataset.closed);
+  // Days or hours: show the fields for the one she picked.
+  els.config.querySelector('#wl-turn-unit')?.addEventListener('change', (e) => {
+    for (const el of els.config.querySelectorAll('[data-turn-unit]')) el.hidden = el.dataset.turnUnit !== e.target.value;
+  });
   els.config.querySelector('[data-act="closed-add"]')?.addEventListener('click', () => {
     const input = els.config.querySelector('#wl-closed-new');
     if (!input.value) return;

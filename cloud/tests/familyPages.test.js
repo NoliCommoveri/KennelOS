@@ -121,7 +121,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.equal(v.family.name, 'Ann Lee');
   assert.equal(v.family.position, 1);
   assert.equal('email' in v.family, false, 'their email is not on the page');
-  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, prices: null, offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null, deposit_instructions: '', deposit_amount: null,
+  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, prices: null, offered_date: '2026-10-07', respond_by_date: '2026-10-10', respond_by_at: '2026-10-11T05:00:00.000Z', picked_dog_id: null, deposit_instructions: '', deposit_amount: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
@@ -208,7 +208,7 @@ test('pairings and early litters (Spec §16.4): each where she shows it; a litte
   const v = statusView(p, 'ann');
   assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
   assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
-    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', expected_month: null, pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
+    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', picks_expected_at: '2026-10-20T05:00:00.000Z', expected_month: null, pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
   assert.equal(JSON.stringify(v).includes('secret-sire'), false);
   assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');
   // A litter in their turn shows even if her picks were stopped.

@@ -351,6 +351,11 @@ the applicant page.
 | **Messages** (deposit request, payment-link and payment-request texts, pick and side-sale texts, waitlist emails / outbox, pickup and go-home messages, Kels's messages) | Amounts and dates from the statement. A payment request asks for the next amount by its date; the deposit message says what follows and when; a pickup message states what's owed at pickup plus the final-payment methods. |
 | **Stripe payment links** | A link can be for the next payment. The payment comes back as a `payments` row through `integrationEvents`. |
 
+**Modified (review K10-11, R4):** a refund on a sale that ended and kept money (Returned for
+a reason other than health, or Cancelled) is recorded on the sale as `refund_amount` and
+`refund_date` (private, like `price`) and comes off its earned income on that date. It isn't
+a `payments` row and it isn't an expense category.
+
 ---
 
 ## 8. Contracts
