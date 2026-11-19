@@ -709,6 +709,9 @@ device_erasures(user_id, device_id, device_label, requested_at, confirmed_at, PR
   prune has already deleted. The real recovery path is `/ops`'s **export/import of the D1
   metadata** (§6.6). The breeders' own devices remain the primary copy of their data either
   way; the cloud is the backup.
+  **Modified (2026-11-19, review K4-14, owner decision R7):** the import isn't one batch any
+  more. It writes 200 rows at a time, parents first, and a failure part-way is finished by
+  running the same file again (`cloud/README.md`, `src/backup.js`).
 
 ### 6.4 Security & privacy posture
 - **What the server holds** is the cloud tier only (§5), plus a keyed hash of the account

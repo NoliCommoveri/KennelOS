@@ -28,15 +28,16 @@ export const contentPackRepo = {
   //
   // The documents a pack gates are PER PET (two pups from one breeder share the
   // kennel pack, siblings share the litter pack), so `pets` (unindexed) keeps
-  // each pet's own fetch: `{ [petId]: { version, complete } }` (K14-4).
+  // each pet's own fetch: `{ [petId]: { version, complete, pupManifest? } }` (K14-4;
+  // pupManifest: the pup's own manifest id it was fetched with, K14-3).
   // `complete` is false when a file didn't come down (K14-14); the app retries
   // that pet's pack on the next open (contentPackFetch.retryIncompletePacks).
-  async upsert({ pack_key, kennel_name = '', scope = '', version = 1, pet_id = null, complete = true }) {
+  async upsert({ pack_key, kennel_name = '', scope = '', version = 1, pet_id = null, complete = true, pup_manifest = null }) {
     if (!pack_key) throw new Error('contentPackRepo.upsert: pack_key is required.');
     const existing = await contentPackRepo.getByKey(pack_key);
     const now = nowIso();
     const pets = { ...((existing && existing.pets) || {}) };
-    if (pet_id) pets[pet_id] = { version, complete: complete === true };
+    if (pet_id) pets[pet_id] = { version, complete: complete === true, ...(pup_manifest ? { pupManifest: pup_manifest } : {}) };
     if (existing) {
       const record = { ...existing, kennel_name, scope, version: Math.max(version, existing.version || 0), fetched_at: now, pets };
       await db.content_packs.put(record);

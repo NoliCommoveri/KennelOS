@@ -56,7 +56,9 @@ function isValidManifest(m) {
 // A litter-scope manifest's files are already tagged per-dog on the breeder
 // side (fureverContentPack.js) — this pup only gets its OWN documents plus the
 // litter's sire/dam documents (shared with every pup in the litter), never
-// another pup's. A kennel-scope manifest has no such tagging and is always
+// another pup's. Since per-pup packs (K14-3) a litter manifest holds only the
+// sire's and dam's, and the pup's own come from its own manifest (the seed's
+// pupManifestFileId); this filter stays for a litter pack published before. A kennel-scope manifest has no such tagging and is always
 // shared with everyone, by design. `pupId` is this family's pet.pup_id — the
 // same breeder-side Dog id the manifest's `dogId`/`parentDogIds` are stated in.
 export function filesForThisPup(manifest, pupId) {
@@ -86,9 +88,26 @@ export async function fetchOnePackage(petId, pointer, pupId) {
   }
   if (!isValidManifest(manifest)) return;
 
+  // This pup's own manifest, when the seed names one (K14-3). Unreachable or
+  // malformed: leave everything as it was and try again next open, as for the
+  // litter's.
+  const pupManifestId = pointer.pupManifestFileId || null;
+  let pupManifest = null;
+  if (pupManifestId) {
+    try {
+      pupManifest = await fetchManifestJson(pupManifestId, pointer.pupManifestResourceKey);
+    } catch {
+      return;
+    }
+    if (!isValidManifest(pupManifest)) return;
+  }
+
   const cached = await contentPackRepo.getByKey(pointer.packKey);
   const mine = contentPackRepo.petState(cached, petId);
-  if (mine && mine.complete && typeof mine.version === 'number' && manifest.version <= mine.version) {
+  // Skipped only when this pet has this version whole AND fetched it with the
+  // same pup manifest: a resend that adds the pup's pack fetches again.
+  if (mine && mine.complete && typeof mine.version === 'number' && manifest.version <= mine.version
+    && (mine.pupManifest || null) === pupManifestId) {
     return; // this pet already has this version, whole — cheap no-op (§4.4 step 2)
   }
 
@@ -97,7 +116,8 @@ export async function fetchOnePackage(petId, pointer, pupId) {
   const entries = [];
   const keepDocIds = [];
   let failed = 0;
-  for (const f of filesForThisPup(manifest, pupId)) {
+  const listed = [...filesForThisPup(manifest, pupId), ...(pupManifest ? pupManifest.files : [])];
+  for (const f of listed) {
     if (!f || !f.fileId) continue;
     try {
       const blob = await fetchFileBlob(f.fileId, f.resourceKey);
@@ -124,7 +144,8 @@ export async function fetchOnePackage(petId, pointer, pupId) {
     scope: manifest.scope || pointer.scope || '',
     version: manifest.version,
     pet_id: petId,
-    complete: failed === 0
+    complete: failed === 0,
+    pup_manifest: pupManifestId
   });
 }
 

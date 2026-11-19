@@ -6182,3 +6182,102 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   CI, `local` otherwise), so each deploy refreshes testers' caches. `tests/nextChannel.test.js`
   updated; `build/README.md` "Next channel".
 - **Service worker:** no app file added or changed.
+
+## 2026-11-19: Review batch C: the duplicate scan at scale, and big, repeated and non-UTF-8 imports
+
+Review Remainder plan batch C (K1-4, K2-7, K2-11, K2-12). No owner decision needed.
+- **K1-4, the duplicate scan froze the page** (`data/tidyRules.js`, `data/duplicateScan.js`,
+  `data/dogSearch.js`, `data/recordMerge.js`): each dog's keys are built once per scan
+  (`dogIdentity`), call names are bucketed with the birthday (`eachDogPair`; an undated dog
+  is compared with every birthday of its name), `compareIdentities` rules a pair out before
+  building any label, and the scan makes one pass over dog pairs for a file Merge's rules and
+  the tidy-up's instead of comparing them twice. `findDuplicatesAsync` gives the page a turn
+  between tables so "Scanning…" paints; the card uses it. 4,000 dogs in 8 call names: the scan
+  5.7 s → 0.05 s and the tidy-up 4.4 s → 0.03 s (Node); with no birthdays, 5.3 s → 0.7 s and
+  4.1 s → 0.6 s, and under 1 s on the page in Chromium. Results checked identical to main's
+  over 3,000 random programs for both.
+- **K2-7, a 10,000-row import** (`data/csvImport.js`, `assets/importView.js`,
+  `data/settings.js`): the preview draws the first 200 rows and every review row
+  (`previewRows`) with "Showing N of M"; the Match existing list is filled only when used;
+  `commitPlan` writes 200 rows per transaction with `onProgress`, the view shows "Imported
+  2,400 of 10,000…", and `settings.setImportProgress` keeps how far it got, so an import cut
+  off part-way says on the next visit where it stopped.
+- **K2-11, a re-import rewrote every record** (`markUnchanged`): an update keeps only the
+  fields that differ; one that changes nothing is `unchanged`, counted and never written. Rows
+  linked to a parent in the file or creating a contact at commit stay updates. The expense
+  import, which has its own commit, opts out.
+- **K2-12, non-UTF-8 files** (`parseCsv`, `decodeCsvFile`): bytes decoded as UTF-8, else
+  Windows-1252 with the warning in the preview, the several-file import and the expense
+  import.
+- Tests: `tests/duplicateScan.test.js` (4,000 dogs both ways, under a generous bound, and
+  the async scan), `tests/csvImportPlan.test.js` (unchanged re-import keeps `updated_at`, only
+  differing fields, the opt-out, chunked progress, Windows-1252 "Zoë", the 10,000-row
+  preview); `tests/csvImport.test.js` and `tests/keeperTests.test.js` stub the transaction
+  where they stub the repo. `node --test`: 2246 pass, 1 todo (Load Performance Phase 3).
+- Docs: End-State guide §9 (reading the file, big files, only what differs is written) and
+  the duplicates card (dogs at scale); Review Remainder plan status; `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added, renamed or removed.
+
+## 2026-11-19: Review batch B: per-pup Furever packs, and two fields to the cloud
+
+Review Remainder plan batch B (K14-3, K1-5). **Owner decisions** (2026-11-19, as
+recommended): R1, `litters.furever_pack` and `dogs.status_date` are cloud fields; R6, the next
+publish moves every pup to its own pack and trashes the old shared files.
+- **Publish** (`data/fureverContentPack.js`): a litter's folder and manifest hold only the
+  sire's and dam's documents. Each pup's own go in its own folder (`Litter — <nickname> —
+  <pup>`), beside the litter's under the unshared root, with its own `pack.json` (scope `pup`)
+  at the litter's version; pointers in `furever_pack.pupManifests`. A pup document from before
+  (no `folderId`) is uploaded again into its pup's folder and the old copy trashed, and the
+  console then says to send each family its Furever link again. **Modified** from the plan:
+  the pup folders aren't inside the litter's (a sub-folder inherits its link share), and
+  `pupManifests` is on the pointer and in each seed, not in the litter manifest.
+- **Seed** (`data/fureverSeedExport.js`, `packagePointer` exported): a litter pointer carries
+  only this pup's `pupManifestFileId` / `pupManifestResourceKey`.
+- **Furever** (`furever/data/contentPackFetch.js`, `contentPackRepo.js`): reads the pup's own
+  manifest beside the litter's; skips a fetch only at the same version and pup manifest, so a
+  resend that adds one fetches again; an older litter pack is still filtered to this pup.
+- **Console** (`pages/furever.js`): the confirmation covers the sire's and dam's documents and
+  contracts; a pup's own other documents need none. The litter card's hint says a pup's
+  documents go in a pack only its family is sent.
+- **Cloud fields:** `furever_pack` (litters) and `status_date` (dogs) in `syncRegistry.js`;
+  `cloud/src/lib/cloudFields.js` regenerated.
+- Tests: new `tests/fureverPupPacks.test.js` (a fake Google Drive: the litter manifest holds
+  only the parents', family B's seed and the litter manifest hold no id of pup A's, pup
+  folders aren't in the shared one, a republish over an old pack moves and trashes, an empty
+  pup manifest, the kennel pack unchanged); `tests/fureverData.test.js` (own pack plus the
+  parents', a resend adding the pup pack, an old-shape pack, an unreachable pup pack).
+  `node --test`: 2256 pass, 1 todo; `cd cloud && npm test`: 390 pass.
+- Docs: End-State guide §27.1 and the Dog and Litter field rows, the Content Package Fetch
+  Mechanism (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added, renamed or removed (KennelOS or Furever).
+
+## 2026-11-19: Review batch D: Worker reads that grow with programs, and a restore that can finish
+
+Review Remainder plan batch D (K4-11, K4-14). Worker only. R7 (chunk the restore and make it
+re-runnable, giving up "lands whole or not at all") is built as recommended and waits on the
+owner's confirmation.
+- **K4-11** (`src/retention.js`, `src/notify.js`): retention reads committed snapshots a page of
+  200 programs at a time and stops once a run's 1,000 deletes are full; the pending read has a
+  `LIMIT`. `runDigests` pages `notify_settings` by program (200). `syncCounts` is unchanged: three
+  `COUNT(*)`s, one row each.
+- **K4-14** (`src/backup.js`, `src/ops.js`): `exportAll` reads each table 1,000 rows a page and
+  leaves out the restore's own note. `importAll` checks everything first as before, then writes
+  200 rows a batch in `EXPORT_TABLES` order with `INSERT OR IGNORE`; `ops_config`
+  `restore_in_progress` (the file's `exported_at`) lets that file, and only it, carry on over a
+  partly-restored database, and is removed when it finishes. /ops says "Restored N of 33 tables
+  (…). Run it again with the same file to finish." **Modified** from the plan: `OR IGNORE`, not
+  `OR REPLACE`, since a replace deletes first and a cascading foreign key would take children.
+- **Measured** locally (node:sqlite, not D1) at 2,000 programs, 108,000 snapshots, 100,000
+  `wl_events`, 4,000 `sync_devices`: retention 0.8 s, export 0.8 s (55 MB), import 3.6 s in 1,104
+  batches. A run against a copy of production is still to do.
+- Tests: new `cloud/tests/scale.test.js`, with reads capped by row count the way D1 caps a
+  response: retention over more programs than a page keeps its cap and reaches them all, the
+  digests reach programs past the first page, the export pages, and a restore failed on its third
+  batch and run again ends identical to a clean one (another file refused meanwhile). All four
+  fail on the code before. `cd cloud && npm test`: 394 pass; `node --test`: 2256 pass, 1 todo.
+- Docs: `cloud/README.md` (retention, backup, the measured run), Cloud Phase 1 plan §6.3
+  (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file touched. No migration.
+- **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v159` for review batches B, C and D
+  (owner's go-ahead), so installed copies pick up the import, duplicate-scan and Furever changes.
+
