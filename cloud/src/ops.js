@@ -14,7 +14,7 @@ import { applyPending, migrationStatus } from './migrate.js';
 import { healthCheck } from './health.js';
 import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
 import { runRetention } from './retention.js';
-import { exportAll, importAll } from './backup.js';
+import { exportAll, importAll, EXPORT_TABLES } from './backup.js';
 import { mailMode, sendTestEmail, mailCountsThisMonth, mailDailySummary } from './mail.js';
 import { checkMapbox } from './geo.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
@@ -562,6 +562,10 @@ async function route(request, env) {
       return dashboard(env, '<p class="bad">That file is not JSON.</p>');
     }
     const result = await importAll(env.DB, data);
+    if (result.partial) {
+      const names = result.done.slice(0, 6).join(', ') + (result.done.length > 6 ? ', …' : '');
+      return dashboard(env, `<p class="bad">Restored ${esc(result.done.length)} of ${esc(EXPORT_TABLES.length)} tables${result.done.length ? ` (${esc(names)})` : ''}. Run it again with the same file to finish. ${esc(result.reason)}</p>`);
+    }
     return dashboard(env, result.ok
       ? `<p class="ok">Imported ${esc(result.rows)} rows.</p>`
       : `<p class="bad">Nothing was imported. ${esc(result.reason)}</p>`);

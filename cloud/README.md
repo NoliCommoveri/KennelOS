@@ -157,8 +157,18 @@ src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweep
                        objects D1 doesn't track, for programs D1 knows, uploaded over a day ago;
                        more than 1000 in one run deletes none (D1 may not be the real index). The
                        sweep runs after the D1 purge, on its own: an R2 failure skips only it
-                       (r2SweepError in the summary, said on /ops)
-src/backup.js          /ops export/import of the D1 rows (not R2)
+                       (r2SweepError in the summary, said on /ops). Committed snapshots are read a
+                       page of programs at a time (PROGRAM_PAGE, 200), stopping once a run's 1000
+                       deletes are full; the digests page notify_settings the same way (DIGEST_PAGE)
+src/backup.js          /ops export/import of the D1 rows (not R2). The export reads each table 1000
+                       rows a page. The import writes 200 rows a batch, parents first, INSERT OR
+                       IGNORE; a failure part-way says "Restored 14 of 33 tables (…). Run it again
+                       with the same file to finish", and ops_config restore_in_progress (the
+                       file's exported_at) lets only that file carry on over the rows already in.
+                       Measured locally (node:sqlite, not D1) at 2,000 programs, 108,000 snapshots,
+                       100,000 wl_events, 4,000 sync_devices: retention 0.8 s, export 0.8 s and a
+                       55 MB file, import 3.6 s in 1,104 batches. A real run against a copy of
+                       production is still to do
 src/gate.js            503 {maintenance:true} until every bundled migration is applied and none
                        drifted. An orphan (applied but not in this build, after a rollback) doesn't
                        gate: the schema only adds; /ops shows it

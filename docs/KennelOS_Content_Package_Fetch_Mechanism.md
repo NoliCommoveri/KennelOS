@@ -129,6 +129,16 @@ fields by name; a new Dog/Sale/Litter field never rides along silently).
 }
 ```
 
+**Modified (2026-11-19, review K14-3, Review Remainder R6):** a litter's manifest now holds
+only the sire's and dam's documents. Each pup's own documents are in that pup's own folder,
+beside the litter's under the unshared `KennelOS Furever` root (not inside the litter's folder,
+whose link share a sub-folder would inherit), with its own `pack.json` (`scope:"pup"`,
+`pupId`, the litter's `version`). The litter's `furever_pack.pupManifests` keeps each pup's
+`{ folderId, manifestFileId, manifestResourceKey }`, and a family's seed pointer carries only
+its own pup's as `pupManifestFileId` / `pupManifestResourceKey` (§3.2), so a family is never
+given another pup's file ids. `furever_pack` is a cloud field (owner, 2026-11-19). The per-pup
+filter below still runs, for litter packs published before. End-State guide §27.1.
+
 **Per-pup scoping (scope:"litter" only).** The manifest is one shared file for
 the whole litter (one Drive folder, one `pack.json`), but every pup's Furever
 app fetches the SAME manifest and must not show every OTHER pup's documents.
