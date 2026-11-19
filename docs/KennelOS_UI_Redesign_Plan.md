@@ -5,13 +5,13 @@
 >
 > **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
 > copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `KCfKzER1Fo7aEYd7idfpS4`, version of 2026-11-19: the 2026-11-18 design, artifact
-> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page drawn in). Open it in a browser and use
+> `KCfKzER1Fo7aEYd7idfpS4`, version 2 of 2026-11-19: the 2026-11-18 design, artifact
+> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page and D9's Pricing and schedules drawn in). Open it in a browser and use
 > the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
 > owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
-> **Decisions:** the fidelity rule in §2 and D1–D8 (§8) are the owner's (2026-11-19).
+> **Decisions:** the fidelity rule in §2 and D1–D9 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
 
@@ -46,7 +46,9 @@ From the prototype's Design notes, which are part of this plan:
   highlighted, recent searches kept.
 - **Setup.** Settings get one home, More › Setup: what's left to finish, then one row per
   area with a summary of the answers; each area is questions with the answer beside them.
-  The only switches are in **What you use**.
+  The only switches are in **What you use**. One exception (D9): her usual prices, deposit,
+  timing and ways to pay live on Business › **Pricing and schedules**, and Setup's row for
+  them opens that screen.
 - **Planned features** keep the places the prototype reserves for them (dashed outline,
   footnote). Nothing planned ships as a placeholder (D5).
 
@@ -157,7 +159,7 @@ Each phase is one or more PRs into `next`, each with §6's checks and screenshot
 5. **Waitlist tab.** Needs you (with the tab badge), Selling now, The list, Applications,
    Fees due, Family requests, Turn order, Picks preview, Programs.
 6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries,
-   Reports, Accounts, Extra charges, Payment schedules, Stud services, Contracts.
+   Reports, Accounts, Extra charges, Pricing and schedules (D9), Stud services, Contracts.
 7. **More and Setup.** Setup's areas and questions, What you use; Backup, Import/Export,
    Sharing, Danger zone. Needs D2.
 8. **Filters everywhere.** The shared filter sheet replaces each list's own controls.
@@ -245,6 +247,17 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     email or phone repeated), offers, fee, sale, go-home, contract, messages, status page and
     History are tiles. Every waitlist family and client is a row in People. Design notes:
     "One person, one page". Phases 5 and 6 build it.
+- **D9. Pricing and schedules.** **Decided: her usual price, deposit, timing and ways to pay
+  sit with her saved payment schedules, on one screen, Business › Pricing and schedules.**
+  They're settings, but ones she changes often, and to her a "payment schedule" means all of
+  it: her usual price (and male and female prices when they differ, and the full
+  registration surcharge), her usual deposit, when it and the balance are due, and how
+  families pay. The screen opens on "A usual sale" in a sentence, then those answers as
+  question rows (the same rows as Setup) and the saved schedules, the usual one marked.
+  New sales start from these; any one sale can still differ. Setup's row for them opens the
+  same screen (not a copy), and Setup keeps Invoices & receipts for the invoice footer and
+  receipt wording. In the prototype: `S.pricing`; a litter's Pricing links to it with
+  "Change your usual prices". Whether these answers sync is part of D2's list.
   - **Why.** The waitlist family page edited the application's copy of name, email and phone
     while emails, codes and contracts read the contact's, so a corrected email changed
     nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page

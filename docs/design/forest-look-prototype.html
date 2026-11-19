@@ -628,7 +628,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Line management</h3>
     <p>Drawn from <code>docs/KennelOS_Line_Management_Plan.md</code> (a plan; nothing built). Every dog is related to every other through the sire and dam links: a dog's Relatives, a pair check for any two dogs (relationship by name, COI, shared ancestors, how much pedigree is known, traits side by side, possible colors, DNA), and Litters › Lines (COI if bred for her males × her females, what each dog carries, what the program is missing, how lines produce). Planned pairings over her warning line show on Home, the pairing and both dogs. Traits are their own records, a long-lived grade per dog, with a puppy score kept beside the adult grade. Colors come from her own list as a dropdown, asked for each pup at birth; birth records include stillborn pups. What a dog carries is worked out each time from tests, her color links, its parents and its litters. The sample program is Labradors, so the color genes are real: Ash was never color tested, but yellow and chocolate pups show he carries both. The COI figures are calculated live from the sample pedigree.</p>
-    <p>Extra charges and payment schedules moved out of Setup to Business, next to Accounts: they're lists she builds and reuses, not one-time answers.</p>
+    <p>Extra charges moved out of Setup to Business, next to Accounts: a list she builds and reuses. Her usual price (including male and female prices and the full registration surcharge), deposit, when payments are due, the ways families pay, and her saved payment schedules are together on one screen, Business › <b>Pricing and schedules</b>. They're settings, but ones she changes often, and to her a payment schedule means all of that together. Setup's row for them opens that same screen.</p>
 
     <h3>Lite edition</h3>
     <p>Lite shows fewer tabs and tiles through the same lists in editionConfig, so the shared core stays edition-agnostic. What you use shows Lite's Pro-only features as locked rather than hiding them.</p>
@@ -851,7 +851,8 @@ const FEATURES = [
 /* setup answers, asked as questions */
 const SET = {
   waitlist: { approve: 'Yes, I approve every family', fee: '$250', feeCredit: 'Counts toward the price', feeDays: '7 days', respond: '3 days', passes: '2', offers: 'One family at a time', openPicks: 'By hand', ready: 'Keep them paused', tests: 'Normal results only' },
-  pricing: { pet: '$3,200', deposit: '$500', fullReg: '+$1,000', readyAt: '8 weeks', depositsOpen: 'When picks open', priceBy: 'Same for both sexes' },
+  pricing: { pet: '$3,200', male: '$3,400', female: '$3,200', deposit: '$500', fullReg: '+$1,000', readyAt: '8 weeks', depositsOpen: 'When picks open', priceBy: 'Same for both sexes', depositDue: 'Within 3 days of their pick', balanceDue: 'At pickup' },
+  payments: { methods: 'Venmo, Zelle, cash', card: 'Not taken' },
 };
 const QS = {
   waitlist: [
@@ -875,16 +876,33 @@ const QS = {
     ['depositsOpen', 'Deposits open', ['When picks open', 'At whelping', 'By hand']],
   ],
 };
+/* Pricing and schedules (Business): her usual price, deposit, timing and ways to pay,
+   with her saved schedules. Settings, but ones she changes often, so they sit with the
+   schedules they make up rather than in Setup. */
+const PRICE_Q = {
+  male: ['Male price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  female: ['Female price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  depositDue: ['Deposit due', ['Within 2 days of their pick', 'Within 3 days of their pick', 'Within 7 days of their pick']],
+  balanceDue: ['Balance due', ['At pickup', '1 week before pickup', '2 weeks before pickup']],
+  methods: ['They can pay by', ['Venmo, Zelle, cash', 'Venmo, Zelle, cash, check', 'Zelle and cash only', 'Cash only']],
+  card: ['Card payments online', ['Not taken', 'Taken, family pays the fee', 'Taken, I pay the fee']],
+};
+const SCHEDULES = [
+  { id: 'std', n: 'Usual', usual: true, used: 3, s: () => `${SET.pricing.deposit} deposit ${SET.pricing.depositDue.toLowerCase()} · balance ${SET.pricing.balanceDue.toLowerCase()}` },
+  { id: 'three', n: 'Three payments', used: 1, s: () => `${SET.pricing.deposit} deposit · half the rest at 5 weeks · balance ${SET.pricing.balanceDue.toLowerCase()}` },
+  { id: 'monthly', n: 'Monthly', used: 0, s: () => `${SET.pricing.deposit} deposit · $500 a month · paid off by pickup` },
+];
+const qRow = (k, qk, qq, opts) => `<div class="q-row"><button type="button" class="q-head" data-qopen="${k}|${qk}" aria-expanded="${ui.qOpen === k + '|' + qk}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(ui.qOpen === k + '|' + qk ? 'chevron-up' : 'chevron-down')}</button>${ui.qOpen === k + '|' + qk ? `<div class="q-edit">${opts.map((o) => `<button type="button" class="chip" data-qset="${k}|${qk}|${esc(o)}" aria-pressed="${SET[k][qk] === o}">${esc(o)}</button>`).join('')}</div>` : ''}</div>`;
 /* settings that today are scattered; each area names where they live now */
 const SETUP = {
   program: [
     ['ptype', 'compass', 'How you breed', () => typeSummary(), 'Nowhere yet: new with the Program Types Plan'],
     ['features', 'toggle-right', 'What you use', () => `${Object.values(FEAT).filter(Boolean).length} of ${FEATURES.length} features on`, 'Edition flags, plus on/off boxes on the Kennel, Companion and Furever pages'],
     ['kennel', 'house', 'Your kennel', () => 'Thornfield Kennels · THORN · Hartland, VT', 'Settings › Your kennel, and the Kennel page (logo)'],
-    ['pricing', 'tag', 'Puppies & pricing', () => `${SET.pricing.pet} pet · ${SET.pricing.deposit} deposit · ready at ${SET.pricing.readyAt}`, "Price boxes on each litter, and sale defaults"],
+    ['pricing', 'tag', 'Pricing and schedules', () => `${usualPrice()} · ${SET.pricing.deposit} deposit · balance ${SET.pricing.balanceDue.toLowerCase()}`, 'Price boxes on each litter, sale defaults, invoice payment methods, and the Payment schedules page', null, null, 'pricing'],
     ['waitlist', 'list-ordered', 'Waitlist', () => `${SET.waitlist.fee} fee · ${SET.waitlist.respond} to answer · ${SET.waitlist.passes} passes · 2 programs`, 'Kennel page › Waitlist settings, and the Waitlist programs page'],
     ['breeding', 'git-fork', 'Breeding program', () => `${TRAITS.length} traits · ${COLORS.filter((c) => c.kind === 'color').length} colors · warn at COI ${SET.lines.coi}`, 'Nowhere yet: new with the Line Management Plan. Colors replace the free-text color box on each dog'],
-    ['payments', 'wallet', 'Payments & invoices', () => 'Venmo, Zelle, cash · invoice footer set', 'Invoice defaults. Extra charges and payment schedules moved to Business, next to Accounts'],
+    ['payments', 'receipt', 'Invoices & receipts', () => 'Invoice footer set · receipt wording default', 'Invoice defaults. Extra charges moved to Business, next to Accounts'],
     ['gohome', 'car', 'Go-home & transport', () => 'Pickup places not set · transport $350', "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
     ['care', 'stethoscope', 'Health & care', () => 'OFA hips, elbows, eyes · DNA · Labrador feeding schedule', 'Kennel page › Preferred tests, Feeding schedules, Puppy Record fields, Lifecycle nudges'],
     ['contracts', 'file-pen-line', 'Contracts & e-sign', () => 'Firma connected · 3 templates', 'The Contracts page and e-sign setup', 'contracts'],
@@ -904,7 +922,7 @@ const SETUP = {
 const SETUP_TODO = [['clock', 'amber', 'Set your time zone. Offer deadlines use it.', 'setupsec:kennel'], ['map-pin', 'amber', 'Add your pickup places.', 'setupsec:gohome']];
 const GROUP_Q = {
   kennel: [['Kennel name', 'Thornfield Kennels'], ['Prefix', 'THORN'], ['Location', 'Hartland, VT'], ['Time zone', 'Not set'], ['Breeds', 'Labrador Retriever'], ['Logo', 'Uploaded']],
-  payments: [['Ways families pay', 'Venmo, Zelle, cash'], ['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
+  payments: [['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
   gohome: [['Pickup places', 'Not set'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport fee', '$350 within 300 miles'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
   care: [['Preferred tests', 'OFA hips, elbows, eyes (CAER), DNA panel'], ['Feeding schedule', 'Labrador Retriever'], ['Puppy Record fields', '8 shown'], ['Lifecycle reminders', 'On']],
   contracts: [['E-sign', 'Firma connected'], ['Templates', 'Pet sale, Co-own, Stud service'], ['Send for e-sign', '10 a month included', 1]],
@@ -1016,7 +1034,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1526,7 +1544,7 @@ S.littersec = (p) => {
   } else if (k === 'prep') {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
-    body = `<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section>${setLink('These come from Setup › Puppies & pricing', 'setupsec:pricing')}`;
+    body = `<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section><button type="button" class="set-link" data-open="pricing">${icon('pencil')}Change your usual prices</button>`;
   } else {
     body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
   }
@@ -1551,9 +1569,32 @@ S.business = () => ({
     <section class="card big-rows"><div class="rows">
       ${row({ ic: 'landmark', t: 'Accounts', s: 'Bank, payment and referral accounts', go: 'stub:accounts' })}
       ${FEAT.invoicing ? row({ ic: 'receipt', t: 'Extra charges', s: 'Your price list: crate, training stay, boarding', go: 'stub:extra-charges' }) : ''}
-      ${row({ ic: 'calendar-clock', t: 'Payment schedules', s: 'Saved schedules: deposit, then balance at pickup', go: 'stub:payment-schedules' })}
+      ${row({ ic: 'calendar-clock', t: 'Pricing and schedules', s: `${usualPrice()} · ${SET.pricing.deposit} deposit · ${SCHEDULES.length} saved schedules`, go: 'pricing' })}
     </div></section>`,
 });
+
+const usualPrice = () => (SET.pricing.priceBy === 'Different prices' ? `${SET.pricing.male} male, ${SET.pricing.female} female` : `${SET.pricing.pet} pet`);
+S.pricing = () => {
+  const P = SET.pricing, two = P.priceBy === 'Different prices';
+  const pq = (qk) => qRow('pricing', qk, ...(QS.pricing.find((x) => x[0] === qk)?.slice(1) || PRICE_Q[qk]));
+  const pay = (qk) => qRow('payments', qk, ...PRICE_Q[qk]);
+  return {
+    bar: bar('Pricing and schedules', { action: addBtn('New schedule', 'stub:new-schedule') }),
+    body: `<section class="card hub-head"><div class="group-label" style="padding:0">A usual sale</div>
+        <div class="hub-reg">${two ? `${P.male} for a male, ${P.female} for a female` : `${P.pet} for a pet`}${P.fullReg !== 'Not offered' ? ` · full registration ${P.fullReg}` : ''}</div>
+        <div class="hub-line">${icon('wallet')}${P.deposit} deposit ${P.depositDue.toLowerCase()} · balance ${P.balanceDue.toLowerCase()}</div>
+        <div class="hub-line">${icon('hand-coins')}${SET.payments.methods}${SET.payments.card !== 'Not taken' ? ' · card online' : ''}</div></section>
+      <p class="lede">New sales start from these. You can still change any one sale on its own. Tap a question to change its answer.</p>
+      <div class="group-label">Usual price</div>
+      <section class="card"><div class="rows">${pq('priceBy')}${two ? pq('male') + pq('female') : pq('pet')}${pq('fullReg')}</div></section>
+      <div class="group-label">Deposit and timing</div>
+      <section class="card"><div class="rows">${pq('deposit')}${pq('depositsOpen')}${pq('depositDue')}${pq('balanceDue')}${pq('readyAt')}</div></section>
+      <div class="group-label">Ways families pay</div>
+      <section class="card"><div class="rows">${pay('methods')}${pay('card')}</div></section>
+      <div class="group-label">Saved schedules</div>
+      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: 'stub:payment-schedule' })).join('')}</div></section>`,
+  };
+};
 
 S.sales = () => {
   const shown = applyF('sales', SALES);
@@ -1682,8 +1723,8 @@ S.more = () => ({
 
 S.setup = () => {
   const q = (ui.q.setup || '').toLowerCase();
-  const match = (g) => !q || (g[2] + ' ' + g[3]() + ' ' + (GROUP_Q[g[0]] || []).map((x) => x[0]).join(' ') + ' ' + (QS[g[0]] || []).map((x) => x[1]).join(' ')).toLowerCase().includes(q);
-  const grp = (list) => list.filter(match).filter((g) => !g[5] || FEAT[g[5]]).map(([k, ic, t, sum, from, , planned]) => row({ ic, t, s: sum(), go: `setupsec:${k}`, planned })).join('');
+  const match = (g) => !q || (g[2] + ' ' + g[3]() + ' ' + (GROUP_Q[g[0]] || []).map((x) => x[0]).join(' ') + ' ' + (QS[g[0]] || []).map((x) => x[1]).join(' ') + (g[0] === 'pricing' ? ' ' + Object.values(PRICE_Q).map((x) => x[0]).join(' ') + ' payment schedules' : '')).toLowerCase().includes(q);
+  const grp = (list) => list.filter(match).filter((g) => !g[5] || FEAT[g[5]]).map(([k, ic, t, sum, from, , planned, to]) => row({ ic, t, s: sum(), go: to || `setupsec:${k}`, planned })).join('');
   const prog = grp(SETUP.program), app = grp(SETUP.app);
   return {
     bar: bar('Setup', { ic: 'settings' }),
@@ -1706,12 +1747,12 @@ S.setupsec = (k) => {
       <section class="card"><div class="rows">${FEATURES.map(([f, t, s]) => `<div class="switch-row"><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><button type="button" class="switch" role="switch" aria-checked="${FEAT[f]}" aria-label="${t}" data-feat="${f}"></button></div>`).join('')}</div></section>`;
   } else if (QS[k]) {
     body = `<p class="lede">Tap a question to change its answer. Changes save right away.</p>
-      <section class="card"><div class="rows">${QS[k].map(([qk, qq, opts]) => `<div class="q-row"><button type="button" class="q-head" data-qopen="${k}|${qk}" aria-expanded="${ui.qOpen === k + '|' + qk}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(ui.qOpen === k + '|' + qk ? 'chevron-up' : 'chevron-down')}</button>${ui.qOpen === k + '|' + qk ? `<div class="q-edit">${opts.map((o) => `<button type="button" class="chip" data-qset="${k}|${qk}|${esc(o)}" aria-pressed="${SET[k][qk] === o}">${esc(o)}</button>`).join('')}</div>` : ''}</div>`).join('')}
+      <section class="card"><div class="rows">${QS[k].map(([qk, qq, opts]) => qRow(k, qk, qq, opts)).join('')}
       ${k === 'waitlist' ? row({ ic: 'award', tone: 'violet', t: 'Programs', s: 'Military · Cancer support', go: 'wlprograms' }) : ''}</div></section>`;
   } else {
     body = planned ? `<div class="plan-box">${icon(g[1])}<span>This area is reserved for a planned feature.</span>${planTag(planned)}</div>` : '';
     body += `<section class="card"><div class="rows">${(GROUP_Q[k] || []).map(([qq, a, pn]) => `<div class="q-row${pn ? ' planned' : ''}"><button type="button" class="q-head" data-open="stub:${esc(qq.toLowerCase().replace(/[^a-z]+/g, '-'))}"><span class="q">${qq}${pn ? ' ' + planTag(pn) : ''}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
-    if (!planned) body += `<p class="lede">Not drawn in detail. It would use the same question-and-answer rows as Waitlist and Puppies &amp; pricing.</p>`;
+    if (!planned) body += `<p class="lede">Not drawn in detail. It would use the same question-and-answer rows as Waitlist and Pricing and schedules.</p>`;
   }
   if (from) body += `<p class="from">Today these live in: ${from}.</p>`;
   return { bar: bar(title, { sub: 'Setup' }), body };
@@ -2446,7 +2487,7 @@ const SCREENS = [
   ['How lines produce', 'chart-column', 'Litters, C-sections, abnormalities, colors by sire and dam', 'production'],
   ['Accounts', 'landmark', 'Bank, payment and referral accounts', 'stub:accounts'],
   ['Extra charges', 'receipt', 'Your price list of extras', 'stub:extra-charges'],
-  ['Payment schedules', 'calendar-clock', 'Saved payment schedules', 'stub:payment-schedules'],
+  ['Pricing and schedules', 'calendar-clock', 'Usual price, deposit, timing, ways to pay, saved schedules', 'pricing'],
   ['Setup', 'settings', 'All settings', 'setup'],
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
   ['Import / Export', 'arrow-down-up', 'CSV import, export', 'stub:import-export'],
@@ -2465,10 +2506,11 @@ function searchIndex() {
   SALES.forEach((s) => add('Sales', 'tag', `${s.pup} → ${fam(s.fam).n}`, `${saleState(s)[0]} · ${money(s.price)} · go-home ${s.gohome}`, `dogsec:${s.pup.toLowerCase()}|sale`));
   Object.entries(EVENTS).forEach(([id, evs]) => evs.forEach((e) => add('History', e.type[2], `${e.type[0]}: ${e.t}`, `${dogById(id).name} · ${fmt(e.d)}`, `dogsec:${id}|history`, `history|${e.t}`)));
   LEDGER.forEach((e) => add('Money', e.kind === 'in' ? 'arrow-down-left' : 'arrow-up-right', e.what, `${short(e.d)} · ${e.on.join(', ')} · ${e.party} · ${e.kind === 'in' ? '+' : '−'}${money(e.amt)}`, 'ledger', `ledger|${e.what}`));
-  [...SETUP.program, ...SETUP.app].forEach(([k, ic, t, sm, , feat]) => {
+  [...SETUP.program, ...SETUP.app].forEach(([k, ic, t, sm, , feat, , to]) => {
     if (feat && !FEAT[feat]) return;
-    add('Settings', ic, t, sm(), `setupsec:${k}`);
-    (QS[k] || []).forEach(([qk, q]) => add('Settings', 'settings', q, `${t} · ${SET[k][qk]}`, `setupsec:${k}`));
+    add('Settings', ic, t, sm(), to || `setupsec:${k}`);
+    (QS[k] || []).forEach(([qk, q]) => add('Settings', 'settings', q, `${t} · ${SET[k][qk]}`, to || `setupsec:${k}`));
+    if (k === 'pricing') Object.entries(PRICE_Q).forEach(([qk, [q]]) => add('Settings', 'settings', q, `${t} · ${SET.pricing[qk] ?? SET.payments[qk]}`, 'pricing'));
     (GROUP_Q[k] || []).forEach(([q, a]) => add('Settings', 'settings', q, `${t} · ${a}`, `setupsec:${k}`));
   });
   FEATURES.forEach(([f, t, s]) => add('Settings', 'toggle-right', `${t} (${FEAT[f] ? 'on' : 'off'})`, `What you use · ${s}`, 'setupsec:features'));

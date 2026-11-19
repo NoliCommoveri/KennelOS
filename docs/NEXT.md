@@ -57,6 +57,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   in `docs/design/departures.md`.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-19: D9, Pricing and schedules
+
+- The owner's D9 in `docs/KennelOS_UI_Redesign_Plan.md` §8: usual prices (male and female,
+  full registration), deposit, when payments are due, ways families pay, and saved payment
+  schedules on one screen, Business › Pricing and schedules; Setup's row opens it.
+- The prototype (`docs/design/forest-look-prototype.html`, artifact `KCfKzER1Fo7aEYd7idfpS4`
+  version 2) draws it in its own styles: "A usual sale" card, question rows (now one shared
+  `qRow`), saved schedules; Setup's Payments & invoices becomes Invoices & receipts; search
+  finds each question.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
