@@ -21,9 +21,11 @@ finds out the link was paid only when KennelOS is open (`checkStripePayments`, a
 
 ## Decisions (owner, 2026-11-19)
 
-- **S1. A paid deposit keeps the turn open.** A signed contract does not, since a signature
-  without money can still pass to the next family. Contracts are sent by hand and are **not**
-  part of this work.
+- **S1. A paid deposit ends the family's turn, and the pup stays reserved.** The server closes
+  the turn as soon as the payment arrives, so the next family can be offered and pick. The
+  paid-for pup is kept out of every later family's selectable pups. It never holds the turn
+  open (revised by the owner the same day). Only a paid deposit counts, never a signed
+  contract. Contracts are sent by hand and are **not** part of this work.
 - **S2. Her own Stripe account does the setup and storage.** KennelOS makes no Stripe
   account or platform (D22 stands). The webhook endpoint is on her Stripe account. The Worker
   keeps only that endpoint's signing secret (`whsec_…`), sealed like Firma's token, to check
@@ -33,6 +35,11 @@ finds out the link was paid only when KennelOS is open (`checkStripePayments`, a
 - **S4. Her device may catch up on next open.** The sale, offer and family records update
   when she opens KennelOS, **as long as the paid-for pup can't be picked by the next family in
   the meantime.**
+- **S5. The next offer follows her settings.** Whether the server offers the next family by
+  itself when a deposit closes a turn follows her existing `auto_offer_on` tick for
+  `accepted` ("when the family holding the turn accepts a pup"), the same as every other
+  server move. Unticked, the turn still closes and the pup is still reserved, and she offers
+  the next family herself.
 
 ## Design
 
@@ -87,7 +94,7 @@ is imported where `firma.js` is.
   (`kennelos_purpose: 'waitlist_fee'`) return nothing for now.
 - Everything else is accepted and dropped (200), as `handleHook` already does.
 
-### 3. Holding the pup and showing "received" (Worker, no device needed)
+### 3. Closing the turn, reserving the pup, showing "received" (Worker, no device needed)
 
 **What links a turn to the payment:** the projection's offers don't carry the sale id today
 (side-sale rows use the sale id as the offer id). Add `sale_id` to each open offer in
@@ -103,20 +110,37 @@ can't erase it, and no new table is needed. Add a helper in `integrations.js`:
 those `record_id`s. Optional migration: an index on `int_events (program_id, record_id)` (at
 most one migration on this branch).
 
-Use it in three places:
+**A new server move, step 0 in `serverMoves.js`: "deposit paid".** It runs for that kennel
+right after the hook lands (as `familyActions.js` runs moves after a Pass), and on the hourly
+cron as a catch-up. For every open turn whose picked offer's `sale_id` has a paid deposit:
 
-1. **`serverMoves.js` step 2 (deadlines).** Before closing a picked turn, check its offers'
-   `sale_id`s. If any is paid, **skip** it: no `server_close`, no hold delete, no next offer.
-   Because `nextFromQueue` offers nobody while a turn is open, the next family waits until her
-   device applies the deposit (S4). The pup was never in the litter's available `pups` while
-   picked, so no other family can choose it.
-2. **`serverMoves.js` step 1 (a family's own Pass / Leave after paying).** Same check: don't
-   auto-close or offer next on a paid turn. Leave it to her device (a Today review).
-3. **`familyPages.js`, the family's turn card.** When the offer's sale has a paid deposit, send
-   `deposit_received: { date, amount }`, and have the page say **Deposit received** with the
-   date instead of the deposit instructions and amount due. Their Payments card
-   (`paymentsFor`, `familyPaymentsView`) shows deposit state `paid` the same way until her
-   device republishes.
+1. Queue a server event `deposit_paid` (`made_by: 'server'`) with `{ turn_id, offer_ids,
+   offer_id (the picked one), sale_id, picked_dog_id, date, amount }`. Her device applies it
+   (§4).
+2. `closeTurn` in the projection, and put the family's public row back to "chose a pup".
+   **No pass**, because the family accepted.
+3. **Reserve the pup:** add the picked dog to `held` (the set `nextFromQueue` and family picks
+   already exclude) and keep a `wl_holds` row for it. That hold must outlive her next publish
+   until her device has applied `deposit_paid`, so the publish's hold cleanup (`waitlist.js`,
+   the `DELETE FROM wl_holds … kind = 'pick'` statement) must not drop it. Either give these
+   holds their own `offer_id` marker that the cleanup skips, or rebuild `held` on every read
+   from `paidDepositSales` for the projection's picked offers. **Recommended: the second
+   one.** `heldByOthers` (`familyActions.js`), `nextFromQueue`'s `held`, and the family page's
+   list of selectable pups all union in "pups whose sale has a paid deposit while her
+   projection still lists them". Once her device has applied the deposit, the pup is placed
+   and no longer published as available, so the extra set empties by itself.
+4. Offer the next family (`offerNext`, cause `accepted`) only when she ticked `accepted` in
+   `auto_offer_on` (S5).
+5. Email the family that their deposit was received, if she has a template for it. A new
+   `EMAIL_KINDS` entry `deposit_received` with her wording; with no template, no email (open
+   question O4).
+
+With the turn closed, step 2 (deadlines) never sees it, so a paid pick can't be closed as
+`no_deposit`.
+
+**The family's page** (`familyPages.js`): the turn card is gone with the closed turn. Until her
+device republishes, their record shows **Deposit received** with the date. Their Payments card
+(`paymentsFor`) shows deposit state `paid`, from `paidDepositSales` for that entry's sale.
 
 Also in `handleHook`: when a `payment.paid` lands (`meta.changes`), call `notifyEvent` with a
 payment kind, so she gets "Deposit paid: <family>" as a push or digest. Use payload-free push,
@@ -125,6 +149,12 @@ the same pattern as `CONTRACT_EVENT_WHATS`. A new notification kind needs its li
 
 ### 4. Her device on next open
 
+- **The server's `deposit_paid` event** (`data/waitlistEvents.js`, like `server_close`): her
+  device runs `waitlistActions.confirmDeposit(offerId, { paidDate: date })`. That moves the
+  sale to deposit paid, places the pup, accepts the offer and places the family. It does
+  **not** offer the next family again if the server already did (the event says whether it
+  did, like `server_close`'s next offer). If the offer is no longer open on her device (she
+  changed something), it becomes a Today review instead.
 - **Order:** integration events must be applied **before** the waitlist publishes. In
   `cloudBackupUI.bootCloud`, `startIntegrationsScheduler`'s first run is at 3 s and the waitlist
   scheduler starts separately (`cloudWaitlist.startWaitlistScheduler`). Make
@@ -175,10 +205,12 @@ the same pattern as `CONTRACT_EVENT_WHATS`. A new notification kind needs its li
 
 - Adapter: signature good/bad/stale/missing secret; event mapping (paid, unpaid, async
   success, fee link ignored, bad metadata); redelivery inserts once.
-- Server moves: a picked turn past its deadline with a paid deposit is **not** closed, nobody
-  is offered, the hold stays; an unpaid one still closes as before; pass/leave after paying
-  doesn't auto-move.
-- Family page: `deposit_received` shown from `int_events`; `sale_id` never reaches the page.
+- Server moves: a paid deposit closes the turn at once with a `deposit_paid` event (no pass).
+  The pup stays out of the next family's offer and picks, even after her device republishes
+  without having applied the event. The next family is offered only with `accepted` ticked.
+  An unpaid pick still closes at its deadline as `no_deposit`.
+- Family page: Deposit received shown from `int_events`; `sale_id` never reaches the page;
+  the reserved pup isn't selectable by other families.
 - Device: a webhook `payment.paid` for a turn pick runs `confirmDeposit` (sale deposit paid,
   pup placed, family placed); side sale runs `confirmSideDeposit`; partial → review; the
   device's own later check adds only the fee; order on open (integration events before
@@ -189,8 +221,10 @@ the same pattern as `CONTRACT_EVENT_WHATS`. A new notification kind needs its li
 
 - **O1.** Existing Stripe keys lack Webhook Endpoints: Write. Is asking her to replace the key
   (Kels's flow) fine, or offer only the paste-the-`whsec_` fallback for old keys?
-- **O2.** A family who paid and then taps Pass or Leave before she opens the app: hold it for
-  her review (recommended), or let it close?
+- **O2.** A deposit paid after the server already closed the turn at its deadline
+  (`no_deposit`) and the pup was released: the server can't take it back. Recommended: a Today
+  review for her (refund, or sell that family another pup), and an alert.
 - **O3.** Waitlist **application fee** links through the same webhook: later, or in this
   batch?
-- **O4.** The "Deposit paid" alert to her: push and digest (recommended), or digest only?
+- **O4.** Email the family "deposit received" by itself (with her wording), or leave that to
+  her? And the "Deposit paid" alert to her: push and digest (recommended), or digest only?
