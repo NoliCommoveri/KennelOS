@@ -1643,7 +1643,6 @@ export const applyFamilyPlan = atomic(async function applyFamilyPlan(entryId, pl
       // Unmeasured (the map service was down): left for her device to measure (K8-5).
       case 'home_location': await setHomeLocation(entryId, { place: plan.place, miles: plan.miles, date: Number.isFinite(plan.miles) ? date : null }); break;
       case 'back_out_request': await waitlistEntryRepo.update(entryId, { back_out_request: plan.request }); break;
-      case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
       case 'note': case 'skip': break;
       default: throw new Error(`Unknown plan "${plan.op}".`);
     }
@@ -1698,7 +1697,8 @@ export const declinePrefChange = atomic(async function declinePrefChange(entryId
   });
 });
 
-// A narrower listen-only change they asked for (Spec §15.7 item 6).
+// A listen-only change they asked for, wider or narrower (Spec §15.7 item 6).
+// Back to All keeps their earlier picks on the entry.
 export const approveListenChange = atomic(async function approveListenChange(entryId, { date } = {}) {
   const entry = await load(entryId);
   date ??= await kennelDay(entry.kennel_id);

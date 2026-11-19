@@ -3243,9 +3243,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   "Not this litter", ask for a pause, change listen-only or answers, leave, answer "Ready
   now?", ask for their Companion link, and message her (sealed). The server stores each as an
   event; `cloudWaitlist.applyFamilyEvents` plans each against her records **now**
-  (`data/waitlistEvents.js`) and applies it (`applyFamilyPlan`): picks, passes, leaving and
-  wider listen changes apply; pauses, narrower changes and answer changes become requests
-  she approves or declines (Today and the family page). Anything her records no longer allow
+  (`data/waitlistEvents.js`) and applies it (`applyFamilyPlan`): picks, passes and leaving
+  apply; pauses, listen-only changes (wider or narrower) and answer changes become requests
+  she approves or declines (Today and the family page, which say whether a listen change is
+  wider or narrower). Approving "All litters" keeps their earlier parent picks on the entry. Anything her records no longer allow
   becomes a message line, never forced.
 - **Extras** (`docs/KennelOS_Family_Requests_Plan.md` §3; `data/familyExtras.js`): for a family
   with an open sale (`familySale`: the entry's own pup's sale, see `waitlist_offers` above), the

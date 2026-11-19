@@ -51,7 +51,7 @@ import { offerSpecs, retryEmail, dropEmail, isHeldEmail, kennelEmailsOn, familyE
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches, contactMatchReason,
   entryName, publicSourceName, holdsPlace, waitlistLitters, isWaitlistLitter, LISTEN_LIVE_PAIRING, canUndoRemoval, canUndoWithdrawal, canUndoDecline, canUndoExpire, canUndoFeeReceived, isPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
-  eligiblePupsFor, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly,
+  eligiblePupsFor, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly, listenChangeKind,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
   PREF_FIELD_LABEL, prefValueText, prefChangeSummary, lostSaleFamily, listedName, privateName, publicName, prefPlaces,
@@ -419,8 +419,10 @@ function pendingRequests(e) {
   if (actions.hasPendingRequest(e, 'listen_change_request')) {
     const r = e.listen_change_request;
     const except = r.listen_mode === 'except';
-    out.push({ kind: 'listen', text: `Asked ${esc(fmtDate(r.requested_date))} to ${except ? 'wait for' : 'wait only for'}: <strong>${esc(listenText(r))}</strong> <span class="faint">(now: ${esc(listenText(e))})</span>.`, note: '',
-      hint: `Narrower, so it needs you: they wouldn't be offered ${except ? 'those' : 'other'} litters. An open offer stays open.` });
+    const wider = listenChangeKind(e, r) === 'wider';
+    out.push({ kind: 'listen', text: `Asked ${esc(fmtDate(r.requested_date))} to ${except || !isListenOnly(r) ? 'wait for' : 'wait only for'}: <strong>${esc(listenText(r))}</strong> <span class="faint">(now: ${esc(listenText(e))})</span>.`, note: '',
+      hint: wider ? 'Wider: they\'d be offered litters they skip now. An open offer stays open.'
+        : `Narrower: they wouldn't be offered ${except ? 'those' : 'other'} litters. An open offer stays open.` });
   }
   if (actions.hasPendingRequest(e, 'companion_request')) {
     const r = e.companion_request;

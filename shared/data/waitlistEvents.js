@@ -62,7 +62,6 @@ export const activityId = (event) => `event-${event.seq}`;
 //   op 'pass'           { offerId }
 //   op 'withdraw'
 //   op 'pause_request'  { request }  → entry.pause_request
-//   op 'listen_apply'   { changes }  → the entry's listen fields
 //   op 'listen_request' { request }  → entry.listen_change_request
 //   op 'pref_request'   { request }  → entry.pref_change_request
 //   op 'prepass'        { prepass }  → "Not this litter" on the entry (§16.2)
@@ -174,17 +173,8 @@ export function planFamilyEvent(event, ctx) {
       const next = p.mode === 'selected' || p.mode === 'except'
         ? { listen_mode: p.mode, listen_sire_ids: ids(p.sire_ids), listen_dam_ids: ids(p.dam_ids) }
         : { listen_mode: 'all', listen_sire_ids: [], listen_dam_ids: [] };
-      const kind = listenChangeKind(entry, next);
-      if (kind === 'same') return skip('no_change');
-      if (kind === 'wider') {
-        // Back to All litters keeps their earlier picks on the entry (Spec §15.7 item 3).
-        const toAll = !isListenOnly(next);
-        return { op: 'listen_apply', date, changes: toAll ? { listen_mode: 'all' } : next, activity: line(toAll
-          ? 'Went back to waiting for all litters, on their status page.'
-          : next.listen_mode === 'except'
-            ? 'Took parents off the litters they skip, on their status page.'
-            : 'Added parents to the litters they\'re waiting for, on their status page.') };
-      }
+      // Every change waits for her, wider or narrower (owner, 2026-11-19).
+      if (listenChangeKind(entry, next) === 'same') return skip('no_change');
       return { op: 'listen_request', date, activity: null, request: { requested_date: date, ...next } };
     }
     case 'companion_request': {

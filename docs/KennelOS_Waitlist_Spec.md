@@ -941,6 +941,7 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 29. ~~**Listen-only and passes (§15.7):** how does a family's own listen-only change on the
     status page apply?~~ **Decided 2026-10-07: wider changes apply at once; narrower ones wait
     for her one-tap approval on Today, like §15.9.** Outside studs stay pickable.
+    **Modified (2026-11-19, owner):** every listen-only change a family makes on the status page, wider or narrower, is now a request she approves or declines; nothing applies at once.
 30. ~~**"Review your preferences" (§16.6):** should families who ARE eligible for a newly
     whelped litter also get a plain "a litter you match was born" note?~~ **Decided 2026-10-08:
     yes.**
@@ -1270,6 +1271,7 @@ Listening for specific pairings or litters was the wrong unit: families follow a
    parent) becomes a request she approves or declines with one tap on Today, exactly like
    §15.9: nothing changes until she taps, an open offer stays open, and the change goes in
    the family's answer history.
+   **Modified (2026-11-19, owner):** every listen-only change a family makes on the status page, wider or narrower, is now a request she approves or declines; nothing applies at once.
 
 ### 15.8 Readiness question, readiness hold, and an application FAQ (requested and built 2026-10-06)
 
@@ -1467,7 +1469,7 @@ the whole respond window.
 - The family sets it on the status page like the other two. Wider (removing a parent from the
   except list, or going back to All) applies at once; narrower (adding one, or All → except)
   waits for her approval (§15.7 item 6). Switching between `selected` and `except` counts as
-  narrower.
+  narrower. **Modified (2026-11-19, owner):** every listen-only change a family makes on the status page, wider or narrower, is now a request she approves or declines; nothing applies at once.
 - Same fields (`listen_sire_ids` / `listen_dam_ids`), so no schema or registry change beyond
   the vocab and the registry labels' wording ("listening for" → "listen-only choice").
 
@@ -1526,8 +1528,8 @@ added dam B later, or a sex preference that no longer fits.
   because of their listen-only choice or their matching answers** (not paused, not held) get
   a **Review your preferences** prompt: on their status page now, and in the "It's almost your
   turn" email once emails exist (W2 step 6, §15.5).
-- From the prompt they change their choices in the usual way: a wider listen-only change
-  applies at once (§15.7); **a change to a matching answer still waits for her tap, wider or
+- From the prompt they change their choices in the usual way: a listen-only change waits for
+  her tap (§15.7, **Modified** 2026-11-19); **a change to a matching answer still waits for her tap, wider or
   not** (Q26).
 - **Families who are eligible get a note too (decided, Q30):** "A litter you match was born:
   Juniper × Ash."

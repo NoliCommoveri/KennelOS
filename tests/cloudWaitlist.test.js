@@ -858,6 +858,12 @@ test("her decisions on families' requests: an answer change is applied and logge
   saved = await waitlistEntryRepo.getById(e.id);
   assert.equal(saved.listen_mode, 'except', 'All except these parents (Spec §16.3)');
   assert.deepEqual(saved.listen_sire_ids, [sire.id]);
+  // A wider change (back to All) is a request too, and approving it keeps their earlier picks.
+  await waitlistEntryRepo.update(e.id, { listen_change_request: { requested_date: '2026-10-12', listen_mode: 'all', listen_sire_ids: [], listen_dam_ids: [] } });
+  await actions.approveListenChange(e.id, { date: '2026-10-12' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.listen_mode, 'all');
+  assert.deepEqual(saved.listen_sire_ids, [sire.id], 'earlier picks stay on the entry');
   await waitlistEntryRepo.update(e.id, { pref_sex: 'any', listen_mode: 'all', listen_sire_ids: [], pref_change_request: null, listen_change_request: null });
 });
 

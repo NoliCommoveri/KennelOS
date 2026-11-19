@@ -6512,3 +6512,22 @@ nudge) is built as recommended and waits on the owner's confirmation.
 - Docs: End-State guide §29, the Timers plan (**Modified**), README doc map.
 - **Service worker:** `CACHE_NAME` v161 → v162 (Waitlist settings' pop-up words reach devices); no app file added or renamed (`PRECACHE_URLS` unchanged).
 
+
+## 2026-11-19: Every listen-only change waits for her
+
+- Owner's decision: a family's change to which litters they wait for (listen-only: All /
+  Only these parents / Not these parents) now always becomes a request she approves or
+  declines, wider or narrower. Before, a wider change (back to All, adding a parent to
+  "only", removing one from "not") applied at once.
+- `waitlistEvents.planFamilyEvent` `listen`: any real change → `listen_request`; the
+  `listen_apply` op is gone (`waitlistActions.applyFamilyPlan`). The Today nudge and the
+  entry page's request line say Wider or Narrower (`listenChangeKind`), with a "wait for all
+  litters again" title for a change back to All. `approveListenChange` already kept earlier
+  picks when going back to All. Status page: the Parents help line and the sent message now
+  say she approves each change.
+- Tests: `tests/waitlistEvents.test.js` (wider changes are requests), `tests/cloudWaitlist.test.js`
+  (approving back to All keeps the picks). `node --test`: 2324 pass, 1 todo;
+  `cd cloud && npm test`: 404 pass.
+- Docs: Waitlist Spec Q29, §15.7 item 6, §16.3, §16.6 (**Modified**); End-State guide (family
+  actions); tests README.
+- **Service worker:** no `CACHE_NAME` bump yet; no app file added or renamed.

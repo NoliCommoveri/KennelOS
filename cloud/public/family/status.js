@@ -555,8 +555,8 @@ function readyHtml(f) {
 // --- A litter was born (Spec §16.6) ---------------------------------------------
 // For a born litter whose picks aren't open yet: "A litter you match was born", or,
 // when their listen-only choice or answers keep them out, what does and a way to
-// review it. Changes go through the usual rules: a wider listen-only change applies
-// at once, any change to an answer waits for her OK (Q26).
+// review it. Changes go through the usual rules: any change to the parents or to an
+// answer waits for her OK (Q26).
 
 // New pups on the way or born (Spec §16.6): which litters match their answers and
 // which don't, so they can check them. Changes are asked for in "What you asked
@@ -608,7 +608,7 @@ function parentsFields(f) {
       </div>
       ${p.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${p.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
       ${p.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${p.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Waiting for more litters happens at ${esc(possessive(state.v.kennel.name))} next update; fewer needs their OK.</p>
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. ${esc(state.v.kennel.name)} approves each change.</p>
     </fieldset>`;
 }
 
@@ -1485,7 +1485,7 @@ async function onSubmit(ev) {
       }
       if (!Object.keys(changes).length && !listen) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
       const done = `Your request is on its way. ${kennel} decides; until then nothing changes.`;
-      if (listen && !Object.keys(changes).length) { await act('listen', listen, `Saved. ${kennel} will see it at their next update.`); return; }
+      if (listen && !Object.keys(changes).length) { await act('listen', listen, done); return; }
       if (listen && !(await send('/f/act', { action: 'listen', ...listen }))) { await load(); return; }
       await act('pref_change', { changes, note: data.get('note') }, done);
       return;

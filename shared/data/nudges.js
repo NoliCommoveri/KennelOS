@@ -66,7 +66,7 @@ import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
   overdueTurns, overdueFees, deadlineLabel, timeLabel, plannedOpening, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
-  readyCheck, readyCheckOverdue, isSideSalePending, pupClaims, waitlistLitters
+  readyCheck, readyCheckOverdue, isSideSalePending, pupClaims, waitlistLitters, listenChangeKind, isListenOnly
 } from './waitlistRules.js';
 import {
   recordOutcome, markFeeExpired, recordReadyAnswer, undoRemoval, cancelSideSale, hasPendingRequest, markMessagesRead,
@@ -1438,15 +1438,18 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
     if (hasPendingRequest(e, 'listen_change_request')) {
       const r = e.listen_change_request;
       const parents = [...(r.listen_sire_ids || []), ...(r.listen_dam_ids || [])].map(dogName).join(', ');
+      const toAll = !isListenOnly(r);
+      const wider = listenChangeKind(e, r) === 'wider';
       out.push({
         key: `waitlist-listen-request:${e.id}:${r.requested_date}`,
-        title: r.listen_mode === 'selected' ? `${name(e)} asked to wait only for litters from ${parents || 'no parents'}`
-          : r.listen_mode === 'except' ? `${name(e)} asked to skip litters from ${parents || 'no parents'}`
-            : `${name(e)} asked to change which litters they wait for`,
-        detail: `Narrower, so it needs you: they wouldn't be offered ${r.listen_mode === 'except' ? 'those' : 'other'} litters, and nothing is counted as a pass for those.${openNote}`,
+        title: toAll ? `${name(e)} asked to wait for all litters again`
+          : r.listen_mode === 'selected' ? `${name(e)} asked to wait only for litters from ${parents || 'no parents'}`
+            : `${name(e)} asked to skip litters from ${parents || 'no parents'}`,
+        detail: wider ? `Wider: they'd be offered litters they skip now.${openNote}`
+          : `Narrower: they wouldn't be offered ${r.listen_mode === 'except' ? 'those' : 'other'} litters, and nothing is counted as a pass for those.${openNote}`,
         subjectHref: href(e),
         actions: decide(() => approveListenChange(e.id, { date: today }), () => declineListenChange(e.id, { date: today }),
-          `${name(e)} now ${r.listen_mode === 'except' ? 'skips' : 'waits only for'} those litters. Let them know.`, e, 'listen_change_request')
+          toAll ? `${name(e)} now waits for all litters. Let them know.` : `${name(e)} now ${r.listen_mode === 'except' ? 'skips' : 'waits only for'} those litters. Let them know.`, e, 'listen_change_request')
       });
     }
     if (hasPendingRequest(e, 'companion_request')) {
