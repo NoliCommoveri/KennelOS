@@ -327,6 +327,15 @@ html.embedded.theme-dark {
    turn holder's time left in big bold numbers that tick in place. */
 .status-popup.turn { text-align: center; }
 .status-popup.turn h2 { font-size: 1.5rem; }
+/* The public list's pop-up (list.js openingSoonPopup): each born litter, its name
+   and birth date over its countdown to picks opening, centered like the turn's. */
+.public-popup { text-align: center; }
+.public-popup h2 { font-size: 1.5rem; }
+.public-popup .popup-litter { padding: 12px 0; border-top: 1px solid var(--border); }
+.public-popup .popup-litter h3 { margin: 0 0 2px; font-size: 1.1rem; }
+.public-popup .popup-litter p { margin: 0; }
+.public-popup .popup-litter .popup-time { margin: 6px 0 0; font-size: 1.5rem; }
+.public-popup .modal-actions { margin-top: 12px; }
 .status-popup .popup-time { font-size: 2rem; font-weight: 800; line-height: 1.2; margin: 0 0 18px; font-variant-numeric: tabular-nums; }
 
 /* A family's records with this kennel (more than one time on the list): one row

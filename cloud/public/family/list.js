@@ -4,7 +4,7 @@
 // signs in with a code emailed to the address on their application, and this
 // browser remembers them for 90 days. Inside her own website (embedded.js), the
 // form and a family's status page open in a new tab instead.
-import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy, startCountdowns } from './common.js';
+import { esc, fetchJson, fmtDate, fmtShortDate, countdownHtml, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy, startCountdowns } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 import { EMBEDDED, setupEmbed, outward } from './embedded.js';
 import { applyTheme, savedTheme, showLogo } from './theme.js';
@@ -82,6 +82,45 @@ function wireSignIn(kennel) {
   });
 }
 
+// The pop-up on opening the public list (owner, 2026-11-19): every born litter she
+// shows on the list whose picks haven't opened yet (not taking deposits), one group
+// per litter (its name and birth date) with the countdown to picks opening. Shown
+// to everyone, signed in or not, once per visit, closed with "Got it". Litters with
+// picks open aren't in it (they're under Available Puppies). Not inside her own
+// website: a framed page grows to fit, so a pop-up there could land off screen.
+// Soonest opening first; a litter with no opening day planned yet last.
+function openingSoonPopup(upcoming) {
+  const born = upcoming.filter((u) => u.kind === 'early_litter');
+  if (!born.length || EMBEDDED) return;
+  const at = (u) => { const t = Date.parse(u.picks_expected_at || ''); return Number.isFinite(t) ? t : Infinity; };
+  const groups = [...born].sort((a, b) => at(a) - at(b)).map((u) => `<div class="popup-litter">
+      <h3>${esc(u.label || 'Litter')}</h3>
+      ${u.whelp_date ? `<p class="small muted">Born ${esc(fmtShortDate(u.whelp_date))}</p>` : ''}
+      ${Number.isFinite(at(u))
+        ? `<p class="popup-time">${countdownHtml(u.picks_expected_at, { label: 'Picks open in', done: 'Picks are due to open now' })}</p>`
+        : '<p class="muted">Opening date coming soon</p>'}
+    </div>`).join('');
+  const before = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal status-popup public-popup" role="dialog" aria-modal="true" aria-labelledby="lp-title">
+      <h2 id="lp-title">Picks opening soon</h2>
+      ${groups}
+      <div class="modal-actions"><button type="button" class="primary" data-lp="close">Got it</button></div>
+    </div>`;
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(); } };
+  const done = () => {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+  };
+  overlay.querySelector('[data-lp="close"]').addEventListener('click', done);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-lp="close"]').focus();
+  startCountdowns();
+}
+
 async function load() {
   const res = await fetchJson(`/f/list/${encodeURIComponent(publicId)}`);
   if (!res.ok) {
@@ -129,6 +168,7 @@ async function load() {
   $('search').addEventListener('input', render);
   render();
   wireSignIn(kennel);
+  if (location.hash !== '#signin') openingSoonPopup(upcoming);
   await showRemembered();
   // From a status page's Sign In button: open the sign-in and bring it into view.
   if (location.hash === '#signin') {
