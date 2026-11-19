@@ -37,6 +37,47 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - README's doc map gains the plan's row. Docs only: no code, tests or service-worker
   change.
 
+## 2026-11-19: D8, one person, one page
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D8** (the owner's): no applicant page apart
+  from the person's page; one set of name, email, phone and address, shown once and changed
+  where she is; never a second set that looks editable but isn't; no screen explains how
+  records are stored. The prototype's separate Waitlist family and People screens are an
+  approved departure (`docs/design/departures.md`). The live-app stopgap is on `main`.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-19: The prototype draws D8
+
+- `docs/design/forest-look-prototype.html` is the owner's prototype with D8 drawn in, in its
+  own styles (hub head, tiles, rows, the `.dates`-style inputs as `.form-stack`): one person
+  page from the Waitlist, People, a sale or search; details once at the top; **Edit** →
+  **Their details**; the application as answers only; every waitlist family and client in
+  People; search finds people by email and phone; a Design notes section. Published as the
+  artifact `KCfKzER1Fo7aEYd7idfpS4`. Since the prototype now has it, it's no longer listed
+  in `docs/design/departures.md`.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-19: D9, Pricing and schedules
+
+- The owner's D9 in `docs/KennelOS_UI_Redesign_Plan.md` §8: usual prices (male and female,
+  full registration), deposit, when payments are due, ways families pay, and saved payment
+  schedules on one screen, Business › Pricing and schedules; Setup's row opens it.
+- The prototype (`docs/design/forest-look-prototype.html`, artifact `KCfKzER1Fo7aEYd7idfpS4`
+  version 2) draws it in its own styles: "A usual sale" card, question rows (now one shared
+  `qRow`), saved schedules; Setup's Payments & invoices becomes Invoices & receipts; search
+  finds each question.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-19: D10, her own answers; the prototype's icons built in
+
+- The owner's D10 in `docs/KennelOS_UI_Redesign_Plan.md` §8: amounts, times and lists end in
+  a + to add her own, which becomes one of her choices; fixed questions keep their choices.
+- The prototype (artifact `KCfKzER1Fo7aEYd7idfpS4` version 3, `docs/design/forest-look-prototype.html`):
+  the + on Setup's and Pricing and schedules' questions; **New schedule** moved onto the Saved
+  schedules heading; the 126 Lucide 0.460.0 icons it uses built into the page (they didn't
+  draw in the phone app when loaded from unpkg).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

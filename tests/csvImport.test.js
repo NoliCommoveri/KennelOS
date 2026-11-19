@@ -1123,7 +1123,7 @@ test('expense: a receipt_number is an idempotent override key - it matches regar
 
 // ===========================================================================
 // Waitlist applications (Waitlist Spec §5.1, W1d) — natural key = email,
-// scoped to one kennel; contacts are never matched here.
+// scoped to one kennel; a new application whose email is one contact's joins them.
 // ===========================================================================
 const wlMapping = getMapping('waitlist');
 
@@ -1147,7 +1147,7 @@ test('waitlist: a new email creates an applied entry on the default kennel, Goog
   assert.equal(r.record.pref_breed, 'Boxer');
   assert.deepEqual(r.record.pref_colors, ['red', 'fawn']);
   assert.equal(r.record.application.household, 'Two adults');
-  assert.equal(r.record.contact_id, undefined, 'contacts are matched at approval, never on import');
+  assert.equal(r.record.contact_id, undefined, 'no contact has that email: matched at approval');
 });
 
 test('waitlist: already_paid becomes a credit for funds already received, on new applications only', () => {
@@ -1201,6 +1201,15 @@ test('waitlist: a family already on the list (by application or contact email) �
   assert.equal(r.status, 'review');
   assert.equal(r.decision, 'skip');
   assert.match(r.reasons.join(' '), /on the list/);
+});
+
+test('waitlist: a new application whose email is one contact\'s joins them; two sharing it, or an archived one, don\'t', () => {
+  const contacts = [{ id: 'c1', name: 'Jenah Reyes', email: 'Jenah@Example.com' }, { id: 'c2', name: 'Old', email: 'old@example.com', is_archived: true },
+    { id: 'c3', name: 'A', email: 'shared@example.com' }, { id: 'c4', name: 'B', email: 'shared@example.com' }];
+  const idx = wlSetup([], { contacts });
+  assert.equal(wlMapping.classify({ name: 'Jenah R', email: ' jenah@example.com ' }, idx, 0).changes.contact_id, 'c1');
+  assert.equal(wlMapping.classify({ name: 'Old', email: 'old@example.com' }, idx, 1).record.contact_id, undefined);
+  assert.equal(wlMapping.classify({ name: 'C', email: 'shared@example.com' }, idx, 2).record.contact_id, undefined);
 });
 
 test('waitlist: the same email on ANOTHER kennel is a new application (one list per kennel)', () => {

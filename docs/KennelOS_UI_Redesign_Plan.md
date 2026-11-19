@@ -5,12 +5,14 @@
 >
 > **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
 > copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `Qon8foccjzDmQc4ssLcua1`, version of 2026-11-18). Open it in a browser and use the bar at
-> the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the owner
-> changes the artifact, copy it in again and note the date here; the repo copy is what
+> `KCfKzER1Fo7aEYd7idfpS4`, version 3 of 2026-11-19: the 2026-11-18 design, artifact
+> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page, D9's Pricing and schedules and D10's +
+> drawn in, and its icons built into the page instead of loaded from a CDN). Open it in a browser and use
+> the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
+> owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
-> **Decisions:** the fidelity rule in §2 and D1–D7 (§8) are the owner's (2026-11-19).
+> **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
 
@@ -45,7 +47,9 @@ From the prototype's Design notes, which are part of this plan:
   highlighted, recent searches kept.
 - **Setup.** Settings get one home, More › Setup: what's left to finish, then one row per
   area with a summary of the answers; each area is questions with the answer beside them.
-  The only switches are in **What you use**.
+  The only switches are in **What you use**. One exception (D9): her usual prices, deposit,
+  timing and ways to pay live on Business › **Pricing and schedules**, and Setup's row for
+  them opens that screen.
 - **Planned features** keep the places the prototype reserves for them (dashed outline,
   footnote). Nothing planned ships as a placeholder (D5).
 
@@ -156,7 +160,7 @@ Each phase is one or more PRs into `next`, each with §6's checks and screenshot
 5. **Waitlist tab.** Needs you (with the tab badge), Selling now, The list, Applications,
    Fees due, Family requests, Turn order, Picks preview, Programs.
 6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries,
-   Reports, Accounts, Extra charges, Payment schedules, Stud services, Contracts.
+   Reports, Accounts, Extra charges, Pricing and schedules (D9), Stud services, Contracts.
 7. **More and Setup.** Setup's areas and questions, What you use; Backup, Import/Export,
    Sharing, Danger zone. Needs D2.
 8. **Filters everywhere.** The shared filter sheet replaces each list's own controls.
@@ -221,3 +225,51 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   look is worse than either.
 - **D7. Furever and the family pages.** Not in the prototype. **Decided: they keep their
   own themes.**
+- **D8. One person, one page.** **Decided: a person's details live in one place and she
+  works with that person on one page.** There is no applicant page apart from the person's
+  page: a waitlist family, an application, a row in People and a sale's buyer all open the
+  same page, and their applications, place in line, offers, sales, contracts and payments show
+  there as parts of that person. Their name, email, phone and address appear once on it, and
+  changing them there changes them everywhere (emails, sign-in codes, contracts, sales,
+  invoices, the portal).
+  - **Never two sets.** No screen shows a second set of details that looks like it should
+    do something but doesn't. What a family first typed on an application is part of their
+    answers, never a competing name, email or phone.
+  - **Her terms, not ours.** Breeders aren't expected to understand how records are stored,
+    and no screen explains it. The screens are designed to fit how she thinks about people,
+    so they look like the data was built that way.
+  - **Change it where she is.** Where she'd reasonably believe a page is the place to change
+    something (an applicant's email, on that applicant's page), it is. She's never sent to
+    another page to change it.
+  - **The prototype** (2026-11-19) draws it: one person page (`S.person`) opened from the
+    Waitlist, People, a sale and search. The top card holds their name (the header), email,
+    phone and address; **Edit** in the header opens **Their details** (`S.personedit`), whose
+    Save changes them everywhere. Their application (`S.personsec`, answers only, no name,
+    email or phone repeated), offers, fee, sale, go-home, contract, messages, status page and
+    History are tiles. Every waitlist family and client is a row in People. Design notes:
+    "One person, one page". Phases 5 and 6 build it.
+- **D9. Pricing and schedules.** **Decided: her usual price, deposit, timing and ways to pay
+  sit with her saved payment schedules, on one screen, Business › Pricing and schedules.**
+  They're settings, but ones she changes often, and to her a "payment schedule" means all of
+  it: her usual price (and male and female prices when they differ, and the full
+  registration surcharge), her usual deposit, when it and the balance are due, and how
+  families pay. The screen opens on "A usual sale" in a sentence, then those answers as
+  question rows (the same rows as Setup) and the saved schedules, the usual one marked.
+  New sales start from these; any one sale can still differ. Setup's row for them opens the
+  same screen (not a copy), and Setup keeps Invoices & receipts for the invoice footer and
+  receipt wording. In the prototype: `S.pricing`; a litter's Pricing links to it with
+  "Change your usual prices". Whether these answers sync is part of D2's list. **New
+  schedule** sits on the Saved schedules heading, not in the header.
+- **D10. Her own answers.** **Decided: every answer that's an amount, a time or a list she'd
+  name herself ends in a +** (no label: the + is enough; its accessible name is "Add your
+  own"). She types her own, it's selected, and it's one of her choices from then on. The
+  choices shown are only common starting points: a few typical values for the breed and
+  program type, her current answer, and every value she has added. Amounts are tidied as
+  she'd write them ($450, +$750). A question whose answers are fixed (yes or no, same or
+  different, the waitlist's rules about how offers go out) keeps its choices and has no +.
+  In the prototype: `qRow`, `OWN_VALUE` lists which questions take one. This holds in Setup
+  and on every screen with question rows.
+  - **Why.** The waitlist family page edited the application's copy of name, email and phone
+    while emails, codes and contracts read the contact's, so a corrected email changed
+    nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
+    show and edit the contact's details; the redesign removes the split.

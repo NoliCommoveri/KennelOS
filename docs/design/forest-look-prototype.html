@@ -404,6 +404,11 @@ dialog.drawer::backdrop { background: rgba(10, 20, 14, .45); }
 .dates { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .dates label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); flex: 1; min-width: 130px; }
 .dates input, .q-edit input { padding: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+/* one person's details (D8): a stacked form in the same look as .dates */
+.form-stack { display: flex; flex-direction: column; gap: 10px; }
+.form-stack label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.form-stack input, .form-stack textarea { padding: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.form-stack textarea { resize: vertical; min-height: 58px; }
 .sheet-foot { display: flex; gap: 8px; position: sticky; bottom: 0; background: var(--surface); padding-top: 4px; }
 .sheet-foot .primary-btn { flex: 1; }
 .btn-2 { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 11px 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
@@ -440,6 +445,11 @@ dialog.drawer::backdrop { background: rgba(10, 20, 14, .45); }
 .q-head .q { flex: 1; font-size: 14px; font-weight: 500; }
 .q-head .a { font-weight: 700; color: var(--primary); font-size: 13.5px; text-align: right; }
 .q-edit { padding: 0 14px 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.q-edit .chip.own { border-style: dashed; color: var(--primary); display: inline-flex; align-items: center; padding: 6px 10px; }
+.q-edit .chip.own i[data-lucide], .q-edit .chip.own svg.lucide { width: 15px; height: 15px; }
+.q-edit .fbar-top { flex-basis: 100%; }
+.q-edit .fbar-top input { border: 0; background: none; outline: none; padding: 9px 0; flex: 1; min-width: 0; font: inherit; color: var(--ink); }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 4px; }
 .switch-row { display: flex; gap: 12px; align-items: center; padding: 11px 14px; border-top: 1px solid var(--line); }
 .rows .switch-row:first-child { border-top: 0; }
 .switch { width: 44px; height: 26px; border-radius: 13px; background: var(--line-strong); border: 0; position: relative; cursor: pointer; flex: none; }
@@ -578,7 +588,8 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
         <tr><td>People › Waitlist</td><td>Its own tab, second after Home. It opens on what needs her (offers, applications, fees, requests) and the litter she's selling now.</td></tr>
         <tr><td>Dogs</td><td>Dogs. The Dog page is a hub with one screen per job.</td></tr>
         <tr><td>Breeding</td><td>Litters: Litters, Pairings, Active breeding. The Litter page is a hub too.</td></tr>
-        <tr><td>People</td><td>Business › People. Waitlist families are still contacts and link to the Waitlist tab.</td></tr>
+        <tr><td>People</td><td>Business › People. Every waitlist family and client is a person there, and opens the same person page the Waitlist does.</td></tr>
+        <tr><td>A waitlist family's page and their contact page</td><td>One person page: their name, email, phone and address once, then their application, place in line, sale and messages.</td></tr>
         <tr><td>Placements &amp; Contracts</td><td>Business › Sales &amp; Placements, Stud Services, Contracts.</td></tr>
         <tr><td>Financials, Reports</td><td>Business › Financials (with an Entries ledger), Reports.</td></tr>
         <tr><td>Storage, Sharing, Import/Export</td><td>More.</td></tr>
@@ -588,6 +599,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>One job per screen</h3>
     <p>Long pages become a short hub: who or what it is, what needs attention, and one tile per job. Tiles that don't apply are hidden. The Dog page's 13 stacked sections become 10 tiles; the Litter page's 6 become 8, with Go-home and Weigh puppies as new single-job screens.</p>
+
+    <h3>One person, one page</h3>
+    <p>A person is one page, however she reaches them: from the Waitlist, People, a sale or search. Their name, email, phone and address show once, at the top, and <b>Edit</b> there changes them everywhere: offers, fee requests, sign-in codes, contracts, invoices. Their application, place in line, offers, sale and messages are tiles on that same page. No screen shows a second copy of their details, says where anything is kept, or sends her somewhere else to change what she's looking at. What a family typed on their application stays with their answers, without their name, email or phone repeated.</p>
 
     <h3>Waitlist</h3>
     <p>The Waitlist tab answers "what do I do next?" first. <b>Needs you</b> lists the open offer, new applications, fees waiting and family requests, and the tab shows that count as a badge. <b>Selling now</b> shows the litter with picks open, its turn order, and which pups are still open. Each item opens a screen that does that one thing: record an offer's answer, approve an application, mark a fee received, answer a request. Recording an answer moves the turn along the way the list rules already do (a pass offers the next eligible family).</p>
@@ -619,14 +633,14 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Line management</h3>
     <p>Drawn from <code>docs/KennelOS_Line_Management_Plan.md</code> (a plan; nothing built). Every dog is related to every other through the sire and dam links: a dog's Relatives, a pair check for any two dogs (relationship by name, COI, shared ancestors, how much pedigree is known, traits side by side, possible colors, DNA), and Litters › Lines (COI if bred for her males × her females, what each dog carries, what the program is missing, how lines produce). Planned pairings over her warning line show on Home, the pairing and both dogs. Traits are their own records, a long-lived grade per dog, with a puppy score kept beside the adult grade. Colors come from her own list as a dropdown, asked for each pup at birth; birth records include stillborn pups. What a dog carries is worked out each time from tests, her color links, its parents and its litters. The sample program is Labradors, so the color genes are real: Ash was never color tested, but yellow and chocolate pups show he carries both. The COI figures are calculated live from the sample pedigree.</p>
-    <p>Extra charges and payment schedules moved out of Setup to Business, next to Accounts: they're lists she builds and reuses, not one-time answers.</p>
+    <p>Extra charges moved out of Setup to Business, next to Accounts: a list she builds and reuses. Her usual price (including male and female prices and the full registration surcharge), deposit, when payments are due, the ways families pay, and her saved payment schedules are together on one screen, Business › <b>Pricing and schedules</b>. They're settings, but ones she changes often, and to her a payment schedule means all of that together. Setup's row for them opens that same screen.</p>
+    <p>Every answer that's an amount, a time or a list she'd name herself ends in a <b>+</b>: she types her own, and it becomes one of her choices from then on. The choices shown are only common starting points. A question whose answers are fixed (yes or no, same or different) keeps them.</p>
 
     <h3>Lite edition</h3>
     <p>Lite shows fewer tabs and tiles through the same lists in editionConfig, so the shared core stays edition-agnostic. What you use shows Lite's Pro-only features as locked rather than hiding them.</p>
   </div>
 </dialog>
 
-<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script>
 (() => {
 /* ================= sample data (Thornfield Kennels; names from the Demo seed) ================= */
@@ -769,17 +783,51 @@ const GOHOME = [
   { pup: 'Poppy', fam: 'okafor', when: 'Sat Nov 21 · 1:00 PM', checks: [['Contract signed', 1], ['Balance paid', 1], ['Vaccines', 1], ['Microchip registered', 1], ['Go-home pack', 0]] },
   { pup: 'Fern', fam: 'marsh', when: 'Sun Nov 22 · 11:00 AM', checks: [['Contract signed', 0, 'Sent Nov 9'], ['Balance paid', 0, '$2,700 due'], ['Vaccines', 1], ['Microchip registered', 0], ['Go-home pack', 0]] },
 ];
-const PEOPLE = [
-  { n: 'Lindqvist family', t: 'Client', s: 'Hazel · balance due Nov 21' },
-  { n: 'Okafor family', t: 'Client', s: 'Poppy · paid in full' },
-  { n: 'Marsh family', t: 'Client', s: 'Fern · balance due Nov 22' },
-  { n: 'Reyes family', t: 'Waitlist', s: '#1 on the list · offered Cedar' },
-  { n: 'Bennett family', t: 'Waitlist', s: '#2 on the list · either sex' },
-  { n: 'Dr. Ada Okonkwo', t: 'Care team', s: 'Reproductive vet · Hartland Animal Hospital' },
-  { n: 'Hartland Animal Hospital', t: 'Care team', s: 'Vet clinic · Hartland, VT' },
-  { n: 'Meadow Ridge Kennels', t: 'Network', s: "Titan's owner · Concord, NH" },
-  { n: 'Briar Hollow Kennels', t: 'Network', s: 'Stud client · Woodstock, VT' },
+/* one person, one page (Redesign plan D8): each person's name, email, phone and address
+   are held once, here, whatever brought them in (an application, a sale, the vet). Their
+   applications, place in line, sale and payments are parts of that person. */
+const DETAILS = {
+  lindqvist: { email: 'erik.lindqvist@example.com', phone: '(802) 555-0141', addr: '14 Birch Lane, Montpelier, VT 05602' },
+  okafor: { email: 'ngozi.okafor@example.com', phone: '(603) 555-0178', addr: '9 Mill Pond Road, Hanover, NH 03755' },
+  marsh: { email: 'thea.marsh@example.com', phone: '(802) 555-0119', addr: '220 Ridge Road, Barre, VT 05641' },
+  reyes: { email: 'jenah.reyes@example.com', phone: '(802) 555-0163', addr: '41 Elm Street, Burlington, VT 05401' },
+  bennett: { email: 'sam.bennett@example.com', phone: '(518) 555-0102', addr: 'Saratoga Springs, NY' },
+  cho: { email: 'min.cho@example.com', phone: '(617) 555-0190', addr: 'Lexington, MA' },
+  haddad: { email: 'r.haddad@example.com', phone: '(802) 555-0127', addr: 'Rutland, VT' },
+  ito: { email: 'kenji.ito@example.com', phone: '(603) 555-0144', addr: 'Keene, NH' },
+  kowalski: { email: 'anna.kowalski@example.com', phone: '(413) 555-0185', addr: 'Northampton, MA' },
+  delgado: { email: 'luis.delgado@example.com', phone: '(802) 555-0109', addr: 'Stowe, VT' },
+  nguyen: { email: 'linh.nguyen@example.com', phone: '(207) 555-0156', addr: 'Portland, ME' },
+  park: { email: 'jiwoo.park@example.com', phone: '(802) 555-0131', addr: 'Middlebury, VT' },
+  silva: { email: 'ana.silva@example.com', phone: '(603) 555-0167', addr: 'Concord, NH' },
+  turner: { email: 'beth.turner@example.com', phone: '', addr: 'Albany, NY' },
+  young: { email: 'cal.young@example.com', phone: '(802) 555-0172', addr: '' },
+  okonkwo: { email: 'ada@hartlandvet.example.com', phone: '(802) 555-0100', addr: 'Hartland Animal Hospital, 3 Route 5, Hartland, VT 05048' },
+  hartland: { email: 'front@hartlandvet.example.com', phone: '(802) 555-0100', addr: '3 Route 5, Hartland, VT 05048' },
+  meadow: { email: 'hello@meadowridge.example.com', phone: '(603) 555-0150', addr: 'Concord, NH' },
+  briar: { email: 'briarhollow@example.com', phone: '(802) 555-0188', addr: 'Woodstock, VT' },
+};
+const OTHERS = [
+  { id: 'okonkwo', n: 'Dr. Ada Okonkwo', t: 'Care team', s: 'Reproductive vet · Hartland Animal Hospital' },
+  { id: 'hartland', n: 'Hartland Animal Hospital', t: 'Care team', s: 'Vet clinic · Hartland, VT' },
+  { id: 'meadow', n: 'Meadow Ridge Kennels', t: 'Network', s: "Titan's owner · Concord, NH" },
+  { id: 'briar', n: 'Briar Hollow Kennels', t: 'Network', s: 'Stud client · Woodstock, VT' },
 ];
+/* what a waitlist family is to her right now, in a few words */
+function famLine(f) {
+  const sale = SALES.find((x) => x.fam === f.id);
+  if (f.st === 'placed') return `${f.pup} · ${sale ? saleState(sale)[0].toLowerCase() : 'placed'}`;
+  if (f.st === 'active') return `#${f.pos} on the list${OFFER.open && OFFER.fam === f.id ? ` · offered ${DOGS.find((d) => d.id === OFFER.pup).name}` : ` · wants ${WANTS[f.wants].toLowerCase()}`}`;
+  if (f.st === 'approved') return `Approved · fee due ${short(f.feeDue)}`;
+  if (f.st === 'applied') return `Applied ${short(f.joined)} · to review`;
+  return WL_ST[f.st][0];
+}
+/* People: every waitlist family and client is a person, the same record the Waitlist opens */
+const PEOPLE_OF = () => [
+  ...WL.filter((f) => ['placed', 'active', 'approved', 'applied'].includes(f.st)).map((f) => ({ id: f.id, n: f.n, t: f.st === 'placed' ? 'Client' : 'Waitlist', s: famLine(f) })),
+  ...OTHERS,
+];
+const personOf = (id) => PEOPLE_OF().find((p) => p.id === id) || (fam(id) ? { id, n: fam(id).n, t: WL_ST[fam(id).st][0], s: famLine(fam(id)) } : OTHERS.find((p) => p.id === id));
 const REPORTS = [
   ['Money', 'coins', ['Year in Review', 'Profit & Loss by Month', 'Litter P&L', 'Expenses by Category', 'Receivables', 'Pricing', 'Breeding-Dog Return']],
   ['Breeding', 'heart', ['Litters Over Time', 'Live-Birth Summary', 'Dam & Sire Production', 'Pairing Success', 'Heat Cycles']],
@@ -808,7 +856,8 @@ const FEATURES = [
 /* setup answers, asked as questions */
 const SET = {
   waitlist: { approve: 'Yes, I approve every family', fee: '$250', feeCredit: 'Counts toward the price', feeDays: '7 days', respond: '3 days', passes: '2', offers: 'One family at a time', openPicks: 'By hand', ready: 'Keep them paused', tests: 'Normal results only' },
-  pricing: { pet: '$3,200', deposit: '$500', fullReg: '+$1,000', readyAt: '8 weeks', depositsOpen: 'When picks open', priceBy: 'Same for both sexes' },
+  pricing: { pet: '$3,200', male: '$3,400', female: '$3,200', deposit: '$500', fullReg: '+$1,000', readyAt: '8 weeks', depositsOpen: 'When picks open', priceBy: 'Same for both sexes', depositDue: 'Within 3 days of their pick', balanceDue: 'At pickup' },
+  payments: { methods: 'Venmo, Zelle, cash', card: 'Not taken' },
 };
 const QS = {
   waitlist: [
@@ -832,16 +881,48 @@ const QS = {
     ['depositsOpen', 'Deposits open', ['When picks open', 'At whelping', 'By hand']],
   ],
 };
+/* Pricing and schedules (Business): her usual price, deposit, timing and ways to pay,
+   with her saved schedules. Settings, but ones she changes often, so they sit with the
+   schedules they make up rather than in Setup. */
+const PRICE_Q = {
+  male: ['Male price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  female: ['Female price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  depositDue: ['Deposit due', ['Within 2 days of their pick', 'Within 3 days of their pick', 'Within 7 days of their pick']],
+  balanceDue: ['Balance due', ['At pickup', '1 week before pickup', '2 weeks before pickup']],
+  methods: ['They can pay by', ['Venmo, Zelle, cash', 'Venmo, Zelle, cash, check', 'Zelle and cash only', 'Cash only']],
+  card: ['Card payments online', ['Not taken', 'Taken, family pays the fee', 'Taken, I pay the fee']],
+};
+const SCHEDULES = [
+  { id: 'std', n: 'Usual', usual: true, used: 3, s: () => `${SET.pricing.deposit} deposit ${SET.pricing.depositDue.toLowerCase()} · balance ${SET.pricing.balanceDue.toLowerCase()}` },
+  { id: 'three', n: 'Three payments', used: 1, s: () => `${SET.pricing.deposit} deposit · half the rest at 5 weeks · balance ${SET.pricing.balanceDue.toLowerCase()}` },
+  { id: 'monthly', n: 'Monthly', used: 0, s: () => `${SET.pricing.deposit} deposit · $500 a month · paid off by pickup` },
+];
+/* answers she can type herself (D10): amounts, times and lists she names end in a +.
+   What she types becomes one of her choices. Fixed questions (yes or no, same or
+   different) keep their choices. */
+const OWN_VALUE = { waitlist: ['fee', 'feeDays', 'respond', 'passes', 'openPicks'], pricing: ['pet', 'male', 'female', 'deposit', 'fullReg', 'readyAt', 'depositsOpen', 'depositDue', 'balanceDue'], payments: ['methods'] };
+const MONEY_Q = ['fee', 'pet', 'male', 'female', 'deposit', 'fullReg'];
+const OWN_HINT = { fee: '$175', pet: '$3,600', male: '$3,800', female: '$3,600', deposit: '$400', fullReg: '+$750', readyAt: '12 weeks', feeDays: '10 days', respond: '4 days', passes: '4', openPicks: 'At 4 weeks', depositsOpen: 'At 4 weeks', depositDue: 'Within 5 days of their pick', balanceDue: '3 days before pickup', methods: 'Venmo, PayPal, check' };
+const qOpts = (k, qk) => (QS[k] || []).find((x) => x[0] === qk)?.[2] || PRICE_Q[qk]?.[1] || [];
+const qRow = (k, qk, qq, opts) => {
+  const key = k + '|' + qk, open = ui.qOpen === key, own = (OWN_VALUE[k] || []).includes(qk);
+  const choices = SET[k][qk] && !opts.includes(SET[k][qk]) ? [...opts, SET[k][qk]] : opts;
+  const chips = choices.map((o) => `<button type="button" class="chip" data-qset="${k}|${qk}|${esc(o)}" aria-pressed="${SET[k][qk] === o}">${esc(o)}</button>`).join('');
+  const add = !own ? '' : ui.qOther === key
+    ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${esc(OWN_HINT[qk] || '')}" autocomplete="off" aria-label="${esc(qq)}: add your own"></label><button type="button" class="fbtn" data-qown="${key}">Add</button></div>`
+    : `<button type="button" class="chip own" data-qother="${key}" aria-label="Add your own" title="Add your own">${icon('plus')}</button>`;
+  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? `<div class="q-edit">${chips}${add}</div>` : ''}</div>`;
+};
 /* settings that today are scattered; each area names where they live now */
 const SETUP = {
   program: [
     ['ptype', 'compass', 'How you breed', () => typeSummary(), 'Nowhere yet: new with the Program Types Plan'],
     ['features', 'toggle-right', 'What you use', () => `${Object.values(FEAT).filter(Boolean).length} of ${FEATURES.length} features on`, 'Edition flags, plus on/off boxes on the Kennel, Companion and Furever pages'],
     ['kennel', 'house', 'Your kennel', () => 'Thornfield Kennels · THORN · Hartland, VT', 'Settings › Your kennel, and the Kennel page (logo)'],
-    ['pricing', 'tag', 'Puppies & pricing', () => `${SET.pricing.pet} pet · ${SET.pricing.deposit} deposit · ready at ${SET.pricing.readyAt}`, "Price boxes on each litter, and sale defaults"],
+    ['pricing', 'tag', 'Pricing and schedules', () => `${usualPrice()} · ${SET.pricing.deposit} deposit · balance ${SET.pricing.balanceDue.toLowerCase()}`, 'Price boxes on each litter, sale defaults, invoice payment methods, and the Payment schedules page', null, null, 'pricing'],
     ['waitlist', 'list-ordered', 'Waitlist', () => `${SET.waitlist.fee} fee · ${SET.waitlist.respond} to answer · ${SET.waitlist.passes} passes · 2 programs`, 'Kennel page › Waitlist settings, and the Waitlist programs page'],
     ['breeding', 'git-fork', 'Breeding program', () => `${TRAITS.length} traits · ${COLORS.filter((c) => c.kind === 'color').length} colors · warn at COI ${SET.lines.coi}`, 'Nowhere yet: new with the Line Management Plan. Colors replace the free-text color box on each dog'],
-    ['payments', 'wallet', 'Payments & invoices', () => 'Venmo, Zelle, cash · invoice footer set', 'Invoice defaults. Extra charges and payment schedules moved to Business, next to Accounts'],
+    ['payments', 'receipt', 'Invoices & receipts', () => 'Invoice footer set · receipt wording default', 'Invoice defaults. Extra charges moved to Business, next to Accounts'],
     ['gohome', 'car', 'Go-home & transport', () => 'Pickup places not set · transport $350', "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
     ['care', 'stethoscope', 'Health & care', () => 'OFA hips, elbows, eyes · DNA · Labrador feeding schedule', 'Kennel page › Preferred tests, Feeding schedules, Puppy Record fields, Lifecycle nudges'],
     ['contracts', 'file-pen-line', 'Contracts & e-sign', () => 'Firma connected · 3 templates', 'The Contracts page and e-sign setup', 'contracts'],
@@ -861,7 +942,7 @@ const SETUP = {
 const SETUP_TODO = [['clock', 'amber', 'Set your time zone. Offer deadlines use it.', 'setupsec:kennel'], ['map-pin', 'amber', 'Add your pickup places.', 'setupsec:gohome']];
 const GROUP_Q = {
   kennel: [['Kennel name', 'Thornfield Kennels'], ['Prefix', 'THORN'], ['Location', 'Hartland, VT'], ['Time zone', 'Not set'], ['Breeds', 'Labrador Retriever'], ['Logo', 'Uploaded']],
-  payments: [['Ways families pay', 'Venmo, Zelle, cash'], ['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
+  payments: [['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
   gohome: [['Pickup places', 'Not set'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport fee', '$350 within 300 miles'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
   care: [['Preferred tests', 'OFA hips, elbows, eyes (CAER), DNA panel'], ['Feeding schedule', 'Labrador Retriever'], ['Puppy Record fields', '8 shown'], ['Lifecycle reminders', 'On']],
   contracts: [['E-sign', 'Firma connected'], ['Templates', 'Pet sale, Co-own, Stud service'], ['Send for e-sign', '10 a month included', 1]],
@@ -911,7 +992,7 @@ const FDEF = {
   litters: { date: 'Whelped or due', items: () => LITTERS, get: { date: (l) => l.whelp || l.due, Status: (l) => l.status[0], Dam: (l) => l.dam, Sire: (l) => l.sire }, text: litterName },
   wl: { date: 'Joined', items: () => WL, get: { date: (f) => f.joined, Status: (f) => WL_ST[f.st][0], Wants: (f) => WANTS[f.wants], Use: (f) => f.use, Flags: (f) => [f.paused && 'Paused', f.listen && 'Listening only', f.passes && 'Has a pass', f.program && 'In a program'].filter(Boolean) }, text: (f) => f.n },
   sales: { date: 'Sold', items: () => SALES, get: { date: (s) => s.date, Status: (s) => saleState(s)[0], Litter: () => 'Willow × Ash', Family: (s) => fam(s.fam).n }, text: (s) => s.pup + ' ' + fam(s.fam).n },
-  people: { date: null, items: () => PEOPLE, get: { Type: (p) => p.t }, text: (p) => p.n + ' ' + p.s },
+  people: { date: null, items: () => PEOPLE_OF(), get: { Type: (p) => p.t }, text: (p) => `${p.n} ${p.s} ${DETAILS[p.id]?.email || ''} ${DETAILS[p.id]?.phone || ''}` },
   ledger: { date: 'Date', items: () => LEDGER, get: { date: (e) => e.d, Kind: (e) => (e.kind === 'in' ? 'Income' : 'Expense'), Category: (e) => e.cat, 'Dog or litter': (e) => e.on, Paid: (e) => e.party }, text: (e) => e.what + ' ' + e.party + ' ' + e.on.join(' ') },
 };
 const ui = { tOpen: null, birth: { sex: 'f', color: 'Black', alive: 1, wt: '', time: '', abn: [], adding: false }, cnew: { name: '', kind: 'color', link: '' }, recent: [], searchMore: {}, dogTab: 'puppies', litTab: 'litters', finTab: 'overview', peopleTab: 'All', chartTable: false, f: {}, q: {}, sheet: null, qOpen: null };
@@ -973,7 +1054,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1095,29 +1176,78 @@ S.wllist = () => {
       t: `${f.pos ? `#${f.pos} ` : ''}${f.n}`,
       extra: [f.program && pill([f.program, 'violet'], 'award'), f.paused && pill([`Paused to ${f.paused}`, 'amber']), f.listen && pill(['Listening only', 'blue']), f.passes ? pill([`${f.passes} pass`, 'gray']) : '', OFFER.open && OFFER.fam === f.id && pill(['Has an offer', 'amber'])].filter(Boolean).join(''),
       s: `${f.pup ? `Took ${f.pup} · ` : ''}Wants ${WANTS[f.wants].toLowerCase()} · ${f.use} · joined ${short(f.joined)}`,
-      go: `wlentry:${f.id}`,
+      go: `person:${f.id}`,
     })).join('')}</div></section>`;
   }).join('');
   return { bar: bar('The list', { sub: 'One list across litters', action: addBtn('Add', 'stub:add-family') }), body: `${filterBar('wl', { placeholder: 'Search families', shown: shown.length, total: all.length })}${groups || '<p class="lede">No families match.</p>'}` };
 };
 
-S.wlentry = (id) => {
-  const f = fam(id);
+/* one person, one page (D8): the same page from the Waitlist, People, a sale or search */
+S.person = (id) => {
+  const p = personOf(id), f = fam(id), d = DETAILS[id] || {};
+  const sale = f && SALES.find((x) => x.fam === f.id);
+  const req = f && REQUESTS.find((r) => r.fam === f.id && r.open);
   const attn = [];
-  if (OFFER.open && OFFER.fam === f.id) attn.push(['clock', 'amber', `Offered ${DOGS.find((d) => d.id === OFFER.pup).name} · answer due ${wday(OFFER.due)}`, 'wloffer']);
-  if (f.st === 'approved') attn.push(['wallet', 'amber', `${SET.waitlist.fee} fee due ${wday(f.feeDue)}`, 'wlfees']);
-  if (f.st === 'applied') attn.push(['inbox', 'violet', 'Application waiting for your review', 'wlapps']);
-  const t = [
-    ['stub:family-details', 'id-card', 'Details', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`],
-    ['stub:offers-and-passes', 'history', 'Offers & passes', f.passes ? `${f.passes} pass` : 'No passes'],
-    ['stub:fee', 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested yet' : f.st === 'approved' ? `${SET.waitlist.fee} due` : f.program === 'Military' ? 'Waived (Military)' : `${SET.waitlist.fee} paid`],
-    ['stub:messages', 'message-square-text', 'Messages', 'Last: Nov 12'],
-  ];
-  if (FEAT.waitlistOnline) t.push(['stub:status-page', 'globe', 'Status page', 'Online · seen Nov 17']);
-  if (f.pup) t.push([`dogsec:${f.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${f.pup} · ${saleState(SALES.find((s) => s.fam === f.id))[0]}`], ['littersec:wa|gohome', 'car', 'Go-home', GOHOME.find((g) => g.fam === f.id)?.when || 'Not set']);
+  if (f && OFFER.open && OFFER.fam === f.id) attn.push(['clock', 'amber', `Offered ${DOGS.find((x) => x.id === OFFER.pup).name} · answer due ${wday(OFFER.due)}`, 'wloffer']);
+  if (f && f.st === 'approved') attn.push(['wallet', 'amber', `${SET.waitlist.fee} fee due ${wday(f.feeDue)}`, 'wlfees']);
+  if (f && f.st === 'applied') attn.push(['inbox', 'violet', 'Application waiting for your review', 'wlapps']);
+  if (req) attn.push(['message-square-text', 'blue', `Asks: ${req.kind.toLowerCase()}`, 'wlrequests']);
+  if (sale && sale.paid < sale.price) attn.push(['wallet', 'amber', `${money(sale.price - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
+  const t = [];
+  if (f) {
+    t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
+    if (!['applied', 'declined'].includes(f.st)) t.push(['stub:offers-and-passes', 'list-ordered', 'Offers & passes', f.passes ? `${f.passes} pass` : f.pup ? `Took ${f.pup}` : 'No passes']);
+    t.push(['stub:fee', 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested yet' : f.st === 'approved' ? `${SET.waitlist.fee} due` : f.program === 'Military' ? 'Waived (Military)' : `${SET.waitlist.fee} paid`]);
+  }
+  if (sale) {
+    t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${saleState(sale)[0]}`]);
+    t.push(['littersec:wa|gohome', 'car', 'Go-home', GOHOME.find((g) => g.fam === f.id)?.when || 'Not set']);
+    if (FEAT.contracts) t.push(['stub:contracts', 'file-pen-line', 'Contract', sale.pup === 'Fern' ? 'Sent Nov 9 · not signed' : 'Signed']);
+  }
+  if (f) t.push(['stub:messages', 'message-square-text', 'Messages', 'Last: Nov 12']);
+  if (f && FEAT.waitlistOnline) t.push(['stub:status-page', 'globe', 'Status page', 'Online · seen Nov 17']);
+  t.push(['stub:person-history', 'history', 'History', 'Everything with them, newest first']);
+  const pills = f ? [pill(WL_ST[f.st]), f.program ? pill([f.program, 'violet'], 'award') : '', f.paused ? pill([`Paused to ${f.paused}`, 'amber']) : '', f.listen ? pill([`Listening: ${f.listen}`, 'blue']) : ''].join('')
+    : pill([p.t, p.t === 'Care team' ? 'violet' : 'gray']);
+  const line = (ic, v) => (v ? `<div class="hub-line">${icon(ic)}${esc(v)}</div>` : '');
   return {
-    bar: bar(f.n, { sub: f.pos ? `#${f.pos} on the list` : WL_ST[f.st][0] }),
-    body: `<section class="card hub-head"><div class="hub-pills">${pill(WL_ST[f.st])}${f.program ? pill([f.program, 'violet'], 'award') : ''}${f.paused ? pill([`Paused to ${f.paused}`, 'amber']) : ''}${f.listen ? pill([`Listening: ${f.listen}`, 'blue']) : ''}</div><div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use} · joined ${fmt(f.joined)}</div></section>${attnCard(attn)}${tiles(t)}`,
+    bar: bar(p.n, { sub: f ? (f.pos ? `#${f.pos} on the list` : WL_ST[f.st][0]) : p.t, action: `<button type="button" class="bar-btn" data-open="personedit:${id}">${icon('pencil')}Edit</button>` }),
+    body: `<section class="card hub-head"><div class="hub-pills">${pills}</div>
+        ${line('mail', d.email)}${line('phone', d.phone)}${line('map-pin', d.addr)}
+        ${!d.email && !d.phone && !d.addr ? `<button type="button" class="set-link" data-open="personedit:${id}">${icon('plus')}Add their email and phone</button>` : ''}</section>
+      ${attnCard(attn)}${tiles(t)}`,
+  };
+};
+S.wlentry = (id) => S.person(id);
+
+/* their name, email, phone and address: changed here, and every email, sign-in code,
+   contract and invoice uses the new ones. Nothing here says where they're kept. */
+S.personedit = (id) => {
+  const p = personOf(id), d = DETAILS[id] || {};
+  const v = (x) => esc(x || '');
+  return {
+    bar: bar('Their details', { sub: p.n }),
+    body: `<section class="card app-card"><div class="form-stack">
+        <label>Name<input id="pe-name" autocomplete="off" value="${v(p.n)}"></label>
+        <label>Email<input id="pe-email" type="email" autocomplete="off" value="${v(d.email)}"></label>
+        <label>Phone<input id="pe-phone" type="tel" autocomplete="off" value="${v(d.phone)}"></label>
+        <label>Address<textarea id="pe-addr" rows="2">${v(d.addr)}</textarea></label>
+      </div>
+      <p class="fcount" style="margin:0">${fam(id) ? 'Offers, fee requests, sign-in codes and contracts go to this email from now on.' : 'Used wherever you write to them or name them.'}</p>
+      <div class="actions-2"><button type="button" class="btn-2" data-back>Cancel</button><button type="button" class="primary-btn" data-psave="${id}">${icon('check')}Save</button></div></section>`,
+  };
+};
+
+/* the application: what they told her, as answers. Their name, email and phone aren't
+   repeated here: those are the ones at the top of their page. */
+S.personsec = (q) => {
+  const [id, k] = q.split('|'), f = fam(id);
+  if (k !== 'application' || !f) return S.stub(k);
+  return {
+    bar: bar('Application', { sub: f.n }),
+    body: `<section class="card"><div class="section-h"><h2>What they asked for</h2></div>${facts([['Applied', fmt(f.joined)], ['Heard about you', f.from || 'Website'], ['Wants', WANTS[f.wants]], ['Looking for', f.use], ...(f.listen ? [['Only from', f.listen]] : []), ...(f.program ? [['Program', f.program]] : [])])}</section>
+      <section class="card app-card"><div class="group-label">About their home</div><div class="quote">${f.app || 'Fenced yard · have had the breed before'}</div></section>
+      ${f.st === 'applied' ? `<div class="actions-2"><button type="button" class="btn-2" data-wl="decline|${f.id}">${icon('x')}Decline</button><button type="button" class="primary-btn" data-wl="approve|${f.id}">${icon('check')}Approve</button></div>` : ''}`,
   };
 };
 
@@ -1151,11 +1281,11 @@ S.wlpicks = () => {
     bar: bar('Turn order', { sub: 'Willow × Ash · picks opened Nov 5' }),
     body: `
       <section class="card"><div class="section-h"><h2>Turns</h2></div><div class="ladder">
-        ${placed.map((f, i) => rung('done', i + 1, f.n, `Took ${f.pup}`, `wlentry:${f.id}`)).join('')}
+        ${placed.map((f, i) => rung('done', i + 1, f.n, `Took ${f.pup}`, `person:${f.id}`)).join('')}
         ${OFFER.open ? rung('now', placed.length + 1, fam(OFFER.fam).n, `Has ${p.name} · answer by ${wday(OFFER.due)}`, 'wloffer') : ''}
       </div></section>
-      ${OFFER.open ? `<section class="card"><div class="section-h"><h2>Next if ${p.name} is still open</h2></div><div class="ladder">${nextUp.map((f, i) => rung('', placed.length + 2 + i, f.n, `#${f.pos} · wants ${WANTS[f.wants].toLowerCase()}`, `wlentry:${f.id}`)).join('')}</div></section>
-      <section class="card"><div class="section-h"><h2>Skipped for this pup</h2></div><div class="ladder">${skipped.map((f) => rung('skip', '–', f.n, skipReason(f, p) || `Passed on ${p.name}`, `wlentry:${f.id}`)).join('')}</div></section>` : ''}
+      ${OFFER.open ? `<section class="card"><div class="section-h"><h2>Next if ${p.name} is still open</h2></div><div class="ladder">${nextUp.map((f, i) => rung('', placed.length + 2 + i, f.n, `#${f.pos} · wants ${WANTS[f.wants].toLowerCase()}`, `person:${f.id}`)).join('')}</div></section>
+      <section class="card"><div class="section-h"><h2>Skipped for this pup</h2></div><div class="ladder">${skipped.map((f) => rung('skip', '–', f.n, skipReason(f, p) || `Passed on ${p.name}`, `person:${f.id}`)).join('')}</div></section>` : ''}
       <section class="card"><div class="section-h"><h2>Pups</h2></div><div class="rows">${pups.map((q) => row({ t: q.name, extra: `${sex(q.sex)}${pill(DISP[q.disp])}`, s: q.disp === 'keeping' ? 'Not offered · staying' : q.disp === 'health_hold' ? 'Not offered · health hold' : q.disp === 'placed' ? `With the ${fam(WL.find((f) => f.pup === q.name).id).n}` : OFFER.open && OFFER.pup === q.id ? 'Offered now' : 'Open', go: `dog:${q.id}` })).join('')}</div></section>
       <button type="button" class="btn-2" data-open="stub:side-sale">${icon('arrow-left-right')}Sell a pup outside the turn order</button>`,
   };
@@ -1170,7 +1300,7 @@ S.wlapps = () => {
         <div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use} · ${f.from || 'Website'}</div>
         <div class="quote">${f.app}</div>
         <div class="actions-2"><button type="button" class="btn-2" data-wl="decline|${f.id}">${icon('x')}Decline</button><button type="button" class="primary-btn" data-wl="approve|${f.id}">${icon('check')}Approve</button></div>
-        <button type="button" class="set-link" data-open="stub:full-application">${icon('file-text')}Read the full application</button>
+        <button type="button" class="set-link" data-open="person:${f.id}">${icon('user-round')}Their page and full application</button>
       </section>`).join('') : empty('inbox', 'No applications waiting.', ''),
   };
 };
@@ -1305,7 +1435,7 @@ S.dogsec = (p) => {
     const s = SALES.find((v) => v.pup === d.name);
     body = s
       ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Paid', money(s.paid)], ['Balance', money(s.price - s.paid)], ['Go-home', s.gohome], ['Contract', d.name === 'Fern' ? 'Sent, not signed' : s.paid ? 'Signed' : 'Not sent']])}</section>
-         <section class="card"><div class="rows">${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'list-ordered', t: `${fam(s.fam).n} on the waitlist`, s: 'Their turn, fee and messages', go: `wlentry:${s.fam}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: d.name === 'Fern' ? 'Sent Nov 9 · remind the Marsh family' : 'Signed through e-sign', go: 'stub:contracts' }) : ''}</div></section>`
+         <section class="card"><div class="rows">${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: d.name === 'Fern' ? 'Sent Nov 9 · remind the Marsh family' : 'Signed through e-sign', go: 'stub:contracts' }) : ''}</div></section>`
       : empty('tag', d.disp === 'keeping' ? `${d.name} is staying in your program.` : `${d.name} has no family yet.`, d.disp === 'keeping' ? '' : 'Add sale');
   } else if (k === 'litters') {
     body = `<section class="card"><div class="rows">${LITTERS.filter((l) => l.dam === d.name || l.sire === d.name).map((l) => row({ ic: 'paw-print', t: litterName(l), extra: pill(l.status), s: l.whelp ? `Whelped ${fmt(l.whelp)} · ${l.m + l.f} puppies` : `Due ${fmt(l.due)}`, go: `litter:${l.id}` })).join('')}</div></section>`;
@@ -1434,7 +1564,7 @@ S.littersec = (p) => {
   } else if (k === 'prep') {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
-    body = `<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section>${setLink('These come from Setup › Puppies & pricing', 'setupsec:pricing')}`;
+    body = `<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section><button type="button" class="set-link" data-open="pricing">${icon('pencil')}Change your usual prices</button>`;
   } else {
     body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
   }
@@ -1459,9 +1589,32 @@ S.business = () => ({
     <section class="card big-rows"><div class="rows">
       ${row({ ic: 'landmark', t: 'Accounts', s: 'Bank, payment and referral accounts', go: 'stub:accounts' })}
       ${FEAT.invoicing ? row({ ic: 'receipt', t: 'Extra charges', s: 'Your price list: crate, training stay, boarding', go: 'stub:extra-charges' }) : ''}
-      ${row({ ic: 'calendar-clock', t: 'Payment schedules', s: 'Saved schedules: deposit, then balance at pickup', go: 'stub:payment-schedules' })}
+      ${row({ ic: 'calendar-clock', t: 'Pricing and schedules', s: `${usualPrice()} · ${SET.pricing.deposit} deposit · ${SCHEDULES.length} saved schedules`, go: 'pricing' })}
     </div></section>`,
 });
+
+const usualPrice = () => (SET.pricing.priceBy === 'Different prices' ? `${SET.pricing.male} male, ${SET.pricing.female} female` : `${SET.pricing.pet} pet`);
+S.pricing = () => {
+  const P = SET.pricing, two = P.priceBy === 'Different prices';
+  const pq = (qk) => qRow('pricing', qk, ...(QS.pricing.find((x) => x[0] === qk)?.slice(1) || PRICE_Q[qk]));
+  const pay = (qk) => qRow('payments', qk, ...PRICE_Q[qk]);
+  return {
+    bar: bar('Pricing and schedules'),
+    body: `<section class="card hub-head"><div class="group-label" style="padding:0">A usual sale</div>
+        <div class="hub-reg">${two ? `${P.male} for a male, ${P.female} for a female` : `${P.pet} for a pet`}${P.fullReg !== 'Not offered' ? ` · full registration ${P.fullReg}` : ''}</div>
+        <div class="hub-line">${icon('wallet')}${P.deposit} deposit ${P.depositDue.toLowerCase()} · balance ${P.balanceDue.toLowerCase()}</div>
+        <div class="hub-line">${icon('hand-coins')}${SET.payments.methods}${SET.payments.card !== 'Not taken' ? ' · card online' : ''}</div></section>
+      <p class="lede">New sales start from these. You can still change any one sale on its own. Tap a question to change its answer.</p>
+      <div class="group-label">Usual price</div>
+      <section class="card"><div class="rows">${pq('priceBy')}${two ? pq('male') + pq('female') : pq('pet')}${pq('fullReg')}</div></section>
+      <div class="group-label">Deposit and timing</div>
+      <section class="card"><div class="rows">${pq('deposit')}${pq('depositsOpen')}${pq('depositDue')}${pq('balanceDue')}${pq('readyAt')}</div></section>
+      <div class="group-label">Ways families pay</div>
+      <section class="card"><div class="rows">${pay('methods')}${pay('card')}</div></section>
+      <div class="label-row"><div class="group-label">Saved schedules</div><button type="button" class="set-link" data-open="stub:new-schedule">${icon('plus')}New schedule</button></div>
+      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: 'stub:payment-schedule' })).join('')}</div></section>`,
+  };
+};
 
 S.sales = () => {
   const shown = applyF('sales', SALES);
@@ -1475,15 +1628,15 @@ S.sales = () => {
 
 S.people = () => {
   const tabs = ['All', 'Client', 'Waitlist', 'Care team', 'Network'];
-  const base = PEOPLE.filter((p) => ui.peopleTab === 'All' || p.t === ui.peopleTab);
+  const base = PEOPLE_OF().filter((p) => ui.peopleTab === 'All' || p.t === ui.peopleTab);
   const shown = applyF('people', base);
   const tone = { Client: 'green', Waitlist: 'blue', 'Care team': 'violet', Network: 'gray' };
   return {
     bar: bar('People', { action: addBtn('Add', 'stub:add-contact') }),
     body: `<div class="chips">${tabs.map((k) => `<button type="button" class="chip" data-peopletab="${k}" aria-pressed="${ui.peopleTab === k}">${k === 'Client' ? 'Clients' : k}</button>`).join('')}</div>
       ${filterBar('people', { placeholder: 'Search people', shown: shown.length, total: base.length })}
-      ${ui.peopleTab === 'Waitlist' && FEAT.waitlist ? `<section class="card"><div class="rows">${row({ ic: 'list-ordered', t: 'Open the Waitlist', s: 'Turns, offers, applications and fees live there', go: 'waitlist' })}</div></section>` : ''}
-      <section class="card"><div class="rows">${shown.map((p) => row({ ic: p.t === 'Care team' ? 'stethoscope' : p.t === 'Network' ? 'building-2' : 'user-round', tone: p.t === 'Waitlist' ? 'blue' : '', t: p.n, extra: pill([p.t, tone[p.t]]), s: p.s, go: 'stub:contact' })).join('')}</div></section>
+      ${ui.peopleTab === 'Waitlist' && FEAT.waitlist ? `<section class="card"><div class="rows">${row({ ic: 'list-ordered', t: 'The waitlist', s: 'Turn order, picks and fees across families', go: 'waitlist' })}</div></section>` : ''}
+      <section class="card"><div class="rows">${shown.map((p) => row({ ic: p.t === 'Care team' ? 'stethoscope' : p.t === 'Network' ? 'building-2' : 'user-round', tone: p.t === 'Waitlist' ? 'blue' : '', t: p.n, extra: pill([p.t, tone[p.t]]), s: p.s, go: `person:${p.id}` })).join('')}</div></section>
       <section class="card"><div class="rows">${row({ ic: 'ban', tone: 'red', t: 'Do not sell', s: '2 people', go: 'stub:do-not-sell' })}</div></section>`,
     filterItems: base,
   };
@@ -1590,8 +1743,8 @@ S.more = () => ({
 
 S.setup = () => {
   const q = (ui.q.setup || '').toLowerCase();
-  const match = (g) => !q || (g[2] + ' ' + g[3]() + ' ' + (GROUP_Q[g[0]] || []).map((x) => x[0]).join(' ') + ' ' + (QS[g[0]] || []).map((x) => x[1]).join(' ')).toLowerCase().includes(q);
-  const grp = (list) => list.filter(match).filter((g) => !g[5] || FEAT[g[5]]).map(([k, ic, t, sum, from, , planned]) => row({ ic, t, s: sum(), go: `setupsec:${k}`, planned })).join('');
+  const match = (g) => !q || (g[2] + ' ' + g[3]() + ' ' + (GROUP_Q[g[0]] || []).map((x) => x[0]).join(' ') + ' ' + (QS[g[0]] || []).map((x) => x[1]).join(' ') + (g[0] === 'pricing' ? ' ' + Object.values(PRICE_Q).map((x) => x[0]).join(' ') + ' payment schedules' : '')).toLowerCase().includes(q);
+  const grp = (list) => list.filter(match).filter((g) => !g[5] || FEAT[g[5]]).map(([k, ic, t, sum, from, , planned, to]) => row({ ic, t, s: sum(), go: to || `setupsec:${k}`, planned })).join('');
   const prog = grp(SETUP.program), app = grp(SETUP.app);
   return {
     bar: bar('Setup', { ic: 'settings' }),
@@ -1614,12 +1767,12 @@ S.setupsec = (k) => {
       <section class="card"><div class="rows">${FEATURES.map(([f, t, s]) => `<div class="switch-row"><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><button type="button" class="switch" role="switch" aria-checked="${FEAT[f]}" aria-label="${t}" data-feat="${f}"></button></div>`).join('')}</div></section>`;
   } else if (QS[k]) {
     body = `<p class="lede">Tap a question to change its answer. Changes save right away.</p>
-      <section class="card"><div class="rows">${QS[k].map(([qk, qq, opts]) => `<div class="q-row"><button type="button" class="q-head" data-qopen="${k}|${qk}" aria-expanded="${ui.qOpen === k + '|' + qk}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(ui.qOpen === k + '|' + qk ? 'chevron-up' : 'chevron-down')}</button>${ui.qOpen === k + '|' + qk ? `<div class="q-edit">${opts.map((o) => `<button type="button" class="chip" data-qset="${k}|${qk}|${esc(o)}" aria-pressed="${SET[k][qk] === o}">${esc(o)}</button>`).join('')}</div>` : ''}</div>`).join('')}
+      <section class="card"><div class="rows">${QS[k].map(([qk, qq, opts]) => qRow(k, qk, qq, opts)).join('')}
       ${k === 'waitlist' ? row({ ic: 'award', tone: 'violet', t: 'Programs', s: 'Military · Cancer support', go: 'wlprograms' }) : ''}</div></section>`;
   } else {
     body = planned ? `<div class="plan-box">${icon(g[1])}<span>This area is reserved for a planned feature.</span>${planTag(planned)}</div>` : '';
     body += `<section class="card"><div class="rows">${(GROUP_Q[k] || []).map(([qq, a, pn]) => `<div class="q-row${pn ? ' planned' : ''}"><button type="button" class="q-head" data-open="stub:${esc(qq.toLowerCase().replace(/[^a-z]+/g, '-'))}"><span class="q">${qq}${pn ? ' ' + planTag(pn) : ''}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
-    if (!planned) body += `<p class="lede">Not drawn in detail. It would use the same question-and-answer rows as Waitlist and Puppies &amp; pricing.</p>`;
+    if (!planned) body += `<p class="lede">Not drawn in detail. It would use the same question-and-answer rows as Waitlist and Pricing and schedules.</p>`;
   }
   if (from) body += `<p class="from">Today these live in: ${from}.</p>`;
   return { bar: bar(title, { sub: 'Setup' }), body };
@@ -2283,7 +2436,7 @@ function homeTiles(ny, own, net) {
     dogs: ['dog', 'Dogs', `${own} in program`, 'dogs'],
     sales: ['tag', 'Sales', `${SALES.length} this year`, 'sales'],
     financials: ['coins', 'Financials', `Net ${money(net, true)}`, 'financials'],
-    people: ['users', 'People', `${PEOPLE.length} contacts`, 'people'],
+    people: ['users', 'People', `${PEOPLE_OF().length} people`, 'people'],
     shows: FEAT.shows && ['trophy', 'Shows', 'Gunnar · Sat Dec 12', 'stub:shows'],
     lines: ['git-fork', 'Lines', planned ? `${planned} pairing to check` : 'Nothing to check', 'lines'],
     studs: FEAT.studServices && ['concierge-bell', 'Studs', '1 booking · ships Dec 2', 'studs'],
@@ -2354,7 +2507,7 @@ const SCREENS = [
   ['How lines produce', 'chart-column', 'Litters, C-sections, abnormalities, colors by sire and dam', 'production'],
   ['Accounts', 'landmark', 'Bank, payment and referral accounts', 'stub:accounts'],
   ['Extra charges', 'receipt', 'Your price list of extras', 'stub:extra-charges'],
-  ['Payment schedules', 'calendar-clock', 'Saved payment schedules', 'stub:payment-schedules'],
+  ['Pricing and schedules', 'calendar-clock', 'Usual price, deposit, timing, ways to pay, saved schedules', 'pricing'],
   ['Setup', 'settings', 'All settings', 'setup'],
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
   ['Import / Export', 'arrow-down-up', 'CSV import, export', 'stub:import-export'],
@@ -2368,15 +2521,16 @@ function searchIndex() {
   SCREENS.forEach(([t, ic, s, go]) => (FEAT.waitlist || !go.startsWith('wl') && go !== 'waitlist') && add('Go to', ic, t, s, go));
   DOGS.forEach((d) => add('Dogs', 'dog', d.name, `${STATUS[d.status][0]}${d.disp ? ' · ' + DISP[d.disp][0] : ''} · ${d.reg || 'Willow × Ash'}`, `dog:${d.id}`));
   LITTERS.forEach((l) => add('Litters', 'paw-print', litterName(l), `${l.status[0]} · ${l.note}`, `litter:${l.id}`));
-  if (FEAT.waitlist) WL.forEach((f) => add('Waitlist', 'list-ordered', f.n, `${WL_ST[f.st][0]}${f.pos ? ` · #${f.pos}` : ''} · wants ${WANTS[f.wants].toLowerCase()} · ${f.use}${f.pup ? ' · took ' + f.pup : ''}${f.app ? ' · ' + f.app : ''}${f.program ? ' · ' + f.program : ''}`, `wlentry:${f.id}`));
-  PEOPLE.filter((p) => p.t !== 'Waitlist').forEach((p) => add('People', 'user-round', p.n, `${p.t} · ${p.s}`, 'stub:contact'));
+  if (FEAT.waitlist) WL.forEach((f) => add('Waitlist', 'list-ordered', f.n, `${WL_ST[f.st][0]}${f.pos ? ` · #${f.pos}` : ''} · wants ${WANTS[f.wants].toLowerCase()} · ${f.use}${f.pup ? ' · took ' + f.pup : ''}${f.app ? ' · ' + f.app : ''}${f.program ? ' · ' + f.program : ''}${DETAILS[f.id] ? ` · ${DETAILS[f.id].email} · ${DETAILS[f.id].phone}` : ''}`, `person:${f.id}`));
+  PEOPLE_OF().filter((p) => p.t !== 'Waitlist').forEach((p) => add('People', 'user-round', p.n, `${p.t} · ${p.s}${DETAILS[p.id] ? ` · ${DETAILS[p.id].email} · ${DETAILS[p.id].phone}` : ''}`, `person:${p.id}`));
   SALES.forEach((s) => add('Sales', 'tag', `${s.pup} → ${fam(s.fam).n}`, `${saleState(s)[0]} · ${money(s.price)} · go-home ${s.gohome}`, `dogsec:${s.pup.toLowerCase()}|sale`));
   Object.entries(EVENTS).forEach(([id, evs]) => evs.forEach((e) => add('History', e.type[2], `${e.type[0]}: ${e.t}`, `${dogById(id).name} · ${fmt(e.d)}`, `dogsec:${id}|history`, `history|${e.t}`)));
   LEDGER.forEach((e) => add('Money', e.kind === 'in' ? 'arrow-down-left' : 'arrow-up-right', e.what, `${short(e.d)} · ${e.on.join(', ')} · ${e.party} · ${e.kind === 'in' ? '+' : '−'}${money(e.amt)}`, 'ledger', `ledger|${e.what}`));
-  [...SETUP.program, ...SETUP.app].forEach(([k, ic, t, sm, , feat]) => {
+  [...SETUP.program, ...SETUP.app].forEach(([k, ic, t, sm, , feat, , to]) => {
     if (feat && !FEAT[feat]) return;
-    add('Settings', ic, t, sm(), `setupsec:${k}`);
-    (QS[k] || []).forEach(([qk, q]) => add('Settings', 'settings', q, `${t} · ${SET[k][qk]}`, `setupsec:${k}`));
+    add('Settings', ic, t, sm(), to || `setupsec:${k}`);
+    (QS[k] || []).forEach(([qk, q]) => add('Settings', 'settings', q, `${t} · ${SET[k][qk]}`, to || `setupsec:${k}`));
+    if (k === 'pricing') Object.entries(PRICE_Q).forEach(([qk, [q]]) => add('Settings', 'settings', q, `${t} · ${SET.pricing[qk] ?? SET.payments[qk]}`, 'pricing'));
     (GROUP_Q[k] || []).forEach(([q, a]) => add('Settings', 'settings', q, `${t} · ${a}`, `setupsec:${k}`));
   });
   FEATURES.forEach(([f, t, s]) => add('Settings', 'toggle-right', `${t} (${FEAT[f] ? 'on' : 'off'})`, `What you use · ${s}`, 'setupsec:features'));
@@ -2453,7 +2607,20 @@ function toast(msg) {
   t.textContent = msg; t.hidden = false; t.style.whiteSpace = msg.length > 44 ? 'normal' : 'nowrap'; t.style.width = msg.length > 44 ? 'min(340px, 86%)' : ''; t.style.textAlign = 'center';
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
 }
-const icons = () => { if (window.lucide) lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); };
+/* the icons it uses, from Lucide 0.460.0 (ISC licence), shipped with the page so they
+   draw offline and wherever a CDN is blocked (Redesign plan §4: icons vendored) */
+const ICON_NODES = {"activity":[["path",{"d":"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"}]],"arrow-down-left":[["path",{"d":"M17 7 7 17"}],["path",{"d":"M17 17H7V7"}]],"arrow-down-up":[["path",{"d":"m3 16 4 4 4-4"}],["path",{"d":"M7 20V4"}],["path",{"d":"m21 8-4-4-4 4"}],["path",{"d":"M17 4v16"}]],"arrow-left":[["path",{"d":"m12 19-7-7 7-7"}],["path",{"d":"M19 12H5"}]],"arrow-left-right":[["path",{"d":"M8 3 4 7l4 4"}],["path",{"d":"M4 7h16"}],["path",{"d":"m16 21 4-4-4-4"}],["path",{"d":"M20 17H4"}]],"arrow-right":[["path",{"d":"M5 12h14"}],["path",{"d":"m12 5 7 7-7 7"}]],"arrow-up-right":[["path",{"d":"M7 7h10v10"}],["path",{"d":"M7 17 17 7"}]],"award":[["path",{"d":"m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"}],["circle",{"cx":"12","cy":"8","r":"6"}]],"baby":[["path",{"d":"M9 12h.01"}],["path",{"d":"M15 12h.01"}],["path",{"d":"M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"}],["path",{"d":"M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"}]],"badge":[["path",{"d":"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"}]],"badge-dollar-sign":[["path",{"d":"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"}],["path",{"d":"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"}],["path",{"d":"M12 18V6"}]],"ban":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m4.9 4.9 14.2 14.2"}]],"bell":[["path",{"d":"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"}],["path",{"d":"M10.3 21a1.94 1.94 0 0 0 3.4 0"}]],"bell-ring":[["path",{"d":"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"}],["path",{"d":"M10.3 21a1.94 1.94 0 0 0 3.4 0"}],["path",{"d":"M4 2C2.8 3.7 2 5.7 2 8"}],["path",{"d":"M22 8c0-2.3-.8-4.3-2-6"}]],"bone":[["path",{"d":"M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z"}]],"briefcase":[["path",{"d":"M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"}],["rect",{"width":"20","height":"14","x":"2","y":"6","rx":"2"}]],"building-2":[["path",{"d":"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"}],["path",{"d":"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"}],["path",{"d":"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"}],["path",{"d":"M10 6h4"}],["path",{"d":"M10 10h4"}],["path",{"d":"M10 14h4"}],["path",{"d":"M10 18h4"}]],"calendar-check":[["path",{"d":"M8 2v4"}],["path",{"d":"M16 2v4"}],["rect",{"width":"18","height":"18","x":"3","y":"4","rx":"2"}],["path",{"d":"M3 10h18"}],["path",{"d":"m9 16 2 2 4-4"}]],"calendar-clock":[["path",{"d":"M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"}],["path",{"d":"M16 2v4"}],["path",{"d":"M8 2v4"}],["path",{"d":"M3 10h5"}],["path",{"d":"M17.5 17.5 16 16.3V14"}],["circle",{"cx":"16","cy":"16","r":"6"}]],"calendar-days":[["path",{"d":"M8 2v4"}],["path",{"d":"M16 2v4"}],["rect",{"width":"18","height":"18","x":"3","y":"4","rx":"2"}],["path",{"d":"M3 10h18"}],["path",{"d":"M8 14h.01"}],["path",{"d":"M12 14h.01"}],["path",{"d":"M16 14h.01"}],["path",{"d":"M8 18h.01"}],["path",{"d":"M12 18h.01"}],["path",{"d":"M16 18h.01"}]],"car":[["path",{"d":"M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"}],["circle",{"cx":"7","cy":"17","r":"2"}],["path",{"d":"M9 17h6"}],["circle",{"cx":"17","cy":"17","r":"2"}]],"chart-column":[["path",{"d":"M3 3v16a2 2 0 0 0 2 2h16"}],["path",{"d":"M18 17V9"}],["path",{"d":"M13 17V5"}],["path",{"d":"M8 17v-3"}]],"check":[["path",{"d":"M20 6 9 17l-5-5"}]],"chevron-down":[["path",{"d":"m6 9 6 6 6-6"}]],"chevron-right":[["path",{"d":"m9 18 6-6-6-6"}]],"chevron-up":[["path",{"d":"m18 15-6-6-6 6"}]],"circle":[["circle",{"cx":"12","cy":"12","r":"10"}]],"circle-alert":[["circle",{"cx":"12","cy":"12","r":"10"}],["line",{"x1":"12","x2":"12","y1":"8","y2":"12"}],["line",{"x1":"12","x2":"12.01","y1":"16","y2":"16"}]],"circle-check":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m9 12 2 2 4-4"}]],"clipboard-check":[["rect",{"width":"8","height":"4","x":"8","y":"2","rx":"1","ry":"1"}],["path",{"d":"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"}],["path",{"d":"m9 14 2 2 4-4"}]],"clipboard-list":[["rect",{"width":"8","height":"4","x":"8","y":"2","rx":"1","ry":"1"}],["path",{"d":"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"}],["path",{"d":"M12 11h4"}],["path",{"d":"M12 16h4"}],["path",{"d":"M8 11h.01"}],["path",{"d":"M8 16h.01"}]],"clock":[["circle",{"cx":"12","cy":"12","r":"10"}],["polyline",{"points":"12 6 12 12 16 14"}]],"cloud":[["path",{"d":"M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"}]],"clover":[["path",{"d":"M16.17 7.83 2 22"}],["path",{"d":"M4.02 12a2.827 2.827 0 1 1 3.81-4.17A2.827 2.827 0 1 1 12 4.02a2.827 2.827 0 1 1 4.17 3.81A2.827 2.827 0 1 1 19.98 12a2.827 2.827 0 1 1-3.81 4.17A2.827 2.827 0 1 1 12 19.98a2.827 2.827 0 1 1-4.17-3.81A1 1 0 1 1 4 12"}],["path",{"d":"m7.83 7.83 8.34 8.34"}]],"coins":[["circle",{"cx":"8","cy":"8","r":"6"}],["path",{"d":"M18.09 10.37A6 6 0 1 1 10.34 18"}],["path",{"d":"M7 6h1v4"}],["path",{"d":"m16.71 13.88.7.71-2.82 2.82"}]],"compass":[["path",{"d":"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"}],["circle",{"cx":"12","cy":"12","r":"10"}]],"concierge-bell":[["path",{"d":"M3 20a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1Z"}],["path",{"d":"M20 16a8 8 0 1 0-16 0"}],["path",{"d":"M12 4v4"}],["path",{"d":"M10 4h4"}]],"copy":[["rect",{"width":"14","height":"14","x":"8","y":"8","rx":"2","ry":"2"}],["path",{"d":"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"}]],"dam":[["path",{"d":"M11 11.31c1.17.56 1.54 1.69 3.5 1.69 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"}],["path",{"d":"M11.75 18c.35.5 1.45 1 2.75 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"}],["path",{"d":"M2 10h4"}],["path",{"d":"M2 14h4"}],["path",{"d":"M2 18h4"}],["path",{"d":"M2 6h4"}],["path",{"d":"M7 3a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1L10 4a1 1 0 0 0-1-1z"}]],"dna":[["path",{"d":"m10 16 1.5 1.5"}],["path",{"d":"m14 8-1.5-1.5"}],["path",{"d":"M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"}],["path",{"d":"m16.5 10.5 1 1"}],["path",{"d":"m17 6-2.891-2.891"}],["path",{"d":"M2 15c6.667-6 13.333 0 20-6"}],["path",{"d":"m20 9 .891.891"}],["path",{"d":"M3.109 14.109 4 15"}],["path",{"d":"m6.5 12.5 1 1"}],["path",{"d":"m7 18 2.891 2.891"}],["path",{"d":"M9 22c1.798-1.998 2.518-3.995 2.807-5.993"}]],"dog":[["path",{"d":"M11.25 16.25h1.5L12 17z"}],["path",{"d":"M16 14v.5"}],["path",{"d":"M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309"}],["path",{"d":"M8 14v.5"}],["path",{"d":"M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"}]],"dot":[["circle",{"cx":"12.1","cy":"12.1","r":"1"}]],"ear":[["path",{"d":"M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"}],["path",{"d":"M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"}]],"ellipsis":[["circle",{"cx":"12","cy":"12","r":"1"}],["circle",{"cx":"19","cy":"12","r":"1"}],["circle",{"cx":"5","cy":"12","r":"1"}]],"eye":[["path",{"d":"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"}],["circle",{"cx":"12","cy":"12","r":"3"}]],"file-pen-line":[["path",{"d":"m18 5-2.414-2.414A2 2 0 0 0 14.172 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2"}],["path",{"d":"M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"}],["path",{"d":"M8 18h1"}]],"file-text":[["path",{"d":"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"}],["path",{"d":"M14 2v4a2 2 0 0 0 2 2h4"}],["path",{"d":"M10 9H8"}],["path",{"d":"M16 13H8"}],["path",{"d":"M16 17H8"}]],"flag":[["path",{"d":"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"}],["line",{"x1":"4","x2":"4","y1":"22","y2":"15"}]],"flame":[["path",{"d":"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"}]],"folder":[["path",{"d":"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"}]],"ghost":[["path",{"d":"M9 10h.01"}],["path",{"d":"M15 10h.01"}],["path",{"d":"M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"}]],"git-compare":[["circle",{"cx":"18","cy":"18","r":"3"}],["circle",{"cx":"6","cy":"6","r":"3"}],["path",{"d":"M13 6h3a2 2 0 0 1 2 2v7"}],["path",{"d":"M11 18H8a2 2 0 0 1-2-2V9"}]],"git-fork":[["circle",{"cx":"12","cy":"18","r":"3"}],["circle",{"cx":"6","cy":"6","r":"3"}],["circle",{"cx":"18","cy":"6","r":"3"}],["path",{"d":"M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"}],["path",{"d":"M12 12v3"}]],"globe":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"}],["path",{"d":"M2 12h20"}]],"grid":[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}],["path",{"d":"M3 9h18"}],["path",{"d":"M3 15h18"}],["path",{"d":"M9 3v18"}],["path",{"d":"M15 3v18"}]],"grid-3x3":[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}],["path",{"d":"M3 9h18"}],["path",{"d":"M3 15h18"}],["path",{"d":"M9 3v18"}],["path",{"d":"M15 3v18"}]],"group":[["path",{"d":"M3 7V5c0-1.1.9-2 2-2h2"}],["path",{"d":"M17 3h2c1.1 0 2 .9 2 2v2"}],["path",{"d":"M21 17v2c0 1.1-.9 2-2 2h-2"}],["path",{"d":"M7 21H5c-1.1 0-2-.9-2-2v-2"}],["rect",{"width":"7","height":"5","x":"7","y":"7","rx":"1"}],["rect",{"width":"7","height":"5","x":"10","y":"12","rx":"1"}]],"hand-coins":[["path",{"d":"M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17"}],["path",{"d":"m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"}],["path",{"d":"m2 16 6 6"}],["circle",{"cx":"16","cy":"9","r":"2.9"}],["circle",{"cx":"6","cy":"5","r":"3"}]],"heart":[["path",{"d":"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"}]],"heart-handshake":[["path",{"d":"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"}],["path",{"d":"M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"}],["path",{"d":"m18 15-2-2"}],["path",{"d":"m15 18-2-2"}]],"history":[["path",{"d":"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"}],["path",{"d":"M3 3v5h5"}],["path",{"d":"M12 7v5l4 2"}]],"home":[["path",{"d":"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"}],["path",{"d":"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"}]],"house":[["path",{"d":"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"}],["path",{"d":"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"}]],"house-plus":[["path",{"d":"M13.22 2.416a2 2 0 0 0-2.511.057l-7 5.999A2 2 0 0 0 3 10v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7.354"}],["path",{"d":"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"}],["path",{"d":"M15 6h6"}],["path",{"d":"M18 3v6"}]],"id-card":[["path",{"d":"M16 10h2"}],["path",{"d":"M16 14h2"}],["path",{"d":"M6.17 15a3 3 0 0 1 5.66 0"}],["circle",{"cx":"9","cy":"11","r":"2"}],["rect",{"x":"2","y":"5","width":"20","height":"14","rx":"2"}]],"inbox":[["polyline",{"points":"22 12 16 12 14 15 10 15 8 12 2 12"}],["path",{"d":"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"}]],"info":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 16v-4"}],["path",{"d":"M12 8h.01"}]],"landmark":[["line",{"x1":"3","x2":"21","y1":"22","y2":"22"}],["line",{"x1":"6","x2":"6","y1":"18","y2":"11"}],["line",{"x1":"10","x2":"10","y1":"18","y2":"11"}],["line",{"x1":"14","x2":"14","y1":"18","y2":"11"}],["line",{"x1":"18","x2":"18","y1":"18","y2":"11"}],["polygon",{"points":"12 2 20 7 4 7"}]],"life-buoy":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m4.93 4.93 4.24 4.24"}],["path",{"d":"m14.83 9.17 4.24-4.24"}],["path",{"d":"m14.83 14.83 4.24 4.24"}],["path",{"d":"m9.17 14.83-4.24 4.24"}],["circle",{"cx":"12","cy":"12","r":"4"}]],"lightbulb":[["path",{"d":"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"}],["path",{"d":"M9 18h6"}],["path",{"d":"M10 22h4"}]],"link":[["path",{"d":"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"}],["path",{"d":"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"}]],"list":[["path",{"d":"M3 12h.01"}],["path",{"d":"M3 18h.01"}],["path",{"d":"M3 6h.01"}],["path",{"d":"M8 12h13"}],["path",{"d":"M8 18h13"}],["path",{"d":"M8 6h13"}]],"list-checks":[["path",{"d":"m3 17 2 2 4-4"}],["path",{"d":"m3 7 2 2 4-4"}],["path",{"d":"M13 6h8"}],["path",{"d":"M13 12h8"}],["path",{"d":"M13 18h8"}]],"list-ordered":[["path",{"d":"M10 12h11"}],["path",{"d":"M10 18h11"}],["path",{"d":"M10 6h11"}],["path",{"d":"M4 10h2"}],["path",{"d":"M4 6h1v4"}],["path",{"d":"M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"}]],"list-todo":[["rect",{"x":"3","y":"5","width":"6","height":"6","rx":"1"}],["path",{"d":"m3 17 2 2 4-4"}],["path",{"d":"M13 6h8"}],["path",{"d":"M13 12h8"}],["path",{"d":"M13 18h8"}]],"mail":[["rect",{"width":"20","height":"16","x":"2","y":"4","rx":"2"}],["path",{"d":"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"}]],"map":[["path",{"d":"M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"}],["path",{"d":"M15 5.764v15"}],["path",{"d":"M9 3.236v15"}]],"map-pin":[["path",{"d":"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"}],["circle",{"cx":"12","cy":"10","r":"3"}]],"medal":[["path",{"d":"M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"}],["path",{"d":"M11 12 5.12 2.2"}],["path",{"d":"m13 12 5.88-9.8"}],["path",{"d":"M8 7h8"}],["circle",{"cx":"12","cy":"17","r":"5"}],["path",{"d":"M12 18v-2h-.5"}]],"message-square-text":[["path",{"d":"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"}],["path",{"d":"M13 8H7"}],["path",{"d":"M17 12H7"}]],"mic":[["path",{"d":"M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"}],["path",{"d":"M19 10v2a7 7 0 0 1-14 0v-2"}],["line",{"x1":"12","x2":"12","y1":"19","y2":"22"}]],"moon":[["path",{"d":"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"}]],"move":[["path",{"d":"M12 2v20"}],["path",{"d":"m15 19-3 3-3-3"}],["path",{"d":"m19 9 3 3-3 3"}],["path",{"d":"M2 12h20"}],["path",{"d":"m5 9-3 3 3 3"}],["path",{"d":"m9 5 3-3 3 3"}]],"palette":[["circle",{"cx":"13.5","cy":"6.5","r":".5","fill":"currentColor"}],["circle",{"cx":"17.5","cy":"10.5","r":".5","fill":"currentColor"}],["circle",{"cx":"8.5","cy":"7.5","r":".5","fill":"currentColor"}],["circle",{"cx":"6.5","cy":"12.5","r":".5","fill":"currentColor"}],["path",{"d":"M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"}]],"paw-print":[["circle",{"cx":"11","cy":"4","r":"2"}],["circle",{"cx":"18","cy":"8","r":"2"}],["circle",{"cx":"20","cy":"16","r":"2"}],["path",{"d":"M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"}]],"pencil":[["path",{"d":"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"}],["path",{"d":"m15 5 4 4"}]],"phone":[["path",{"d":"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"}]],"plus":[["path",{"d":"M5 12h14"}],["path",{"d":"M12 5v14"}]],"quote":[["path",{"d":"M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"}],["path",{"d":"M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"}]],"receipt":[["path",{"d":"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"}],["path",{"d":"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"}],["path",{"d":"M12 17.5v-11"}]],"ribbon":[["path",{"d":"M12 11.22C11 9.997 10 9 10 8a2 2 0 0 1 4 0c0 1-.998 2.002-2.01 3.22"}],["path",{"d":"m12 18 2.57-3.5"}],["path",{"d":"M6.243 9.016a7 7 0 0 1 11.507-.009"}],["path",{"d":"M9.35 14.53 12 11.22"}],["path",{"d":"M9.35 14.53C7.728 12.246 6 10.221 6 7a6 5 0 0 1 12 0c-.005 3.22-1.778 5.235-3.43 7.5l3.557 4.527a1 1 0 0 1-.203 1.43l-1.894 1.36a1 1 0 0 1-1.384-.215L12 18l-2.679 3.593a1 1 0 0 1-1.39.213l-1.865-1.353a1 1 0 0 1-.203-1.422z"}]],"row-s":[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}],["path",{"d":"M3 12h18"}]],"rows":[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}],["path",{"d":"M3 12h18"}]],"ruler":[["path",{"d":"M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"}],["path",{"d":"m14.5 12.5 2-2"}],["path",{"d":"m11.5 9.5 2-2"}],["path",{"d":"m8.5 6.5 2-2"}],["path",{"d":"m17.5 15.5 2-2"}]],"save":[["path",{"d":"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"}],["path",{"d":"M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"}],["path",{"d":"M7 3v4a1 1 0 0 0 1 1h7"}]],"scale":[["path",{"d":"m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"}],["path",{"d":"m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"}],["path",{"d":"M7 21h10"}],["path",{"d":"M12 3v18"}],["path",{"d":"M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"}]],"scan-line":[["path",{"d":"M3 7V5a2 2 0 0 1 2-2h2"}],["path",{"d":"M17 3h2a2 2 0 0 1 2 2v2"}],["path",{"d":"M21 17v2a2 2 0 0 1-2 2h-2"}],["path",{"d":"M7 21H5a2 2 0 0 1-2-2v-2"}],["path",{"d":"M7 12h10"}]],"search":[["circle",{"cx":"11","cy":"11","r":"8"}],["path",{"d":"m21 21-4.3-4.3"}]],"search-x":[["path",{"d":"m13.5 8.5-5 5"}],["path",{"d":"m8.5 8.5 5 5"}],["circle",{"cx":"11","cy":"11","r":"8"}],["path",{"d":"m21 21-4.3-4.3"}]],"send":[["path",{"d":"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"}],["path",{"d":"m21.854 2.147-10.94 10.939"}]],"settings":[["path",{"d":"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"}],["circle",{"cx":"12","cy":"12","r":"3"}]],"share-2":[["circle",{"cx":"18","cy":"5","r":"3"}],["circle",{"cx":"6","cy":"12","r":"3"}],["circle",{"cx":"18","cy":"19","r":"3"}],["line",{"x1":"8.59","x2":"15.42","y1":"13.51","y2":"17.49"}],["line",{"x1":"15.41","x2":"8.59","y1":"6.51","y2":"10.49"}]],"sheet":[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2","ry":"2"}],["line",{"x1":"3","x2":"21","y1":"9","y2":"9"}],["line",{"x1":"3","x2":"21","y1":"15","y2":"15"}],["line",{"x1":"9","x2":"9","y1":"9","y2":"21"}],["line",{"x1":"15","x2":"15","y1":"9","y2":"21"}]],"shell":[["path",{"d":"M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"}]],"shield-alert":[["path",{"d":"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"}],["path",{"d":"M12 8v4"}],["path",{"d":"M12 16h.01"}]],"shield-check":[["path",{"d":"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"}],["path",{"d":"m9 12 2 2 4-4"}]],"sliders-horizontal":[["line",{"x1":"21","x2":"14","y1":"4","y2":"4"}],["line",{"x1":"10","x2":"3","y1":"4","y2":"4"}],["line",{"x1":"21","x2":"12","y1":"12","y2":"12"}],["line",{"x1":"8","x2":"3","y1":"12","y2":"12"}],["line",{"x1":"21","x2":"16","y1":"20","y2":"20"}],["line",{"x1":"12","x2":"3","y1":"20","y2":"20"}],["line",{"x1":"14","x2":"14","y1":"2","y2":"6"}],["line",{"x1":"8","x2":"8","y1":"10","y2":"14"}],["line",{"x1":"16","x2":"16","y1":"18","y2":"22"}]],"snowflake":[["line",{"x1":"2","x2":"22","y1":"12","y2":"12"}],["line",{"x1":"12","x2":"12","y1":"2","y2":"22"}],["path",{"d":"m20 16-4-4 4-4"}],["path",{"d":"m4 8 4 4-4 4"}],["path",{"d":"m16 4-4 4-4-4"}],["path",{"d":"m8 20 4-4 4 4"}]],"sparkles":[["path",{"d":"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"}],["path",{"d":"M20 3v4"}],["path",{"d":"M22 5h-4"}],["path",{"d":"M4 17v2"}],["path",{"d":"M5 18H3"}]],"stethoscope":[["path",{"d":"M11 2v2"}],["path",{"d":"M5 2v2"}],["path",{"d":"M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"}],["path",{"d":"M8 15a6 6 0 0 0 12 0v-3"}],["circle",{"cx":"20","cy":"10","r":"2"}]],"syringe":[["path",{"d":"m18 2 4 4"}],["path",{"d":"m17 7 3-3"}],["path",{"d":"M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"}],["path",{"d":"m9 11 4 4"}],["path",{"d":"m5 19-3 3"}],["path",{"d":"m14 4 6 6"}]],"table":[["path",{"d":"M12 3v18"}],["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}],["path",{"d":"M3 9h18"}],["path",{"d":"M3 15h18"}]],"tag":[["path",{"d":"M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"}],["circle",{"cx":"7.5","cy":"7.5","r":".5","fill":"currentColor"}]],"target":[["circle",{"cx":"12","cy":"12","r":"10"}],["circle",{"cx":"12","cy":"12","r":"6"}],["circle",{"cx":"12","cy":"12","r":"2"}]],"test-tube":[["path",{"d":"M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2"}],["path",{"d":"M8.5 2h7"}],["path",{"d":"M14.5 16h-5"}]],"thermometer":[["path",{"d":"M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"}]],"toggle-right":[["rect",{"width":"20","height":"12","x":"2","y":"6","rx":"6","ry":"6"}],["circle",{"cx":"16","cy":"12","r":"2"}]],"trash-2":[["path",{"d":"M3 6h18"}],["path",{"d":"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"}],["path",{"d":"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"}],["line",{"x1":"10","x2":"10","y1":"11","y2":"17"}],["line",{"x1":"14","x2":"14","y1":"11","y2":"17"}]],"trending-up":[["polyline",{"points":"22 7 13.5 15.5 8.5 10.5 2 17"}],["polyline",{"points":"16 7 22 7 22 13"}]],"triangle-alert":[["path",{"d":"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"}],["path",{"d":"M12 9v4"}],["path",{"d":"M12 17h.01"}]],"trophy":[["path",{"d":"M6 9H4.5a2.5 2.5 0 0 1 0-5H6"}],["path",{"d":"M18 9h1.5a2.5 2.5 0 0 0 0-5H18"}],["path",{"d":"M4 22h16"}],["path",{"d":"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"}],["path",{"d":"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"}],["path",{"d":"M18 2H6v7a6 6 0 0 0 12 0V2Z"}]],"truck":[["path",{"d":"M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"}],["path",{"d":"M15 18H9"}],["path",{"d":"M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"}],["circle",{"cx":"17","cy":"18","r":"2"}],["circle",{"cx":"7","cy":"18","r":"2"}]],"user-round":[["circle",{"cx":"12","cy":"8","r":"5"}],["path",{"d":"M20 21a8 8 0 0 0-16 0"}]],"users":[["path",{"d":"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"}],["circle",{"cx":"9","cy":"7","r":"4"}],["path",{"d":"M22 21v-2a4 4 0 0 0-3-3.87"}],["path",{"d":"M16 3.13a4 4 0 0 1 0 7.75"}]],"wallet":[["path",{"d":"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"}],["path",{"d":"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"}]],"x":[["path",{"d":"M18 6 6 18"}],["path",{"d":"m6 6 12 12"}]]};
+const SVGNS = 'http://www.w3.org/2000/svg';
+const icons = () => document.querySelectorAll('i[data-lucide]').forEach((el) => {
+  const name = el.getAttribute('data-lucide'), node = ICON_NODES[name];
+  if (!node) return;
+  const svg = document.createElementNS(SVGNS, 'svg');
+  const attrs = { xmlns: SVGNS, width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+  Object.entries(attrs).forEach(([k, v]) => svg.setAttribute(k, v));
+  svg.setAttribute('class', `lucide lucide-${name}${el.className ? ' ' + el.className : ''}`);
+  node.forEach(([tag, a]) => { const c = document.createElementNS(SVGNS, tag); Object.entries(a).forEach(([k, v]) => c.setAttribute(k, v)); svg.appendChild(c); });
+  el.replaceWith(svg);
+});
 let lastScreen = null;
 function render() {
   const t = top();
@@ -2472,7 +2639,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-catjump]');
+  const el = e.target.closest('[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -2496,6 +2663,30 @@ document.addEventListener('click', (e) => {
     else if (f === 'save') { const list = BIRTHS.ct, n = list.length + 1; list.push({ n, time: b.time || '—', sex: b.sex, color: b.color, wt: Number(b.wt) || '—', alive: !!b.alive, cause: b.alive ? undefined : 'Stillborn', abn: b.abn }); ui.birth = { sex: 'f', color: b.color, alive: 1, wt: '', time: '', abn: [], adding: false }; toast(`Pup ${n} saved`); }
     render(); return;
   }
+  if (d.qother) { ui.qOther = d.qother; render(); $('#qo-input')?.focus(); return; }
+  if (d.qown) {
+    const [k, qk] = d.qown.split('|');
+    let v = ($('#qo-input')?.value || '').trim();
+    if (!v) return toast('Type your answer first');
+    if (MONEY_Q.includes(qk)) {
+      const n = Number(v.replace(/[^0-9.]/g, ''));
+      if (!/[0-9]/.test(v) || !(n >= 0)) return toast('Type an amount, like ' + OWN_HINT[qk]);
+      v = (qk === 'fullReg' ? '+' : '') + '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    }
+    const opts = qOpts(k, qk);
+    if (!opts.includes(v)) opts.push(v);
+    SET[k][qk] = v; ui.qOther = null; ui.qOpen = null; render(); toast(`Saved. ${v} is one of your choices now.`); return;
+  }
+  if (d.psave) {
+    const id = d.psave, val = (k) => ($('#pe-' + k)?.value || '').trim();
+    const n = val('name'), email = val('email');
+    if (!n) return toast('Their name can’t be blank');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('That email doesn’t look right');
+    const was = DETAILS[id]?.email;
+    DETAILS[id] = { email, phone: val('phone'), addr: val('addr') };
+    if (fam(id)) fam(id).n = n; else { const o = OTHERS.find((x) => x.id === id); if (o) o.n = n; }
+    back(); toast(was && email && was !== email ? `Saved. Everything for the ${n} now goes to ${email}.` : 'Saved'); return;
+  }
   if (d.sterm != null) { ui.q.search = d.sterm; ui.searchMore = {}; render(); return; }
   if (d.smore) { ui.searchMore[d.smore] = true; render(); return; }
   if (d.srec && ui.q.search) { const term = ui.q.search.trim(); ui.recent = [term, ...ui.recent.filter((r) => r !== term)].slice(0, 5); }
@@ -2513,7 +2704,7 @@ document.addEventListener('click', (e) => {
   else if (d.sg) { const [g, v] = d.sg.split('|'); const s = (ui.sheet.draft.sel[g] ||= []); const i = s.indexOf(v); i < 0 ? s.push(v) : s.splice(i, 1); renderSheet(); }
   else if ('sreset' in d) { ui.sheet.draft = blankF(); renderSheet(); }
   else if ('sapply' in d) { const dr = ui.sheet.draft; if (dr.range === 'custom') { dr.from = $('#sf-from')?.value || ''; dr.to = $('#sf-to')?.value || ''; } ui.f[ui.sheet.key] = dr; ui.sheet = null; render(); }
-  else if (d.qopen) { ui.qOpen = ui.qOpen === d.qopen ? null : d.qopen; render(); }
+  else if (d.qopen) { ui.qOpen = ui.qOpen === d.qopen ? null : d.qopen; ui.qOther = null; render(); }
   else if (d.qset) { const [k, qk, v] = d.qset.split('|'); SET[k][qk] = v; ui.qOpen = null; render(); toast('Saved'); }
   else if (d.feat) { FEAT[d.feat] = !FEAT[d.feat]; render(); toast(`${FEATURES.find((f) => f[0] === d.feat)[1]} ${FEAT[d.feat] ? 'on' : 'off'}`); }
   else if (d.wl) { const [a, id] = d.wl.split('|'); wlAct(a, id); }
@@ -2532,6 +2723,7 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.sheet) { ui.sheet = null; renderSheet(); return; }
+  if (e.key === 'Enter' && e.target.id === 'qo-input') { e.preventDefault(); document.querySelector(`[data-qown="${e.target.dataset.qokey}"]`)?.click(); return; }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
   if ((e.key === '/' && !typing) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
     if ($('#map-dialog').open) return;
