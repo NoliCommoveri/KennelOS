@@ -6531,3 +6531,11 @@ nudge) is built as recommended and waits on the owner's confirmation.
 - Docs: Waitlist Spec Q29, §15.7 item 6, §16.3, §16.6 (**Modified**); End-State guide (family
   actions); tests README.
 - **Service worker:** no `CACHE_NAME` bump yet; no app file added or renamed.
+
+## 2026-11-19: Plan: families change their answers themselves before pups are born
+
+- New `docs/KennelOS_Family_Free_Changes_Plan.md` (owner's request): a per-change setting
+  (sex, breed, looking for, colors, ready to buy, parents, pause, and a new "end my pause
+  early"), each set separately for before and after pups are born ("pups on the ground" =
+  any litter of the kennel whelped and not closed). Defaults keep today's behaviour.
+  Seven open questions (§8). Nothing built. README doc map gains the plan.
