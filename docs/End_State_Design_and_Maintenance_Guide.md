@@ -2403,24 +2403,37 @@ restored into Lite keeps its waitlist rows, dormant.
   `respond_by_at` and a Coming up item's `picks_expected_at` (ISO); `common.js` has the
   family pages' own `countdownHtml` / `startCountdowns`: "Picks open in …" on the card,
   "Your turn ends in …" under the deadline (at zero: "Time's up. Waiting on [kennel].").
-- **The turn estimate** (Phase 3): open litters share one turn order, and a litter that
-  opens joins it, so a family's estimate counts the families ahead of them in it: the
-  projection's `turn_queue`, or `openings` (her planned litters, soonest first, at most six:
-  `[{ litter_id, date, time, queue: [{ entry_id, dog_ids, planned }] }]`, each the same walk
-  with it and every one before it counted open). A family not in line on the open litters
-  counts to the first planned one they'd get a turn on (`litter_id`, named on the page as
-  `turn_estimate.litter`, with its own "Picks open on … in" countdown); for it, a family ahead
-  waiting only on earlier litters counts only while their own turn would still run (a memoized
-  `turnEstimate` on the earlier openings).
-  `serverMoves.turnEstimate(projection, entryId, now)` starts at the end of the open turn (or
-  now, or the planned opening) and adds one full turn (`turnDue`) per family ahead. Only
-  when a pup could be left for them: walking the order, the holder's pick (or one of their
-  pups) and each family ahead who'd take one of the pups this family wants (available now)
-  takes one; none left, no estimate. → `{ at, next, opening, opens_at }`;
-  `familyPages.statusView` puts `at`, `next` and `opens_at` on `family.turn_estimate`, never who is ahead or how many. The
-  status page's Current Position card shows it. None during their own turn, outside both
-  orders, for a planned litter she doesn't show on family pages, past 200 ahead, or with no
-  time zone.
+- **The status page pop-up**: one per visit, after the page's first render, closed with
+  **Got it** (Escape too; `status.js showPopup`); her preview (View their page) shows it as
+  the family sees it. The Worker picks it, `familyPages.statusPopup(projection, entryId)` →
+  `family.popup`, first that fits: `turn` (they hold a turn, not a side sale: `{ kind,
+  turn_id }`; the page shows "Choose your pup! Time left to pick and pay:" with the time in
+  big bold words, "Thanks for choosing! Time left to pay:" once they've picked, "Time's up.
+  Waiting on [kennel]." at zero, ticking each second; fixed words), `open` (picks open and
+  their turn should reach them, between turns too), `soon` (a born litter she shows on
+  family pages, picks not open, that they match and wait for; reach from its opening, or
+  assumed with no planned opening), `open_far`, `soon_far` (the same, but the pups they want
+  may run out first), `skipped` (a litter open or born and shown, and they're in line for
+  none of it: "Not this litter", their turn there used, other parents chosen, no matching
+  pup). None while paused or held ("ready later"), with no litter, or with her box empty.
+  Reach is `serverMoves.turnReach(projection, entryId)` → `{ open, planned: { [litter_id] }
+  }`: one walk through her litters as they open, each family getting at most one pup:
+  the open turns (each holder's pick, or one of their pups), then `turn_queue`, then each
+  planned litter in the order it opens (the projection's `openings`, soonest first, at
+  most six: `[{ litter_id, date, time, queue: [{ entry_id, dog_ids, planned }] }]`, each
+  that litter's whole order with it and every one before it counted open; families
+  already given a pup are left out). Each family ahead takes one of its pups, one this
+  family wants where it could (so it never promises too much). At this family's turn in a
+  stage, any pup they want left = yes (the walk ends there), none = no (it goes on to the
+  next litter). A row with no pups for them ("Not this litter" on all of it) isn't a
+  place in line. A born litter with a planned opening counts only where they're in its
+  order; one with no day planned, where they match it and didn't say "Not this litter".
+  Never a time, a count or a place.
+  Her words: `waitlist_config.status_popups` (`{ [kind]: text }`; missing = the default,
+  `waitlistRules.STATUS_POPUP_DEFAULTS`; '' = off), set in Waitlist settings → Messages to
+  families → **Status page pop-ups** (list online), published resolved as the projection's
+  `kennel.status_popups` (`statusPopupTexts`); the Worker fills **[Kennel]** and
+  **[opening soon/open]**.
 - **Whose clock** (decision D11): the waitlist's deadlines (turns, fees, "Ready now?", the
   undo windows, pickup cutoffs and extras' dates) run on the kennel's own date,
   `dateUtils.kennelToday(kennel)` from `Kennel.time_zone` (set when the list goes online;

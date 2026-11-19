@@ -202,7 +202,7 @@ test('countdowns: her device and the Worker agree on the moment; the words', asy
   assert.equal(d.countdownText(now - 1000, now), '');
 });
 
-test('the projection: her planned opening for the server\'s alert, and the turn order it joins', async () => {
+test('the projection: her planned opening for the server\'s alert, the turn order it joins, and the pop-up it gives', async () => {
   const { buildProjection } = await import('../shared/data/waitlistProjection.js');
   await litterRepo.update(L.id, { accept_deposits_date: '2026-11-30', picks_open_time: '19:00' });
   await kennelRepo.update(K.id, { waitlist_config: { ...K.waitlist_config, show_upcoming: { early_litters: { public: true, family: true } } } });
@@ -218,18 +218,19 @@ test('the projection: her planned opening for the server\'s alert, and the turn 
   ] }]);
   const item = p.upcoming.find((u) => u.litter_id === L.id);
   assert.equal(item.picks_expected_time, '19:00');
-  // …and the family's page: when picks open, and Kim's estimate after Lee's 24 hours.
+  // …and the family's page: the pop-up for where they stand, never a time or a count.
   const { statusView } = await import('../cloud/src/familyPages.js');
   const now = new Date('2026-11-19T18:00:00Z');
-  assert.equal(statusView(p, ids.kim, now).family.turn_estimate, undefined, 'one pup, and Lee first: nothing for Kim');
-  assert.equal(statusView(p, ids.lee, now).family.turn_estimate.at, '2026-12-01T01:00:00.000Z', 'Lee: when picks open, 7:00 pm Chicago');
-  // A second pup: Kim could get one, after Lee's 24 hours.
+  assert.equal(statusView(p, ids.kim, now).family.popup.kind, 'soon_far', 'one pup, and Lee first: it may run out before Kim');
+  assert.deepEqual(statusView(p, ids.lee, now).family.popup, { kind: 'soon', text: rules.STATUS_POPUP_DEFAULTS.soon });
+  assert.equal(statusView(p, ids.lee, now).family.turn_estimate, undefined, 'no turn estimate any more');
+  // A second pup: Kim's turn should come too.
   await dogRepo.create({ call_name: 'Pia', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', litter_id: L.id, disposition: 'available', kennel_id: K.id });
   const p2 = buildProjection({
     kennel, entries: await waitlistEntryRepo.getByKennel(K.id), offers: await waitlistOfferRepo.getByKennel(K.id),
     litters: [await litterRepo.getById(L.id)], dogs: await dogRepo.getAll(), contacts: [], today: '2026-11-19'
   });
   const kim = statusView(p2, ids.kim, now);
-  assert.equal(kim.family.turn_estimate.at, '2026-12-02T01:00:00.000Z', 'Dec 1, 7:00 pm Chicago');
+  assert.equal(kim.family.popup.kind, 'soon');
   assert.equal(kim.upcoming.find((u) => u.litter_id === L.id).picks_expected_at, '2026-12-01T01:00:00.000Z');
 });

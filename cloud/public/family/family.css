@@ -323,6 +323,11 @@ html.embedded.theme-dark {
 .modal p { margin: 0 0 16px; line-height: 1.45; }
 .modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .modal-actions button { flex: 1 1 auto; }
+/* The pop-up on opening a status page (status.js showPopup): her message, or the
+   turn holder's time left in big bold numbers that tick in place. */
+.status-popup.turn { text-align: center; }
+.status-popup.turn h2 { font-size: 1.5rem; }
+.status-popup .popup-time { font-size: 2rem; font-weight: 800; line-height: 1.2; margin: 0 0 18px; font-variant-numeric: tabular-nums; }
 
 /* A family's records with this kennel (more than one time on the list): one row
    each, date over the line, Viewing or Switch on the right, left-aligned. */
