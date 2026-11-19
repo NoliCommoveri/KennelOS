@@ -6310,12 +6310,12 @@ the old address, with no warning.
 
 ## 2026-11-19: Plan for the Stripe webhook on waitlist deposits
 
-- New `docs/KennelOS_Stripe_Webhook_Plan.md`, for `main`. With KennelOS closed, a family's
-  paid Stripe deposit should close their turn at once and keep their pup reserved from later
-  families. Today the hourly server moves close a picked turn at its deadline as `no_deposit`,
-  even when it was paid. The deposit should also show as received on their status page and be
-  recorded through `confirmDeposit` on her next open. The owner's decisions are S1–S5: a paid
-  deposit (not a signature) closes the turn and reserves the pup; the next offer follows her
-  `accepted` tick; her own Stripe account holds the endpoint, and the Worker keeps only its
-  sealed signing secret; her device catches up on open. O1–O4 are still open.
+- New `docs/KennelOS_Stripe_Webhook_Plan.md`, for `main`. It writes down the promise to
+  families: a turn runs its full scheduled time, and the family can switch pups until the
+  deadline. At the deadline, a received deposit locks in the pup selected then; with no
+  deposit, the pup is released to the next family. Today the hourly server moves close a
+  picked turn at its deadline as `no_deposit` even when it was paid, because only her open
+  device sees Stripe payments. The webhook records the payment on the server so the deadline
+  check (and the family's page) can see it. Her own Stripe account holds the endpoint, and the
+  Worker keeps only its sealed signing secret. O1–O7 are open.
 - README: doc map row and Status line. Docs only: no code, tests or service-worker change.
