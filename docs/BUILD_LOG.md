@@ -6278,4 +6278,6 @@ owner's confirmation.
 - Docs: `cloud/README.md` (retention, backup, the measured run), Cloud Phase 1 plan §6.3
   (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
 - **Service worker:** no app file touched. No migration.
+- **Service worker:** `CACHE_NAME` bumped to `kennelos-shell-v159` for review batches B, C and D
+  (owner's go-ahead), so installed copies pick up the import, duplicate-scan and Furever changes.
 
