@@ -54,7 +54,7 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set() };
+const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set(), popupShown: false };
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
@@ -500,35 +500,6 @@ function prefPlaceLabel(field, prefs) {
   if (field === 'purposes') return `for ${purposesText(prefs.purposes)}`;
   return `for ${(prefs.colors || []).join(', ')}`;
 }
-// When their turn could come (Waitlist Timers plan Phase 3), worked out by the
-// server: every family ahead using its full time, and only while a pup they want
-// could still be there for them. Shown as a time, never a count.
-function momentText(iso) {
-  const tz = state.v.kennel.time_zone || undefined;
-  try {
-    return new Date(iso).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
-  } catch { return new Date(iso).toLocaleString('en-US'); }
-}
-function estimateHtml(f) {
-  const t = f.turn_estimate;
-  if (!t || !Date.parse(t.at)) return '';
-  const kennel = state.v.kennel.name;
-  if (t.next) return `<div class="estimate"><p class="small mt8"><strong>You're next in line.</strong> Your turn comes when ${esc(kennel)} offers it.</p></div>`;
-  // Counting to a planned litter (their turn on the open ones used, or none for them
-  // there): its picks open first, with its own countdown.
-  const atOpening = t.opens_at && Date.parse(t.opens_at) === Date.parse(t.at);
-  const on = t.litter ? ` on ${esc(t.litter)}` : '';
-  const opens = t.opens_at && !atOpening
-    ? `<p class="small mt8"><strong>${countdownHtml(t.opens_at, { label: `Picks open${t.litter ? ` on ${t.litter}` : ''} in`, done: 'Picks are due to open now' })}</strong></p>` : '';
-  const head = atOpening
-    ? `<strong>Your turn could start when picks open${on}</strong>, ${esc(momentText(t.at))}`
-    : `<strong>Your turn could come by about ${esc(momentText(t.at))}</strong>`;
-  return `<div class="estimate">${opens}
-    <p class="small mt8">${head} (${countdownHtml(t.at, { label: 'in', done: 'any time now' })}).</p>
-    <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}An estimate, not a promise.</p>
-  </div>`;
-}
-
 function prefPlacesHtml(f) {
   const places = f.pref_places || {};
   const seen = new Set([f.position]);
@@ -1231,7 +1202,7 @@ function mineHtml() {
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(openCard('Current Position', `
       ${f.place_hidden?.reason === 'turn' ? turnPlaceHtml()
-        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}${estimateHtml(f)}` : ''}
+        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}` : ''}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
@@ -1548,6 +1519,73 @@ function selectTab(which) {
   $('public').hidden = mine;
 }
 
+// --- The pop-up on opening the page (owner, 2026-11-19) ------------------------------
+// One per visit, after the first render, closed with "Got it" (Escape too). Her
+// preview ("View their page") shows it as the family sees it. The server picks it
+// (familyPages.statusPopup): her words for where they stand, or, holding a turn,
+// the time left in big numbers.
+
+// "7 hours 23 minutes", "1 day 4 hours", "23 minutes", "under a minute"; '' once passed.
+function timeLeftWords(at, now = Date.now()) {
+  const left = Math.floor((at - now) / 1000);
+  if (!(left > 0)) return '';
+  const unit = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const d = Math.floor(left / 86400);
+  const h = Math.floor((left % 86400) / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  if (d > 0) return `${unit(d, 'day')}${h ? ` ${unit(h, 'hour')}` : ''}`;
+  if (h > 0) return `${unit(h, 'hour')}${m ? ` ${unit(m, 'minute')}` : ''}`;
+  return m > 0 ? unit(m, 'minute') : 'under a minute';
+}
+
+// The turn pop-up's words now: before a pick, after one, and once time is up.
+function turnPopupHtml(rows, at) {
+  const kennel = state.v.kennel.name;
+  const left = Number.isFinite(at) ? timeLeftWords(at) : '';
+  if (Number.isFinite(at) && !left) return `<h2 id="sp-title">Time's up.</h2><p class="muted">Waiting on ${esc(kennel)}.</p>`;
+  const picked = rows.some((o) => o.picked_dog_id);
+  const head = picked ? 'Thanks for choosing!' : 'Choose your pup!';
+  const label = picked ? 'Time left to pay:' : 'Time left to pick and pay:';
+  return `<h2 id="sp-title">${head}</h2>${left ? `<p class="mt0">${label}</p><p class="popup-time">${esc(left)}.</p>` : ''}`;
+}
+
+function showPopup() {
+  const p = state.v?.family?.popup;
+  if (!p || !p.kind) return;
+  let body = '';
+  let tick = null;
+  if (p.kind === 'turn') {
+    const rows = (state.v.offers || []).filter((o) => String(o.turn_id ?? o.id) === p.turn_id);
+    if (!rows.length) return;
+    const at = Math.max(...rows.map((o) => Date.parse(o.respond_by_at || '')).filter(Number.isFinite));
+    body = turnPopupHtml(rows, at);
+    if (Number.isFinite(at)) tick = () => turnPopupHtml(rows, at);
+  } else if (p.text) {
+    body = `<h2 id="sp-title">${esc(state.v.kennel.name || 'A note for you')}</h2><p class="pre">${esc(p.text)}</p>`;
+  }
+  if (!body) return;
+  const before = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal status-popup${p.kind === 'turn' ? ' turn' : ''}" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+      <div data-sp="body">${body}</div>
+      <div class="modal-actions"><button type="button" class="primary" data-sp="close">Got it</button></div>
+    </div>`;
+  const slot = overlay.querySelector('[data-sp="body"]');
+  const timer = tick ? setInterval(() => { const next = tick(); if (slot.innerHTML !== next) slot.innerHTML = next; }, 1000) : null;
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(); } };
+  const done = () => {
+    if (timer) clearInterval(timer);
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+  };
+  overlay.querySelector('[data-sp="close"]').addEventListener('click', done);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-sp="close"]').focus();
+}
+
 function render() {
   // Keep the sections they opened open (card()).
   for (const d of $('mine').querySelectorAll('details[data-key]')) {
@@ -1589,6 +1627,7 @@ async function load() {
   // A family page only (never on the waitlist): no "Waitlist" in the heading.
   $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
+  if (!state.popupShown) { state.popupShown = true; showPopup(); }
 
   if (!wired) {
     wired = true;

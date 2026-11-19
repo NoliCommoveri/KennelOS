@@ -1,6 +1,7 @@
 # KennelOS — Waitlist Timers Plan
 
-> **Status: built (2026-11-19), all three phases.** Asked by the owner for a breeder (2026-11-19), for
+> **Status: Phases 1–2 built (2026-11-19); Phase 3 built, then withdrawn the same day** (see its
+> **Modified:** note). Asked by the owner for a breeder (2026-11-19), for
 > her current litter, ahead of the Stripe webhook plan. It goes on `main`, not `next`.
 > Pro only, like the rest of the waitlist.
 
@@ -154,7 +155,16 @@ and queue entries.
   '12:04' in the last hour (`countdownText`; `ui.countdownHtml` / `startCountdowns`, and the
   family pages' copies in `common.js`).
 
-### Phase 3: the turn estimate (built)
+### Phase 3: the turn estimate (withdrawn)
+
+**Modified:** withdrawn by the owner (2026-11-19). Families no longer see when their turn
+could come. In its place, a pop-up on opening the status page shows her own words for where
+they stand (picks opening soon, picks open, the pups may run out first, not scheduled for this
+litter). A family holding a turn sees the time they have left in big numbers. Only the
+"will a pup be left for them" walk was kept (`serverMoves.turnReach`, now one pup per family
+across litters). End-State guide §29 "The status page pop-up" has what's built. What follows
+is what Phase 3 was.
+
 
 - Open litters share one turn order, and a litter that opens joins it (§16.1), so the estimate
   counts the families ahead of this one in that order. Open now: the projection's
