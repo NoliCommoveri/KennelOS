@@ -34,6 +34,26 @@ export function dayInZone(timeZone, now = new Date()) {
 // everything else in the app keeps the device's date.
 export const kennelToday = (kennel, now = new Date()) => dayInZone(kennel?.time_zone || null, now);
 
+// The time of day in an IANA time zone, as 'HH:MM' (24-hour). No zone, or one this
+// browser doesn't know: the device's own clock.
+export function timeInZone(timeZone, now = new Date()) {
+  const p2 = (n) => String(n).padStart(2, '0');
+  const local = () => `${p2(now.getHours())}:${p2(now.getMinutes())}`;
+  if (!timeZone) return local();
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(now).map((x) => [x.type, x.value]));
+    return `${p2(Number(p.hour) % 24)}:${p.minute}`;
+  } catch {
+    return local();
+  }
+}
+
+// The kennel's own now, { date: 'YYYY-MM-DD', time: 'HH:MM' }, on the same clock as
+// kennelToday: what a waitlist deadline at a time of day (Waitlist Timers plan) is
+// set from and compared against.
+export const kennelNow = (kennel, now = new Date()) => ({ date: kennelToday(kennel, now), time: timeInZone(kennel?.time_zone || null, now) });
+
 // n days from today (negative = past) — sample-data dates that should stay
 // "still relevant" regardless of when the packet is seeded.
 export function daysFromToday(n) {

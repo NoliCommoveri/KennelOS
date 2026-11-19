@@ -472,6 +472,7 @@ export const SYNC_REGISTRY = Object.freeze({
     rows: ALL,
     cloud: [
       'entry_id', 'litter_id', 'kennel_id', 'offered_date', 'respond_by_date',
+      'respond_by_time', // the deadline's time of day, kennel time (Waitlist Timers plan); null = 11:59 pm
       'eligible_dog_ids', 'outcome', 'outcome_date', 'chosen_dog_id', 'counts_as_pass',
       'picked_date', 'sale_id', // §9: "every field except notes"
       'turn_id', // the turn the row belongs to (Spec §16.1): how the list ran, like outcome

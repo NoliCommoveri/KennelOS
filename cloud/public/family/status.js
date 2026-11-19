@@ -303,14 +303,18 @@ function turnHtml(rows) {
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
-  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  // The turn's deadline: the row with the latest date and time (no time = 11:59 pm).
+  const dueKey = (o) => (o.respond_by_date ? `${o.respond_by_date}T${o.respond_by_time || '24:00'}` : '');
+  const dueRow = [...rows].sort((a, b) => dueKey(b).localeCompare(dueKey(a)))[0];
+  const respondBy = dueRow?.respond_by_date || '';
+  const respondByTime = dueRow?.respond_by_time || null;
   // Once they've picked: what to send, by when, and how (her payment instructions),
   // until her deposit request (contract, invoice) reaches them.
   const depositBlock = () => {
     const o = rows.find((r) => r.picked_dog_id) || rows.find((r) => r.id === sentPick?.payload.offer_id) || rows[0];
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
-    const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    const deadline = deadlineText(respondBy, v.kennel.time_zone, respondByTime);
     // Their application fee and their credit pay part (or all) of it: the sale's
     // figures once her device records the pick, their credits as a whole before.
     const { credit, toSend, less } = depositAfterCredits(amount, o.picked_dog_id ? o : null);
@@ -352,7 +356,7 @@ function turnHtml(rows) {
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${showsDeadline ? '' : policyLink('Before you choose: our policies on picking and passing', ['pick', 'pass', 'turn'])}
-    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone, respondByTime))}</strong></p>` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -1345,7 +1349,7 @@ async function onClick(ev) {
       // pay the deposit" from the offer, and the deposit for this pup's sex when she lists one.
       const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
       const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
-      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
+      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone, offer?.respond_by_time).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
       const cr = depositAfterCredits(dep);
       const depText = dep == null ? '' : cr.credit > 0
         ? ` of ${price(dep)}: you send ${price(cr.toSend)}, after your ${cr.less.replace(' (your credit)', '')}`

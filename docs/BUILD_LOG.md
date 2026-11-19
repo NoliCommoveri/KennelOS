@@ -6319,3 +6319,34 @@ the old address, with no warning.
   check (and the family's page) can see it. Her own Stripe account holds the endpoint, and the
   Worker keeps only its sealed signing secret. O1–O7 are open.
 - README: doc map row and Status line. Docs only: no code, tests or service-worker change.
+
+## 2026-11-19: Waitlist timers, Phase 1: turns in hours, deadlines at a time of day
+
+- New `docs/KennelOS_Waitlist_Timers_Plan.md` (on `main`, ahead of the Stripe webhook plan): the
+  three timers she asked for (picks open in…, your turn could come by…, your turn ends in…), with
+  the owner's T1–T4 and T5–T9 as recommended. Phase 1 built; Phases 2–3 (the countdowns, the
+  planned opening time, the estimate) planned.
+- **Turns in hours:** Waitlist settings → Turns & offers, **How long a turn lasts** (days, as
+  before, or hours) and **Families' waking hours** (`waitlist_config.turn_hours`,
+  `awake_from`, `awake_until`). A turn ends that many hours after it's offered, counted on her
+  open days, rounded up to the half hour, and moved into waking hours
+  (`waitlistRules.respondBy` / `hoursDeadline`). Unset, nothing changes.
+- **A deadline's time:** `waitlist_offers.respond_by_time` ('HH:MM' kennel time, cloud; null =
+  11:59 pm), written by every turn writer; `extendTurn` takes `untilTime`. Overdue, Today's
+  nudges, the picks panel, the Waitlist page, a family's page, Kels's Review, the picks preview
+  and her emails read the time (`kennelNow`, `isTurnOverdue(turn, now)`, `deadlineLabel`,
+  `turnLengthText`).
+- **Worker:** `serverMoves` mirrors the rule, closes a turn at its time, gives the turns it offers
+  a time, and sends a timed turn's last reminder 3 hours before its deadline. The waitlist moves'
+  cron is `0,30 * * * *` (was `7 * * * *`, both environments); email changes, digests and e-sign
+  jobs run on the :00 run only. The family's page prints the deadline's real time.
+- Tests: new `tests/waitlistTimers.test.js` (the rule, closed days, programs, overdue, device and
+  Worker agree, the actions, the projection); `cloud/tests/serverMoves.test.js` (closed on the
+  7:00 pm run, the 3-hours-before reminder, rounding); `config.test.js` (the cron);
+  `cronResilience.test.js` (the :30 run is the moves only). `node --test`: 2283 pass, 1 todo;
+  `cd cloud && npm test`: 399 pass. Checked in Chromium: the setting switches
+  and saves.
+- Docs: End-State guide §29 (Turns in hours, `waitlist_offers`), `cloud/README.md`, README.
+- **Service worker:** no file added or renamed (new test file only); `CACHE_NAME` not bumped yet.
+- **Deploy:** the Worker change (cron and serverMoves) ships with Workers Builds on merge; no
+  migration.

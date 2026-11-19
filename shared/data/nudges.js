@@ -44,7 +44,7 @@ import { eventRepo } from './eventRepo.js';
 import { dogsInScope, inScopeOnly, subjectInScope, getActiveKennelId } from './kennelScope.js';
 import { hasPolicies } from './waitlistForm.js';
 import { isWaitlistOnlineOffered } from './cloud/cloudConfig.js';
-import { todayYMD, kennelToday, monthsBetween, addDaysToYMD } from './dateUtils.js';
+import { todayYMD, kennelToday, kennelNow, monthsBetween, addDaysToYMD } from './dateUtils.js';
 
 // A heat with no end date logged is taken as over this many days after it started
 // (a typical heat runs about three weeks), for the "record a pairing?" nudge.
@@ -64,7 +64,7 @@ import { hasSchedule } from './paymentSchedule.js';
 import { getSaleStatements } from './incomeView.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
-  overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
+  overdueTurns, overdueFees, deadlineLabel, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
   readyCheck, readyCheckOverdue, isSideSalePending, pupClaims, waitlistLitters
 } from './waitlistRules.js';
@@ -1196,7 +1196,10 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
   }
 
   // One per TURN (Spec §16.1): a turn covering two litters is one deadline.
-  for (const t of overdueTurns(offers, dayOf)) {
+  // A deadline at a time of day (Waitlist Timers plan) is overdue from that time on
+  // the kennel's clock; a kennel with no zone, on the device's clock.
+  const nowOf = (kennelId) => { const k = kennelsById.get(kennelId); return k?.time_zone ? kennelNow(k) : { date: today, time: today === todayYMD() ? kennelNow(null).time : '00:00' }; };
+  for (const t of overdueTurns(offers, nowOf)) {
     const e = entriesById.get(t.entry_id);
     if (!e) continue;
     const o = t.offers.find((x) => x.chosen_dog_id) || t.offers[0];
@@ -1206,7 +1209,7 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
       // A family that picked a pup but never sent the deposit: same outcome (their
       // pick lapses and the held Sale is cancelled), worded for the deposit.
       title: o.chosen_dog_id ? `${name(e)}'s deposit didn't arrive in time` : `${name(e)}'s offer deadline passed`,
-      detail: `${covers} — they had until ${t.respond_by_date}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${autoOffers(waitlistConfig(kennelsById.get(o.kennel_id)), closingTrigger(o, 'no_response')) ? ' and offers the next family' : ''}.`,
+      detail: `${covers} — they had until ${deadlineLabel(t.respond_by_date, t.respond_by_time)}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${autoOffers(waitlistConfig(kennelsById.get(o.kennel_id)), closingTrigger(o, 'no_response')) ? ' and offers the next family' : ''}.`,
       subjectHref: `litter.html?id=${encodeURIComponent(o.litter_id)}`,
       actions: [{
         label: o.chosen_dog_id ? 'Record no deposit' : 'Record no response',
@@ -1219,7 +1222,7 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
           }) });
           // `emails`: who to offer an email (Today shows the preview; W2 step 6).
           return { title: 'Recorded', message: lines.join('\n\n'), emails: [
-            { entryId: e.id, kind: 'deadline_passed', extra: { litterIds: t.offers.map((x) => x.litter_id), respondBy: t.respond_by_date } },
+            { entryId: e.id, kind: 'deadline_passed', extra: { litterIds: t.offers.map((x) => x.litter_id), respondBy: t.respond_by_date, respondByTime: t.respond_by_time || null } },
             ...offerSpecs(res)
           ] };
         }

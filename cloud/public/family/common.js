@@ -48,7 +48,8 @@ export function fmtShortDate(ymd) {
   return `${m}/${d}/${y}`;
 }
 
-export function deadlineText(ymd, timeZone = null) {
+// `time`: the deadline's time of day ('HH:MM', kennel time); none = 11:59 pm.
+export function deadlineText(ymd, timeZone = null, time = null) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd ?? ''))) return '';
   const [y, m, d] = ymd.split('-').map(Number);
   const day = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
@@ -59,7 +60,9 @@ export function deadlineText(ymd, timeZone = null) {
         .formatToParts(new Date(Date.UTC(y, m - 1, d, 17))).find((p) => p.type === 'timeZoneName')?.value || '';
     } catch { zone = ''; }
   }
-  return `Deadline: ${day}, ${fmtShortDate(ymd)} @11:59\u00a0pm${zone ? `\u00a0${zone}` : ''}`;
+  const t = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time ?? '')) ? time : null;
+  const at = t ? `${Number(t.slice(0, 2)) % 12 || 12}:${t.slice(3)}\u00a0${Number(t.slice(0, 2)) < 12 ? 'am' : 'pm'}` : '11:59\u00a0pm';
+  return `Deadline: ${day}, ${fmtShortDate(ymd)} @${at}${zone ? `\u00a0${zone}` : ''}`;
 }
 
 // "Thornfield Kennels'" / "Juniper's": the kennel's name as an owner.

@@ -24,7 +24,8 @@ import {
   waitlistConfig, openDays, closedDates, liveClosedDates, entryName, publicList, publicWantsMore, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
   rankedList, turnLittersFor, turnIdOf, isSideSalePending, passReasons, splitPrepassed, upcomingItems, plannedHeats, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
-  messengerLink, embedOrigins, publicSelected, publicSourceName, isPupReserved, isWaitlistLitter, isPicksOpen, isFamilyPageOnly, LISTEN_LIVE_LITTER
+  messengerLink, embedOrigins, publicSelected, publicSourceName, isPupReserved, isWaitlistLitter, isPicksOpen, isFamilyPageOnly, LISTEN_LIVE_LITTER,
+  isTimeOfDay, turnHours, awakeHours, fromMinutes
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { completedTestsByDog } from './healthTestLog.js';
@@ -307,6 +308,8 @@ function entryView(entry, ctx) {
         litter_id: o.litter_id,
         offered_date: orNull(o.offered_date),
         respond_by_date: orNull(o.respond_by_date),
+        // The deadline's time, kennel time (Waitlist Timers plan); absent = 11:59 pm.
+        ...(isTimeOfDay(o.respond_by_time) ? { respond_by_time: o.respond_by_time } : {}),
         eligible_dog_ids: [...(o.eligible_dog_ids || [])],
         picked_dog_id: orNull(o.chosen_dog_id),
         // Server only (never shown): a side sale, not a turn (Side Sale Spec §6).
@@ -565,6 +568,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       entry_id: e.id,
       // Their window if the server offers them a turn (a program can set a longer one).
       respond_days: program && program.respond_days_override != null && program.respond_days_override !== '' ? Number(program.respond_days_override) : Number(config.respond_days),
+      // …in hours, when she counts turns in hours (turnHours); absent = days.
+      ...(turnHours(config, program) != null ? { respond_hours: turnHours(config, program) } : {}),
       litters: Object.fromEntries(offer.map((x) => [x.litter.id, x.eligibleDogs.map((d) => d.id).sort()])),
       prepassed: prepassed.map((x) => x.litter.id)
     });
@@ -717,6 +722,9 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       intro: publicIntroText(config, kennel.kennel_name || ''),
       time_zone: orNull(kennel.time_zone),
       respond_days: Number(config.respond_days),
+      // Turns in hours, kept in her families' waking hours (Waitlist Timers plan T1):
+      // the server counts them as her device does (waitlistRules.hoursDeadline).
+      ...(turnHours(config, null) != null ? { turn_hours: turnHours(config, null), awake_from: fromMinutes(awakeHours(config).from), awake_until: fromMinutes(awakeHours(config).until) } : {}),
       // The weekdays she does business, so a turn the server offers counts its days
       // the way her device does (dateUtils.addOpenDays). null = every day.
       open_days: openDays(config).length === 7 ? null : openDays(config),

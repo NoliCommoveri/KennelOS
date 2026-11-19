@@ -757,6 +757,8 @@ export function statusView(projection, entryId, now = new Date()) {
       prices: pricesOf(l.prices),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
+      // Its time, kennel time (Waitlist Timers plan); null = 11:59 pm.
+      ...(typeof o.respond_by_time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(o.respond_by_time) ? { respond_by_time: o.respond_by_time } : {}),
       picked_dog_id: o.picked_dog_id ?? null,
       // Sending the deposit: her payment instructions, and once they've picked, the
       // deposit on their sale (or her listed one).

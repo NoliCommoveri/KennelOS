@@ -2312,7 +2312,8 @@ restored into Lite keeps its waitlist rows, dormant.
   "Add to [program]?" (below); `off_list` (cloud) marks a family page only (below); see
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
-  `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
+  `turn_id`). Its deadline is `respond_by_date` + `respond_by_time` ('HH:MM' kennel time,
+  cloud; null = 11:59 pm, as every row made with turns in days), below. `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
   or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
   (in `referenceRegistry` as a `scan`: it isn't indexed), `lost_picked_date`, `lost_accepted_date`.
@@ -2328,6 +2329,32 @@ restored into Lite keeps its waitlist rows, dormant.
   server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
   on the open day before (or, if that day's runs were all missed, any day up to the due
   date; the default subject names the date, `[Pay by]`). Dates already set (an offer made, a fee asked for) keep theirs.
+- **Turns in hours** (`docs/KennelOS_Waitlist_Timers_Plan.md`; Waitlist settings → Turns &
+  offers, **How long a turn lasts**): `waitlist_config.turn_hours` (null = `respond_days`,
+  ending 11:59 pm), with **Families' waking hours** `awake_from` / `awake_until` ('HH:MM', on
+  :00 or :30; default 08:00–21:00). `waitlistRules.respondBy(at, config, program)` →
+  `{ date, time }` is the one rule: with hours, `hoursDeadline` counts them from `at` (the
+  kennel's now, `dateUtils.kennelNow`; a back-dated action starts at waking hours) on her
+  open days only, rounds up to the half hour (`DEADLINE_STEP_MINUTES`), and moves an end
+  before waking hours to their start that day, after them to their start on her next open
+  day; a program's `respond_days_override` counts as that many × 24 hours (`turnHours`).
+  Every turn writer stores both fields (`makeTurn`, a litter joining, `undoPass`, a lost pup's
+  restart, undo "Not this litter", `applyServerOffer`); `extendTurn` takes `untilTime` (unset:
+  the turn's own time) and, with a time, allows later today. Deadlines compare as
+  `deadlineKey` strings ('24:00' for no time) against `nowKey(now)`: `isTurnOverdue(turn,
+  now)`, `overdueTurns`, `joinRespondBy` and `turnDeadline` (the latest row's date and time;
+  `turnRespondBy` its date) take the kennel's `{ date, time }`, and a bare date reads as that
+  day's 00:00, so it never closes one early. Her pages show `deadlineLabel(date, time, fmt)`
+  ("Nov 21, 7:00 pm") and `turnLengthText` ("24 hours"); the emails' `[Respond by]` reads
+  "November 21, 2026 at 7:00 pm" (`respondByTime` in the outbox's facts). The projection
+  carries `respond_by_time` on offers, `turn_hours` / `awake_from` / `awake_until` on its
+  kennel and `respond_hours` on queue rows; the Worker's `serverMoves.hoursDeadline` is a
+  copy (a test pins the two), closes a turn once its deadline is reached (`isPastDeadline`),
+  gives a turn it offers a time (`turnDue`), and sends a timed turn's last reminder 3 hours
+  before its deadline, never before waking hours (`lastReminderKey`). Its waitlist moves run
+  at :00 and :30 (the cron `0,30 * * * *`; the other hourly jobs only on :00), so a deadline
+  closes on its own half hour. The family's page prints the time (`deadlineText(ymd, tz,
+  time)`).
 - **Whose clock** (decision D11): the waitlist's deadlines (turns, fees, "Ready now?", the
   undo windows, pickup cutoffs and extras' dates) run on the kennel's own date,
   `dateUtils.kennelToday(kennel)` from `Kennel.time_zone` (set when the list goes online;

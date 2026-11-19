@@ -394,6 +394,7 @@ export const CLOUD_FIELDS = {
         "outcome_date",
         "picked_date",
         "respond_by_date",
+        "respond_by_time",
         "restored_date",
         "sale_id",
         "turn_id",
