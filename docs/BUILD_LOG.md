@@ -6472,3 +6472,13 @@ nudge) is built as recommended and waits on the owner's confirmation.
 - Docs: End-State guide (Delivered, the nudge table, fixing a spot in a pedigree), Review
   Remainder plan (**Modified**), `FIX_PRIORITIES.md`, README Status.
 - **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batches F and G brought onto the waitlist timers branch
+
+- Batches F and G (`ccr-dca01807-5vxcg1`) cherry-picked onto the timers branch so they ship in one
+  PR; the only conflicts were this log and the End-State guide's Litter and Sale rows (both
+  kept).
+- `tests/loadBudget.test.js`: the Dog page's budget 1220 → 1240 KB. With both branches the page
+  loads 1,221 KB (the timers' additions to `waitlistRules.js` and batch F's Dog changes), one
+  over; each alone was under.
+- `node --test`: 2315 pass, 1 todo; `cd cloud && npm test`: 407 pass.
