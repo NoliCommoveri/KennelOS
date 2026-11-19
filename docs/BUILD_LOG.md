@@ -6677,3 +6677,90 @@ KennelOS's half of KennelPort's `docs/plans/portal-kept-pups.md` ("KennelOS's ha
 - `CACHE_NAME` v163 → v164, for this session's batch: review batches H and E and the portal
   feed's placement vet reach installed devices. `PRECACHE_URLS` gained `assets/appShell.js`
   (batch H).
+
+## 2026-11-19: Owner decisions: waitlist D13, template library D41, shared dogs
+
+- **Waitlist Fixes D13: no.** Wrong code guesses aren't counted per code; today's guard stays
+  (10 an hour per connection, 300 per kennel). No migration.
+- **Integrations D41: confirmed as built** (support sets who signs a library template, the
+  breeder picks the kind; a copy is one-time, its origin kept).
+- **Shared dogs §8:** heats and breedings travel (opt-in per share, phase 3); vaccinations
+  travel; a test the receiver records goes back to the keeper (phase 3); the dog's page
+  doesn't list who she sent dogs to.
+- Docs only: the three plans, `docs/review/FIX_PRIORITIES.md`, README Status. No code, no
+  service worker change.
+
+## 2026-11-19: Review batch I: the data layer's small ones (K1-5, K1-7 to K1-10)
+
+Review Remainder plan batch I; with it every batch is built, and the review has only K15 and
+K16 left.
+- **K1-5, the write scan.** `tests/support/writeScan.js` reads every object literal passed to a
+  repo's `create`/`update` (or a repo file's `base`) and to `db.<table>.put/add/update` under
+  `shared/data` and `shared/pages`. `tests/syncRegistry.test.js` now fails on any written field
+  that is in no bucket, and checks that the scan sees `status_date`, `furever_pack` and
+  `events.cost`. It found `events.cost` (the money a pre-expenses event carried, cleared by
+  `migrateEventCosts`): now **private**. `cloudFields.js` is unchanged.
+- **K1-7, a refused Delete in words.** `assets/deleteBlockers.js` puts the blockers under the
+  header as text on the dog, litter, contact, pairing, sale and application pages, and under the
+  name on the Kennels list: "Delete is off: this dog is still in use (sire of another dog × 1).
+  Archive it instead: it keeps its history and drops out of your lists." (A Lite dog: remove it
+  from the program instead.) The button's tooltip points at the note. `ReferenceBlockedError`
+  names the entity (`repoBase.ENTITY_LABELS`, "Can't delete this application: it's still in
+  use (…)"), never the table. `blockerList` is shared.
+- **K1-8, `db.js` comments.** The three wrong claims are gone (`breed`, `doc_type`/`doc_date`,
+  `category`/`expense_date`), along with "every reverse lookup is a probe" and `sync_lost.at`'s
+  sweep. `is_archived` is said plainly to be unqueryable. The guide's §5 gets the list of
+  what reads each index, and which ones nothing reads. Shipped version blocks are untouched.
+- **K1-9, vocab labels in the reports.** `waitlistReports.offerOutcomes` and the Offers &
+  removals report (KPIs, chart series, chart rows) take the outcome words from
+  `WAITLIST_OFFER_OUTCOME`; Pairing success's KPIs from its own `OUTCOME` list; Pricing's
+  "Full over Limited" from `REGISTRATION_TYPE`. `exitLabel` is unchanged.
+- **K1-10.** `waitlist_offers.eligible_dog_ids` is in `DOG_REFERENCES` as a `scan` ("a pup
+  offered to a waitlist family"). A scan's count now goes through `refIdsOf`, so a plain list
+  of ids matches.
+- Tests: `tests/deleteBlockers.test.js` (an offered pup's delete refused with the entity's
+  words; the note's text and escaping; every guarded page shows it),
+  `tests/reportVocabLabels.test.js`, and the two syncRegistry tests above. `node --test`: 2366
+  pass, 1 todo. Checked in Chromium at 390 px: the dog page and the Kennels list show the
+  note, with no sideways scroll. Load budgets: litter 1575 → 1580 KB, sale 1390 → 1395 KB,
+  waitlist-entry 2085 → 2090 KB (the new helper).
+- Docs: End-State guide §5 (index rules, `is_archived`, indexes and their readers), §7 (list
+  fields in `scan`, the delete note, entity words), §16 (the write scan); the plan's batch I
+  note; `FIX_PRIORITIES.md` §1; README Status.
+- **Service worker:** `assets/deleteBlockers.js` added to `PRECACHE_URLS`; no `CACHE_NAME`
+  bump yet.
+
+## 2026-11-19: The Delete wizard: test records that point at each other
+
+A breeder built a test contact, litter, pup, sale and contract and couldn't delete any of
+them, since each one's Delete is refused while the others point at it. Owner decisions
+(2026-11-19): it starts from the refused Delete's note; every record made with it starts
+ticked and she unticks anything real; one summary and a red "Delete N records" protect it;
+it goes on `main`.
+- `data/linkedDelete.js`: `gatherLinked` (the set, from one record), `planLinkedDelete` (counts,
+  history, what only loses a link), `runLinkedDelete`. Records that point at the set join;
+  records the set points at join only when everything else that uses them was made at the
+  same time. A record starts ticked only when it was added within 3 days of the start
+  (`WINDOW_DAYS`), and the search goes on only through ticked records, so her real dam, sire
+  and vet are listed unticked, with why. Own history (events, expenses, documents, files) goes
+  with each record; records kept lose their links (`recordDetach.removeDetaching`), and a kept
+  document's link to a deleted contract is cleared (`documentRepo.unlinkContract`). Up to 200
+  records at a time.
+- `assets/linkedDeleteUI.js`: the two-step modal. `assets/deleteBlockers.js`: the note's
+  "All a mistake or a test? Delete it with its linked records…" link on the dog, litter,
+  contact, pairing, sale and application pages (hidden in Demo and the tour), loading the
+  wizard only on the tap, so no page's load budget changed.
+- Tests: `tests/linkedDelete.test.js` (her case from each of the five records; a test litter
+  with two test pups; a real dam never pulled in; the plan; the delete; unticking keeps a
+  record and clears its link). `node --test`: 2376 pass, 1 todo. Clicked through in Chromium
+  at 390 px: from the test contact, five records ticked, the real vet, dam and sire unticked,
+  "Delete 5 records", and only the real ones left.
+- Docs: End-State guide §7.
+- **Service worker:** `data/linkedDelete.js` and `assets/linkedDeleteUI.js` added to
+  `PRECACHE_URLS`; no `CACHE_NAME` bump yet.
+
+## 2026-11-19: Service worker cache v165
+
+- `CACHE_NAME` v164 → v165, for this session's batch: review batch I and the Delete wizard
+  reach installed devices. `PRECACHE_URLS` gained `assets/deleteBlockers.js`,
+  `assets/linkedDeleteUI.js` and `data/linkedDelete.js`.

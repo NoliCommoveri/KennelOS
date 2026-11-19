@@ -78,15 +78,14 @@ backup, carries a program from Lite to Pro.
   (`docs/LAUNCH_CHECKLIST.md` §2).
 - **In progress:**
   - Template library (Integrations plan §2.3b): proven on production except the copy down
-    (a breeder's From KennelOS → Add, and Place fields / Preview on the copy). D41 (support
-    sets who signs, the breeder the kind) is for the owner to confirm.
-  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
-    (counting wrong code guesses per code) and one live Mapbox try of the address checks.
+    (a breeder's From KennelOS → Add, and Place fields / Preview on the copy).
+  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: one
+    live Mapbox try of the address checks.
     The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
-    (nine batches, owner decisions R1–R7 all made): batches A to H built; I
-    next.
-  - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
-    (live updates) waits on owner decisions.
+    (nine batches, owner decisions R1–R7 all made): all nine built. Left from the review:
+    K15 (the UI redo, with group J) and K16 (the summary).
+  - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; its open
+    questions are answered, and phases 2 (live updates) and 3 are plans.
   - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own
     steps (`docs/KennelOS_Website_Contract_Plan.md`). A breeder's own domain is added by hand
     to `WEBSITE_ORIGINS` in `cloud/wrangler.toml`.

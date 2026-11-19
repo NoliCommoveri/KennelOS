@@ -414,17 +414,72 @@ edited. A new plain field needs no block. JSON backups stay backward compatible 
 `CLAUDE.md`).
 
 **Index rules:**
-- Index only what you query, filter or sort on. Every canonical FK is indexed so reverse
-  lookups and the hard-delete guard are probes. Exceptions, plain and unindexed by design:
-  `expenses.receipt_file_id`, `documents.contract_id` (fetched by id or scanned).
+- Index only what you query or sort on by key (a `where`/`orderBy`, or a non-scan registry
+  probe). Every canonical FK is indexed so reverse lookups and the hard-delete guard are
+  probes. Exceptions, plain and unindexed by design: `expenses.receipt_file_id`,
+  `documents.contract_id` (fetched by id or scanned), and the fields only a delete asks
+  about (`scan` entries, §7).
 - `events` and `expenses` use the **compound** `[subject_type+subject_id]`. Don't split it.
 - `*co_owner_contact_ids`, `*listen_sire_ids`, `*listen_dam_ids` are multi-entry.
 - `kennels.public_id` is plain, not unique (`&`): `kennelRepo` enforces uniqueness so a clash
   reads as a sentence, not a `DexieError`. It isn't an FK, so no registry entry.
-- `is_archived` is filtered in JS (IndexedDB can't key booleans).
+- `is_archived` is on every table's index string because `version(1)` shipped that way, but it
+  can't serve a read: a boolean isn't a valid IndexedDB key, so `where('is_archived')` throws.
+  It is filtered in JS (`repoBase.getAll`). Never query it by key or copy it into a new table.
 - `files.blob` is the only binary field. `importExport.js` base64-tags it on export and
   rehydrates it on restore (`BACKUP_FORMAT_VERSION` 2). Any future Blob field must do the
   same, or `JSON.stringify` silently turns it into `{}`.
+
+**Indexes and their readers.** What reads each index beyond `id` ("registry" is a
+`referenceRegistry.js` delete-guard probe, and the merge and detach code that walks the same
+entries). The ones marked UNREAD were declared in the frozen `version(1)` block for a reader
+that never came; they stay, since dropping one means re-listing the table in a new block. The
+reports filter and sort on those fields in JS.
+
+```
+  dogs        sire_id, dam_id, litter_id (dogRepo: offspring, a litter's pups;
+              registry); kennel_id (kennelRepo.ownKennelHolds; registry);
+              breeder_kennel_id, owner_contact_id, *co_owner_contact_ids
+              (registry); public_id (dogRepo.getByPublicId, Dog Cards).
+              UNREAD: status, ownership_type, sex, breed.
+  events      [subject_type+subject_id] (a subject's timeline; registry);
+              event_type (eventRepo: boarding, placements, by type);
+              event_date (eventRepo: upcoming / up to a day); reminder_date
+              (eventRepo.getReminders); related_dog_id, related_contact_id
+              (registry).
+  expenses    event_id (expenseRepo.getByEvent); [subject_type+subject_id],
+              account_id, stud_service_id (registry and their pages).
+              UNREAD: category, expense_date.
+  contacts    kennel_id (registry). UNREAD: waitlist_status.
+  kennels     public_id (kennelRepo.getByPublicId, Kennel Cards);
+              waitlist_fee_account_id (registry).
+  pairings    kennel_id, sire_id, dam_id (pairingRepo; registry). UNREAD:
+              status, pairing_type.
+  litters     kennel_id, pairing_id, sire_id, dam_id,
+              foster_partner_contact_id (litterRepo; registry). UNREAD:
+              status, whelp_date.
+  sales       kennel_id, dog_id, buyer_contact_id, referred_by_contact_id and
+              the three *_account_id fields (saleRepo; registry). UNREAD:
+              status, registration_type.
+  contracts   kennel_id and the four related_* FKs (contractRepo; registry).
+              UNREAD: contract_type, status.
+  stud_services kennel_id, our_dog_id, partner_dog_id, partner_contact_id,
+              referred_by_contact_id, pairing_id (studServiceRepo; registry).
+              UNREAD: direction, status.
+  documents   kennel_id, dog_id (documentRepo; registry). UNREAD: doc_type,
+              doc_date.
+  files       UNREAD: created_at.
+  breed_feeding_schedules UNREAD: breed.
+  waitlist_entries kennel_id, contact_id, waitlist_program_id, placed_sale_id,
+              fee_paid_via_account_id, *listen_sire_ids, *listen_dam_ids
+              (waitlistEntryRepo; registry). UNREAD: status.
+  waitlist_offers entry_id, litter_id, kennel_id, chosen_dog_id, sale_id
+              (waitlistOfferRepo; registry). UNREAD: outcome.
+  waitlist_programs kennel_id (waitlistProgramRepo; registry).
+  do_not_sell contact_id (doNotSellRepo: the Contacts list hides those on it).
+  sync_meta   UNREAD: tbl (syncState reads its rows by id).
+  sync_lost   UNREAD: at (the 30-day sweep filters in JS).
+```
 
 **Device-only tables** (`db.DEVICE_ONLY_TABLES`): `device_secrets` (the unlocked vault key,
 an open unlock request, her Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
@@ -533,7 +588,35 @@ and it is blocked while anything points at the record.
   `events.details.sale_id` in `SALE_REFERENCES`. A path `list[].key` matches any item of
   the list whose `key` is the id: a sale's `payments[].account_id` (§21.3) in the Account
   references, and a family's `received_credits[].from_sale_id` (money carried from a lost
-  pup's sale; `carried_payment.from_sale_id` on older entries) in `SALE_REFERENCES`.
+  pup's sale; `carried_payment.from_sale_id` on older entries) in `SALE_REFERENCES`. A
+  field holding a plain list of ids matches when the id is in it: an offer's
+  `eligible_dog_ids` (the pups it put in front of a family) in `DOG_REFERENCES`, beside
+  `lost_dog_id`.
+- **A refused delete says why on the page.** Each detail page (dog, litter, contact, pairing,
+  sale, application) disables Delete while blockers exist and shows them as text under its
+  header (`assets/deleteBlockers.js` `showDeleteBlockers`; the Kennels list puts it under the
+  kennel's name, `blockedDeleteNoteHtml`): "Delete is off: this dog is still in use (sire of
+  another dog × 1). Archive it instead: …" (a Lite dog: remove it from the program). A tooltip
+  alone can't be reached on a phone. `ReferenceBlockedError` names the entity in the same way
+  (`repoBase.ENTITY_LABELS`: "this application"), never the table.
+- **The Delete wizard** (`data/linkedDelete.js`, `assets/linkedDeleteUI.js`), for records that
+  were all a mistake or a test and point at each other (a test contact, its sale, the pup, the
+  litter, the contract). The detail pages' note offers "All a mistake or a test? Delete it with
+  its linked records…" (not in Demo or the tour). `gatherLinked(table, id)` starts from a
+  contact, dog, litter, pairing, sale, stud service, contract, application, offer or
+  do-not-sell listing (`NODE_TABLES`) and walks the registries both ways: records that point
+  at one in the set join, and records one in the set points at join when what else uses them
+  (of those kinds) was made at the same time. A record starts ticked only when it was added
+  within `WINDOW_DAYS` (3) of the one she started from; the search goes on only through ticked
+  records, so a real dam, sire or vet is listed unticked with why ("added more than 3 days
+  apart", "other records use it too"), and her other litters are never reached. Kennels,
+  accounts and waitlist programs are never offered. She unticks anything real, then
+  `planLinkedDelete` shows the counts, the records' own history going with them (events and
+  expenses about them, a dog's documents, their files) and the records that stay and only lose
+  a link. `runLinkedDelete` deletes in one `recordDetach.removeDetaching` transaction (marked
+  for the cloud, so sync deletes them on her other devices), clears a kept document's link to
+  a deleted contract, and the page tells the server to drop a deleted online application. Hard
+  delete can't be undone: nothing is deleted before the red "Delete N records".
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
@@ -1386,7 +1469,9 @@ Don't assume these exist:
 1. **Layering:** no page imports `db.js` or touches `localStorage`.
 2. **Reverse relationships** are queries, not mirror fields.
 3. **New FK** → `referenceRegistry.js` line (hard-delete guard and merge both read it). **New field** → classified in `syncRegistry.js`
-   (`tests/syncRegistry.test.js`); a cloud field also regenerates
+   (`tests/syncRegistry.test.js`: every key the sample packet writes, and every key of an
+   object literal passed to a repo or `db` write under `shared/data` and `shared/pages`,
+   `tests/support/writeScan.js`); a cloud field also regenerates
    `cloud/src/lib/cloudFields.js`. **New direct `db` write** → `markDataChanged()` or an
    exemption in `tests/cloudDirty.test.js`.
 4. **Escaping:** `esc()` every user value in hand-built HTML and `listView` cells. A URL from
