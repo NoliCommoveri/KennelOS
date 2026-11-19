@@ -181,9 +181,10 @@ Backups: both new fields are optional with no default; an older build skips them
 
 ## 8. Open questions
 
-1. Phase 3: should heats and breedings travel, opt-in per share, for co-owns with breeding
-   rights?
-2. Should vaccinations travel too (useful when the dog moves between the two homes)?
-3. A test the receiver records while the dog lives with her: send it back to the keeper
-   (phase 3), or leave each breeder's own records her own?
-4. Should a sender see which dogs she has sent, and to whom, on the dog's page?
+Answered by the owner, 2026-11-19 (to fold into the phases when they're written up for building):
+
+1. Phase 3: heats and breedings **travel**, opt-in per share, for co-owns with breeding rights.
+2. Vaccinations **travel too**.
+3. A test the receiver records while the dog lives with her **is sent back to the keeper**
+   (phase 3).
+4. The dog's page does **not** show which dogs she has sent, and to whom.

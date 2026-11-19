@@ -6677,3 +6677,15 @@ KennelOS's half of KennelPort's `docs/plans/portal-kept-pups.md` ("KennelOS's ha
 - `CACHE_NAME` v163 → v164, for this session's batch: review batches H and E and the portal
   feed's placement vet reach installed devices. `PRECACHE_URLS` gained `assets/appShell.js`
   (batch H).
+
+## 2026-11-19: Owner decisions: waitlist D13, template library D41, shared dogs
+
+- **Waitlist Fixes D13: no.** Wrong code guesses aren't counted per code; today's guard stays
+  (10 an hour per connection, 300 per kennel). No migration.
+- **Integrations D41: confirmed as built** (support sets who signs a library template, the
+  breeder picks the kind; a copy is one-time, its origin kept).
+- **Shared dogs §8:** heats and breedings travel (opt-in per share, phase 3); vaccinations
+  travel; a test the receiver records goes back to the keeper (phase 3); the dog's page
+  doesn't list who she sent dogs to.
+- Docs only: the three plans, `docs/review/FIX_PRIORITIES.md`, README Status. No code, no
+  service worker change.
