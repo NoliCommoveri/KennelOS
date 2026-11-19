@@ -48,6 +48,7 @@ import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js'
 import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor, previewUntil } from './waitlist.js';
 import { handleAct, handleMessage, handlePortal, handleFromPortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
+import { isTimeOfDay, zonedInstant, turnEstimate } from './serverMoves.js';
 import { fail, json, readJson } from './lib/http.js';
 import { isWebsiteOrigin } from './lib/cors.js';
 
@@ -273,12 +274,19 @@ function pricesOf(p) {
   return { by_registration: by, deposit };
 }
 
-function upcomingRow(u) {
+// The moment as ISO, for a countdown on the page (Waitlist Timers plan Phase 2), or null.
+const instantISO = (date, time, tz) => { const ms = zonedInstant(date, time, tz); return ms == null ? null : new Date(ms).toISOString(); };
+
+// `tz`: the kennel's time zone, for when picks open as a moment.
+function upcomingRow(u, tz = null) {
   const parent = parentOf;
   return {
     id: u.id, kind: u.kind, label: u.label ?? '', breed: u.breed ?? null, sire: parent(u.sire), dam: parent(u.dam),
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
+    ...(isTimeOfDay(u.picks_expected_time) ? { picks_expected_time: u.picks_expected_time } : {}),
+    // When picks open, as a moment: the time she set, else the start of that day.
+    ...(u.kind === 'early_litter' && u.picks_expected_date ? { picks_expected_at: instantISO(u.picks_expected_date, isTimeOfDay(u.picks_expected_time) ? u.picks_expected_time : '00:00', tz) } : {}),
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
     ...photosOf(u.photos_url), ...pageOf(u),
   };
@@ -386,7 +394,7 @@ export function listView(projection) {
     rows: publicRows(projection),
     selected: selectedRows(projection),
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
-    upcoming: upcomingOf(projection, 'public').map(upcomingRow),
+    upcoming: upcomingOf(projection, 'public').map((u) => upcomingRow(u, projection.kennel?.time_zone || null)),
   };
 }
 
@@ -718,6 +726,16 @@ export function statusView(projection, entryId, now = new Date()) {
   }
   family.fee_due = feeDueOf(family.fee_due);
   family.credits = creditsOf(e.credits);
+  // When their turn could come (Waitlist Timers plan Phase 3): a time, never a count.
+  const est = e.status === 'active' ? turnEstimate(projection, entryId, now) : null;
+  if (est) {
+    family.turn_estimate = {
+      at: new Date(est.at).toISOString(), next: est.next,
+      ...(est.opens_at != null ? { opens_at: new Date(est.opens_at).toISOString() } : {}),
+      // The planned litter it counts to, by its name (one she shows on family pages).
+      ...(est.litter_id ? { litter: String(projection.litters?.[est.litter_id]?.label || '').slice(0, 120) } : {}),
+    };
+  }
   // Asked for at the end of the application: their Pay button until they've paid.
   if (e.status === 'applied' && !e.fee_paid_online) {
     const pay = feePayFor(projection, entryId);
@@ -757,6 +775,10 @@ export function statusView(projection, entryId, now = new Date()) {
       prices: pricesOf(l.prices),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
+      // Its time, kennel time (Waitlist Timers plan); null = 11:59 pm.
+      ...(typeof o.respond_by_time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(o.respond_by_time) ? { respond_by_time: o.respond_by_time } : {}),
+      // The deadline as a moment, for the page's countdown (Waitlist Timers plan Phase 2).
+      respond_by_at: instantISO(o.respond_by_date, o.respond_by_time, projection.kennel?.time_zone || null),
       picked_dog_id: o.picked_dog_id ?? null,
       // Sending the deposit: her payment instructions, and once they've picked, the
       // deposit on their sale (or her listed one).
@@ -783,7 +805,7 @@ export function statusView(projection, entryId, now = new Date()) {
   }));
   const mine = e.upcoming || {};
   const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
-    ...upcomingRow(u), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
+    ...upcomingRow(u, projection.kennel?.time_zone || null), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
     // A planned heat is no litter yet: nothing to wait for or pass on.
     waiting: u.kind !== 'planned_heat' && mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];

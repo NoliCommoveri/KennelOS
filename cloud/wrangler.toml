@@ -86,12 +86,14 @@ LS_LIFETIME_VARIANT_IDS = "1945407"
 # in the dashboard, like the others.
 FIRMA_TEST_MODE = "true"
 
-# Daily retention (src/retention.js), 03:17 UTC, and hourly at :07 the waitlist's
-# own moves (src/serverMoves.js: deadlines, automatic offers, reminders). Cron runs
+# Daily retention (src/retention.js), 03:17 UTC, and at :00 and :30 the waitlist's
+# own moves (src/serverMoves.js: deadlines, automatic offers, reminders; a deadline
+# at a time of day is on the half hour, Waitlist Timers plan T3). The other hourly
+# jobs run on the :00 one only (index.js). Cron runs
 # in UTC and is never retried; both are safe to run again. index.js tells them apart
 # by DAILY_CRON, which must match the first entry here.
 [triggers]
-crons = ["17 3 * * *", "7 * * * *"]
+crons = ["17 3 * * *", "0,30 * * * *"]
 
 # --- Production (plan §6.7 step 6) -------------------------------------------
 # Bindings, vars and triggers are not inherited by an environment, so each is
@@ -139,4 +141,4 @@ LS_YEARLY_VARIANT_IDS = "1945410"
 LS_LIFETIME_VARIANT_IDS = "1945407"
 
 [env.production.triggers]
-crons = ["17 3 * * *", "7 * * * *"]
+crons = ["17 3 * * *", "0,30 * * * *"]

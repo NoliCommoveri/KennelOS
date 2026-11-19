@@ -18,7 +18,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
+  esc, fmtDate, money, fetchJson, loadError, countdownHtml, startCountdowns, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
   SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog,
   policiesHtml, policyAbout, openPolicy
 } from './common.js';
@@ -303,14 +303,21 @@ function turnHtml(rows) {
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
-  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  // The turn's deadline: the row with the latest date and time (no time = 11:59 pm).
+  const dueKey = (o) => (o.respond_by_date ? `${o.respond_by_date}T${o.respond_by_time || '24:00'}` : '');
+  const dueRow = [...rows].sort((a, b) => dueKey(b).localeCompare(dueKey(a)))[0];
+  const respondBy = dueRow?.respond_by_date || '';
+  const respondByTime = dueRow?.respond_by_time || null;
+  // Your turn ends in… (Waitlist Timers plan Phase 2), under the deadline line.
+  const endsIn = dueRow?.respond_by_at
+    ? `<p class="small mt0">${countdownHtml(dueRow.respond_by_at, { label: 'Your turn ends in', done: `Time's up. Waiting on ${kennel}.` })}</p>` : '';
   // Once they've picked: what to send, by when, and how (her payment instructions),
   // until her deposit request (contract, invoice) reaches them.
   const depositBlock = () => {
     const o = rows.find((r) => r.picked_dog_id) || rows.find((r) => r.id === sentPick?.payload.offer_id) || rows[0];
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
-    const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    const deadline = deadlineText(respondBy, v.kennel.time_zone, respondByTime);
     // Their application fee and their credit pay part (or all) of it: the sale's
     // figures once her device records the pick, their credits as a whole before.
     const { credit, toSend, less } = depositAfterCredits(amount, o.picked_dog_id ? o : null);
@@ -325,7 +332,7 @@ function turnHtml(rows) {
         <h3>Sending your deposit</h3>
         ${amount != null ? `<p class="big mt0">${esc(price(credit > 0 ? toSend : amount))}</p>` : ''}
         ${credit > 0 ? `<p class="small mt0 muted">Deposit ${esc(price(amount))}, less ${esc(less)}.</p>` : ''}
-        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
+        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>${endsIn}` : ''}
         ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
         <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
         ${policyLink('Our policy on picking and deposits', ['deposit', 'pick'])}
@@ -352,7 +359,7 @@ function turnHtml(rows) {
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${showsDeadline ? '' : policyLink('Before you choose: our policies on picking and passing', ['pick', 'pass', 'turn'])}
-    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone, respondByTime))}</strong></p>${endsIn}` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -493,6 +500,35 @@ function prefPlaceLabel(field, prefs) {
   if (field === 'purposes') return `for ${purposesText(prefs.purposes)}`;
   return `for ${(prefs.colors || []).join(', ')}`;
 }
+// When their turn could come (Waitlist Timers plan Phase 3), worked out by the
+// server: every family ahead using its full time, and only while a pup they want
+// could still be there for them. Shown as a time, never a count.
+function momentText(iso) {
+  const tz = state.v.kennel.time_zone || undefined;
+  try {
+    return new Date(iso).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  } catch { return new Date(iso).toLocaleString('en-US'); }
+}
+function estimateHtml(f) {
+  const t = f.turn_estimate;
+  if (!t || !Date.parse(t.at)) return '';
+  const kennel = state.v.kennel.name;
+  if (t.next) return `<div class="estimate"><p class="small mt8"><strong>You're next in line.</strong> Your turn comes when ${esc(kennel)} offers it.</p></div>`;
+  // Counting to a planned litter (their turn on the open ones used, or none for them
+  // there): its picks open first, with its own countdown.
+  const atOpening = t.opens_at && Date.parse(t.opens_at) === Date.parse(t.at);
+  const on = t.litter ? ` on ${esc(t.litter)}` : '';
+  const opens = t.opens_at && !atOpening
+    ? `<p class="small mt8"><strong>${countdownHtml(t.opens_at, { label: `Picks open${t.litter ? ` on ${t.litter}` : ''} in`, done: 'Picks are due to open now' })}</strong></p>` : '';
+  const head = atOpening
+    ? `<strong>Your turn could start when picks open${on}</strong>, ${esc(momentText(t.at))}`
+    : `<strong>Your turn could come by about ${esc(momentText(t.at))}</strong>`;
+  return `<div class="estimate">${opens}
+    <p class="small mt8">${head} (${countdownHtml(t.at, { label: 'in', done: 'any time now' })}).</p>
+    <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}An estimate, not a promise.</p>
+  </div>`;
+}
+
 function prefPlacesHtml(f) {
   const places = f.pref_places || {};
   const seen = new Set([f.position]);
@@ -1195,7 +1231,7 @@ function mineHtml() {
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(openCard('Current Position', `
       ${f.place_hidden?.reason === 'turn' ? turnPlaceHtml()
-        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}` : ''}
+        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}${estimateHtml(f)}` : ''}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
@@ -1345,7 +1381,7 @@ async function onClick(ev) {
       // pay the deposit" from the offer, and the deposit for this pup's sex when she lists one.
       const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
       const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
-      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
+      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone, offer?.respond_by_time).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
       const cr = depositAfterCredits(dep);
       const depText = dep == null ? '' : cr.credit > 0
         ? ` of ${price(dep)}: you send ${price(cr.toSend)}, after your ${cr.less.replace(' (your credit)', '')}`
@@ -1518,6 +1554,7 @@ function render() {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
+  startCountdowns(); // picks open in…, your turn ends in…
   $('signin-slot').innerHTML = previewBanner() || signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }

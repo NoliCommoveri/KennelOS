@@ -48,7 +48,7 @@ const BUDGETS = {
   'app.js': { modules: 59, kb: 940 },
   today: { modules: 102, kb: 1760 },
   dogs: { modules: 66, kb: 1040 },
-  dog: { modules: 78, kb: 1220 },
+  dog: { modules: 78, kb: 1240 }, // 1220 → 1240 (2026-11-19): the waitlist timers' rules and review batch F together reached 1,221
   litter: { modules: 99, kb: 1560 },
   sale: { modules: 86, kb: 1380 },
   waitlist: { modules: 104, kb: 1760 },

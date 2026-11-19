@@ -14,8 +14,8 @@
 // - Firma's template editor page (firma.js serveEsignEditor): a sandboxed static
 //   page from ASSETS, opened in its own tab by her device; and /signed/, the
 //   signed copies KennelOS keeps (firma.js serveSignedCopy, D33);
-// - the crons: the daily one runs retention, the hourly one the waitlist's
-//   own moves (serverMoves.js: deadlines, automatic offers, reminders) and the
+// - the crons: the daily one runs retention, the half-hourly one (:00, :30) the waitlist's
+//   own moves (serverMoves.js: deadlines, automatic offers, reminders) and, on :00, the
 //   breeder's email digests (notify.js) and the signed copies to keep and
 //   email (firma.js runEsignCopies);
 // - /notify/off: the digest email's turn-off page (notify.js).
@@ -132,10 +132,14 @@ export default {
         console.error('cron failed: schema check', String(err?.message ?? err));
         return;
       }
+      // The half-hourly cron (Waitlist Timers plan T3) runs the waitlist's moves on :00
+      // and :30, so a deadline at a time of day closes on it; the other jobs keep one
+      // run an hour, the :00 one.
+      const halfPast = Number.isFinite(event.scheduledTime) && new Date(event.scheduledTime).getUTCMinutes() >= 30;
       const jobs = event.cron === DAILY_CRON
         ? [['retention', runRetention]]
-        : [['waitlist moves', runWaitlistMoves], ['email changes', applyDueEmailChanges], ['digests', runDigests],
-          ['esign copies', runEsignCopies], ['esign previews', runEsignPreviews]];
+        : [['waitlist moves', runWaitlistMoves], ...(halfPast ? [] : [['email changes', applyDueEmailChanges], ['digests', runDigests],
+          ['esign copies', runEsignCopies], ['esign previews', runEsignPreviews]])];
       for (const [name, run] of jobs) {
         try {
           console.log(name, JSON.stringify(await run(env)));

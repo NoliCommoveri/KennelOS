@@ -4,7 +4,7 @@
 // signs in with a code emailed to the address on their application, and this
 // browser remembers them for 90 days. Inside her own website (embedded.js), the
 // form and a family's status page open in a new tab instead.
-import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy } from './common.js';
+import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy, startCountdowns } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 import { EMBEDDED, setupEmbed, outward } from './embedded.js';
 import { applyTheme, savedTheme, showLogo } from './theme.js';
@@ -120,6 +120,7 @@ async function load() {
   if (upcoming.length) {
     $('upcoming').innerHTML = `<summary><h2>Coming up</h2></summary>${upcomingListHtml(upcoming)}`;
     $('upcoming').hidden = false;
+    startCountdowns(); // Picks open in… on a born litter
   }
 
   // No family count (decided 2026-10-10): paused families are left off the list,

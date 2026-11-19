@@ -6319,3 +6319,166 @@ the old address, with no warning.
   check (and the family's page) can see it. Her own Stripe account holds the endpoint, and the
   Worker keeps only its sealed signing secret. O1–O7 are open.
 - README: doc map row and Status line. Docs only: no code, tests or service-worker change.
+
+## 2026-11-19: Waitlist timers, Phase 1: turns in hours, deadlines at a time of day
+
+- New `docs/KennelOS_Waitlist_Timers_Plan.md` (on `main`, ahead of the Stripe webhook plan): the
+  three timers she asked for (picks open in…, your turn could come by…, your turn ends in…), with
+  the owner's T1–T4 and T5–T9 as recommended. Phase 1 built; Phases 2–3 (the countdowns, the
+  planned opening time, the estimate) planned.
+- **Turns in hours:** Waitlist settings → Turns & offers, **How long a turn lasts** (days, as
+  before, or hours) and **Families' waking hours** (`waitlist_config.turn_hours`,
+  `awake_from`, `awake_until`). A turn ends that many hours after it's offered, counted on her
+  open days, rounded up to the half hour, and moved into waking hours
+  (`waitlistRules.respondBy` / `hoursDeadline`). Unset, nothing changes.
+- **A deadline's time:** `waitlist_offers.respond_by_time` ('HH:MM' kennel time, cloud; null =
+  11:59 pm), written by every turn writer; `extendTurn` takes `untilTime`. Overdue, Today's
+  nudges, the picks panel, the Waitlist page, a family's page, Kels's Review, the picks preview
+  and her emails read the time (`kennelNow`, `isTurnOverdue(turn, now)`, `deadlineLabel`,
+  `turnLengthText`).
+- **Worker:** `serverMoves` mirrors the rule, closes a turn at its time, gives the turns it offers
+  a time, and sends a timed turn's last reminder 3 hours before its deadline. The waitlist moves'
+  cron is `0,30 * * * *` (was `7 * * * *`, both environments); email changes, digests and e-sign
+  jobs run on the :00 run only. The family's page prints the deadline's real time.
+- Tests: new `tests/waitlistTimers.test.js` (the rule, closed days, programs, overdue, device and
+  Worker agree, the actions, the projection); `cloud/tests/serverMoves.test.js` (closed on the
+  7:00 pm run, the 3-hours-before reminder, rounding); `config.test.js` (the cron);
+  `cronResilience.test.js` (the :30 run is the moves only). `node --test`: 2283 pass, 1 todo;
+  `cd cloud && npm test`: 399 pass. Checked in Chromium: the setting switches
+  and saves.
+- Docs: End-State guide §29 (Turns in hours, `waitlist_offers`), `cloud/README.md`, README.
+- **Service worker:** no file added or renamed (new test file only); `CACHE_NAME` not bumped yet.
+- **Deploy:** the Worker change (cron and serverMoves) ships with Workers Builds on merge; no
+  migration.
+
+## 2026-11-19: Waitlist timers, Phases 2–3: the planned opening, countdowns, the turn estimate
+
+- **The planned opening:** Litter `picks_open_time` (cloud; **Picks open at** on the Litter
+  page, Pro) and her usual `waitlist_config.picks_open_time` (Turns & offers). Today's
+  Open-picks nudge comes at that time (`plannedOpening`, `isOpeningDue`, `depositsDueLitters`
+  with a now), and the Worker sends her one alert then (`picks_due`, scheduled runs only).
+  Kels's litter questions don't ask for the time (a **Modified:** note in the plan).
+- **Countdowns:** `dateUtils.zonedInstant` / `countdownText`, `ui.countdownHtml` /
+  `startCountdowns`, and the family pages' copies. "Picks open in …" on a born litter's Coming
+  up card (status page and public list, where she shows it) and on her picks panel; "Your turn
+  ends in …" on the family's turn card and deposit block, and "ends in …" on her panel. The
+  Worker adds `respond_by_at` and `picks_expected_at`.
+- **The turn estimate:** the projection's `next_opening` (the one turn order with her soonest
+  planned litter counted open); `serverMoves.turnEstimate` on the Worker; `family.turn_estimate`
+  (a time, never a count) on the status page's Current Position card. Owner, 2026-11-19: open
+  litters share one turn order, so it counts the families ahead in that order, not a litter's
+  own line.
+- Tests: `tests/waitlistTimers.test.js` (planned opening, countdown moments and words, the
+  projection, the estimate through `statusView`); `cloud/tests/serverMoves.test.js` (moments
+  across DST, the estimate in days, hours and from a planned opening, the alert once);
+  `familyPages.test.js` (the new moments). `node --test`: 2291 pass, 1 todo; `cd cloud && npm
+  test`: 404 pass. Checked in Chromium: the Litter page's planned time and countdown, an open
+  turn's "ends in", Lite's Litter page unchanged; no console errors.
+- Docs: End-State guide §29 (Countdowns and the planned opening, The turn estimate; Litter's
+  `picks_open_time`), the plan (all three phases built), README.
+- **Service worker:** no file added or renamed; `CACHE_NAME` bumped to `kennelos-shell-v161`
+  (owner's go-ahead), so installed copies pick up the timers. The family pages ship with the
+  Worker (Workers Builds).
+
+## 2026-11-19: The turn estimate only for families who could get a pup
+
+- Owner: don't tell #100 their turn could come in 100 days when there are 6 pups.
+  `serverMoves.turnEstimate` now walks the turn order with the pups this family wants (available
+  now): the turn holder's pick (or one of their pups) and each family ahead who'd take one of
+  them takes one, and a family left with none gets no estimate. Worked out when the page loads,
+  so it follows every turn and pick. `next_opening.queue` rows carry `dog_ids` (was a count);
+  the "Puppies may be chosen before your turn" line and `short` are gone.
+- Tests: `serverMoves.test.js` (6 pups and 100 families: the sixth hears, the seventh doesn't; a
+  pick taking the last pup), `waitlistTimers.test.js` (one pup, two families). `node --test`: 2291
+  pass, 1 todo; `cd cloud && npm test`: 404 pass. Screenshots in Chromium of the family turn
+  card, the estimate, Coming up's "Picks open in", the public list and her picks panel.
+- Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.
+
+## 2026-11-19: Each family's estimate counts to their own next chance
+
+- Owner's example: litter A opens Jan 4, litter B Jan 10; a family who passed on all of A should
+  count down to B while a family still waiting on A counts to A. The projection's
+  `next_opening` (her soonest planned litter only) becomes `openings` (every planned litter,
+  soonest first, at most six, each walked with the ones before it counted open).
+  `serverMoves.turnEstimate` counts a family not in line on the open litters to the first
+  planned one they'd get a turn on, and names it; families ahead who wait only on earlier
+  litters count only while their own turn would still be running (memoized). The status page
+  adds "Picks open on [litter] in …" above the estimate.
+- Tests: `serverMoves.test.js` (her example; two planned litters with "Not this litter" on the
+  first; the page names the litter). `node --test`: 2294 pass, 1 todo; `cd cloud && npm test`:
+  407 pass. A list of 200 families and 6 planned litters takes about 5 ms a page.
+- Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.
+
+## 2026-11-19: Review batch G: money on the Sale and invoice pages
+
+Review Remainder plan batch G (K10-9, K10-10, K10-11), on `main`. Each finding rechecked on
+the code first: all three still stood. R4 (two refund fields) is built as recommended and waits
+on the owner's confirmation.
+- **K10-9** (`pages/invoice.html`): `.inv-actions` wraps. In Chromium the invoice was 437 px
+  wide at 390 and 402 at 320 (Back cut off on the left, Send payment link on the right); now
+  390 and 320. The items table no longer overflowed at 320 px, even with five-figure amounts
+  and long extra names, so nothing else changed.
+- **K10-11 (R4)** (`data/vocab.js`, `data/saleRepo.js`, `data/incomeView.js`,
+  `pages/sale.js`): `Sale.refund_amount` / `refund_date`, optional, private like `price`
+  (`syncRegistry`; `cloudFields.js` unchanged). `vocab.canRecordRefund`: Returned or Cancelled
+  and not a lost sale. `saleRepo` refuses a negative amount or a malformed date and clears both
+  on any other status. `incomeView.refundComponents` takes the refund off as one negative
+  `refund` line (new `INCOME_COMPONENTS` entry, **Refunds**) on its date, capped at what the
+  sale earned. The Sale form shows **Refunded** and **Refund date** (the date required with an
+  amount); the view shows Refunded. Kels's answer on cancelled and returned sales says where a
+  refund goes. **Modified** from the plan: Cancelled rather than Voided (a voided sale already
+  counts nothing).
+- **K10-10** (`data/incomeView.js`, `pages/sale.js`): **You net** on the Sale page is
+  `getSaleNet`, the sale's ledger row (`getIncomeRows({ saleId })`) plus the credited
+  application fee: the review's sale reads $3,060, not $2,910. The form's live line is now
+  "Price after the fee".
+- Tests: new `tests/saleRefunds.test.js` (10 of its 11 failed before). `node --test`: 2278
+  pass, 1 todo. `node build/assemble.mjs` builds every edition. Checked in Chromium at 390 px:
+  the invoice has no sideways scroll; on the Sale page the refund fields come and go with the
+  status and reason, a refund without a date is stopped, and You net reads $3,060 and then
+  $2,060 after a $1,000 refund.
+- Docs: End-State guide (Sale fields, sale status rules, §21 income, §21.1 You net), Payment
+  Schedule plan §7 (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batch F: pedigrees and a delivered pup's life stage
+
+Review Remainder plan batch F (K9-7, K9-8, K9-9, K9-11), on `main`. Each finding rechecked on
+the code first: all four still stood. R3 (ask the life stage on Delivered, and a six-month
+nudge) is built as recommended and waits on the owner's confirmation.
+- **K9-7 (R3)** (`data/goHome.js`, `pages/sale.js`, `data/nudges.js`): the Delivered prompt
+  asks **What is Ruby now?** (Leave as Puppy, Pet home, Active breeding) unless External;
+  `deliveredOwnershipChanges` takes `stage` and writes it with `status_date`. New nudge
+  `delivered-still-puppy` (`deliveredStillPuppyNudges`): a dog still Puppy more than 180 days
+  after delivery (its last pickup logged, else the sale's balance paid date, else its sale date),
+  offering Pet home or Active breeding. It covers Lite, the check-in and a skipped prompt.
+- **K9-8** (`data/pedigreeEdit.js`, `assets/pedigree.js`, `pages/dog.js`, `pages/litter.js`):
+  a chart fix that disagrees with the pup's litter asks the whole litter (the litter and every
+  pup still on the old parent) or just this pup; Cancel writes nothing. The Dog form warns about
+  a sire or dam that isn't its litter's (Use the litter's / Change the litter's). A Litter page
+  sire or dam edit offers to move the pups still on the old one; a split pup is left alone.
+- **K9-9** (`pedigreeEdit.nameMatches`, `addNewParent`): a typed name already on a live
+  pedigree-only dog (`nameKey`: titles, case, punctuation aside) asks "Use CH Briar Ace already
+  on file?" before writing; a different registration number keeps them apart.
+- **K9-11**: a registration number on an archived dog is refused with its name, not reused.
+  `spotFixable`: in Lite an archived ancestor's own spot keeps its ✎; its sire and dam get no ✎
+  or + Add.
+- Tests: new `tests/pedigreeLifeStage.test.js` (8 of its 10 failed before). `node --test`: 2288
+  pass, 1 todo. `node build/assemble.mjs` builds every edition. Checked in Chromium: the litter
+  question (whole litter moves Blue too; Cancel leaves Ruby on Rocco), the same ancestor typed for
+  Rocco and Hazel is one record, the Dog form's warning, the Delivered prompt at 390 px (Co-owned
+  plus Active breeding), and in the built Lite edition an archived ancestor with nothing to add
+  under it.
+- Docs: End-State guide (Delivered, the nudge table, fixing a spot in a pedigree), Review
+  Remainder plan (**Modified**), `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batches F and G brought onto the waitlist timers branch
+
+- Batches F and G (`ccr-dca01807-5vxcg1`) cherry-picked onto the timers branch so they ship in one
+  PR; the only conflicts were this log and the End-State guide's Litter and Sale rows (both
+  kept).
+- `tests/loadBudget.test.js`: the Dog page's budget 1220 → 1240 KB. With both branches the page
+  loads 1,221 KB (the timers' additions to `waitlistRules.js` and batch F's Dog changes), one
+  over; each alone was under.
+- `node --test`: 2315 pass, 1 todo; `cd cloud && npm test`: 407 pass.
