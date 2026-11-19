@@ -9,7 +9,7 @@ This file is the map.
 wrangler.toml          the STAGING Worker: bindings DB (D1) and FILES (R2), the .sql text rule
 package.json           wrangler (dev only) and the test script; read by Workers Builds
 src/index.js           router: /ops, preflights, /notice, /health, /notify/off, the 503 gate, the API; and
-                       the crons (daily: retention; hourly: serverMoves, email changes, digests, e-sign
+                       the crons (daily: retention; :00 and :30: serverMoves; :00 only: email changes, digests, e-sign
                        copies and previews), each job in its own try so one failure is logged and the
                        rest still run. Everything, family pages and preflights too, is inside one try
 src/api.js             the API's routes (plan §6.1)
@@ -125,8 +125,8 @@ src/familyActions.js   what a signed-in family does on their status page (POST /
                        event; a picked pup held (wl_holds) until her device's next publish says
                        it applied the pick (events_through); messages sealed to her key, into
                        the inbox
-src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the hourly cron
-                       and a family's pass/leave close turns past their last day and offer the next
+src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the half-hourly
+                       cron and a family's pass/leave close turns past their deadline and offer the next
                        family, only for moments she ticked; reminders once each (the fee reminder
                        catches up through its due day). Dates are the kennel's (its time_zone); a
                        kennel with none has no deadline closed or reminded here. A run's events, hold deletes and projection

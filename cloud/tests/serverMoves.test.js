@@ -79,8 +79,8 @@ const events = (env) => env.DB.raw.prepare("SELECT seq, entry_id, kind, payload,
 const mails = (env) => env.DB.raw.prepare('SELECT id, kind, to_email, subject, body FROM wl_messages ORDER BY rowid').all().map((r) => ({ ...r }));
 
 test('dates are the kennel\'s; templates fill like her device\'s', () => {
-  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'America/Chicago'), { date: '2026-10-11', hour: 23 });
-  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'Not/AZone'), { date: '2026-10-12', hour: 4 });
+  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'America/Chicago'), { date: '2026-10-11', hour: 23, time: '23:30' });
+  assert.deepEqual(localNow(new Date('2026-10-12T04:30:00Z'), 'Not/AZone'), { date: '2026-10-12', hour: 4, time: '04:30' });
   assert.equal(addDays('2026-12-30', 5), '2027-01-04');
   assert.equal(DAILY_CRON, '17 3 * * *');
   const f = fillTemplate(TEMPLATES.offer, { kennelName: 'T', family: 'Ann', litters: ['A', 'B'], respondBy: '2026-10-20' });
@@ -370,4 +370,205 @@ test('a kennel with no time zone has no deadline closed or reminded by the serve
   assert.deepEqual(await runKennel(env, row(env), { now: NOW, origin: 'o' }), { closed: 0, offered: 0, reminders: 0 });
   assert.equal(count(env, 'wl_events'), 0);
   assert.equal(mails(env).length, 0);
+});
+
+// --- Deadlines at a time of day (Waitlist Timers plan) ---------------------------------
+
+const timers = await import('../src/serverMoves.js');
+
+// Ann's turn ends at 7:00 pm Chicago on Oct 12 (00:00 UTC Oct 13); turns are 24 hours,
+// waking hours 8 am–9 pm.
+async function timed() {
+  const out = await published();
+  const p = stored(out.env);
+  p.entries.ann.offers[0].respond_by_date = '2026-10-12';
+  p.entries.ann.offers[0].respond_by_time = '19:00';
+  Object.assign(p.kennel, { turn_hours: 24, awake_from: '08:00', awake_until: '21:00' });
+  p.turn_queue[0].respond_hours = 24;
+  out.env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  return out;
+}
+
+test('a deadline at 7:00 pm: open at 6:30 pm, closed on the 7:00 pm run; the next turn ends 24 hours later', async () => {
+  const before = await timed();
+  assert.equal((await runKennel(before.env, row(before.env), { now: new Date('2026-10-12T23:30:00Z'), origin: 'o' })).closed, 0, '6:30 pm: still open');
+  const { env } = await timed();
+  const c = await runKennel(env, row(env), { now: new Date('2026-10-13T00:00:00Z'), origin: 'o' });
+  assert.equal(c.closed, 1);
+  assert.equal(c.offered, 1);
+  const ev = events(env);
+  assert.equal(ev[0].payload.respond_by_time, '19:00');
+  assert.equal(ev[1].payload.offered_date, '2026-10-12');
+  assert.equal(ev[1].payload.respond_by_date, '2026-10-13');
+  assert.equal(ev[1].payload.respond_by_time, '19:00');
+  assert.equal(stored(env).entries.bo.offers[0].respond_by_time, '19:00');
+  const offer = mails(env).find((m) => m.kind === 'offer');
+  assert.match(offer.body, /choose by October 13, 2026 at 7:00 pm/);
+});
+
+test('hours deadlines: rounded up to the half hour, kept in waking hours, closed days skipped', () => {
+  const awake = { from: 8 * 60, until: 21 * 60 };
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '19:13' }, 24, null, [], awake), { date: '2026-10-13', time: '19:30' });
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '02:00' }, 24, null, [], awake), { date: '2026-10-13', time: '08:00' }, 'before waking hours: their start');
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '22:00' }, 24, null, [], awake), { date: '2026-10-14', time: '08:00' }, 'after them: the next morning');
+  // Sunday Oct 18 closed: Saturday 7 pm + 24 h runs Saturday's 5 hours, then Monday's 19.
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-17', time: '19:00' }, 24, [1, 2, 3, 4, 5, 6], [], awake), { date: '2026-10-19', time: '19:00' });
+  assert.deepEqual(timers.hoursDeadline({ date: '2026-10-12', time: '19:00' }, 24, null, ['2026-10-13'], awake), { date: '2026-10-14', time: '19:00' }, 'a closed date too');
+});
+
+test('the last reminder of a timed turn: 3 hours before, never before waking hours', () => {
+  const k = { awake_from: '08:00', awake_until: '21:00' };
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: '19:00' }, k), '2026-10-12T16:00');
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: '09:00' }, k), '2026-10-11T20:00', 'the evening before');
+  assert.equal(timers.lastReminderKey({ respondBy: '2026-10-12', respondByTime: null }, k), null, 'a day deadline keeps the morning one');
+  assert.equal(fillTemplate(TEMPLATES.offer, { family: 'Ann', litters: ['A'], respondBy: '2026-10-20', respondByTime: '07:30' }).body, 'Hi Ann, choose by October 20, 2026 at 7:30 am.');
+});
+
+test('a timed turn reminds them 3 hours before its deadline, once', async () => {
+  const early = await timed();
+  assert.equal((await runKennel(early.env, row(early.env), { now: new Date('2026-10-12T20:30:00Z'), origin: 'o' })).reminders, 0, '3:30 pm: not yet (the fee is not due)');
+  const { env } = await timed();
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T21:00:00Z'), origin: 'o' })).reminders, 1, '4:00 pm');
+  assert.match(mails(env).find((m) => m.kind === 'offer_reminder').body, /ends October 12, 2026 at 7:00 pm/);
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T21:30:00Z'), origin: 'o' })).reminders, 0, 'once');
+});
+
+// --- Countdowns and the turn estimate (Waitlist Timers plan Phases 2–3) ----------------
+
+test('a kennel wall time as a moment, across daylight saving and odd offsets', () => {
+  assert.equal(new Date(timers.zonedInstant('2026-11-21', '19:00', 'America/Chicago')).toISOString(), '2026-11-22T01:00:00.000Z');
+  assert.equal(new Date(timers.zonedInstant('2026-06-21', '19:00', 'America/Chicago')).toISOString(), '2026-06-22T00:00:00.000Z');
+  assert.equal(new Date(timers.zonedInstant('2026-10-11', null, 'America/Chicago')).toISOString(), '2026-10-12T05:00:00.000Z', 'no time: the end of the day');
+  assert.equal(new Date(timers.zonedInstant('2026-11-21', '08:00', 'Asia/Kathmandu')).toISOString(), '2026-11-21T02:15:00.000Z');
+  assert.equal(timers.zonedInstant('', '08:00', 'UTC'), null);
+});
+
+test('the estimate: every family ahead in the one turn order using its full time (days)', () => {
+  const p = projection();
+  const now = new Date('2026-10-10T15:00:00Z');
+  // Ann holds the turn until the end of Oct 11; Bo is first in line, Cy second.
+  assert.equal(timers.turnEstimate(p, 'ann', now), null, 'holding a turn: no estimate');
+  const bo = timers.turnEstimate(p, 'bo', now);
+  assert.equal(new Date(bo.at).toISOString(), '2026-10-12T05:00:00.000Z');
+  assert.equal(bo.next, false);
+  // Cy wants only Pip 2; Ann (holding the turn) and Bo could both take it first.
+  assert.equal(timers.turnEstimate(p, 'cy', now), null, 'no pup could be left for them: no estimate');
+  // A third pup, which Cy also wants and nobody ahead does: now it could be theirs.
+  p.litters.l1.pups.push({ id: 'p3' });
+  p.turn_queue[1].litters = { l1: ['p2', 'p3'] };
+  const cy = timers.turnEstimate(p, 'cy', now);
+  assert.equal(new Date(cy.at).toISOString(), '2026-10-16T05:00:00.000Z', 'after Bo\'s 3 days');
+  // Ann picks Pip 3: gone, and Cy is left with nothing again.
+  p.entries.ann.offers[0].picked_dog_id = 'p3';
+  assert.equal(timers.turnEstimate(p, 'cy', now), null);
+  assert.equal(timers.turnEstimate(p, 'dee', now), null, 'not on the list yet');
+  p.kennel.time_zone = null;
+  assert.equal(timers.turnEstimate(p, 'bo', now), null, 'no kennel clock, no estimate');
+});
+
+test('the estimate with turns in hours, and from her next planned opening', () => {
+  const p = projection();
+  p.entries.ann.offers[0].respond_by_date = '2026-10-12';
+  p.entries.ann.offers[0].respond_by_time = '19:00';
+  Object.assign(p.kennel, { turn_hours: 24, awake_from: '08:00', awake_until: '21:00' });
+  const now = new Date('2026-10-12T15:00:00Z');
+  p.litters.l1.pups.push({ id: 'p3' });
+  p.turn_queue[1].litters = { l1: ['p3'] };
+  assert.equal(new Date(timers.turnEstimate(p, 'bo', now).at).toISOString(), '2026-10-13T00:00:00.000Z');
+  assert.equal(new Date(timers.turnEstimate(p, 'cy', now).at).toISOString(), '2026-10-14T00:00:00.000Z');
+
+  // Nothing open; her next litter is planned to open Oct 20 at 7 pm.
+  p.entries.ann.offers = [];
+  p.turn_queue = [];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }, { id: 'q2' }] };
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true }] }];
+  assert.equal(timers.turnEstimate(p, 'bo', now), null, 'only for a planned litter she shows on family pages');
+  p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  const bo = timers.turnEstimate(p, 'bo', now);
+  assert.equal(new Date(bo.at).toISOString(), '2026-10-21T00:00:00.000Z', 'when picks open');
+  assert.equal(bo.opens_at, bo.at);
+  assert.equal(new Date(timers.turnEstimate(p, 'cy', now).at).toISOString(), '2026-10-22T00:00:00.000Z');
+  assert.equal(timers.turnEstimate(p, 'cy', new Date('2026-10-21T01:00:00Z')), null, 'once the planned time has passed, the open order counts');
+  // Six pups, a hundred families who all want them: #7 on hears nothing (owner, 2026-11-19).
+  const pups = ['a', 'b', 'c', 'd', 'e', 'f'];
+  p.litters.l2.pups = pups.map((id) => ({ id }));
+  p.openings[0].queue = Array.from({ length: 100 }, (_, n) => ({ entry_id: `f${n}`, dog_ids: pups, planned: true }));
+  for (let n = 0; n < 100; n++) p.entries[`f${n}`] = { name: `F ${n}`, status: 'active', offers: [] };
+  assert.ok(timers.turnEstimate(p, 'f5', now), 'the sixth family could still get one');
+  assert.equal(timers.turnEstimate(p, 'f6', now), null);
+  assert.equal(timers.turnEstimate(p, 'f99', now), null);
+});
+
+test('picks due to open: one alert to her on the run that holds the planned time', async () => {
+  const { env } = await published();
+  const p = stored(env);
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'p9' }], planned_open: { date: '2026-10-12', time: '19:00' } };
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(p));
+  const at = new Date('2026-10-13T00:00:00Z'); // 7:00 pm Chicago
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-12T23:30:00Z'), origin: 'o', cron: true })).picks_due ?? 0, 0, '6:30 pm: not yet');
+  assert.equal((await runKennel(env, row(env), { now: at, origin: 'o' })).picks_due ?? 0, 0, 'never from a family\'s pass');
+  assert.equal((await runKennel(env, row(env), { now: at, origin: 'o', cron: true })).picks_due, 1);
+  assert.equal((await runKennel(env, row(env), { now: new Date('2026-10-13T00:30:00Z'), origin: 'o', cron: true })).picks_due ?? 0, 0, 'the next run: once');
+});
+
+test('the family\'s page gets the estimate as a time (never a count) and each deadline as a moment', async () => {
+  const { statusView } = await import('../src/familyPages.js');
+  const p = projection();
+  const now = new Date('2026-10-10T15:00:00Z');
+  const cy = statusView(p, 'cy', now);
+  assert.equal(cy.family.turn_estimate, undefined, 'only Pip 2 for them, and two families ahead who could take it');
+  const bo = statusView(p, 'bo', now);
+  assert.deepEqual(bo.family.turn_estimate, { at: '2026-10-12T05:00:00.000Z', next: false });
+  const ann = statusView(p, 'ann', now);
+  assert.equal(ann.family.turn_estimate, undefined);
+  assert.equal(ann.offers[0].respond_by_at, '2026-10-12T05:00:00.000Z');
+});
+
+test('her example: litter A open, B opening later; a family done with A counts down to B, one still in line for A to A', () => {
+  const p = projection();
+  // A (l1) is open: Ann holds the turn until the end of Oct 11; Bo is next in line on it.
+  // Cy passed on all of A, so they're out of A's line; B (l2) opens Oct 20 at 8 am.
+  p.turn_queue = [{ entry_id: 'bo', litters: { l1: ['p1', 'p2'] }, prepassed: [] }];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }, { id: 'q2' }] };
+  p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [
+    { entry_id: 'bo', dog_ids: ['p1', 'p2', 'q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true },
+  ] }];
+  const now = new Date('2026-10-10T15:00:00Z');
+  const bo = timers.turnEstimate(p, 'bo', now);
+  assert.equal(bo.litter_id, null, 'Bo: still in line on A');
+  assert.equal(new Date(bo.at).toISOString(), '2026-10-12T05:00:00.000Z');
+  const cy = timers.turnEstimate(p, 'cy', now);
+  assert.equal(cy.litter_id, 'l2', 'Cy: their next chance is B');
+  assert.equal(new Date(cy.opens_at).toISOString(), '2026-10-20T13:00:00.000Z', '8 am Chicago');
+  assert.equal(new Date(cy.at).toISOString(), '2026-10-24T05:00:00.000Z', 'after Bo\'s 3 days from when B opens');
+});
+
+test('two planned litters: a family who said "Not this litter" to the first counts to the second', () => {
+  const p = projection();
+  p.entries.ann.offers = [];
+  p.turn_queue = [];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }] };
+  p.litters.l3 = { label: 'Hazel × Ash', picks_open: false, pups: [{ id: 'r1' }] };
+  p.upcoming = [{ id: 'l2', litter_id: 'l2', family: true }, { id: 'l3', litter_id: 'l3', family: true }];
+  p.openings = [
+    { litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }] },
+    { litter_id: 'l3', date: '2026-10-26', time: '08:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: false }, { entry_id: 'cy', dog_ids: ['r1'], planned: true }] },
+  ];
+  const now = new Date('2026-10-10T15:00:00Z');
+  assert.equal(timers.turnEstimate(p, 'bo', now).litter_id, 'l2');
+  const cy = timers.turnEstimate(p, 'cy', now);
+  assert.equal(cy.litter_id, 'l3');
+  assert.equal(new Date(cy.at).toISOString(), new Date(cy.opens_at).toISOString(), 'Bo wants nothing of Hazel × Ash, so Cy\'s turn could start when it opens');
+});
+
+test('the family\'s page names the litter it counts to', async () => {
+  const { statusView } = await import('../src/familyPages.js');
+  const p = projection();
+  p.turn_queue = [{ entry_id: 'bo', litters: { l1: ['p1', 'p2'] }, prepassed: [] }];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }] };
+  p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [{ entry_id: 'cy', dog_ids: ['q1'], planned: true }] }];
+  const cy = statusView(p, 'cy', new Date('2026-10-10T15:00:00Z'));
+  assert.deepEqual(cy.family.turn_estimate, { at: '2026-10-20T13:00:00.000Z', next: false, opens_at: '2026-10-20T13:00:00.000Z', litter: 'Willow × Ash' });
 });
