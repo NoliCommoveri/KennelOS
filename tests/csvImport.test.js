@@ -24,6 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCsv, getMapping, summarize, flagMissingKennel, commitPlan } from '../shared/data/csvImport.js';
+import { db } from '../shared/data/db.js';
 
 // --- Local re-implementations of csvImport.js's private index builders -----
 // (not exported; classify()'s `index` argument is whatever buildIndex()
@@ -469,6 +470,9 @@ test('dog: commit writes every row, then links parents; an unimported parent is 
     update: async (id, ch) => { calls.push(['update', id, ch]); return {}; }
   };
   plan.forEach((r) => { r.record.kennel_id = 'k1'; }); // skip the localStorage kennel default
+  // The repo is stubbed, so the commit's chunk transaction just runs its body.
+  const realTransaction = db.transaction;
+  db.transaction = async (...args) => args[args.length - 1]();
   try {
     const res = await commitPlan('dog', plan);
     assert.equal(res.created, 2);
@@ -477,6 +481,7 @@ test('dog: commit writes every row, then links parents; an unimported parent is 
     assert.ok(res.notes[0].message.includes('Not linked to its sire: row 3'));
   } finally {
     dogMapping.repo = realRepo;
+    db.transaction = realTransaction;
   }
 });
 

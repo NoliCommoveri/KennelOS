@@ -150,3 +150,51 @@ test('a restore that fails says so in a sentence', async () => {
     tables.pets.bulkPut = real;
   }
 });
+
+// --- K14-3: per-pup packs --------------------------------------------------------
+
+function stubDriveMany(byId) {
+  globalThis.fetch = async (url) => {
+    const id = decodeURIComponent(String(url).split('/files/')[1].split('?')[0]);
+    if (byId[id]) return { ok: true, json: async () => byId[id] };
+    return { ok: true, blob: async () => new Blob([id], { type: 'application/pdf' }) };
+  };
+}
+const litterManifest = (version, files) => ({ packKey: 'PK', version, scope: 'litter', kennelName: 'Thornfield', parentDogIds: ['S', 'D'], files });
+
+test('a pup gets the litter\'s sire and dam documents plus its own pack', async () => {
+  stubDriveMany({
+    MAN: litterManifest(2, [{ fileId: 'FS', title: 'Sire hips', dogId: 'S' }]),
+    PUPA: { packKey: 'PK', version: 2, scope: 'pup', pupId: 'pupA', files: [{ fileId: 'FA', title: 'Ash vaccines', dogId: 'pupA' }] }
+  });
+  await fetchMod.fetchOnePackage('A', { ...pointer, pupManifestFileId: 'PUPA' }, 'pupA');
+  assert.deepEqual(await titles('A'), ['Ash vaccines', 'Sire hips']);
+  assert.equal(contentPackRepo.petState(await contentPackRepo.getByKey('PK'), 'A').pupManifest, 'PUPA');
+});
+
+test('a resend that adds the pup\'s own pack fetches again at the same version', async () => {
+  const m = litterManifest(2, [{ fileId: 'FS', title: 'Sire hips', dogId: 'S' }]);
+  stubDriveMany({ MAN: m, PUPA: { packKey: 'PK', version: 2, scope: 'pup', files: [{ fileId: 'FA', title: 'Ash vaccines', dogId: 'pupA' }] } });
+  await fetchMod.fetchOnePackage('A', pointer, 'pupA');
+  assert.deepEqual(await titles('A'), ['Sire hips']);
+  await fetchMod.fetchOnePackage('A', { ...pointer, pupManifestFileId: 'PUPA' }, 'pupA');
+  assert.deepEqual(await titles('A'), ['Ash vaccines', 'Sire hips']);
+});
+
+test('an older litter pack with every pup\'s files is still filtered to this pup', async () => {
+  stubDriveMany({ MAN: litterManifest(1, [
+    { fileId: 'FS', title: 'Sire hips', dogId: 'S' },
+    { fileId: 'FA', title: 'Ash vaccines', dogId: 'pupA' },
+    { fileId: 'FB', title: 'Birch vaccines', dogId: 'pupB' }
+  ]) });
+  await fetchMod.fetchOnePackage('B', pointer, 'pupB');
+  assert.deepEqual(await titles('B'), ['Birch vaccines', 'Sire hips']);
+});
+
+test('an unreachable pup pack leaves what the family had', async () => {
+  stubDriveMany({ MAN: litterManifest(1, [{ fileId: 'FS', title: 'Sire hips', dogId: 'S' }]) });
+  await fetchMod.fetchOnePackage('A', pointer, 'pupA');
+  globalThis.fetch = async (url) => (String(url).includes('PUPA') ? { ok: false, status: 404 } : { ok: true, json: async () => litterManifest(2, []) });
+  await fetchMod.fetchOnePackage('A', { ...pointer, pupManifestFileId: 'PUPA' }, 'pupA');
+  assert.deepEqual(await titles('A'), ['Sire hips']);
+});

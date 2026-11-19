@@ -6,7 +6,12 @@
 //
 // Import fills an EMPTY schema only, and refuses before writing anything if the
 // schema version differs, a table is unknown, a column is unknown, or any target
-// table already has rows. All rows go in one batch, so it lands whole or not at all.
+// table already has rows. It writes IMPORT_BATCH rows per batch, parents first
+// (K4-14: the whole database in one batch fails at production size, at the worst
+// moment), so a failure part-way leaves some tables restored: ops_config's
+// restore_in_progress then names the file, and running the same file again
+// finishes it (INSERT OR IGNORE: a row already in is the file's own). Any other
+// file is refused until that one is finished.
 //
 // Ephemeral tables (codes, link codes, rate limits, the staging outbox, vault
 // pairings) are not exported. Nor is sync_records (live sync's records): the
@@ -37,38 +42,80 @@ async function columnsOf(db, table) {
   return new Set(results.map((r) => r.name));
 }
 
+export const EXPORT_PAGE = 1000;
+export const IMPORT_BATCH = 200;
+const IN_PROGRESS = 'restore_in_progress';
+
+// Each table a page at a time (K4-14), in rowid order.
+async function allRows(db, table) {
+  const rows = [];
+  for (let offset = 0; ; offset += EXPORT_PAGE) {
+    const { results } = await db.prepare(`SELECT * FROM ${table} ORDER BY rowid LIMIT ${EXPORT_PAGE} OFFSET ${offset}`).all();
+    rows.push(...results);
+    if (results.length < EXPORT_PAGE) return rows;
+  }
+}
+
 export async function exportAll(db) {
   const tables = {};
-  for (const t of EXPORT_TABLES) tables[t] = (await db.prepare(`SELECT * FROM ${t}`).all()).results;
+  for (const t of EXPORT_TABLES) tables[t] = await allRows(db, t);
+  // A restore's own note is this database's state, not data.
+  tables.ops_config = tables.ops_config.filter((r) => r.key !== IN_PROGRESS);
   return { format: FORMAT, schema_version: await schemaVersion(db), exported_at: new Date().toISOString(), tables };
 }
 
-// Returns {ok: true, rows} or {ok: false, reason}. Never writes on refusal.
+// Returns {ok: true, rows} or {ok: false, reason}, and on a failure part-way
+// {ok: false, partial: true, done: [tables fully restored], reason}. Never writes
+// on refusal.
 export async function importAll(db, data) {
   if (!data || data.format !== FORMAT || typeof data.tables !== 'object') return { ok: false, reason: 'This is not a KennelOS cloud export.' };
   const version = await schemaVersion(db);
   if (data.schema_version !== version) {
     return { ok: false, reason: `The file is schema ${data.schema_version}; this database is ${version}.` };
   }
+  const extra = Object.keys(data.tables).find((t) => !EXPORT_TABLES.includes(t));
+  if (extra) return { ok: false, reason: `Unknown table ${extra}.` };
 
-  const statements = [];
+  // A run of this same file that stopped part-way is carried on; anything else
+  // needs an empty database.
+  const fileId = String(data.exported_at || '');
+  const running = await db.prepare('SELECT value FROM ops_config WHERE key = ?').bind(IN_PROGRESS).first('value');
+  if (running && running !== fileId) {
+    return { ok: false, reason: `A restore of the export made ${running} is not finished. Run that file again to finish it.` };
+  }
+
+  const plan = [];
   for (const t of EXPORT_TABLES) {
     const rows = data.tables[t] ?? [];
     if (!Array.isArray(rows)) return { ok: false, reason: `Table ${t} is not a list.` };
-    const existing = await db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).first('n');
-    if (existing > 0) return { ok: false, reason: `Table ${t} already has ${existing} rows. Import only fills an empty database.` };
+    if (!running) {
+      const existing = await db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).first('n');
+      if (existing > 0) return { ok: false, reason: `Table ${t} already has ${existing} rows. Import only fills an empty database.` };
+    }
     const allowed = await columnsOf(db, t);
     for (const row of rows) {
       const cols = Object.keys(row);
       const unknown = cols.find((c) => !allowed.has(c));
       if (unknown) return { ok: false, reason: `Table ${t} has no column ${unknown}.` };
-      statements.push(db.prepare(`INSERT INTO ${t} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
-        .bind(...cols.map((c) => row[c])));
+      plan.push({ t, stmt: db.prepare(`INSERT OR IGNORE INTO ${t} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+        .bind(...cols.map((c) => row[c])) });
     }
   }
-  const extra = Object.keys(data.tables).find((t) => !EXPORT_TABLES.includes(t));
-  if (extra) return { ok: false, reason: `Unknown table ${extra}.` };
+  if (!plan.length) return { ok: true, rows: 0 };
 
-  if (statements.length) await db.batch(statements);
-  return { ok: true, rows: statements.length };
+  await db.prepare('INSERT OR REPLACE INTO ops_config (key, value, updated_at) VALUES (?, ?, ?)')
+    .bind(IN_PROGRESS, fileId, new Date().toISOString()).run();
+  // The last batch each table's rows are in, so a failure can say which tables are whole.
+  const lastBatchOf = new Map(plan.map((p, i) => [p.t, Math.floor(i / IMPORT_BATCH)]));
+  let batch = 0;
+  try {
+    for (; batch * IMPORT_BATCH < plan.length; batch++) {
+      await db.batch(plan.slice(batch * IMPORT_BATCH, (batch + 1) * IMPORT_BATCH).map((p) => p.stmt));
+    }
+  } catch (err) {
+    const done = EXPORT_TABLES.filter((t) => !lastBatchOf.has(t) || lastBatchOf.get(t) < batch);
+    return { ok: false, partial: true, done, reason: String(err?.message ?? err) };
+  }
+  await db.prepare('DELETE FROM ops_config WHERE key = ?').bind(IN_PROGRESS).run();
+  return { ok: true, rows: plan.length };
 }

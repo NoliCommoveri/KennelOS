@@ -178,3 +178,45 @@ test('a list naming both records names the kept one once', async () => {
   assert.equal(row('waitlist_offers', 'o').litter_id, 'k');
   assert.deepEqual(row('waitlist_offers', 'o').notes_ids, ['k']);
 });
+
+// K1-4: 4,000 dogs under 8 call names froze the page for 11 s (49 s throttled).
+// The bound is generous for CI; main took over 9 s here for the two together.
+function bigProgram({ birthdays }) {
+  const names = ['Bella', 'Max', 'Luna', 'Charlie', 'Daisy', 'Cooper', 'Lucy', 'Bailey'];
+  const dogs = [];
+  for (let i = 0; i < 4000; i++) {
+    dogs.push({
+      id: `d${i}`, call_name: names[i % 8], breed: 'Labrador Retriever', sex: i % 3 ? 'female' : 'male',
+      date_of_birth: birthdays ? new Date(Date.UTC(2015, 0, 1) + ((i * 37) % 3000) * 864e5).toISOString().slice(0, 10) : null,
+      registered_name: `Thornfield ${names[i % 8]} ${i}`, registration_number: `SR${100000 + i}`,
+      microchip_id: `985${100000 + i}`, litter_id: `l${Math.floor(i / 6)}`, created_at: at(1), is_archived: false
+    });
+  }
+  // One real duplicate: a second record of d7, typed without its number.
+  dogs.push({ ...dogs[7], id: 'dup7', registration_number: '', created_at: at(2) });
+  return dogs;
+}
+
+test('the scan and the tidy-up handle 4,000 dogs in 8 call names quickly, and still find the duplicate', async () => {
+  const T = await import('../shared/data/tidyRules.js');
+  for (const birthdays of [true, false]) {
+    const dogs = bigProgram({ birthdays });
+    const t0 = performance.now();
+    const scan = S.findDuplicates({ rows: { dogs }, flags: PRO });
+    const tidy = T.duplicateDogFindings(dogs);
+    const ms = performance.now() - t0;
+    assert.ok(ms < 4000, `took ${Math.round(ms)} ms (birthdays: ${birthdays})`);
+    assert.deepEqual(scan.map((f) => f.key), ['dogs:d7:dup7']);
+    assert.deepEqual(tidy.map((f) => f.key), ['dupdog:d7:dup7']);
+  }
+});
+
+test('the async scan gives the page a turn and finds what the plain one does', async () => {
+  const rows = everyKind();
+  let turns = 0;
+  const tick = setInterval(() => { turns++; }, 0);
+  const found = await S.findDuplicatesAsync({ rows, flags: PRO });
+  clearInterval(tick);
+  assert.deepEqual(found, S.findDuplicates({ rows, flags: PRO }));
+  assert.ok(turns > 0, 'a timer ran while it scanned');
+});
