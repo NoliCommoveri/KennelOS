@@ -483,6 +483,11 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   is shared by Financials and the waitlist's restore (§29). `canRecordRefund` (returned or
   cancelled, and not lost) is where a refund can be entered: the Sale form shows **Refunded**
   and **Refund date** then (the date required with an amount).
+- **Delivered** (the Sale page, on the save into it): Pro asks how the pup leaves her roster
+  (External, Co-owned, or left as it is) and, unless External, **What is it now?** (Leave as
+  Puppy, Pet home, Active breeding); `goHome.deliveredOwnershipChanges(dog, choice, { stage })`
+  writes it with `status_date`. Lite offers to remove the dog (cap spec §5). A pup left a Puppy
+  gets the `delivered-still-puppy` nudge.
 - **contractRepo**: `governingContract` (latest signed, derived) and
   `isLivePartnerContract` (drives partner Companion membership, §20).
 - **kennelRepo**: preferred tests/breeds (dedupe on write; removing never purges a token
@@ -1263,6 +1268,19 @@ already holding that registration number), or **Clear this spot** (the dog stays
 pedigree-only dog recorded as the other sex is listed last and has its sex corrected when put
 there (its sex came only from where a chart put it), refused while it's still a parent the other
 way round; a dog that isn't pedigree-only never changes sex.
+- A registration number on an **archived** dog isn't reused: the dialog names the dog and
+  writes nothing. A typed name already on a live pedigree-only dog (`nameMatches`:
+  `dogSearch.nameKey`, so titles, case and punctuation aside; not when a typed number tells them
+  apart) asks **Use … already on file?** before anything is written, so a shared ancestor stays
+  one record.
+- A pup's new sire or dam that isn't its litter's (`litterParentMismatch`) asks **the whole
+  litter** (the litter and every pup still on the old parent, `setParent(…, { litter: 'all' })`,
+  `moveLitterPups`) or **just this pup** (a split litter). The Dog form warns about a sire or dam
+  that isn't its litter's, as it does for the date of birth (Use the litter's / Change the
+  litter's); a Litter page edit of the sire or dam offers to move the pups still on the old one.
+- A spot is fixable only under a dog that can be edited (`spotFixable`): in Lite an archived
+  ancestor keeps the ✎ on its own spot (to take it out), but its own sire and dam get no ✎ or
+  **+ Add**.
 
 **Pedigree import** (`pedigree-import.html`, every edition): PDFs or images are read in the
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
@@ -1433,6 +1451,7 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 | `studboard` | a stud service's boarding (`studRules.studBoardingFor`: a `boarding` event on the dog that travels, reason "Stud service", dates overlapping the service's) ended before today, and the service's dates differ or it's still arranged / in progress (`boardingEndedUpdate`) | **Update it**: its dates from the stay, Completed. Stands in for `studstatus` on that service |
 | `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel), aged from her date of birth, else her litter's whelp date | promote to active breeding |
+| `delivered-still-puppy` | a dog still `puppy` with a Delivered sale, more than 180 days after delivery (its last `placement` event, else the sale's balance paid date, else its sale date; `nudges.deliveredStillPuppyNudges`) | **Pet home** / **Active breeding** (status and `status_date`) |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
 | `heatwatch` | an active breeding female's (`isCareDog`, `livesHere`, not `damIsBusy`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |

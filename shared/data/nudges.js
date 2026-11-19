@@ -256,6 +256,44 @@ export function deceasedDogNudges(dogs, { pairings, sales, dogsById, littersById
   return out;
 }
 
+// A pup delivered more than DELIVERED_PUPPY_DAYS ago and still a Puppy (review K9-7,
+// R3): a co-own, or an owned pup she kept on her records, never moves on by itself,
+// so it stays on the Puppies lists and out of every breeding and care list. Offers
+// its life stage. The delivery day is the pup's last pickup logged (a placement
+// event), else the sale's balance paid date, else its sale date. `sales`: delivered
+// sales among them are read; `events`: placement events (others ignored). Pure.
+export const DELIVERED_PUPPY_DAYS = 180;
+export function deliveredStillPuppyNudges(dogs, sales, events, today = todayYMD()) {
+  const out = [];
+  const deliveredOn = (d) => {
+    const pickups = (events || []).filter((e) => !e.is_archived && e.event_type === 'placement' && e.subject_type === 'dog' && e.subject_id === d.id && e.event_date && e.event_date <= today)
+      .map((e) => e.event_date).sort();
+    if (pickups.length) return pickups[pickups.length - 1];
+    const days = (sales || []).filter((s) => !s.is_archived && s.status === 'delivered' && s.dog_id === d.id)
+      .map((s) => s.balance_paid_date || s.sale_date || String(s.updated_at || '').slice(0, 10)).filter(Boolean).sort();
+    return days[days.length - 1] || null;
+  };
+  for (const d of dogs || []) {
+    if (d.is_archived || d.pedigree_only || d.status !== 'puppy') continue;
+    if (!(sales || []).some((s) => !s.is_archived && s.status === 'delivered' && s.dog_id === d.id)) continue;
+    const on = deliveredOn(d);
+    if (!on || addDaysToYMD(on, DELIVERED_PUPPY_DAYS) >= today) continue;
+    const name = d.call_name || d.registered_name || 'This dog';
+    const grow = (status) => async () => { await dogRepo.update(d.id, { status, status_date: today }); };
+    out.push({
+      key: `delivered-still-puppy:${d.id}`,
+      title: `${name} went home over six months ago and is still a Puppy. What is ${name} now?`,
+      detail: 'A pet home, or an active breeding dog (breeding rights kept). It moves to that list.',
+      subjectHref: `dog.html?id=${encodeURIComponent(d.id)}`,
+      actions: [
+        { label: 'Pet home', run: grow('pet_home') },
+        { label: 'Active breeding', run: grow('active_breeding') }
+      ]
+    });
+  }
+  return out;
+}
+
 export async function computeNudges() {
   const today = todayYMD();
   const [studServices, dogs, kennels, pairings, events, litters, sales] = await Promise.all([
@@ -359,6 +397,9 @@ export async function computeNudges() {
       ]
     });
   }
+
+  // A delivered pup still a Puppy six months on (review K9-7).
+  nudges.push(...deliveredStillPuppyNudges(scopedDogs, sales, events, today));
 
   // §4.7 — stud service completed/overdue with no linked pairing yet.
   // Auto-dismiss: once pairing_id is set the rule produces nothing at all —

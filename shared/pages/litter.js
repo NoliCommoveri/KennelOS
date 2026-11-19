@@ -3,6 +3,7 @@
 // panel (Dog records with this litter_id; Add Puppy / Add N Puppies), and a
 // Timeline of litter-subject events. Hard blocks come from litterRepo (required
 // fields); the sync/count/date checks are warn-only here per Stage 3 Brief §3.
+import { litterPupsOnParent, moveLitterPups } from '../data/pedigreeEdit.js';
 import { litterRepo, ReferenceBlockedError } from '../data/litterRepo.js';
 import { CapExceededError } from '../data/repoBase.js';
 import { pairingRepo } from '../data/pairingRepo.js';
@@ -751,6 +752,25 @@ async function save() {
   }
 }
 
+// A litter's sire or dam corrected (review K9-8): the pups still on the old one are
+// offered the new one. A pup on another parent (a split litter) isn't touched.
+async function maybeMovePups(before, after) {
+  for (const role of ['sire', 'dam']) {
+    const f = `${role}_id`;
+    if (!before[f] || !after[f] || before[f] === after[f]) continue;
+    const pups = await litterPupsOnParent(after.id, role, before[f]);
+    if (!pups.length) continue;
+    const names = pups.map((p) => p.call_name || p.registered_name || 'a pup').join(', ');
+    const ok = await confirmModal({
+      title: `Change the pups' ${role} too?`,
+      message: `${pups.length === 1 ? 'One pup still has' : `${pups.length} pups still have`} ${dogName(before[f]) || 'the old dog'} as ${role}: ${names}. Change ${pups.length === 1 ? 'it' : 'them'} to ${dogName(after[f]) || 'the new one'}, so their pedigrees match the litter?`,
+      confirmLabel: `Change ${pups.length === 1 ? 'it' : 'them'}`,
+      cancelLabel: 'Leave them'
+    });
+    if (ok) await moveLitterPups(after.id, role, before[f], after[f]);
+  }
+}
+
 async function doSave() {
   clearError();
   const candidate = normalizeCounts(readForm());
@@ -774,7 +794,9 @@ async function doSave() {
       return;
     }
     const prevStatus = ctx.original.status;
+    const before = ctx.original;
     const saved = await litterRepo.update(ctx.original.id, candidate);
+    await maybeMovePups(before, saved);
     ctx.original = saved;
     ctx.mode = 'view';
     await loadRefs();

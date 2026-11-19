@@ -6440,3 +6440,35 @@ on the owner's confirmation.
 - Docs: End-State guide (Sale fields, sale status rules, §21 income, §21.1 You net), Payment
   Schedule plan §7 (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
 - **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batch F: pedigrees and a delivered pup's life stage
+
+Review Remainder plan batch F (K9-7, K9-8, K9-9, K9-11), on `main`. Each finding rechecked on
+the code first: all four still stood. R3 (ask the life stage on Delivered, and a six-month
+nudge) is built as recommended and waits on the owner's confirmation.
+- **K9-7 (R3)** (`data/goHome.js`, `pages/sale.js`, `data/nudges.js`): the Delivered prompt
+  asks **What is Ruby now?** (Leave as Puppy, Pet home, Active breeding) unless External;
+  `deliveredOwnershipChanges` takes `stage` and writes it with `status_date`. New nudge
+  `delivered-still-puppy` (`deliveredStillPuppyNudges`): a dog still Puppy more than 180 days
+  after delivery (its last pickup logged, else the sale's balance paid date, else its sale date),
+  offering Pet home or Active breeding. It covers Lite, the check-in and a skipped prompt.
+- **K9-8** (`data/pedigreeEdit.js`, `assets/pedigree.js`, `pages/dog.js`, `pages/litter.js`):
+  a chart fix that disagrees with the pup's litter asks the whole litter (the litter and every
+  pup still on the old parent) or just this pup; Cancel writes nothing. The Dog form warns about
+  a sire or dam that isn't its litter's (Use the litter's / Change the litter's). A Litter page
+  sire or dam edit offers to move the pups still on the old one; a split pup is left alone.
+- **K9-9** (`pedigreeEdit.nameMatches`, `addNewParent`): a typed name already on a live
+  pedigree-only dog (`nameKey`: titles, case, punctuation aside) asks "Use CH Briar Ace already
+  on file?" before writing; a different registration number keeps them apart.
+- **K9-11**: a registration number on an archived dog is refused with its name, not reused.
+  `spotFixable`: in Lite an archived ancestor's own spot keeps its ✎; its sire and dam get no ✎
+  or + Add.
+- Tests: new `tests/pedigreeLifeStage.test.js` (8 of its 10 failed before). `node --test`: 2288
+  pass, 1 todo. `node build/assemble.mjs` builds every edition. Checked in Chromium: the litter
+  question (whole litter moves Blue too; Cancel leaves Ruby on Rocco), the same ancestor typed for
+  Rocco and Hazel is one record, the Dog form's warning, the Delivered prompt at 390 px (Co-owned
+  plus Active breeding), and in the built Lite edition an archived ancestor with nothing to add
+  under it.
+- Docs: End-State guide (Delivered, the nudge table, fixing a spot in a pedigree), Review
+  Remainder plan (**Modified**), `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged).

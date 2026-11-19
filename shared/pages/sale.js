@@ -901,6 +901,15 @@ function promptOwnershipUpdate(sale) {
         <label>Owner</label>
         <select id="own-owner">${contactOptions(sale.buyer_contact_id)}</select>
       </div>
+      <div class="field" id="own-stage-field">
+        <label>What is ${esc(dogLabel)} now?</label>
+        <select id="own-stage">
+          <option value="">Leave as Puppy</option>
+          <option value="pet_home">Pet home</option>
+          <option value="active_breeding">Active breeding (breeding rights kept)</option>
+        </select>
+        <span class="field-hint">Still on your records, so ${esc(dogLabel)} moves to that list. A Puppy is asked again six months after going home.</span>
+      </div>
       <div id="own-error"></div>
       <div class="form-actions">
         <button class="btn btn-primary" id="own-confirm">Confirm</button>
@@ -917,18 +926,23 @@ function promptOwnershipUpdate(sale) {
     // External — Co-owned adds the buyer to co_owner_contact_ids instead
     // (handled below without needing a picker; owner_contact_id there stays
     // whoever it already was, typically the breeder).
+    // The life stage (review K9-7): asked whenever the pup stays on her records
+    // (Co-owned, or left as it is); External sets its own status.
+    const stageField = overlay.querySelector('#own-stage-field');
     choiceSelect.addEventListener('change', () => {
       ownerField.hidden = choiceSelect.value !== 'external';
+      stageField.hidden = choiceSelect.value === 'external';
     });
     overlay.querySelector('#own-confirm').addEventListener('click', async () => {
-      const choice = choiceSelect.value;
-      if (!choice) { close(); return; }
+      const choice = choiceSelect.value || null;
+      const stage = choice === 'external' ? null : overlay.querySelector('#own-stage').value || null;
+      if (!choice && !stage) { close(); return; }
       try {
         // Re-fetch: the co-own convenience above may have just updated this dog.
         const dog = await dogRepo.getById(sale.dog_id);
         const updates = deliveredOwnershipChanges(dog, choice, {
           ownerId: choice === 'external' ? overlay.querySelector('#own-owner').value || null : null,
-          buyerId: sale.buyer_contact_id, today: todayYMD()
+          buyerId: sale.buyer_contact_id, today: todayYMD(), stage
         });
         if (updates) await dogRepo.update(sale.dog_id, updates);
         close();

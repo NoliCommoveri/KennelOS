@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A to D and G built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E, F, H and I not started. R4 is built as recommended and waits on her confirmation. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A to D, F and G built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E, H and I not started. R3 and R4 are built as recommended and wait on her confirmation. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -229,6 +229,10 @@ app batch.
 `shared/data/pedigreeEdit.js`, `shared/assets/pedigree.js`, `shared/pages/dog.js`,
 `shared/pages/litter.js`.
 
+- **Modified (built 2026-11-19):** the nudge's delivery day is the pup's last pickup logged,
+  else the sale's balance paid date, else its sale date (a Sale has no delivered date). An
+  archived node's own spot keeps its ✎ in Lite, but every spot under it (✎ and + Add) is closed.
+  The Dog form's warning offers Use the litter's and Change the litter's, like the DOB one.
 - **K9-7 (R3):** the Delivered prompt gets a life-stage question when the pup stays in her
   records (Co-owned, or left owned). `deliveredOwnershipChanges` takes the answer. A new nudge,
   `delivered-still-puppy`, fires for a dog whose status is `puppy`, with a Delivered sale more
