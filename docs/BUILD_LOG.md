@@ -6671,3 +6671,9 @@ KennelOS's half of KennelPort's `docs/plans/portal-kept-pups.md` ("KennelOS's ha
   archived open sale is removed). `node --test`: 2358 pass, 1 todo. Load budget: litter 1570 → 1575 KB.
 - Docs: End-State guide §35.1.
 - **Service worker:** no file added; no `CACHE_NAME` bump yet.
+
+## 2026-11-19: Service worker cache v164
+
+- `CACHE_NAME` v163 → v164, for this session's batch: review batches H and E and the portal
+  feed's placement vet reach installed devices. `PRECACHE_URLS` gained `assets/appShell.js`
+  (batch H).
