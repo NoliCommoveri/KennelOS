@@ -42,39 +42,61 @@ only `expected`.
 ## 3. Her settings
 
 A new `waitlist_config.family_changes` key (additive, read with defaults; no schema
-change), one row per kind of change:
+change), one row per kind of change, `true` = auto-approved in that phase:
 
 ```js
 family_changes: {
-  pref_sex:       { before: 'approval', after: 'approval' },
-  pref_breed:     { before: 'approval', after: 'approval' },
-  pref_purposes:  { before: 'approval', after: 'approval' },
-  pref_colors:    { before: 'approval', after: 'approval' },
-  ready_timing:   { before: 'approval', after: 'approval' },
-  listen:         { before: 'approval', after: 'approval' },
-  pause:          { before: 'approval', after: 'approval' },
-  unpause:        { before: 'off',      after: 'off' }       // new, §5
-}
+  pref_sex:      { before: false, after: false },
+  pref_breed:    { before: false, after: false },
+  pref_purposes: { before: false, after: false },
+  pref_colors:   { before: false, after: false },
+  ready_timing:  { before: false, after: false },
+  listen:        { before: false, after: false },
+  pause:         { before: false, after: false },
+  unpause:       { before: false, after: false }   // §5
+},
+unpause_allowed: false   // families may ask to end a pause early (§5)
 ```
 
-- Values: `'free'` (applies on its own) or `'approval'` (a request, as today); `unpause` also
-  takes `'off'` (families can't end a pause early: today's behaviour).
-- **Defaults equal today's behaviour**, so nothing changes for anyone until she turns it on.
-  `waitlistRules.WAITLIST_CONFIG_DEFAULTS` gets the defaults and `waitlistConfig()` fills in
-  missing rows and drops unknown values.
-- `'free'` under **after** is allowed but warned about in the settings (it reopens the
-  dodge the approval exists for). Whether to allow it at all is Q3.
-- Colors' row shows only while color matching is on. With matching off, colors are notes and
-  stay hidden on the status page (see Q6).
-- `syncRegistry.js`: `waitlist_config` is already classified, so this is a sub-key of an
-  existing field. The device publishes only the result (§4), never the table itself.
+- `false` = the change is a request she approves, as today. `true` = it applies on its own
+  ("free" below).
+- **Defaults equal today's behaviour** (everything unticked, ending a pause early not
+  offered), so nothing changes for anyone until she ticks something.
+  `waitlistRules.WAITLIST_CONFIG_DEFAULTS` gets the defaults; `waitlistConfig()` fills in
+  missing rows and turns anything but `true` into `false`.
+- `syncRegistry.js`: `waitlist_config` is already classified, so these are sub-keys of an
+  existing field. The device publishes only the result (§4), never the grid itself.
 
-**Where she sets it:** Kennel › Waitlist settings › a new **Family changes** card: a small
-table, one row per change, with two dropdowns (**Before pups are born** / **After pups are
-born**: *Needs my OK* / *Family changes it*; for Ending a pause early also *Not allowed*).
-A one-line note under it names the current phase: "Right now: before pups are born (no litter
-is whelped)." Plus a **Turn on: free before pups are born** shortcut that sets every
-`before` to free. No new header button: it's a card on an existing page.
+**Where she sets it:** Kennel › Waitlist settings › a new **Family changes** card (a card on
+an existing page, no new header button):
+
+> **Allow auto-approval of changes to the following preferences:**
+>
+> | | Before pups are born | After pups are born |
+> |---|---|---|
+> | Sex | ☐ | ☐ |
+> | Breed | ☐ | ☐ |
+> | Looking for | ☐ | ☐ |
+> | Colors | ☐ | ☐ |
+> | Ready to buy | ☐ | ☐ |
+> | Parents | ☐ | ☐ |
+> | Pausing their place | ☐ | ☐ |
+> | Ending a pause early | ☐ | ☐ |
+>
+> ☐ Let families ask to end a pause early
+>
+> Right now: before pups are born (no litter is whelped).
+
+- One checkbox per cell, each with an accessible label ("Auto-approve sex changes before
+  pups are born"). On a phone the grid keeps its three columns; the row names wrap.
+- The **Colors** row shows only while color matching is on (Q6).
+- The **Ending a pause early** row is greyed out until **Let families ask to end a pause
+  early** is ticked. That box decides whether the button exists at all; the row decides
+  whether it needs her OK.
+- Ticking any **After pups are born** box shows a one-line warning under the grid: "After
+  pups are born, a family could change an answer to skip their turn without it counting as a
+  pass." (Q3.)
+- The last line names the current phase, so she knows which column is in force.
 
 ## 4. How a change flows
 
@@ -88,9 +110,9 @@ publishes it, the server checks against that, and her device decides again when 
    place of **Ask to change**, and says "Saved. You can change this until pups are born."
    An approval field keeps **Ask to change**. One form can mix the two (§4.1).
 3. **The server** (`familyActions.checkAction`) accepts `pref_change`, `listen`,
-   `pause_request` and the new `unpause` as today, plus marks each event
-   `free: true | false` from the published `changes_free`. For `unpause`, it refuses with
-   `not_allowed` unless the published value says it's allowed.
+   `pause_request` and the new `unpause` as today, and marks each event
+   `free: true | false` from the published `changes_free`. It refuses `unpause` with
+   `not_allowed` unless the device published `unpause_allowed`.
 4. **Her device applies it** (`planFamilyEvent`) and **checks the rule again against her
    records now**: a free change applies only if it's still free now. If a litter was marked
    whelped between the family's tap and her sync, the change becomes a request instead, and
@@ -121,7 +143,9 @@ and pause are their own events, so they're already separate.
 ## 5. New: ending a pause early
 
 A family whose own pause is running (`paused_until` in the future) gets **End my pause** on
-the status page when `unpause` is `free` or `approval` for the current phase.
+the status page when she has ticked **Let families ask to end a pause early**
+(`unpause_allowed`). The grid's **Ending a pause early** row decides whether it applies on
+its own or waits for her.
 
 - New family action `unpause` (`FAMILY_ACTIONS`, `FAMILY_EVENT_KINDS`, `notify.ACTION_KINDS`
   as `request`).
@@ -172,8 +196,8 @@ Where it's built (`main` or `next`) is the owner's call. It's next-release-sized
   *Recommended: on the ground, as she said; she closes the litter to reopen changes.*
 - **Q2. Litters off the waitlist** (`waitlist_off`, sold outside the list): do they count?
   *Recommended: no, since nothing on them is offered through the list.*
-- **Q3. "Free" after pups are born:** allow it, with the warning, or offer only *Needs my
-  OK* there? *Recommended: allow, warned; she asked for both columns.*
+- **Q3. Auto-approval after pups are born:** the grid allows it, with the warning. *Settled
+  by her grid; the warning stays.*
 - **Q4. Hearing about free changes:** an app alert / digest line for each, or only the
   activity line and the answer history? *Recommended: a digest line, no alert.*
 - **Q5. Phase change note:** a one-time Today line when the last litter closes ("Families can

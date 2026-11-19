@@ -6539,3 +6539,7 @@ nudge) is built as recommended and waits on the owner's confirmation.
   early"), each set separately for before and after pups are born ("pups on the ground" =
   any litter of the kennel whelped and not closed). Defaults keep today's behaviour.
   Seven open questions (§8). Nothing built. README doc map gains the plan.
+- Same day: the settings became the owner's checkbox grid, "Allow auto-approval of changes
+  to the following preferences:" with Before / After pups are born columns
+  (`family_changes` booleans), plus "Let families ask to end a pause early"
+  (`unpause_allowed`). Q3 settled by the grid (warning kept).
