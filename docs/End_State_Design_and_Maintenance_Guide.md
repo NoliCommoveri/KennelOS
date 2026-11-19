@@ -2561,6 +2561,14 @@ restored into Lite keeps its waitlist rows, dormant.
   families → **Status page pop-ups** (list online), published resolved as the projection's
   `kennel.status_popups` (`statusPopupTexts`); the Worker fills **[Kennel]** and
   **[opening soon/open]**.
+- **The public list pop-up** (`list.js openingSoonPopup`): on opening the public list, for
+  everyone (signed in or not), when the list's Coming up has born litters whose picks
+  haven't opened (`kind: 'early_litter'`). "Picks opening soon", then one group per litter:
+  its name and "Born [date]" over "Picks open in …" ticking in big bold words (the status
+  pop-up's style), soonest first; one with no planned opening says "Opening date coming
+  soon", last. Litters with picks open aren't in it. One per visit, **Got it** or Escape
+  closes it; not when the page opens at `#signin`, nor inside her website (embed mode).
+  No words of hers: fixed text, and only what Coming up already shows.
 - **Whose clock** (decision D11): the waitlist's deadlines (turns, fees, "Ready now?", the
   undo windows, pickup cutoffs and extras' dates) run on the kennel's own date,
   `dateUtils.kennelToday(kennel)` from `Kennel.time_zone` (set when the list goes online;

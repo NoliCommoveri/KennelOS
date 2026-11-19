@@ -6764,3 +6764,18 @@ it goes on `main`.
 - `CACHE_NAME` v164 → v165, for this session's batch: review batch I and the Delete wizard
   reach installed devices. `PRECACHE_URLS` gained `assets/deleteBlockers.js`,
   `assets/linkedDeleteUI.js` and `data/linkedDelete.js`.
+
+## 2026-11-19: A pop-up on the public list for litters opening soon
+
+- The owner asked for the status page's pop-up on the public waitlist too, in that page's
+  colors, for picks opening soon only. `list.js openingSoonPopup`: "Picks opening soon", then
+  each born litter on Coming up whose picks haven't opened, grouped by its name and birth
+  date, with its "Picks open in …" countdown in big bold words (soonest first; no planned
+  opening: "Opening date coming soon", last). Everyone sees it, signed in or not; one per
+  visit, closed with Got it or Escape; not at `#signin` (the status page's Sign In button) or
+  inside her website (a framed page grows to fit, so it could land off screen). Litters with
+  picks open aren't in it. Fixed words: no new setting. `family.css .public-popup`.
+- Checked in Chromium at 390 px with three born litters (two dated, one not): order,
+  countdowns ticking, Got it closing it, none at `#signin`. `node --test`: 2376 pass;
+  `cd cloud && npm test`: 408 pass.
+- Docs: End-State guide §29.
