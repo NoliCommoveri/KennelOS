@@ -6305,4 +6305,5 @@ the old address, with no warning.
   has joins that person), `portalFeed` (one address). `node --test`: 2267 pass, 1 todo. Checked in
   Chromium: Edit on a linked family saves the new email to the contact and the page shows one set.
 - Docs: End-State guide §29 (actions, the rule) and §35.1 (`emails`), Waitlist Spec §5.2.
-- **Service worker:** no file added or renamed; `CACHE_NAME` not bumped (asked).
+- **Service worker:** no file added or renamed; `CACHE_NAME` bumped to `kennelos-shell-v160`
+  (owner's go-ahead), so installed copies pick up the family page change.
