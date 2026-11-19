@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A to H built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); I not started. R1, R3, R4, R6 and R7 are the owner's (2026-11-19, as recommended; R3, R4 and R7 as built, with their **Modified** notes); R5 was built as recommended in H. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: all nine batches built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19). R1, R3, R4, R6 and R7 are the owner's (2026-11-19, as recommended; R3, R4 and R7 as built, with their **Modified** notes); R5 was built as recommended in H. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -317,6 +317,13 @@ app batch.
 - **Docs:** guide (app shell, licence gate), editions plan if the gate's wording changes.
 
 ### I. The data layer's small ones (K1-5's `status_date`, K1-7, K1-8, K1-9, K1-10)
+
+**Built 2026-11-19.** **Modified:** `status_date` was already `cloud` (batch B), so K1-5 here is
+the write scan only, and it found one more field (`events.cost`, now private). K1-8's reader
+list went into the End-State guide (§5), with `db.js` pointing at it: written out in `db.js` it
+put every page over its load budget. K1-9 changed only the status words: the other report
+literals the review counted ("Sold", "Whelped", "Sent", "Anticipated") are column and date
+headings, not vocab labels.
 
 **Files:** `shared/data/syncRegistry.js`, `tests/syncRegistry.test.js`,
 `shared/data/referenceRegistry.js`, the detail pages' Delete buttons (`dog.js`, `litter.js`,

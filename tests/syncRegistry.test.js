@@ -82,6 +82,43 @@ test('coverage: every key in the Thornfield sample packet is classified', () => 
     'unclassified field(s): add each to cloud or private in shared/data/syncRegistry.js');
 });
 
+// The sample packet only sees what the seed writes (K1-5: `dogs.status_date` and
+// `litters.furever_pack` slipped past it). This one reads every object literal the
+// data layer and the pages pass to a write (tests/support/writeScan.js), so a field
+// written anywhere in the app must be classified too.
+test('coverage: every field the app writes in an object literal is classified', async () => {
+  const { scanWrites } = await import('./support/writeScan.js');
+  const { DEVICE_ONLY_TABLES } = await import('../shared/data/db.js');
+  const writes = scanWrites();
+  const unclassified = [];
+  for (const [table, fields] of writes) {
+    if (DEVICE_ONLY_TABLES.includes(table)) continue; // never kennel data, never in a snapshot
+    const entry = reg.SYNC_REGISTRY[table];
+    assert.ok(entry, `${table} is written but has no syncRegistry entry`);
+    const known = new Set([
+      ...reg.IMPLICIT_CLOUD_FIELDS, ...entry.cloud, ...entry.private, ...entry.pending, ...(entry.derived || [])
+    ]);
+    for (const [f, where] of fields) {
+      if (!known.has(f)) unclassified.push(`${table}.${f} (${[...where][0]})`);
+    }
+  }
+  assert.deepEqual(unclassified, [],
+    'unclassified field(s): add each to cloud or private in shared/data/syncRegistry.js');
+});
+
+test('the static scan really sees the app\'s writes (the fields K1-5 found)', async () => {
+  const { scanWrites } = await import('./support/writeScan.js');
+  const writes = scanWrites();
+  assert.ok(writes.get('dogs')?.has('status_date'), 'dogs.status_date (nudges.js) not seen');
+  assert.ok(writes.get('litters')?.has('furever_pack'), 'litters.furever_pack (furever.js) not seen');
+  assert.ok(writes.get('events')?.has('cost'), 'events.cost (expenseRepo base/db writes) not seen');
+  // The guard itself: with status_date taken out of the registry, it would fail.
+  const dogs = reg.SYNC_REGISTRY.dogs;
+  const without = new Set([...reg.IMPLICIT_CLOUD_FIELDS, ...dogs.cloud, ...dogs.private, ...dogs.pending]
+    .filter((f) => f !== 'status_date'));
+  assert.ok([...writes.get('dogs').keys()].some((f) => !without.has(f)));
+});
+
 test('the packet is a real one (the seed ran and populated the main tables)', () => {
   for (const t of ['dogs', 'events', 'contacts', 'kennels', 'litters', 'sales', 'waitlist_entries']) {
     assert.ok(packet[t].length > 0, `${t} is empty — did the seed run?`);

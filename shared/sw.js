@@ -98,6 +98,7 @@ const PRECACHE_URLS = [
   'assets/timeline.js',
   'assets/licenseGate.js',
   'assets/ui.js',
+  'assets/deleteBlockers.js',
   'assets/upgradeNudge.js',
   'assets/invoiceDoc.js',
   'assets/invoicePdf.js',
