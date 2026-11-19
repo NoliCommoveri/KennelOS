@@ -89,11 +89,11 @@ test('nothing private ever reaches the projection', () => {
 test("a family on the list sees its place, prefs, passes and offers; nothing else", () => {
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
-  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'credits', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
+  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'changes', 'credits', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
     'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'record', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
-  assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
+  assert.deepEqual(e1.requests, { pause: null, unpause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
   assert.equal(e1.fee_due, null, 'paid: no amount or instructions');
@@ -224,6 +224,7 @@ test("a family's requests show what they asked and her decision, never their not
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e1.requests, {
     pause: { until: '2026-12-31', requested_date: '2026-10-07', decided: null, decided_date: null },
+    unpause: null,
     pref_change: { changes: { pref_sex: 'female' }, requested_date: '2026-10-01', decided: 'declined', decided_date: '2026-10-02' },
     listen: null
   }, 'a decision older than REQUEST_SHOWN_DAYS is gone');

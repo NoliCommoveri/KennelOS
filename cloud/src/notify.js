@@ -38,7 +38,7 @@ const DAY = 86400000;
 // A family's action (familyActions FAMILY_ACTIONS) → its kind, or null (not notified).
 export const ACTION_KINDS = Object.freeze({
   pick: 'turn', pass: 'turn',
-  leave: 'request', pause_request: 'request', listen: 'request', pref_change: 'request', companion_request: 'request',
+  leave: 'request', pause_request: 'request', unpause: 'request', listen: 'request', pref_change: 'request', companion_request: 'request',
   extra_request: 'request', extra_cancel: 'request',
   pickup_book: 'request', pickup_cancel: 'request', pickup_address: 'request', home_location: 'request', back_out: 'request',
   ready: 'ready',
@@ -61,6 +61,12 @@ const LINES = {
   pass: (n) => `${n} passed on their turn`,
   leave: (n) => `${n} left the list`,
   pause_request: (n) => `${n} asked to pause`,
+  unpause: (n) => `${n} asked to end their pause early`,
+  // Changes she lets apply by themselves (Free Changes plan): digest lines only.
+  pause_request_free: (n) => `${n} paused their place`,
+  unpause_free: (n) => `${n} ended their pause early`,
+  listen_free: (n) => `${n} changed which litters they wait for`,
+  pref_change_free: (n) => `${n} changed their answers`,
   listen: (n) => `${n} asked to change which litters they wait for`,
   pref_change: (n) => `${n} asked to change their answers`,
   companion_request: (n) => `${n} asked for their Companion link`,
@@ -330,7 +336,8 @@ export async function pendingPush(env, body, now = new Date()) {
     `SELECT seq, kind, what, name, kennel, entry_id, at FROM notify_items
       WHERE program_id = ? AND seq > ? AND (kind != 'test' OR entry_id = ?) ORDER BY seq`,
   ).bind(sub.program_id, sub.last_shown_seq, sub.endpoint_hash).all();
-  const items = results.filter((i) => i.kind === 'test' || kinds.includes(i.kind));
+  // A digest-only line (`…_free`) never shows in an alert, even one raised by a later item.
+  const items = results.filter((i) => i.kind === 'test' || (kinds.includes(i.kind) && !String(i.what || '').endsWith('_free')));
   if (results.length) {
     await env.DB.prepare('UPDATE push_subscriptions SET last_shown_seq = ? WHERE endpoint_hash = ?').bind(results[results.length - 1].seq, sub.endpoint_hash).run();
   }
@@ -364,11 +371,12 @@ export function pushText(items, { hideNames = false, withKennel = false } = {}) 
 // name (made into their listed name here), the kennel's name, the entry id.
 // Recorded only when she turned on alerts or the digest for that kind; pushes to
 // her live devices when alerts are on for it. Never throws.
-export async function notifyEvent(env, { programId, kind, what, name = '', kennel = '', entryId = null }, now = new Date()) {
+export async function notifyEvent(env, { programId, kind, what, name = '', kennel = '', entryId = null, push = true }, now = new Date()) {
   try {
     const s = await settingsRow(env, programId);
     if (!s) return 'off';
-    const pushOn = parseKinds(s.push_kinds, PUSH_DEFAULT_KINDS).includes(kind);
+    // push: false → a digest line only (a change that applied by itself, never an alert).
+    const pushOn = push && parseKinds(s.push_kinds, PUSH_DEFAULT_KINDS).includes(kind);
     const subs = pushOn ? await liveSubscriptions(env, programId, now) : [];
     const digestOn = Boolean(s.digest_email) && parseKinds(s.digest_kinds, DIGEST_DEFAULT_KINDS).includes(kind);
     if (!subs.length && !digestOn) return 'off';

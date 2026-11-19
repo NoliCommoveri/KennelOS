@@ -61,13 +61,15 @@ test('a pause and a change to a matching answer wait for her', () => {
   assert.equal(planFamilyEvent(ev('pref_change', { changes: { pref_sex: 'any' } }), ctx()).op, 'skip', 'no change');
 });
 
-test('listen-only: wider applies at once, narrower waits for her', () => {
+test('listen-only: every change waits for her, wider or narrower', () => {
   const selected = entry({ listen_mode: 'selected', listen_sire_ids: ['ash'], listen_dam_ids: [] });
   const wider = planFamilyEvent(ev('listen', { mode: 'selected', sire_ids: ['ash'], dam_ids: ['juniper'] }), ctx({ entry: selected }));
-  assert.equal(wider.op, 'listen_apply');
-  assert.deepEqual(wider.changes, { listen_mode: 'selected', listen_sire_ids: ['ash'], listen_dam_ids: ['juniper'] });
+  assert.equal(wider.op, 'listen_request');
+  assert.deepEqual(wider.request, { requested_date: '2026-10-08', listen_mode: 'selected', listen_sire_ids: ['ash'], listen_dam_ids: ['juniper'] });
+  assert.equal(wider.activity, null, 'the request itself is what she sees');
   const all = planFamilyEvent(ev('listen', { mode: 'all' }), ctx({ entry: selected }));
-  assert.deepEqual(all.changes, { listen_mode: 'all' }, 'back to All keeps their earlier picks');
+  assert.equal(all.op, 'listen_request');
+  assert.equal(all.request.listen_mode, 'all');
   const narrower = planFamilyEvent(ev('listen', { mode: 'selected', sire_ids: ['ash'], dam_ids: [] }), ctx());
   assert.equal(narrower.op, 'listen_request');
   assert.deepEqual(narrower.request, { requested_date: '2026-10-08', listen_mode: 'selected', listen_sire_ids: ['ash'], listen_dam_ids: [] });
@@ -108,17 +110,16 @@ test('listenChangeKind with "except" (Spec §16.3): adding a parent or leaving A
   assert.equal(listenChangeKind(ex(['a'], []), ex([], [])), 'wider');
 });
 
-test('listen-only "except" from the status page: removing a parent applies; adding one waits for her', () => {
+test('listen-only "except" from the status page: removing a parent, adding one or switching modes all wait for her', () => {
   const except = entry({ listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: ['juniper'] });
   const wider = planFamilyEvent(ev('listen', { mode: 'except', sire_ids: ['ash'], dam_ids: [] }), ctx({ entry: except }));
-  assert.equal(wider.op, 'listen_apply');
-  assert.deepEqual(wider.changes, { listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: [] });
-  assert.match(wider.activity.body, /Took parents off/);
+  assert.equal(wider.op, 'listen_request');
+  assert.deepEqual(wider.request, { requested_date: '2026-10-08', listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: [] });
   const narrower = planFamilyEvent(ev('listen', { mode: 'except', sire_ids: ['ash'], dam_ids: [] }), ctx());
   assert.equal(narrower.op, 'listen_request');
   assert.deepEqual(narrower.request, { requested_date: '2026-10-08', listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: [] });
   const swap = planFamilyEvent(ev('listen', { mode: 'selected', sire_ids: ['ash'], dam_ids: ['juniper'] }), ctx({ entry: except }));
-  assert.equal(swap.op, 'listen_request', 'except → selected is narrower');
+  assert.equal(swap.op, 'listen_request');
 });
 
 test('listenParentChoices: breeding dogs, live parents (an outside stud too), and anything already picked', () => {

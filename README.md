@@ -43,6 +43,7 @@ backup, carries a program from Lite to Pro.
 | Voice: push-to-talk in the app, a calendar feed, an Alexa skill (weight checks, waitlist questions, actions confirmed on the phone, reminders), Google and other home assistants, Siri Shortcuts, an LLM fallback (leaning Claude Haiku) with costs (plan) | `docs/KennelOS_Voice_Plan.md` |
 | Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
 | Families asking for extras, pickup times, transport, backing out | `docs/KennelOS_Family_Requests_Plan.md` |
+| Families changing their answers themselves before pups are born | `docs/KennelOS_Family_Free_Changes_Plan.md` |
 | One family who applied twice to a waitlist (merging duplicate applications) | `docs/KennelOS_Duplicate_Applications_Plan.md` |
 | Support helping a user in her own program (assisted setup, ongoing help, the manager app) | `docs/KennelOS_Assisted_Setup_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |

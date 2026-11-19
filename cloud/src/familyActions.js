@@ -13,7 +13,7 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
-import { sameFamilyIds, portalOf, portalLink, localDay, FAMILY_SESSION_MS } from './familyPages.js';
+import { sameFamilyIds, portalOf, portalLink, localDay, FAMILY_SESSION_MS, changesOf } from './familyPages.js';
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
@@ -23,7 +23,7 @@ import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, portalPerHourPerSession: 30, fromPortalPerHourPerPage: 30, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'unpause', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
   'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
@@ -252,6 +252,16 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
       if (!YMD.test(until) || until <= today || until > addDays(today, ACTION_LIMITS.maxPauseDays)) fail(400, 'bad_date');
       return { until, note: cleanNote(body.note) };
     }
+    case 'unpause': {
+      // Ending their pause early (Free Changes plan §5): only where she offers it,
+      // only while their own pause runs, one request at a time.
+      if (entry.status !== 'active') fail(409, 'not_on_list');
+      if (!changesOf(entry.changes).unpause_offered) fail(409, 'not_allowed');
+      const today = kennelDay(projection, now);
+      if (!YMD.test(String(entry.paused_until ?? '')) || entry.paused_until < today) fail(409, 'not_paused');
+      if ((entry.requests?.unpause && !entry.requests.unpause.decided) || already('unpause')) fail(409, 'already_requested');
+      return { note: cleanNote(body.note) };
+    }
     case 'leave':
       return { note: cleanNote(body.note) };
     case 'ready': {
@@ -322,6 +332,17 @@ async function withMiles(env, fam, action, payload) {
   return { ...payload, miles: d.miles, minutes: d.minutes, far: Number(pk.far_miles) > 0 && d.miles > Number(pk.far_miles) };
 }
 
+// Which part of a change applies without her OK, as published (Free Changes plan
+// §4): for an answer change the fields that do ([] none), for parents, a pause or
+// ending one true/false; null for anything else.
+export function freeMark(action, payload, free) {
+  if (action === 'pref_change') return Object.keys(payload.changes || {}).filter((f) => free[f] === true);
+  if (action === 'listen') return free.listen === true;
+  if (action === 'pause_request') return free.pause === true;
+  if (action === 'unpause') return free.unpause === true;
+  return null;
+}
+
 // POST /f/act {session, status_token, action, …}
 export async function handleAct(env, request) {
   const body = await readJson(request, 8 * 1024);
@@ -343,6 +364,10 @@ export async function handleAct(env, request) {
   // Their address or where they live: measured now from her standard location, so
   // their page answers at once. Without Mapbox (or an answer) it still goes to her.
   if (action === 'pickup_address' || action === 'home_location') payload = await withMiles(env, fam, action, payload);
+  // A change her device published as free (Free Changes plan §4) is marked so: a hint
+  // for their page and her digest; her device decides again when it applies it.
+  const free = freeMark(action, payload, changesOf(fam.entry.changes).free);
+  if (free !== null) payload = { ...payload, free };
   const at = new Date().toISOString();
   const statements = [];
   if (action === 'pick') {
@@ -362,8 +387,10 @@ export async function handleAct(env, request) {
   // (serverMoves.js; W2 step 7). The family sees their own action either way.
   if (action === 'pass' || action === 'leave') await runKennelNow(env, fam.public_id, { origin: new URL(request.url).origin });
   // Her alerts and digest (docs/KennelOS_Notifications_Plan.md §1): never fails the action.
+  // A change that applies by itself is a digest line, never an alert (plan Q4).
   if (ACTION_KINDS[action]) {
-    await notifyEvent(env, { programId: fam.program_id, kind: ACTION_KINDS[action], what: action, name: fam.entry.name, kennel: fam.projection.kennel?.name, entryId: fam.entry_id });
+    const allFree = free === true || (Array.isArray(free) && free.length === Object.keys(payload.changes || {}).length);
+    await notifyEvent(env, { programId: fam.program_id, kind: ACTION_KINDS[action], what: allFree ? `${action}_free` : action, name: fam.entry.name, kennel: fam.projection.kennel?.name, entryId: fam.entry_id, push: !allFree });
   }
   return json({ ok: true, pending: await pendingFor(env, fam.public_id, fam.entry_id, fam.eventsThrough) });
 }
