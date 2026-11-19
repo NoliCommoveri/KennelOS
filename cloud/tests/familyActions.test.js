@@ -142,7 +142,9 @@ test('a pause request needs a date in the future (within two years); listen-only
   const ev = events(env);
   assert.deepEqual(ev.map((e) => e.kind), ['pause_request', 'listen', 'pref_change']);
   assert.equal(ev[0].payload.until, plusDays(60));
-  assert.deepEqual(ev[1].payload, { mode: 'selected', sire_ids: [], dam_ids: ['dam1'] });
+  assert.equal(ev[0].payload.free, false, 'nothing published as free: a request');
+  assert.deepEqual(ev[1].payload, { mode: 'selected', sire_ids: [], dam_ids: ['dam1'], free: false });
+  assert.deepEqual(ev[2].payload.free, []);
   assert.equal(ev[2].payload.note.length, ACTION_LIMITS.noteChars);
   assert.deepEqual(ev[2].payload.changes.pref_purposes, ['pet', 'show'], 'deduped, in vocab order');
   assert.ok(ev.every((e) => e.based_on_version === 1));
@@ -433,4 +435,48 @@ test('K7-10: New link, or a changed email, signs that family out everywhere; nob
   await publish(p2);
   assert.equal((await session(bo2)).status, 200);
   assert.equal((await session(ann2)).status, 200);
+});
+
+// Free changes (docs/KennelOS_Family_Free_Changes_Plan.md §4, §5).
+const withChanges = (entryChanges, entryExtra = {}) => {
+  const p = projection();
+  p.entries.ann = { ...p.entries.ann, offers: [], ...entryExtra, changes: entryChanges };
+  return p;
+};
+
+test('a change her device published as free is marked free (answers per field); the rest stay requests', async () => {
+  const { env, ann, publish } = await setup();
+  await publish(withChanges({ free: { pref_sex: true, listen: true, pause: true }, phase: 'before' }));
+  assert.equal((await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'female', ready_timing: '3_months' } })).status, 200);
+  assert.equal((await act(env, ann, tok('a'), 'listen', { mode: 'all' })).status, 200);
+  assert.equal((await act(env, ann, tok('a'), 'pause_request', { until: plusDays(30) })).status, 200);
+  const ev = events(env);
+  assert.deepEqual(ev[0].payload.free, ['pref_sex'], 'only the fields published as free');
+  assert.equal(ev[1].payload.free, true);
+  assert.equal(ev[2].payload.free, true);
+  assert.equal((await act(env, ann, tok('a'), 'still_interested')).status, 200);
+  assert.equal(events(env)[3].payload.free, undefined, 'only changes carry the mark');
+});
+
+test('ending a pause early: only where she offers it, only while paused, one at a time', async () => {
+  const { env, ann, publish } = await setup();
+  await publish(withChanges({ free: {}, phase: 'after', unpause_offered: false }, { paused_until: plusDays(20) }));
+  assert.equal(await err(await act(env, ann, tok('a'), 'unpause')), 'not_allowed');
+  await publish(withChanges({ free: {}, phase: 'after', unpause_offered: true }, { paused_until: null }));
+  assert.equal(await err(await act(env, ann, tok('a'), 'unpause')), 'not_paused');
+  await publish(withChanges({ free: { unpause: true }, phase: 'before', unpause_offered: true }, { paused_until: plusDays(20) }));
+  assert.equal((await act(env, ann, tok('a'), 'unpause', { note: 'We are ready' })).status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'unpause')), 'already_requested');
+  const ev = events(env);
+  assert.equal(ev.at(-1).kind, 'unpause');
+  assert.equal(ev.at(-1).payload.free, true);
+});
+
+test('the status page gets the changes her device published, cleaned', async () => {
+  const { changesOf } = await import('../src/familyPages.js');
+  assert.deepEqual(changesOf({ free: { pref_sex: true, listen: 'yes', bogus: true }, phase: 'before', unpause_offered: true }), {
+    free: { pref_sex: true, pref_breed: false, pref_purposes: false, pref_colors: false, ready_timing: false, listen: false, pause: false, unpause: false },
+    phase: 'before', unpause_offered: true
+  });
+  assert.equal(changesOf(null).phase, 'after', 'nothing published: every change asks her');
 });

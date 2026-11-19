@@ -1481,7 +1481,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay and the pickup** / **Log the stay, move the pickup to …** (`stayPickupPlan`: the stay and the pickup the day after it, or the next pickup moved there; shown when there's a pickup to set) and **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid. On a sale with a payment schedule only an extra flagged `own_due_dates` (§21.3); any other is paid through the schedule (`payment-due`) | open the sale |
 | `payment-due` / `payment-missed` | all editions (`paymentDueNudges`, through `paymentDueItems`: `incomeView.getSaleStatements` for the scoped open sales): a due date on a sale's payment schedule (§21.3; a sale with none stored is its one due date, the balance due date else pickup) with money still owed, from `DUE_SOON_DAYS` (7) before its date through the day ("…'s Payment 1 for Maple is due Nov 20: $900.00", what's already paid of it in the detail) / its date gone by ("A scheduled payment was not marked received: *Family*, $X due *date*."; on the sale she records it, types a new date or cancels; no back-out suggestion, D4). Key `payment-due|payment-missed:<sale>:<due id>:<date>`, so a moved date asks again. Not the deposit (offers and side sales ask for it), not extras on their own dates (`extra-due`), not a due date with no date yet. Each nudge carries `owed` | open the sale |
-| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup, backing out) | the matching waitlist action (§29) |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, family requests (pref, pause, ending a pause, listen, Companion link, extras, pickup, backing out), and free changes open again (`free-changes-open`) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
 save that moves a sale into delivered / returned / cancelled / voided asks **Close the
@@ -2746,7 +2746,8 @@ it computes is stored.**
 - **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
   `overdueFees`).
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
-  `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
+  `pref_change_log` (`by`: `breeder` for her edit or import, `request` for a family's
+  request she approved, `family` for a free change, below). A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
 - **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added, program? }` only.
   `program` (`publicProgram`) is `{ icon, about }`, only with `waitlist_config.public_show_programs`
@@ -3240,13 +3241,49 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `takeInApplications` opens them on the server-work device and makes `applied` entries
   through `data/waitlistInbox.js`.
 - **Family actions:** a family can pick a pup, pass a turn (with one of her reasons), say
-  "Not this litter", ask for a pause, change listen-only or answers, leave, answer "Ready
-  now?", ask for their Companion link, and message her (sealed). The server stores each as an
-  event; `cloudWaitlist.applyFamilyEvents` plans each against her records **now**
-  (`data/waitlistEvents.js`) and applies it (`applyFamilyPlan`): picks, passes, leaving and
-  wider listen changes apply; pauses, narrower changes and answer changes become requests
-  she approves or declines (Today and the family page). Anything her records no longer allow
-  becomes a message line, never forced.
+  "Not this litter", ask for a pause, end a pause early (where she offers it), change
+  listen-only or answers, leave, answer "Ready now?", ask for their Companion link, and
+  message her (sealed). The server stores each as an event; `cloudWaitlist.applyFamilyEvents`
+  plans each against her records **now** (`data/waitlistEvents.js`) and applies it
+  (`applyFamilyPlan`): picks, passes and leaving apply; pauses, ending a pause, listen-only
+  changes (wider or narrower) and answer changes become requests she approves or declines
+  (Today and the family page, which say whether a listen change is wider or narrower),
+  unless her Family changes setting lets them apply (below). Approving "All litters" keeps
+  their earlier parent picks on the entry. Anything her records no longer allow becomes a
+  message line, never forced.
+- **Free changes** (`docs/KennelOS_Family_Free_Changes_Plan.md`): Waitlist settings → **Family
+  changes** (online lists only): "Allow auto-approval of changes to the following
+  preferences:", a checkbox per change (`FAMILY_CHANGE_KINDS`: sex, breed, looking for, colors
+  (shown while color matching is on), ready to buy, parents, pausing, ending a pause early) for
+  **Before pups are born** and **After pups are born**, stored as
+  `waitlist_config.family_changes` (`{ [kind]: { before, after } }`, read by
+  `familyChanges`; null = all off), plus **Let families ask to end a pause early**
+  (`unpause_allowed`, default off; the ending-a-pause row is greyed out without it). Ticking
+  an After box shows a warning (a family could dodge a turn). The phase is
+  `waitlistRules.changePhase`: `after` while any live litter of the kennel, not `waitlist_off`,
+  is `whelped`/`weaning`/`ready`/`sold` (`pupsOnGround`), else `before`; `freeChanges` reads
+  her column for it, and `after` whatever the litters say while the family holds an open turn.
+  - Her device publishes per family `changes: { free, phase, unpause_offered }`
+    (`waitlistProjection`); the status page offers a free change as **Change** / **Save my
+    changes** / **Pause my place** / **End my pause** in place of the ask, and marks answers
+    that still need her OK. The server (`familyActions.freeMark`) stamps the event's payload
+    with `free` (the free fields of an answer change; true/false otherwise); her device
+    ignores the stamp and decides again with her records now, so a litter whelped since the
+    tap makes it a request.
+  - Applied free: answers (`pref_apply`: the free fields applied and logged `by: 'family'`,
+    the rest one `pref_change_request`), parents (`listen_apply`), a pause (`pause_apply`:
+    `paused_until`, the note as `pause_reason`), "Not yet" on "Ready now?" (paused at once),
+    ending a pause (`unpause_apply`: `paused_until` = yesterday). Each leaves an activity line
+    saying no OK was needed; the server's notify line is digest-only (`…_free`, `push: false`,
+    never in an alert).
+  - Ending a pause early, as a request: `unpause` action, `unpause_request` on the entry
+    (private), a Today nudge and entry-page line with Approve (`approveUnpauseRequest`: ends
+    it today) / Decline. It never ends a readiness hold.
+  - Today: "No pups on the ground: families can change their answers themselves again"
+    (`waitlist-free-changes-open:<kennel>:<litter>`), once per closing, for 14 days after
+    her last born litter closed, when a Before box is ticked and the list is online.
+  - Her policies' Preferences and Pausing starters say what families may change themselves;
+    `BASIS` carries the setting, so changing it marks the policy as changed.
 - **Extras** (`docs/KennelOS_Family_Requests_Plan.md` §3; `data/familyExtras.js`): for a family
   with an open sale (`familySale`: the entry's own pup's sale, see `waitlist_offers` above), the
   projection's `entry.extras` = `{ available, current, requests }` (`familyExtrasView`):
@@ -3594,8 +3631,8 @@ hear about something Today already lists.
   Settings live on the server (`notify_settings` per program, `push_subscriptions` per
   device), never in a backup or `syncRegistry`.
 - **What triggers them** (server, `cloud/src/notify.js` `notifyEvent`): a family's message,
-  a confirmed application, a pick or pass, a request (pause, listen, answers, Companion link)
-  or leaving, a "Ready now?" answer, and a turn the server closed or offered; and, from the
+  a confirmed application, a pick or pass, a request (pause, ending a pause, listen, answers,
+  Companion link) or leaving (a change that applied by itself is a digest line only), a "Ready now?" answer, and a turn the server closed or offered; and, from the
   e-sign webhook (`integrations.js`, once per new `int_events` row, so a redelivery is
   silent), a contract signed by everyone, declined, or expired (kind `contract`; a cancel,
   which she does herself, isn't one). Contract lines carry no name (the server never knows

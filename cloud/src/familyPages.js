@@ -609,6 +609,18 @@ export function paymentsOf(p) {
 }
 
 // A fee_due as published, its Pay link kept only when it's a web address.
+// Which changes apply without her OK (Free Changes plan §4), as her device
+// published them: known kinds only, booleans only. Absent → every change asks her.
+export const FREE_CHANGE_KINDS = ['pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors', 'ready_timing', 'listen', 'pause', 'unpause'];
+export function changesOf(c) {
+  const free = c && typeof c.free === 'object' && c.free ? c.free : {};
+  return {
+    free: Object.fromEntries(FREE_CHANGE_KINDS.map((k) => [k, free[k] === true])),
+    phase: c?.phase === 'before' ? 'before' : 'after',
+    unpause_offered: c?.unpause_offered === true
+  };
+}
+
 function feeDueOf(d) {
   if (!d || typeof d !== 'object') return null;
   const out = { ...d };
@@ -778,6 +790,7 @@ export function statusView(projection, entryId, now = new Date()) {
   }
   family.fee_due = feeDueOf(family.fee_due);
   family.credits = creditsOf(e.credits);
+  family.changes = changesOf(e.changes);
   // The pop-up on opening the page (owner, 2026-11-19): which message, never a place.
   const popup = statusPopup(projection, entryId);
   if (popup) family.popup = popup;
