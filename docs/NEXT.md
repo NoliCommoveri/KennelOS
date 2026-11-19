@@ -68,6 +68,16 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   finds each question.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-19: D10, her own answers; the prototype's icons built in
+
+- The owner's D10 in `docs/KennelOS_UI_Redesign_Plan.md` §8: amounts, times and lists end in
+  a + to add her own, which becomes one of her choices; fixed questions keep their choices.
+- The prototype (artifact `KCfKzER1Fo7aEYd7idfpS4` version 3, `docs/design/forest-look-prototype.html`):
+  the + on Setup's and Pricing and schedules' questions; **New schedule** moved onto the Saved
+  schedules heading; the 126 Lucide 0.460.0 icons it uses built into the page (they didn't
+  draw in the phone app when loaded from unpkg).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

@@ -5,13 +5,14 @@
 >
 > **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
 > copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `KCfKzER1Fo7aEYd7idfpS4`, version 2 of 2026-11-19: the 2026-11-18 design, artifact
-> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page and D9's Pricing and schedules drawn in). Open it in a browser and use
+> `KCfKzER1Fo7aEYd7idfpS4`, version 3 of 2026-11-19: the 2026-11-18 design, artifact
+> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page, D9's Pricing and schedules and D10's +
+> drawn in, and its icons built into the page instead of loaded from a CDN). Open it in a browser and use
 > the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
 > owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
-> **Decisions:** the fidelity rule in §2 and D1–D9 (§8) are the owner's (2026-11-19).
+> **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
 
@@ -257,7 +258,17 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   New sales start from these; any one sale can still differ. Setup's row for them opens the
   same screen (not a copy), and Setup keeps Invoices & receipts for the invoice footer and
   receipt wording. In the prototype: `S.pricing`; a litter's Pricing links to it with
-  "Change your usual prices". Whether these answers sync is part of D2's list.
+  "Change your usual prices". Whether these answers sync is part of D2's list. **New
+  schedule** sits on the Saved schedules heading, not in the header.
+- **D10. Her own answers.** **Decided: every answer that's an amount, a time or a list she'd
+  name herself ends in a +** (no label: the + is enough; its accessible name is "Add your
+  own"). She types her own, it's selected, and it's one of her choices from then on. The
+  choices shown are only common starting points: a few typical values for the breed and
+  program type, her current answer, and every value she has added. Amounts are tidied as
+  she'd write them ($450, +$750). A question whose answers are fixed (yes or no, same or
+  different, the waitlist's rules about how offers go out) keeps its choices and has no +.
+  In the prototype: `qRow`, `OWN_VALUE` lists which questions take one. This holds in Setup
+  and on every screen with question rows.
   - **Why.** The waitlist family page edited the application's copy of name, email and phone
     while emails, codes and contracts read the contact's, so a corrected email changed
     nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
