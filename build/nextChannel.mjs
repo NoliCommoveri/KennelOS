@@ -9,7 +9,8 @@
 //      already names (`devCloudUrl`, `devKennelportUrl`), so nothing reaches the production
 //      cloud, her real website or real families; Pro's license gate is switched off, so
 //      testers need no key and use no activation.
-//   2. sw.js: the CACHE_NAME gets a `-next` suffix.
+//   2. sw.js: the CACHE_NAME gets `-next-<commit>` (the first 7 of GITHUB_SHA in CI, `local`
+//      otherwise), so every deploy of `next` refreshes testers' caches with no manual bump.
 //   3. manifest.json and the root <title>: "KennelOS Pro Next", so an installed copy can't
 //      be mistaken for the real app.
 //   4. robots.txt: keep search engines out.
@@ -59,11 +60,12 @@ export function nextEditionConfig(text, edition) {
   return out;
 }
 
-export function nextServiceWorker(text, edition) {
+export function nextServiceWorker(text, edition, stamp = 'local') {
   assertNextEdition(edition);
   const re = /const CACHE_NAME = '([^']+)';/;
   const m = text.match(re);
   if (!m) throw new Error(`${edition}: next build: sw.js has no CACHE_NAME`);
-  const name = m[1].endsWith('-next') ? m[1] : `${m[1]}-next`;
+  const clean = String(stamp).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'local';
+  const name = /-next-[a-z0-9]+$/.test(m[1]) ? m[1] : `${m[1]}-next-${clean}`;
   return { text: text.replace(re, `const CACHE_NAME = '${name}';`), cacheName: name };
 }

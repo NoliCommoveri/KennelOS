@@ -61,6 +61,7 @@ backup, carries a program from Lite to Pro.
 | Credits: one currency for passes, per-use services and add-ons, enforced on the server (plan) | `docs/KennelOS_Credits_Plan.md` |
 | Pages that settle at once (nothing moving mid-tap), a lighter shell, fewer reads and checks per page, and a read-only tour whose sample data clears itself (plan) | `docs/KennelOS_Load_Performance_Plan.md` |
 | Making KennelOS harder to copy: repo visibility, licenses, minified builds, hosting (plan) | `docs/KennelOS_Security_Hardening_Plan.md` |
+| What's on the `next` branch (the next release, at next-pro.kennelos.app) and its log until it's brought in | `docs/NEXT.md` (the copy on `origin/next`) |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
 ## Status (2026-11-17)
@@ -89,6 +90,8 @@ backup, carries a program from Lite to Pro.
     `build/loadCheck.mjs`), 1 (nothing moves after first paint) and 2 (the read-only tour)
     built; next is Phase 3. Dog and Sale still shift as their sections fill in (no phase
     covers it).
+  - Next release: the `next` branch publishes a Pro test build at next-pro.kennelos.app; what's
+    on it is in `docs/NEXT.md` on that branch.
   - Planned, not built: credits, security hardening, mail budget, voice, family help,
     duplicate applications, assisted setup, line management, program types.
 

@@ -147,7 +147,8 @@ node build/assemble.mjs pro --channel next    # -> dist/next-pro/
   `--final` works): `cloudUrl` and `kennelportUrl` become the staging servers the config
   already names (`devCloudUrl`, `devKennelportUrl`); Pro's license gate is off (no key, no
   activation used); the nav's edition tag reads **Next**; the installed app and the tab are
-  named "KennelOS Pro Next"; the cache name gets `-next`; a `robots.txt` keeps search engines
+  named "KennelOS Pro Next"; the cache name gets `-next-<commit>`, so every deploy refreshes
+  testers' caches (no manual cache bumps on `next`); a `robots.txt` keeps search engines
   out. No banner. Each rewrite checks its anchor and the build fails if the config would
   still name a production server (`tests/nextChannel.test.js`).
 - **Why its own origin:** IndexedDB, localStorage and the service worker belong to an
@@ -165,8 +166,10 @@ node build/assemble.mjs pro --channel next    # -> dist/next-pro/
 - **Schema on next:** a `db.version(N)` block on next has only reached test devices, so it
   can still change before release; if it does, testers reset their test data. Once merged to
   `main` it is shipped and frozen.
-- **Releasing:** open a PR from `next` into `main`; the usual service-worker cache bump
-  rides with it. Fixes made on `main` are merged back into `next`.
+- **Records and releasing:** what's on `next` and its log live in `docs/NEXT.md` on that
+  branch (CLAUDE.md "Next release"), not the build log or the End-State guide, until it's
+  brought in by a PR from `next` into `main`; the usual service-worker cache bump rides with
+  that PR. Fixes made on `main` are merged back into `next`.
 - **Setup (once, by hand):** create `NoliCommoveri/kennelos-next-pro`, give the
   `EDITIONS_DEPLOY_PAT` token Contents read/write on it, turn on Pages with the custom domain
   `next-pro.kennelos.app`, and add the DNS record (a CNAME to `nolicommoveri.github.io`).

@@ -40,11 +40,12 @@ test('only Pro has a next build', () => {
   }
 });
 
-test('the next service worker gets its own cache name, once', () => {
+test('the next service worker gets its own cache name per commit, once', () => {
   const sw = "const CACHE_NAME = 'kennelos-pro-shell-v157';\nself.addEventListener('install', () => {});";
-  const { text, cacheName } = nextServiceWorker(sw, 'pro');
-  assert.equal(cacheName, 'kennelos-pro-shell-v157-next');
-  assert.equal(nextServiceWorker(text, 'pro').cacheName, 'kennelos-pro-shell-v157-next');
+  const { text, cacheName } = nextServiceWorker(sw, 'pro', 'ABC1234');
+  assert.equal(cacheName, 'kennelos-pro-shell-v157-next-abc1234');
+  assert.equal(nextServiceWorker(text, 'pro', 'def5678').cacheName, 'kennelos-pro-shell-v157-next-abc1234');
+  assert.equal(nextServiceWorker(sw, 'pro').cacheName, 'kennelos-pro-shell-v157-next-local');
   assert.throws(() => nextServiceWorker('no cache here', 'pro'), /CACHE_NAME/);
 });
 
