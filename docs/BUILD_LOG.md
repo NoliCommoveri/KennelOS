@@ -6758,3 +6758,9 @@ it goes on `main`.
 - Docs: End-State guide §7.
 - **Service worker:** `data/linkedDelete.js` and `assets/linkedDeleteUI.js` added to
   `PRECACHE_URLS`; no `CACHE_NAME` bump yet.
+
+## 2026-11-19: Service worker cache v165
+
+- `CACHE_NAME` v164 → v165, for this session's batch: review batch I and the Delete wizard
+  reach installed devices. `PRECACHE_URLS` gained `assets/deleteBlockers.js`,
+  `assets/linkedDeleteUI.js` and `data/linkedDelete.js`.
