@@ -46,6 +46,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   approved departure (`docs/design/departures.md`). The live-app stopgap is on `main`.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-19: The prototype draws D8
+
+- `docs/design/forest-look-prototype.html` is the owner's prototype with D8 drawn in, in its
+  own styles (hub head, tiles, rows, the `.dates`-style inputs as `.form-stack`): one person
+  page from the Waitlist, People, a sale or search; details once at the top; **Edit** →
+  **Their details**; the application as answers only; every waitlist family and client in
+  People; search finds people by email and phone; a Design notes section. Published as the
+  artifact `KCfKzER1Fo7aEYd7idfpS4`. Since the prototype now has it, it's no longer listed
+  in `docs/design/departures.md`.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

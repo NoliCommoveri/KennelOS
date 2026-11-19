@@ -5,9 +5,10 @@
 >
 > **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
 > copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `Qon8foccjzDmQc4ssLcua1`, version of 2026-11-18). Open it in a browser and use the bar at
-> the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the owner
-> changes the artifact, copy it in again and note the date here; the repo copy is what
+> `KCfKzER1Fo7aEYd7idfpS4`, version of 2026-11-19: the 2026-11-18 design, artifact
+> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page drawn in). Open it in a browser and use
+> the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
+> owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
 > **Decisions:** the fidelity rule in §2 and D1–D8 (§8) are the owner's (2026-11-19).
@@ -237,9 +238,13 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Change it where she is.** Where she'd reasonably believe a page is the place to change
     something (an applicant's email, on that applicant's page), it is. She's never sent to
     another page to change it.
-  - **The prototype.** It draws Waitlist families and Business › People as separate screens;
-    this rule wins, as an approved departure (§2.4), listed in `docs/design/departures.md`.
-    Phases 5 and 6 build the one person page; both tabs lead to it.
+  - **The prototype** (2026-11-19) draws it: one person page (`S.person`) opened from the
+    Waitlist, People, a sale and search. The top card holds their name (the header), email,
+    phone and address; **Edit** in the header opens **Their details** (`S.personedit`), whose
+    Save changes them everywhere. Their application (`S.personsec`, answers only, no name,
+    email or phone repeated), offers, fee, sale, go-home, contract, messages, status page and
+    History are tiles. Every waitlist family and client is a row in People. Design notes:
+    "One person, one page". Phases 5 and 6 build it.
   - **Why.** The waitlist family page edited the application's copy of name, email and phone
     while emails, codes and contracts read the contact's, so a corrected email changed
     nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
