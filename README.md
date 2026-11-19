@@ -83,9 +83,8 @@ backup, carries a program from Lite to Pro.
   - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
     (counting wrong code guesses per code) and one live Mapbox try of the address checks.
     The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
-    (nine batches, seven owner decisions R1–R7): batches A to D, F and G built; E, H and I
-    next. R3 (a delivered pup's life stage), R4 (refund fields) and R7 (the re-runnable
-    restore) are built as recommended and wait on the owner's yes.
+    (nine batches, owner decisions R1–R7 all made): batches A to H built; I
+    next.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
     (live updates) waits on owner decisions.
   - KennelPort: the website raw-data sections and `origin_country` wait on KennelPort's own
