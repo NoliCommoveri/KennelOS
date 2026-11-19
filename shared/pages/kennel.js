@@ -38,7 +38,7 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES, TURN_HOURS_MAX, timeLabel, fromMinutes } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, EXTRAS_INTRO_OLD_DEFAULT, FEATURED_LABEL_DEFAULT, FEATURED_LABEL_MAX, passReasons, showUpcoming, UPCOMING_STAGES, TURN_HOURS_MAX, timeLabel, HALF_HOURS } from '../data/waitlistRules.js';
 import { waitlistPolicies, validatePolicies, newPolicy, POLICY_LIMITS } from '../data/waitlistForm.js';
 import { policyStarters, policyHint, basisChanges } from '../data/waitlistPolicies.js';
 import { qaListHtml, wireQaList } from '../assets/qaListEditor.js';
@@ -521,6 +521,8 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
         <div class="field field-wide" data-turn-unit="hours"${c.turn_hours == null ? ' hidden' : ''}><label for="wl-awake-from">Families' waking hours</label>
           <div class="pill-row" style="align-items:center;"><select id="wl-awake-from" style="width:auto;">${halfHourOptions(c.awake_from)}</select> to <select id="wl-awake-until" style="width:auto;">${halfHourOptions(c.awake_until)}</select></div>
           <span class="field-hint">A deadline that would fall outside these hours moves to when they start: the same morning, or the morning of your next open day. Your time zone's clock.</span></div>
+        <div class="field"><label for="wl-picks-time">Usual time picks open</label><select id="wl-picks-time"><option value="">No time set</option>${halfHourOptions(c.picks_open_time)}</select>
+          <span class="field-hint">On a litter's accept deposits date, your time zone. Families see a countdown to it; a litter can set its own on its page.</span></div>
         <div class="field"><label>Passes before removal</label><input id="wl-passes" type="number" min="1" step="1" value="${esc(c.max_passes)}"></div>
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
@@ -686,7 +688,7 @@ function parentTestsSetting(c) {
 // Her closed dates as removable chips (data-closed holds the date).
 // Every half hour of the day as <option>s, `selected` chosen (waking hours).
 function halfHourOptions(selected) {
-  return Array.from({ length: 48 }, (_, i) => fromMinutes(i * 30))
+  return HALF_HOURS
     .map((t) => `<option value="${t}"${t === selected ? ' selected' : ''}>${esc(timeLabel(t))}</option>`).join('');
 }
 
@@ -721,6 +723,7 @@ async function onSaveWaitlist() {
     turn_hours: q('#wl-turn-unit').value === 'hours' ? num('#wl-turn-hours') : null,
     awake_from: q('#wl-awake-from').value,
     awake_until: q('#wl-awake-until').value,
+    picks_open_time: q('#wl-picks-time').value || null,
     max_passes: num('#wl-passes'),
     payment_instructions: q('#wl-instructions').value.trim(),
     ...(q('#wl-fee-when') ? { fee_link_when: q('#wl-fee-when').value } : {}),

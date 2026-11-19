@@ -18,7 +18,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
+  esc, fmtDate, money, fetchJson, loadError, countdownHtml, startCountdowns, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
   SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog,
   policiesHtml, policyAbout, openPolicy
 } from './common.js';
@@ -308,6 +308,9 @@ function turnHtml(rows) {
   const dueRow = [...rows].sort((a, b) => dueKey(b).localeCompare(dueKey(a)))[0];
   const respondBy = dueRow?.respond_by_date || '';
   const respondByTime = dueRow?.respond_by_time || null;
+  // Your turn ends in… (Waitlist Timers plan Phase 2), under the deadline line.
+  const endsIn = dueRow?.respond_by_at
+    ? `<p class="small mt0">${countdownHtml(dueRow.respond_by_at, { label: 'Your turn ends in', done: `Time's up. Waiting on ${kennel}.` })}</p>` : '';
   // Once they've picked: what to send, by when, and how (her payment instructions),
   // until her deposit request (contract, invoice) reaches them.
   const depositBlock = () => {
@@ -329,7 +332,7 @@ function turnHtml(rows) {
         <h3>Sending your deposit</h3>
         ${amount != null ? `<p class="big mt0">${esc(price(credit > 0 ? toSend : amount))}</p>` : ''}
         ${credit > 0 ? `<p class="small mt0 muted">Deposit ${esc(price(amount))}, less ${esc(less)}.</p>` : ''}
-        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
+        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>${endsIn}` : ''}
         ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
         <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
         ${policyLink('Our policy on picking and deposits', ['deposit', 'pick'])}
@@ -356,7 +359,7 @@ function turnHtml(rows) {
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${showsDeadline ? '' : policyLink('Before you choose: our policies on picking and passing', ['pick', 'pass', 'turn'])}
-    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone, respondByTime))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone, respondByTime))}</strong></p>${endsIn}` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -497,6 +500,29 @@ function prefPlaceLabel(field, prefs) {
   if (field === 'purposes') return `for ${purposesText(prefs.purposes)}`;
   return `for ${(prefs.colors || []).join(', ')}`;
 }
+// When their turn could come (Waitlist Timers plan Phase 3), worked out by the
+// server: every family ahead using its full time. Shown as a time, never a count.
+function momentText(iso) {
+  const tz = state.v.kennel.time_zone || undefined;
+  try {
+    return new Date(iso).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  } catch { return new Date(iso).toLocaleString('en-US'); }
+}
+function estimateHtml(f) {
+  const t = f.turn_estimate;
+  if (!t || !Date.parse(t.at)) return '';
+  const kennel = state.v.kennel.name;
+  if (t.next) return `<div class="estimate"><p class="small mt8"><strong>You're next in line.</strong> Your turn comes when ${esc(kennel)} offers it.</p></div>`;
+  const atOpening = t.opens_at && Date.parse(t.opens_at) === Date.parse(t.at);
+  const head = atOpening
+    ? `<strong>Your turn could start when picks open</strong>, ${esc(momentText(t.at))}`
+    : `<strong>Your turn could come by about ${esc(momentText(t.at))}</strong>`;
+  return `<div class="estimate">
+    <p class="small mt8">${head} (${countdownHtml(t.at, { label: 'in', done: 'any time now' })}).</p>
+    <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}${t.short ? 'Puppies may be chosen before your turn comes. ' : ''}An estimate, not a promise.</p>
+  </div>`;
+}
+
 function prefPlacesHtml(f) {
   const places = f.pref_places || {};
   const seen = new Set([f.position]);
@@ -1199,7 +1225,7 @@ function mineHtml() {
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(openCard('Current Position', `
       ${f.place_hidden?.reason === 'turn' ? turnPlaceHtml()
-        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}` : ''}
+        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}${estimateHtml(f)}` : ''}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
@@ -1522,6 +1548,7 @@ function render() {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
+  startCountdowns(); // picks open in…, your turn ends in…
   $('signin-slot').innerHTML = previewBanner() || signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }

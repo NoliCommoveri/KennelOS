@@ -14,6 +14,7 @@ import { extraChargesTotal } from '../data/extraCharges.js';
 import { LITTER_STATUS, PAIRING_STATUS, DOG_STATUS, SEX, SALE_STATUS, REGISTRATION_TYPE, FOSTER_DIRECTION, FOSTER_COMP_MODEL, FOSTER_SPLIT_BASIS, WHELPED_OR_LATER, LITTER_DELIVERY_TYPE, RELEASED_SALE_STATUSES, descriptor } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { websiteLinkOffered } from '../data/kennelportApi.js';
+import { waitlistConfig, plannedOpening, deadlineLabel, timeLabel, HALF_HOURS } from '../data/waitlistRules.js';
 import { litterMarked, LIVE_LITTER_STATUSES } from '../data/siteExport.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal, dogRefHtml, dogOptgroups } from '../assets/ui.js';
 import { renderUpgradeNudge } from '../assets/upgradeNudge.js';
@@ -43,7 +44,7 @@ const els = {
 };
 
 const blankLitter = () => ({
-  pairing_id: '', dam_id: '', sire_id: '', nickname: '', whelp_date: '', accept_deposits_date: '', estimated_ready_date: '', litter_registration_number: '', photos_url: '',
+  pairing_id: '', dam_id: '', sire_id: '', nickname: '', whelp_date: '', accept_deposits_date: '', picks_open_time: '', estimated_ready_date: '', litter_registration_number: '', photos_url: '',
   puppies_born_total: '', puppies_born_alive: '', puppies_born_deceased: '', puppies_born_abnormalities: '', delivery_type: '', status: '', notes: '',
   expected_price_male: '', expected_price_female: '', expected_deposit_male: '', expected_deposit_female: '', full_reg_surcharge_male: '', full_reg_surcharge_female: '',
   foster_direction: '', foster_partner_contact_id: '', foster_comp_model: '',
@@ -82,6 +83,9 @@ async function loadRefs() {
   ctx.contactsById = new Map(contacts.map((c) => [c.id, c]));
   ctx.kennelsById = new Map(kennels.map((k) => [k.id, k]));
 }
+
+// Its kennel's waitlist settings (the usual time picks open).
+const wlConfig = (l) => waitlistConfig((l && ctx.kennelsById.get(l.kennel_id)) || null);
 
 function dogName(id) {
   const d = ctx.dogsById.get(id);
@@ -203,7 +207,7 @@ function renderView() {
       ${row('Sire', dogLink(l.sire_id))}
       ${row('Linked pairing', pairingHtml)}
       ${row('Whelp date', l.whelp_date ? esc(fmtDate(l.whelp_date)) : '')}
-      ${row('Accept deposits date', l.accept_deposits_date ? esc(fmtDate(l.accept_deposits_date)) : '')}
+      ${row('Accept deposits date', l.accept_deposits_date ? esc(deadlineLabel(l.accept_deposits_date, editionFlags.waitlist ? plannedOpening(l, wlConfig(l))?.time : null, fmtDate)) : '')}
       ${row('Estimated ready date', l.estimated_ready_date ? esc(fmtDate(l.estimated_ready_date)) : '')}
       ${row('Litter registration #', esc(l.litter_registration_number))}
       ${websiteLinkOffered() && litterMarked(l, ctx.pairingsById) ? row('Your website', '<span class="badge badge-blue">Shown on website</span>') : ''}
@@ -301,6 +305,7 @@ function renderEdit() {
       ${field('Whelp date', `<input id="f-whelp_date" type="date" value="${esc(l.whelp_date)}">`, { hint: 'May be a projected date while status is Expected.' })}
       ${WHELPED_OR_LATER.includes(l.status) ? field('Delivery', `<select id="f-delivery_type">${vocabOptions(LITTER_DELIVERY_TYPE, l.delivery_type, 'Not recorded')}</select>`, { hint: 'How the litter was delivered.' }) : ''}
       ${field('Accept deposits date', `<input id="f-accept_deposits_date" type="date" value="${esc(l.accept_deposits_date)}">`, { hint: 'When you begin accepting deposits on this litter. Shown to prospective families when set.' })}
+      ${editionFlags.waitlist ? field('Picks open at', `<select id="f-picks_open_time"><option value="">${esc(wlConfig(l).picks_open_time ? `Your usual time (${timeLabel(wlConfig(l).picks_open_time)})` : 'No time set')}</option>${HALF_HOURS.map((t) => `<option value="${t}"${t === l.picks_open_time ? ' selected' : ''}>${esc(timeLabel(t))}</option>`).join('')}</select>`, { hint: 'The time on the accept deposits date that you plan to open picks, your time zone. Families see a countdown to it, and Today reminds you then.' }) : ''}
       ${field('Estimated ready date', `<input id="f-estimated_ready_date" type="date" value="${esc(l.estimated_ready_date)}">`, { hint: 'Defaults to 8 weeks (56 days) after the whelp date. Still editable.' })}
       ${websiteLinkOffered() ? field('Your website', `<label class="check-inline"><input id="f-show_on_website" type="checkbox"${litterMarked(l, ctx.pairingsById) ? ' checked' : ''}> Show this litter and its puppies on the website</label>`, { hint: 'From your next Update website (Settings). Where it shows comes from its dates: Coming up until the accept deposits date, then among the available puppies. Each puppy shows its own status.' }) : ''}
       ${field('Litter registration #', `<input id="f-litter_registration_number" type="text" value="${esc(l.litter_registration_number)}">`)}
@@ -408,6 +413,7 @@ function readForm() {
     status: val('f-status'),
     whelp_date: val('f-whelp_date'),
     accept_deposits_date: val('f-accept_deposits_date'),
+    picks_open_time: document.getElementById('f-picks_open_time') ? val('f-picks_open_time') : (ctx.draft.picks_open_time || ''),
     estimated_ready_date: val('f-estimated_ready_date'),
     litter_registration_number: val('f-litter_registration_number').trim(),
     photos_url: val('f-photos_url').trim(),

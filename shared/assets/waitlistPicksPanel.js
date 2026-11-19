@@ -21,11 +21,12 @@ import {
   waitlistConfig, litterQueue, nextTurn, openTurns, turnOffers, turnIdOf, eligiblePupsFor, isPupAvailable,
   overallPositions, entryName, describeOfferChanges, soonFamiliesForLitter, whelpNotes,
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, autoOffers, autoOfferSummary, closingTrigger,
-  nextTurnPrepassNote, familyPagePlan, isFamilyPageOnly, isTurnOverdue, deadlineLabel, turnLengthText } from '../data/waitlistRules.js';
+  nextTurnPrepassNote, familyPagePlan, isFamilyPageOnly, isTurnOverdue, deadlineLabel, turnLengthText, plannedOpening } from '../data/waitlistRules.js';
 import { doNotSellRepo } from '../data/doNotSellRepo.js';
 import { doNotSellMatches, doNotSellWarning } from '../data/doNotSell.js';
 import { WAITLIST_OFFER_OUTCOME, SEX } from '../data/vocab.js';
-import { esc, badge, fmtDate, todayYMD, kennelToday, kennelNow, confirmModal, alertModal } from './ui.js';
+import { zonedInstant } from '../data/dateUtils.js';
+import { esc, badge, fmtDate, todayYMD, kennelToday, kennelNow, confirmModal, alertModal, countdownHtml, startCountdowns } from './ui.js';
 import { openSoonNotice, pickDialog, depositDialog, changePickDialog, undoPassDialog, statusLinkFor, copyLink, formModal } from './waitlistUI.js';
 import { offerEmails } from './waitlistEmailUI.js';
 import { offerSpecs, midTurn } from '../data/waitlistOutbox.js';
@@ -175,7 +176,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
     openHtml = `
       <div class="card" style="margin:12px 0 0;background:var(--surface-2, transparent);">
         <p style="margin:0 0 6px;"><strong>${entry ? familyLink(entry) : 'A family'}'s turn</strong> since ${esc(fmtDate(open.offered_date))}
-          · pick and pay by <strong>${esc(deadlineLabel(open.respond_by_date, open.respond_by_time, fmtDate))}</strong>${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}</p>
+          · pick and pay by <strong>${esc(deadlineLabel(open.respond_by_date, open.respond_by_time, fmtDate))}</strong>${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ` · ${countdownHtml(zonedInstant(open.respond_by_date, open.respond_by_time, d.kennel?.time_zone || null), { label: 'ends in', done: 'deadline reached' })}`}</p>
         ${otherLitters(open).length ? `<p class="muted" style="margin:0 0 6px;">Their turn also covers ${esc(otherLitters(open).join(', '))}: they pick one pup from any of them, or pass on all of them.</p>` : ''}
         ${isAwaitingDeposit(open)
           ? `<p style="margin:0 0 10px;"><span class="badge badge-purple">Picked ${esc(picked ? picked.call_name : 'a pup')}</span> <span class="muted">held until the deposit arrives${open.sale_id ? ` · <a href="sale.html?id=${encodeURIComponent(open.sale_id)}">open the sale</a>` : ''}</span></p>
@@ -245,6 +246,13 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
         }</tbody></table></details>`
     : '';
 
+  // When she planned to open picks (Waitlist Timers plan Phase 2), with a countdown
+  // while it's still ahead.
+  const planned = picksOpen ? null : plannedOpening(litter, d.config);
+  const plannedAt = planned ? zonedInstant(planned.date, planned.time || '00:00', d.kennel?.time_zone || null) : null;
+  const plannedLine = planned && plannedAt > Date.now()
+    ? `Planned to open ${esc(deadlineLabel(planned.date, planned.time, fmtDate))} (${countdownHtml(plannedAt, { label: 'in', done: 'now' })}). `
+    : '';
   mount.innerHTML = `
     <section class="card" style="margin-top:16px;">
       <div class="row-between">
@@ -255,13 +263,14 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
       </div>
       <p class="field-hint" style="margin:6px 0 0;">${picksOpen
         ? `Picks opened ${esc(fmtDate(litter.picks_opened_date))}. One family at a time across all your open litters, in list order; each turn shows every pup they match in every open litter, and only passing on all of them counts as a pass. Families with no matching pup, paused, or listening only for other sires or dams are skipped and nothing is held against them. A pup is only theirs once the deposit is in. ${autoOfferSummary(d.config)} Nothing is sent automatically, so tell each family yourself.`
-        : `${available.length} pup${available.length === 1 ? '' : 's'} available. Opening picks offers the next turn (${esc(turnLengthText(d.config, null))} to pick and pay the deposit), or, while a family holds a turn, adds this litter to it when they're first in line for it.`}</p>
+        : `${plannedLine}${available.length} pup${available.length === 1 ? '' : 's'} available. Opening picks offers the next turn (${esc(turnLengthText(d.config, null))} to pick and pay the deposit), or, while a family holds a turn, adds this litter to it when they're first in line for it.`}</p>
       ${openHtml}
       ${nextHtml}
       <h3 style="margin:16px 0 0;font-size:15px;">In line for this litter</h3>
       ${queueHtml}
       ${historyHtml}
     </section>`;
+  startCountdowns();
 
   const rerender = async () => { await onChange(); };
   const run = (fn) => async () => {

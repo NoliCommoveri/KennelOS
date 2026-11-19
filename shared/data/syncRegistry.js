@@ -175,6 +175,7 @@ export const SYNC_REGISTRY = Object.freeze({
     cloud: [
       'kennel_id', 'pairing_id', 'sire_id', 'dam_id', 'status', 'nickname',
       'whelp_date', 'accept_deposits_date', 'estimated_ready_date',
+      'picks_open_time', // the time on accept_deposits_date picks are planned to open (Waitlist Timers plan); families see a countdown
       'litter_registration_number', 'puppies_born_total', 'puppies_born_alive',
       'puppies_born_deceased', 'puppies_born_abnormalities', 'delivery_type', 'foster_direction',
       'foster_partner_contact_id',

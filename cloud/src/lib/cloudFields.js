@@ -150,6 +150,7 @@ export const CLOUD_FIELDS = {
         "nickname",
         "pairing_id",
         "photos_url",
+        "picks_open_time",
         "picks_opened_date",
         "puppies_born_abnormalities",
         "puppies_born_alive",

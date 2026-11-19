@@ -170,3 +170,58 @@ test('the projection carries the turn\'s time and her hours settings to the Work
   assert.equal(p.kennel.awake_until, '21:00');
   assert.ok(p.turn_queue.every((q) => q.respond_hours === 24));
 });
+
+// --- Phase 2: the planned opening; Phase 3: the turn order it joins -----------------
+
+test('a planned opening: the litter\'s own time, else her usual one; due from that time', () => {
+  const cfg = { picks_open_time: '19:00' };
+  assert.deepEqual(rules.plannedOpening({ accept_deposits_date: '2026-11-21' }, cfg), { date: '2026-11-21', time: '19:00' });
+  assert.deepEqual(rules.plannedOpening({ accept_deposits_date: '2026-11-21', picks_open_time: '18:30' }, cfg), { date: '2026-11-21', time: '18:30' });
+  assert.deepEqual(rules.plannedOpening({ accept_deposits_date: '2026-11-21' }, {}), { date: '2026-11-21', time: null });
+  assert.equal(rules.plannedOpening({}, cfg), null);
+  const at = { date: '2026-11-21', time: '19:00' };
+  assert.equal(rules.isOpeningDue(at, { date: '2026-11-21', time: '18:59' }), false);
+  assert.equal(rules.isOpeningDue(at, { date: '2026-11-21', time: '19:00' }), true);
+  assert.equal(rules.isOpeningDue({ date: '2026-11-21', time: null }, '2026-11-21'), true, 'no time: from the start of the day, as before');
+  const l = { id: 'l', status: 'whelped', accept_deposits_date: '2026-11-21', picks_open_time: '19:00' };
+  const pups = [{ id: 'p', litter_id: 'l', disposition: 'available', status: 'puppy' }];
+  assert.equal(rules.depositsDueLitters([l], pups, [], { date: '2026-11-21', time: '18:00' }, { configFor: () => ({}) }).length, 0);
+  assert.equal(rules.depositsDueLitters([l], pups, [], { date: '2026-11-21', time: '19:00' }, { configFor: () => ({}) }).length, 1);
+  assert.equal(rules.waitlistConfigProblem({ ...rules.WAITLIST_CONFIG_DEFAULTS, picks_open_time: '19:10' }), 'Picks open on the hour or half hour.');
+});
+
+test('countdowns: her device and the Worker agree on the moment; the words', async () => {
+  const d = await import('../shared/data/dateUtils.js');
+  for (const [date, time, tz] of [['2026-11-21', '19:00', 'America/Chicago'], ['2026-03-08', '03:30', 'America/Chicago'], ['2026-11-21', null, 'Asia/Kathmandu']]) {
+    assert.equal(d.zonedInstant(date, time, tz), server.zonedInstant(date, time, tz));
+  }
+  const now = Date.parse('2026-11-19T12:00:00Z');
+  assert.equal(d.countdownText(now + (2 * 86400 + 4 * 3600 + 60) * 1000, now), '2 days 4 hr');
+  assert.equal(d.countdownText(now + (5 * 3600 + 12 * 60 + 9) * 1000, now), '5 hr 12 min');
+  assert.equal(d.countdownText(now + (12 * 60 + 4) * 1000, now), '12:04');
+  assert.equal(d.countdownText(now - 1000, now), '');
+});
+
+test('the projection: her planned opening for the server\'s alert, and the turn order it joins', async () => {
+  const { buildProjection } = await import('../shared/data/waitlistProjection.js');
+  await litterRepo.update(L.id, { accept_deposits_date: '2026-11-30', picks_open_time: '19:00' });
+  await kennelRepo.update(K.id, { waitlist_config: { ...K.waitlist_config, show_upcoming: { early_litters: { public: true, family: true } } } });
+  const kennel = { ...(await kennelRepo.getById(K.id)), public_id: 'kos1_x', time_zone: 'America/Chicago' };
+  const p = buildProjection({
+    kennel, entries: await waitlistEntryRepo.getByKennel(K.id), offers: await waitlistOfferRepo.getByKennel(K.id),
+    litters: [await litterRepo.getById(L.id)], dogs: await dogRepo.getAll(), contacts: [], today: '2026-11-19'
+  });
+  assert.deepEqual(p.litters[L.id].planned_open, { date: '2026-11-30', time: '19:00' });
+  assert.deepEqual(p.next_opening, { litter_id: L.id, date: '2026-11-30', time: '19:00', queue: [
+    { entry_id: ids.lee, pups: 1, planned: true }, { entry_id: ids.kim, pups: 1, planned: true }
+  ] });
+  const item = p.upcoming.find((u) => u.litter_id === L.id);
+  assert.equal(item.picks_expected_time, '19:00');
+  // …and the family's page: when picks open, and Kim's estimate after Lee's 24 hours.
+  const { statusView } = await import('../cloud/src/familyPages.js');
+  const now = new Date('2026-11-19T18:00:00Z');
+  const kim = statusView(p, ids.kim, now);
+  assert.equal(kim.family.turn_estimate.at, '2026-12-02T01:00:00.000Z', 'Dec 1, 7:00 pm Chicago');
+  assert.equal(kim.family.turn_estimate.short, true);
+  assert.equal(kim.upcoming.find((u) => u.litter_id === L.id).picks_expected_at, '2026-12-01T01:00:00.000Z');
+});

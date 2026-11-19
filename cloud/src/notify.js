@@ -74,6 +74,7 @@ const LINES = {
   ready: (n) => `${n} answered "Ready now?"`,
   server_offer: (n) => `${n} was offered a turn: contact them`,
   server_close: (n) => `${n}'s turn closed with no response`,
+  picks_due: () => 'It\'s time to open picks: see Today',
   contract_signed: () => 'A contract was signed by everyone',
   contract_declined: () => 'A signer declined a contract',
   contract_expired: () => 'A contract expired before everyone signed',

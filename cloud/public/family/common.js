@@ -49,6 +49,13 @@ export function fmtShortDate(ymd) {
 }
 
 // `time`: the deadline's time of day ('HH:MM', kennel time); none = 11:59 pm.
+// 'HH:MM' → '7:00 pm'.
+export function timeWords(t) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(t ?? ''))) return '';
+  const h = Number(t.slice(0, 2));
+  return `${h % 12 || 12}:${t.slice(3)} ${h < 12 ? 'am' : 'pm'}`;
+}
+
 export function deadlineText(ymd, timeZone = null, time = null) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd ?? ''))) return '';
   const [y, m, d] = ymd.split('-').map(Number);
@@ -264,11 +271,49 @@ export function litterHtml({ breed = null, name = '', nameHtml = '', nameAfter =
     ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, page ? 'View litter on our website' : 'See the litter\'s photos')}</div>` : ''}${extra}`;
 }
 
+// --- Countdowns (Waitlist Timers plan Phase 2) -------------------------------------
+// `at` is an ISO moment the server worked out from her kennel time. The text ticks in
+// place (startCountdowns), digits at a fixed width, so nothing on the page moves.
+
+// '2 days 4 hr', '5 hr 12 min', '12:04' in the last hour; '' once it's passed.
+export function countdownText(at, now = Date.now()) {
+  const left = Math.floor((at - now) / 1000);
+  if (!(left > 0)) return '';
+  const d = Math.floor(left / 86400);
+  const h = Math.floor((left % 86400) / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  if (d > 0) return `${d} day${d === 1 ? '' : 's'}${h ? ` ${h} hr` : ''}`;
+  if (h > 0) return `${h} hr${m ? ` ${m} min` : ''}`;
+  return `${m}:${String(left % 60).padStart(2, '0')}`;
+}
+
+// "<label> <time left>", or `done` once it's passed. '' without a moment.
+export function countdownHtml(iso, { label = '', done = '' } = {}) {
+  const at = Date.parse(String(iso ?? ''));
+  if (!Number.isFinite(at)) return '';
+  const text = countdownText(at);
+  return `<span class="countdown" data-countdown-at="${at}" data-countdown-label="${esc(label)}" data-countdown-done="${esc(done)}">${esc(text ? `${label} ${text}`.trim() : done)}</span>`;
+}
+
+// Tick every countdown on the page once a second. Safe to call more than once.
+let ticking = null;
+export function startCountdowns(doc = document) {
+  const tick = () => {
+    for (const el of doc.querySelectorAll('[data-countdown-at]')) {
+      const text = countdownText(Number(el.dataset.countdownAt));
+      const next = text ? `${el.dataset.countdownLabel || ''} ${text}`.trim() : (el.dataset.countdownDone || '');
+      if (el.textContent !== next) el.textContent = next;
+    }
+  };
+  tick();
+  if (!ticking) ticking = setInterval(tick, 1000);
+}
+
 // A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
 // "Expected 01/10/2027", or "Planned pairing".
 export function upcomingWhen(u) {
   if (u.kind === 'early_litter') {
-    return [u.whelp_date ? `Born ${fmtShortDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `Planned offering ${fmtShortDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ');
+    return [u.whelp_date ? `Born ${fmtShortDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `Planned offering ${fmtShortDate(u.picks_expected_date)}${u.picks_expected_time ? ` at ${timeWords(u.picks_expected_time)}` : ''}` : ''].filter(Boolean).join(' · ');
   }
   if (u.kind === 'planned_pairing') return 'Planned pairing';
   return u.expected_whelp_date ? `Expected ${fmtShortDate(u.expected_whelp_date)}` : 'Expected';
@@ -289,7 +334,10 @@ export function upcomingItemHtml(u, extra = '') {
     const name = u.dam?.photos_url && parentText(u.dam) ? nameLink(u.dam) : esc(parentText(u.dam) || u.label);
     return litterHtml({ breed: u.breed, nameHtml: name, nameAfter: infoBubble(u.dam), when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra });
   }
-  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, page: u.page === true, extra });
+  // Picks open in… (a born litter with a planned date still ahead).
+  const opens = u.kind === 'early_litter' && Date.parse(u.picks_expected_at) > Date.now()
+    ? `<div class="small"><strong>${countdownHtml(u.picks_expected_at, { label: 'Picks open in', done: 'Picks are due to open now' })}</strong></div>` : '';
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, page: u.page === true, extra: opens + extra });
 }
 
 // Under a Coming up list: plans can change, and heat months are estimates.

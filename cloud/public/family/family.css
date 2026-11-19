@@ -95,6 +95,7 @@ header.page .actions { margin-top: 10px; }
 header.page .intro { margin: 10px 0 0; white-space: pre-line; line-height: 1.5; }
 .muted { color: var(--text-muted); }
 .small { font-size: 0.875rem; }
+.countdown { font-variant-numeric: tabular-nums; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);

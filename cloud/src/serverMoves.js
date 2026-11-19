@@ -86,6 +86,24 @@ const fromMinutes = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${Str
 export const deadlineKey = (date, time) => (date ? `${date}T${isTimeOfDay(time) ? time : '24:00'}` : '');
 const nowKey = (local) => `${local.date}T${isTimeOfDay(local.time) ? local.time : '00:00'}`;
 
+// The moment a kennel wall time happens: `date` + `time` ('HH:MM'; none = the end of
+// that day) in `timeZone` (UTC when it isn't one). → epoch ms, or null with no date.
+// What the countdowns tick toward (Waitlist Timers plan Phase 2); the app's
+// dateUtils.zonedInstant is a copy.
+export function zonedInstant(date, time, timeZone) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date ?? ''));
+  if (!m) return null;
+  const t = isTimeOfDay(time) ? time : '24:00';
+  const wall = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(t.slice(0, 2)), Number(t.slice(3)));
+  const offset = (ts) => {
+    const l = localNow(new Date(ts), timeZone);
+    const [y, mo, d] = l.date.split('-').map(Number);
+    return Date.UTC(y, mo - 1, d, Number(l.time.slice(0, 2)), Number(l.time.slice(3))) - Math.floor(ts / 60000) * 60000;
+  };
+  const first = wall - offset(wall);
+  return wall - offset(first);
+}
+
 // Her families' waking hours from the projection's kennel, in minutes.
 export function awakeHours(kennel) {
   const ok = (t) => isTimeOfDay(t) && toMinutes(t) % 30 === 0;
@@ -196,6 +214,50 @@ export function openTurns(projection, { includeDirect = false } = {}) {
     }
   }
   return [...out.values()];
+}
+
+// When this family's turn could come (Waitlist Timers plan Phase 3): every family
+// ahead of them in the one turn order (open litters share it; her next planned
+// litter joins it when it opens) using its full time, one after another, from the
+// end of the turn open now (or now, or when picks open). → null, or { at (epoch ms),
+// next (no one ahead and nothing open: they're next to be offered), opening (it
+// counts from her planned opening), opens_at, short (as many families ahead as pups
+// they'd take) }. Never who is ahead, nor how many.
+const ESTIMATE_MAX_AHEAD = 200;
+export function turnEstimate(projection, entryId, now = new Date()) {
+  const k = projection.kennel || {};
+  const tz = k.time_zone;
+  if (!isTimeZone(tz)) return null;
+  const e = projection.entries?.[entryId];
+  if (!e || e.status !== 'active' || (e.offers || []).some((o) => !o.direct)) return null;
+  const nowMs = now.getTime();
+  const len = { respondDays: Number(k.respond_days) || 3, ...(Number(k.turn_hours) ? { respondHours: Number(k.turn_hours) } : {}) };
+  const step = (ms) => { const due = turnDue(projection, len, localNow(new Date(ms), tz)); return zonedInstant(due.date, due.time, tz) ?? ms; };
+  const ends = openTurns(projection).map((t) => zonedInstant(t.respondBy, t.respondByTime, tz)).filter((x) => x != null);
+  const openEnd = ends.length ? Math.max(...ends) : null;
+  const queue = projection.turn_queue || [];
+  const i = queue.findIndex((q) => q.entry_id === entryId);
+  let base; let ahead; let pups; let opensAt = null;
+  if (i >= 0) {
+    base = Math.max(openEnd ?? nowMs, nowMs);
+    ahead = i;
+    pups = new Set(Object.values(queue[i].litters || {}).flat()).size;
+  } else {
+    const n = projection.next_opening;
+    const j = n && Array.isArray(n.queue) ? n.queue.findIndex((q) => q.entry_id === entryId) : -1;
+    // Only for a planned litter she shows on family pages (T4: shown once a litter matches).
+    const shown = n && (projection.upcoming || []).some((u) => u && u.family === true && u.litter_id === n.litter_id);
+    if (j < 0 || !n.queue[j].planned || !shown) return null;
+    opensAt = zonedInstant(n.date, isTimeOfDay(n.time) ? n.time : '00:00', tz);
+    if (opensAt == null || opensAt <= nowMs) return null;
+    base = Math.max(opensAt, openEnd ?? 0);
+    ahead = j;
+    pups = Number(n.queue[j].pups) || 0;
+  }
+  if (ahead > ESTIMATE_MAX_AHEAD) return null;
+  let at = base;
+  for (let x = 0; x < ahead; x++) at = step(at);
+  return { at, next: i === 0 && openEnd == null, opening: opensAt != null, opens_at: opensAt, short: ahead > 0 && ahead >= pups };
 }
 
 // A turn with no pup left in it: no pick, and none of the pups its rows listed is
@@ -358,7 +420,7 @@ function offerNext(run, { skip, cause, causeSeq = null }) {
 }
 
 // Everything due for one published kennel now. → { closed, offered, reminders }
-export async function runKennel(env, row, { now = new Date(), origin } = {}) {
+export async function runKennel(env, row, { now = new Date(), origin, cron = false } = {}) {
   const projection = JSON.parse(row.body);
   const counts = { closed: 0, offered: 0, reminders: 0 };
   const local = localNow(now, projection.kennel?.time_zone);
@@ -436,6 +498,21 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     for (const m of run.emails) await emailOnce(env, row, projection, { ...m, origin }, now);
   }
 
+  // 2b. Picks she planned to open now (Waitlist Timers plan Phase 2): an alert to her,
+  // on the scheduled run whose half hour holds the planned time (so once), never a
+  // family's. Opening stays hers.
+  if (cron && zoned) {
+    for (const l of Object.values(projection.litters || {})) {
+      const p = l?.planned_open;
+      if (!p || l.picks_open || !isTimeOfDay(p.time) || !(l.pups || []).length) continue;
+      const at = zonedInstant(p.date, p.time, projection.kennel.time_zone);
+      if (at != null && at <= now.getTime() && now.getTime() - at < 30 * 60000) {
+        await notifyEvent(env, { programId: row.program_id, kind: 'turn', what: 'picks_due', kennel: projection.kennel?.name }, now);
+        counts.picks_due = (counts.picks_due || 0) + 1;
+      }
+    }
+  }
+
   // 3. Reminders, each once (its id). They write nothing but the message.
   // A turn with a time (Waitlist Timers plan T9) gets its last one 3 hours before its
   // deadline (lastReminderKey), at any hour; everything else waits for the morning.
@@ -507,7 +584,7 @@ export async function runWaitlistMoves(env, { now = new Date() } = {}) {
     try {
       const row = await env.DB.prepare('SELECT public_id, program_id, version, body FROM wl_projection WHERE public_id = ?').bind(publicId).first();
       if (!row) continue; // unpublished since the ids were read
-      const c = await runKennel(env, row, { now, origin });
+      const c = await runKennel(env, row, { now, origin, cron: true });
       totals.closed += c.closed;
       totals.offered += c.offered;
       totals.reminders += c.reminders;

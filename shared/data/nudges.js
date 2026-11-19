@@ -64,7 +64,7 @@ import { hasSchedule } from './paymentSchedule.js';
 import { getSaleStatements } from './incomeView.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
-  overdueTurns, overdueFees, deadlineLabel, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
+  overdueTurns, overdueFees, deadlineLabel, timeLabel, plannedOpening, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
   readyCheck, readyCheckOverdue, isSideSalePending, pupClaims, waitlistLitters
 } from './waitlistRules.js';
@@ -1308,11 +1308,14 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
   // Deposits were planned to open today (Spec §16.8): suggest Open picks, which
   // starts the next turn (§16.1). Only for a kennel with families on its list.
   const listed = new Set(entries.filter((e) => e.status === 'active').map((e) => e.kennel_id));
-  for (const l of depositsDueLitters(inScopeOnly(litters).filter((x) => listed.has(x.kennel_id)), dogs, sales, today)) {
+  // A planned time (Waitlist Timers plan Phase 2) brings it at that time, kennel clock.
+  const cfgOf = (l) => waitlistConfig(kennelsById.get(l.kennel_id) || null);
+  for (const l of depositsDueLitters(inScopeOnly(litters).filter((x) => listed.has(x.kennel_id)), dogs, sales, (x) => nowOf(x.kennel_id), { configFor: cfgOf })) {
     const label = litterLabel(l, dogsById);
+    const at = timeLabel(plannedOpening(l, cfgOf(l))?.time);
     out.push({
       key: `waitlist-open-picks:${l.id}:${l.accept_deposits_date}`,
-      title: `${label}: you planned to start taking deposits ${l.accept_deposits_date === today ? 'today' : `on ${l.accept_deposits_date}`}. Open picks?`,
+      title: `${label}: you planned to start taking deposits ${l.accept_deposits_date === today ? 'today' : `on ${l.accept_deposits_date}`}${at ? ` at ${at}` : ''}. Open picks?`,
       detail: 'Opening picks offers the next family on your list a turn (or adds this litter to the turn open now). You\'ll see what will happen first. Nothing opens by itself.',
       subjectHref: `litter.html?id=${encodeURIComponent(l.id)}`,
       // Opened through the picks preview (Picks Preview Spec §3): the page that runs

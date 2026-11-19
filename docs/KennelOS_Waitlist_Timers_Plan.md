@@ -1,6 +1,6 @@
 # KennelOS — Waitlist Timers Plan
 
-> **Status: Phase 1 built (2026-11-19); Phases 2–3 planned.** Asked by the owner for a breeder (2026-11-19), for
+> **Status: built (2026-11-19), all three phases.** Asked by the owner for a breeder (2026-11-19), for
 > her current litter, ahead of the Stripe webhook plan. It goes on `main`, not `next`.
 > Pro only, like the rest of the waitlist.
 
@@ -126,42 +126,64 @@ and queue entries.
   ids keep the twice-hourly runs from sending twice. `familyPages` passes `respond_by_time`, and
   the family page's deadline line shows the real time.
 
-### Phase 2: the planned opening time and the two countdowns
+### Phase 2: the planned opening time and the two countdowns (built)
 
-- Litter `picks_open_time` (prefilled from the config's `picks_open_time`), set beside **Start
-  taking deposits** on the Litter page and in Kels's litter questions.
-- Today's Open-picks nudge (`depositsDueLitters`) arrives at the date and time, not on the date.
-  The Worker sends her a push at that time (`notify.js`), with the litter's planned open time
-  carried in the projection.
-- **Picks open in…**: on the family's status page (a matching planned litter), the public list's
-  early-litter cards (`picks_expected_date` + `picks_expected_time`), and her Litter page.
-- **Your turn ends in…**: on the family's turn card and deposit block, and on her picks panel.
-  At zero with no automatic close, it reads "Time's up, waiting on [kennel]".
-- Countdowns are worked out from absolute instants: kennel wall time plus zone gives a UTC
-  instant (`zonedInstant`). They tick once a minute (once a second in the last hour), in place,
-  with tabular digits, so nothing moves on the page (Load Performance Phase 1). They show kennel
-  time with its zone label.
+- Litter `picks_open_time` ('HH:MM', cloud), the **Picks open at** select beside **Accept
+  deposits date** on the Litter page (Pro), and her usual time,
+  `waitlist_config.picks_open_time` (Waitlist settings → Turns & offers, **Usual time picks
+  open**). `waitlistRules.plannedOpening(litter, config)` → `{ date, time }` (the litter's
+  time, else her usual one, else none = the start of that day); `isOpeningDue`.
+  **Modified:** Kels's litter questions don't ask for the time; a litter made there takes
+  her usual time.
+- Today's Open-picks nudge (`depositsDueLitters(..., now, { configFor })`) comes at the date
+  and time on the kennel's clock, and says the time.
+- The Worker sends her one alert at the planned time (`notify` kind `turn`, line
+  `picks_due`: "It's time to open picks: see Today"). It goes from the scheduled run whose half
+  hour holds the planned time (`runKennel(..., { cron: true })`), only for a litter with a time,
+  pups and picks not open (the projection's `litters[id].planned_open`). Opening picks stays hers.
+- **Picks open in…**: on a born litter's Coming up card on the family's status page and the
+  public list (`picks_expected_time`; the server adds `picks_expected_at`), and on her picks
+  panel ("Planned to open Nov 22, 7:00 pm (in 3 days 5 hr)"). The family pages show it only
+  where she shows that litter ("Whelped litters, picks not open yet", Spec §16.4).
+- **Your turn ends in…**: under the deadline on the family's turn card and deposit block (the
+  server adds each offer's `respond_by_at`). At zero it reads "Time's up. Waiting on [kennel]."
+  Her picks panel shows "ends in …" beside the deadline.
+- Countdowns tick toward an absolute moment (`zonedInstant(date, time, tz)`, the device's in
+  `dateUtils`, the Worker's in `serverMoves`, pinned by a test), every second, in place, with
+  tabular digits (`.countdown`), so nothing moves on the page: '2 days 4 hr', '5 hr 12 min',
+  '12:04' in the last hour (`countdownText`; `ui.countdownHtml` / `startCountdowns`, and the
+  family pages' copies in `common.js`).
 
-### Phase 3: the turn estimate
+### Phase 3: the turn estimate (built)
 
-- On the Worker, in `familyPages` (no other family's data leaves it): the families ahead of
-  this one in `turn_queue` who match an open or planned litter, each assumed to use their full
-  time. That's the current holder's remaining time, then one `respondBy` after another from it,
-  each starting where the last ended (waking hours and closed days applied).
-- Shown only when a planned or open litter has a matching pup (T4), as "Your turn could come
-  by about Tue, Nov 25, 7:00 pm, if everyone ahead uses their full time. It comes sooner when
-  families pass." When pups may run out first (fewer matching pups than families ahead), it adds
-  "pups may be chosen before your turn".
-- No estimate for a paused family, one who said "Not this litter" to every matching litter, or
-  while their own turn is open.
+- Open litters share one turn order, and a litter that opens joins it (§16.1), so the estimate
+  counts the families ahead of this one in that order. Open now: the projection's
+  `turn_queue`. Her next planned litter: the projection's `next_opening` (`{ litter_id, date,
+  time, queue: [{ entry_id, pups, planned }] }`), the same walk with that litter counted open.
+- On the Worker, `serverMoves.turnEstimate(projection, entryId, now)`: starting at the end of the
+  turn open now (or now, or when picks open), each family ahead uses its full time, one
+  `turnDue` after another (hours and waking hours, or days, with closed days). → `{ at, next,
+  opening, opens_at, short }`. `familyPages.statusView` gives the page `family.turn_estimate`
+  (`at`, `next`, `short`, `opens_at`): a time, never who is ahead or how many.
+- The status page's Current Position card shows "Your turn could come by about Tue, Nov 25,
+  7:00 PM CST (in 6 days 2 hr)" with "If every family ahead of you uses their full time; it comes
+  sooner when families pass. … An estimate, not a promise." It shows "You're next in line" when
+  nobody is ahead and no turn is open, "Your turn could start when picks open" when they're
+  first for the planned litter, and "Puppies may be chosen before your turn comes" when the
+  families ahead are as many as the pups they'd take (`short`).
+- No estimate while their own turn is open, for a family not in either order (paused, not
+  listening, "Not this litter" to all of it, no matching pup), for a planned litter she doesn't
+  show on family pages (T4), past 200 families ahead, or for a kennel with no time zone.
 
 ## 7. Tests
 
 `tests/waitlistTimers.test.js` covers the rule (rounding, waking hours, closed days, program
 override, the days model unchanged), overdue at a time, writers storing the time, and the
 Worker's mirror agreeing with the device across a table of cases. The `serverMoves` tests
-cover the close at the deadline and the hours reminders. Existing suites are unchanged with no
-`turn_hours`.
+cover the close at the deadline and the hours reminders; Phases 2–3 add the planned opening and
+its alert, the moments (`zonedInstant`) and words of the countdowns, `next_opening` in the
+projection, and the estimate in days, in hours and from a planned opening. Existing suites are
+unchanged with no `turn_hours`.
 
 ## 8. Docs on build
 

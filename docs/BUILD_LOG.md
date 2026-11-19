@@ -6350,3 +6350,32 @@ the old address, with no warning.
 - **Service worker:** no file added or renamed (new test file only); `CACHE_NAME` not bumped yet.
 - **Deploy:** the Worker change (cron and serverMoves) ships with Workers Builds on merge; no
   migration.
+
+## 2026-11-19: Waitlist timers, Phases 2–3: the planned opening, countdowns, the turn estimate
+
+- **The planned opening:** Litter `picks_open_time` (cloud; **Picks open at** on the Litter
+  page, Pro) and her usual `waitlist_config.picks_open_time` (Turns & offers). Today's
+  Open-picks nudge comes at that time (`plannedOpening`, `isOpeningDue`, `depositsDueLitters`
+  with a now), and the Worker sends her one alert then (`picks_due`, scheduled runs only).
+  Kels's litter questions don't ask for the time (a **Modified:** note in the plan).
+- **Countdowns:** `dateUtils.zonedInstant` / `countdownText`, `ui.countdownHtml` /
+  `startCountdowns`, and the family pages' copies. "Picks open in …" on a born litter's Coming
+  up card (status page and public list, where she shows it) and on her picks panel; "Your turn
+  ends in …" on the family's turn card and deposit block, and "ends in …" on her panel. The
+  Worker adds `respond_by_at` and `picks_expected_at`.
+- **The turn estimate:** the projection's `next_opening` (the one turn order with her soonest
+  planned litter counted open); `serverMoves.turnEstimate` on the Worker; `family.turn_estimate`
+  (a time, never a count) on the status page's Current Position card. Owner, 2026-11-19: open
+  litters share one turn order, so it counts the families ahead in that order, not a litter's
+  own line.
+- Tests: `tests/waitlistTimers.test.js` (planned opening, countdown moments and words, the
+  projection, the estimate through `statusView`); `cloud/tests/serverMoves.test.js` (moments
+  across DST, the estimate in days, hours and from a planned opening, the alert once);
+  `familyPages.test.js` (the new moments). `node --test`: 2291 pass, 1 todo; `cd cloud && npm
+  test`: 404 pass. Checked in Chromium: the Litter page's planned time and countdown, an open
+  turn's "ends in", Lite's Litter page unchanged; no console errors.
+- Docs: End-State guide §29 (Countdowns and the planned opening, The turn estimate; Litter's
+  `picks_open_time`), the plan (all three phases built), README.
+- **Service worker:** no file added or renamed; `CACHE_NAME` bumped to `kennelos-shell-v161`
+  (owner's go-ahead), so installed copies pick up the timers. The family pages ship with the
+  Worker (Workers Builds).

@@ -39,6 +39,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   turn_hours: null,
   awake_from: '08:00', // families' waking hours, kennel time ('HH:MM', on :00 or :30)
   awake_until: '21:00',
+  picks_open_time: null, // her usual time picks open on a litter's accept-deposits day ('HH:MM'); a litter's own picks_open_time wins
   online: false, // her list is published online (W2 Plan §5; only where isWaitlistOnlineOffered)
   online_form: false, // she takes applications through the online form (W2 Plan step 4)
   auto_offer_on: [], // which closings offer the next family by themselves (WAITLIST_AUTO_OFFER_TRIGGER); none = she offers
@@ -114,6 +115,7 @@ export function waitlistConfigProblem(c) {
     if (!isDeadlineTime(from) || !isDeadlineTime(until)) return 'Waking hours are set on the hour or half hour.';
     if (toMinutes(from) >= toMinutes(until)) return 'Waking hours have to start before they end.';
   }
+  if (c.picks_open_time != null && c.picks_open_time !== '' && !isDeadlineTime(c.picks_open_time)) return 'Picks open on the hour or half hour.';
   if (c.max_passes != null && !whole(c.max_passes)) return 'Passes before removal must be at least 1.';
   if (c.ready_answer_days != null && !whole(c.ready_answer_days)) return 'Days to answer must be at least 1.';
   if (Array.isArray(c.open_days) && !c.open_days.length) return 'Keep at least one day you do business ticked.';
@@ -429,6 +431,20 @@ export function turnLengthText(config, program) {
   const d = program && isSet(program.respond_days_override) ? Number(program.respond_days_override) : Number(config.respond_days);
   return `${d} day${d === 1 ? '' : 's'}`;
 }
+
+// Every half hour of the day, 'HH:MM' (the time pickers).
+export const HALF_HOURS = Object.freeze(Array.from({ length: 48 }, (_, i) => fromMinutes(i * 30)));
+
+// When picks are planned to open on a litter (Waitlist Timers plan Phase 2): its
+// accept-deposits day, at its own picks_open_time, else her usual one. → { date,
+// time } (time null: no time set, the start of that day), or null with no date.
+export function plannedOpening(litter, config) {
+  if (!litter || !litter.accept_deposits_date) return null;
+  const time = isTimeOfDay(litter.picks_open_time) ? litter.picks_open_time : (isTimeOfDay(config?.picks_open_time) ? config.picks_open_time : null);
+  return { date: litter.accept_deposits_date, time };
+}
+// Has a planned opening come at `now` (the kennel's { date, time }, or a date)?
+export const isOpeningDue = (opening, now) => Boolean(opening) && nowKey(now) >= `${opening.date}T${opening.time || '00:00'}`;
 
 // 'HH:MM' → '7:00 pm' (her pages and the emails). '' for no time.
 export function timeLabel(t) {
@@ -812,9 +828,13 @@ export function lostSaleFamily(sale, entries, offers) {
 // (not expected, sold or closed), `accept_deposits_date` on or before today,
 // picks not open, at least one pup available. Today suggests Open picks for each;
 // nothing opens by itself.
-export function depositsDueLitters(litters, pups, sales, today) {
+// `today` is a date or the kennel's { date, time }, or (litter) => either; with
+// `configFor` (litter → its kennel's config) a planned time counts too: due from that
+// time (Waitlist Timers plan Phase 2), else from the start of the day.
+export function depositsDueLitters(litters, pups, sales, today, { configFor = null } = {}) {
+  const nowOf = (l) => (typeof today === 'function' ? today(l) : today);
   return litters.filter((l) => !l.is_archived && !l.waitlist_off && ['whelped', 'weaning', 'ready'].includes(l.status)
-    && l.accept_deposits_date && l.accept_deposits_date <= today && !l.picks_opened_date
+    && l.accept_deposits_date && isOpeningDue(plannedOpening(l, configFor ? configFor(l) : null), nowOf(l)) && !l.picks_opened_date
     && pups.some((d) => d.litter_id === l.id && isPupAvailable(d, sales)));
 }
 

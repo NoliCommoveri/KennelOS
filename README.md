@@ -60,7 +60,7 @@ backup, carries a program from Lite to Pro.
 | Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
 | Credits: one currency for passes, per-use services and add-ons, enforced on the server (plan) | `docs/KennelOS_Credits_Plan.md` |
 | Pages that settle at once (nothing moving mid-tap), a lighter shell, fewer reads and checks per page, and a read-only tour whose sample data clears itself (plan) | `docs/KennelOS_Load_Performance_Plan.md` |
-| Waitlist timers: turns in hours ending in families' waking hours (built), then countdowns to picks opening and a turn's deadline, and an estimate of when a family's turn comes | `docs/KennelOS_Waitlist_Timers_Plan.md` |
+| Waitlist timers: turns in hours ending in families' waking hours, countdowns to picks opening and a turn's deadline, and an estimate of when a family's turn comes | `docs/KennelOS_Waitlist_Timers_Plan.md` |
 | Stripe webhook for waitlist deposits: the turn runs its full time, and at the deadline a received deposit locks in the selected pup while KennelOS is closed (plan) | `docs/KennelOS_Stripe_Webhook_Plan.md` |
 | Making KennelOS harder to copy: repo visibility, licenses, minified builds, hosting (plan) | `docs/KennelOS_Security_Hardening_Plan.md` |
 | What's on the `next` branch (the next release, at next-pro.kennelos.app) and its log until it's brought in | `docs/NEXT.md` (the copy on `origin/next`) |
@@ -93,9 +93,6 @@ backup, carries a program from Lite to Pro.
     `build/loadCheck.mjs`), 1 (nothing moves after first paint) and 2 (the read-only tour)
     built; next is Phase 3. Dog and Sale still shift as their sections fill in (no phase
     covers it).
-  - Waitlist timers (`docs/KennelOS_Waitlist_Timers_Plan.md`): Phase 1 (turns in hours,
-    deadlines at a time of day, half-hourly server moves) built; Phase 2 (the planned opening
-    time and the countdowns) and Phase 3 (the turn estimate) next.
   - Next release: the `next` branch publishes a Pro test build at next-pro.kennelos.app; what's
     on it is in `docs/NEXT.md` on that branch.
   - Planned, not built: credits, security hardening, mail budget, voice, family help,
