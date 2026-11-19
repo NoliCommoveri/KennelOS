@@ -57,3 +57,62 @@ test('K2-3: the file\'s own dates decide day-first or month-first; either-way da
   assert.deepEqual(mixed.rows.map((r) => r.record.date_of_birth ?? null), ['2021-01-25', '2021-01-25', null], 'both ways in one file: the either-way date is left for review');
   assert.match(mixed.rows[2].reasons.join(' '), /date_of_birth/);
 });
+
+// --- Review batch C: re-imports, big files, and files that aren't UTF-8 ---------
+
+test('K2-11: re-importing an unchanged file writes nothing and leaves updated_at alone', async () => {
+  const first = await csv.buildPlan('dog', [dog('puppy')]);
+  await csv.commitPlan('dog', first.rows);
+  const [saved] = [...tables.dogs.rows.values()];
+  const again = await csv.buildPlan('dog', [dog('puppy')]);
+  assert.deepEqual(again.rows.map((r) => [r.status, r.decision]), [['unchanged', 'unchanged']]);
+  assert.equal(again.summary.unchanged, 1);
+  const res = await csv.commitPlan('dog', again.rows);
+  assert.deepEqual([res.created, res.updated, res.unchanged], [0, 0, 1]);
+  assert.equal([...tables.dogs.rows.values()][0].updated_at, saved.updated_at);
+});
+
+test('K2-11: an update keeps only the fields that differ', async () => {
+  await csv.commitPlan('dog', (await csv.buildPlan('dog', [dog('puppy')])).rows);
+  const plan = await csv.buildPlan('dog', [dog('active_breeding')]);
+  assert.equal(plan.rows[0].status, 'update');
+  assert.deepEqual(plan.rows[0].changes, { status: 'active_breeding' });
+  const res = await csv.commitPlan('dog', plan.rows);
+  assert.equal(res.updated, 1);
+  assert.equal([...tables.dogs.rows.values()][0].status, 'active_breeding');
+});
+
+test('K2-11: a page with its own commit can keep unchanged rows as updates', async () => {
+  await csv.commitPlan('dog', (await csv.buildPlan('dog', [dog('puppy')])).rows);
+  const plan = await csv.buildPlan('dog', [dog('puppy')], { markUnchanged: false });
+  assert.equal(plan.rows[0].status, 'update');
+});
+
+test('K2-7: the commit writes in chunks and says how far it got', async () => {
+  const rows = Array.from({ length: 450 }, (_, i) => dog('puppy', '2021-07-07', { call_name: `Pup ${i}`, registered_name: `Thornfield Pup ${i}` }));
+  const plan = await csv.buildPlan('dog', rows);
+  const seen = [];
+  const res = await csv.commitPlan('dog', plan.rows, { onProgress: (p) => seen.push(p) });
+  assert.equal(res.created, 450);
+  assert.deepEqual(seen.map((p) => [p.done, p.total, p.lastRow]), [[200, 450, 201], [400, 450, 401], [450, 450, 451]]);
+});
+
+test('K2-12: a Windows-1252 file is read as Windows-1252, and says so', async () => {
+  const text = 'call_name,registered_name\nZoë,Thornfield Zoë\n';
+  const bytes = Uint8Array.from(text, (c) => c.charCodeAt(0)); // ë is 0xEB in Windows-1252
+  const parsed = await csv.parseCsv(new Blob([bytes]));
+  assert.equal(parsed.encoding, 'windows-1252');
+  assert.equal(parsed.rows[0].call_name, 'Zoë');
+  assert.match(csv.NOT_UTF8_WARNING, /isn't UTF-8/);
+  const utf8 = await csv.parseCsv(new Blob([new TextEncoder().encode(text)]));
+  assert.deepEqual([utf8.encoding, utf8.rows[0].call_name], ['utf-8', 'Zoë']);
+});
+
+test('K2-7: the preview draws the first 200 rows and every review row, not all 10,000', async () => {
+  const { previewRows, PREVIEW_ROWS } = csv;
+  const plan = Array.from({ length: 10000 }, (_, index) => ({ index, status: index === 9000 ? 'review' : 'create' }));
+  const drawn = previewRows(plan);
+  assert.equal(PREVIEW_ROWS, 200);
+  assert.equal(drawn.length, 201);
+  assert.equal(drawn.at(-1).index, 9000);
+});

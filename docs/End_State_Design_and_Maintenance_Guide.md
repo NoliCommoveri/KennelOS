@@ -638,9 +638,22 @@ vocabulary through `testTokensOf(event)`; planned tests are matched against
 ## 9. CSV import (`data/csvImport.js`)
 
 A generic match-or-create engine. Every import is a **dry-run preview** (create / update /
-needs review) before any write. Flow: `parseCsv` (headers → lower_snake_case, values
-trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. The shared UI is
-`assets/importView.js`.
+needs review / unchanged) before any write. Flow: `parseCsv` (headers → lower_snake_case,
+values trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. The shared UI
+is `assets/importView.js`.
+
+- **Reading the file:** `parseCsv` decodes a file's bytes as UTF-8; a file that isn't
+  (older Excel saves Windows-1252) is read as Windows-1252 instead, and `encoding` says so.
+  The preview (and the expense import) then shows `NOT_UTF8_WARNING`: "This file isn't UTF-8,
+  so it was read as Windows-1252. Check the names below."
+- **Big files:** the preview draws the first `PREVIEW_ROWS` (200) rows plus every row that
+  needs review (`previewRows`), with "Showing N of M rows… The other K import as
+  classified." A review row's **Match existing…** list is filled only when she opens it.
+  `commitPlan(entity, plan, { onProgress })` writes `COMMIT_CHUNK` (200) rows per
+  transaction and reports `{ done, total, lastRow }` after each chunk; the view shows
+  "Imported 2,400 of 10,000…" and keeps that in `settings.setImportProgress`, cleared when
+  the import finishes, so an import cut off part-way says on the next visit which row it
+  stopped after.
 
 **Rules:**
 - **Natural key must be non-empty.** Keyless or partial-key rows always need review; they're
@@ -656,7 +669,13 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
   birthday, registration number or the dog matched; contacts by name): a later row with an
   earlier row's key waits for review, naming that row, never a second record.
 - **An update says what it changes:** the preview's Notes list each field `old → new`
-  (more than three behind a count; ids just "changed"), or "nothing changes".
+  (more than three behind a count; ids just "changed").
+- **Only what differs is written** (`markUnchanged`): an update keeps only the fields that
+  differ from the record it matched, and one that changes nothing is `unchanged` ("40
+  unchanged" in the summary, "Nothing to change" in the row), counted and never written, so
+  re-importing a file leaves each record's `updated_at` alone. A row linked to a parent in the
+  same file, or one that creates a contact at commit, stays an update. The expense import,
+  which writes `record` through its own commit, asks `buildPlan(…, { markUnchanged: false })`.
 - Relationship columns resolve against **existing** records only. An unresolved name is
   flagged, never invented. Two deliberate exceptions create a Contact at commit: Sale
   `buyer_name` and StudService `partner_contact_name` (each mapping's `prepareRecord`).
@@ -852,6 +871,13 @@ tidy-up's duplicate dogs and contacts (§33), so anything either would call the 
   card scans again after every merge: merging two records for one dam makes her two litters a
   pair. Records are bucketed by what a rule compares first, so a scan never compares every
   pair.
+- **Dogs at scale** (`tidyRules.dogIdentity` / `eachDogPair`): each dog's keys are built once
+  per scan, not once per pair. A call name is bucketed with the birthday (two different known
+  birthdays rule a pair out), and a dog with no birthday is compared with every birthday of
+  its name. One pass over those pairs runs both a file Merge's rules and the tidy-up's
+  (`compareIdentities`), cheap rule-outs first. The page uses `findDuplicatesAsync`, which
+  gives the page a turn between tables so "Scanning…" paints. 4,000 dogs under 8 call names
+  scan in well under a second.
 - **Not the same** is remembered on this device in the nudge ledger under `dup:<table>:<ids>`
   (dogs and contacts also under the tidy-up's key, so Kels doesn't ask either).
 - **Merge…** (`recordMerge.mergeDuplicate(table, keepId, dropId, choices)`, also Kels's

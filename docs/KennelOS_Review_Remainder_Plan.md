@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batch A built** (`docs/BUILD_LOG.md`, 2026-11-18); B–I not started. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A and C built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); B waits on R1 and R6; D–I not started. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape

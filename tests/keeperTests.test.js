@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seedTestsFor, withSeededTests, testsToPlan } from '../shared/data/kennelRepo.js';
 import { getMapping, commitPlan } from '../shared/data/csvImport.js';
+import { db } from '../shared/data/db.js';
 
 const kennel = {
   id: 'k1', is_own_kennel: true,
@@ -45,6 +46,9 @@ test('CSV dog import: a new dog is created with its kennel\'s planned tests', as
   const realKennels = dogMapping._allKennels;
   dogMapping.repo = { create: async (rec) => { made.push(rec); return { id: 'd1' }; }, update: async () => ({}) };
   dogMapping._allKennels = [kennel];
+  // The repo is stubbed, so the commit's chunk transaction just runs its body.
+  const realTransaction = db.transaction;
+  db.transaction = async (...args) => args[args.length - 1]();
   try {
     const res = await commitPlan('dog', [r]);
     assert.equal(res.created, 1);
@@ -52,5 +56,6 @@ test('CSV dog import: a new dog is created with its kennel\'s planned tests', as
   } finally {
     dogMapping.repo = realRepo;
     dogMapping._allKennels = realKennels;
+    db.transaction = realTransaction;
   }
 });

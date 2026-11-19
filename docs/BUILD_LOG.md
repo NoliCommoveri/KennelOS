@@ -6182,3 +6182,39 @@ Built after Phases 1 and 2 (the owner's go-ahead the same day). See the plan's P
   CI, `local` otherwise), so each deploy refreshes testers' caches. `tests/nextChannel.test.js`
   updated; `build/README.md` "Next channel".
 - **Service worker:** no app file added or changed.
+
+## 2026-11-19: Review batch C: the duplicate scan at scale, and big, repeated and non-UTF-8 imports
+
+Review Remainder plan batch C (K1-4, K2-7, K2-11, K2-12). No owner decision needed.
+- **K1-4, the duplicate scan froze the page** (`data/tidyRules.js`, `data/duplicateScan.js`,
+  `data/dogSearch.js`, `data/recordMerge.js`): each dog's keys are built once per scan
+  (`dogIdentity`), call names are bucketed with the birthday (`eachDogPair`; an undated dog
+  is compared with every birthday of its name), `compareIdentities` rules a pair out before
+  building any label, and the scan makes one pass over dog pairs for a file Merge's rules and
+  the tidy-up's instead of comparing them twice. `findDuplicatesAsync` gives the page a turn
+  between tables so "Scanning…" paints; the card uses it. 4,000 dogs in 8 call names: the scan
+  5.7 s → 0.05 s and the tidy-up 4.4 s → 0.03 s (Node); with no birthdays, 5.3 s → 0.7 s and
+  4.1 s → 0.6 s, and under 1 s on the page in Chromium. Results checked identical to main's
+  over 3,000 random programs for both.
+- **K2-7, a 10,000-row import** (`data/csvImport.js`, `assets/importView.js`,
+  `data/settings.js`): the preview draws the first 200 rows and every review row
+  (`previewRows`) with "Showing N of M"; the Match existing list is filled only when used;
+  `commitPlan` writes 200 rows per transaction with `onProgress`, the view shows "Imported
+  2,400 of 10,000…", and `settings.setImportProgress` keeps how far it got, so an import cut
+  off part-way says on the next visit where it stopped.
+- **K2-11, a re-import rewrote every record** (`markUnchanged`): an update keeps only the
+  fields that differ; one that changes nothing is `unchanged`, counted and never written. Rows
+  linked to a parent in the file or creating a contact at commit stay updates. The expense
+  import, which has its own commit, opts out.
+- **K2-12, non-UTF-8 files** (`parseCsv`, `decodeCsvFile`): bytes decoded as UTF-8, else
+  Windows-1252 with the warning in the preview, the several-file import and the expense
+  import.
+- Tests: `tests/duplicateScan.test.js` (4,000 dogs both ways, under a generous bound, and
+  the async scan), `tests/csvImportPlan.test.js` (unchanged re-import keeps `updated_at`, only
+  differing fields, the opt-out, chunked progress, Windows-1252 "Zoë", the 10,000-row
+  preview); `tests/csvImport.test.js` and `tests/keeperTests.test.js` stub the transaction
+  where they stub the repo. `node --test`: 2246 pass, 1 todo (Load Performance Phase 3).
+- Docs: End-State guide §9 (reading the file, big files, only what differs is written) and
+  the duplicates card (dogs at scale); Review Remainder plan status; `FIX_PRIORITIES.md`.
+- **Service worker:** no app file added, renamed or removed.
+
