@@ -82,7 +82,7 @@ backup, carries a program from Lite to Pro.
   - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: D13
     (counting wrong code guesses per code) and one live Mapbox try of the address checks.
     The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
-    (nine batches, owner decisions R1–R7 all made): batches A to D and F to H built; E and I
+    (nine batches, owner decisions R1–R7 all made): batches A to H built; I
     next.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; phase 2
     (live updates) waits on owner decisions.

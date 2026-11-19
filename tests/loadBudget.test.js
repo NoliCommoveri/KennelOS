@@ -45,14 +45,14 @@ const pageGraph = (page) => staticGraph(page ? [APP, join(shared, 'pages', `${pa
 // Today 100 / 1,723, Dogs 64 / 1,014, Dog 76 / 1,194, Litter 97 / 1,525, Sale
 // 84 / 1,353, Waitlist 102 / 1,721, Waitlist entry 114 / 2,034, Kels 129 / 2,129.
 const BUDGETS = {
-  'app.js': { modules: 59, kb: 940 },
-  today: { modules: 102, kb: 1770 },
+  'app.js': { modules: 59, kb: 945 }, // 940 → 945 (2026-11-19): review batch E (a document's file written with it, files nothing uses, the restore preview's age check) reached 943
+  today: { modules: 102, kb: 1775 }, // 1770 → 1775 (2026-11-19): review batch E (a document's file written with it, files nothing uses, the restore preview's age check) reached 1,771
   dogs: { modules: 66, kb: 1050 },
   dog: { modules: 78, kb: 1240 }, // 1220 → 1240 (2026-11-19): the waitlist timers' rules and review batch F together reached 1,221
   litter: { modules: 99, kb: 1570 }, // 1560 → 1570 (2026-11-19): the status page pop-ups' default words (waitlistRules) reached 1,561
   sale: { modules: 86, kb: 1390 },
   waitlist: { modules: 104, kb: 1770 },
-  'waitlist-entry': { modules: 116, kb: 2080 },
+  'waitlist-entry': { modules: 116, kb: 2085 }, // 2080 → 2085 (2026-11-19): review batch E (a document's file written with it, files nothing uses, the restore preview's age check) reached 2,082
   kels: { modules: 131, kb: 2180 }
 };
 

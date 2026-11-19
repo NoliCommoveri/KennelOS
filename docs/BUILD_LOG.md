@@ -6613,3 +6613,41 @@ built, and the local measurement for R7 (no run against a production copy).
   rows; README Status.
 - **Service worker:** `assets/appShell.js` added to `PRECACHE_URLS` (not Pro-only); no
   `CACHE_NAME` bump yet.
+
+## 2026-11-19: Review batch E: document files saved whole, Dropbox that says when it's expired or behind, Dog Card ancestors she typed in
+
+Review Remainder plan §3 E (K2-8, K2-9, K2-10, K2-13, K2-14).
+- **K2-8:** `documentRepo.createWithFile` checks the document and its kennel before anything is
+  written, then writes the file and the document in one transaction; `updateWithFile` writes the
+  new file, the document and the old file's removal together. Every place that files a document
+  uses them (`documentModal.fileDocument` / `buildDocumentFile` replace `storeDocumentFile` /
+  `createDocument`; Kels's Add dogs, the vet visit and health test forms, the pedigree import).
+  The receipt field removes a replaced file only after the expense saved (`afterSave`).
+  `assertOwnKennel`'s no-kennel message (and the Dog repo's) is `PICK_KENNEL_MESSAGE`, "Pick one
+  of your kennels at the top first, then save again." Import/Export's Duplicates scan lists
+  **Files nothing uses** (`fileRepo.unused` / `removeUnused`) with size and Remove.
+- **K2-9:** a refresh grant Dropbox refuses (`invalid_grant`, 400, 401) disconnects, fires
+  `DROPBOX_CHANGED_EVENT` (the connect control redraws) and says "Your Dropbox connection has
+  expired. Connect again." "Last backup" adds "N days ago. Back up again." past 14 days.
+- **K2-13:** the Dropbox backup push is guarded by the file's revision (`update` of the known
+  rev, `add` when never seen); a conflict asks Pull it first / Push anyway. A pull counts as seen
+  only after a restore from it (`noteDropboxRestored`). The restore preview warns when the
+  backup is older than her newest record (`newestRecordAt`, `backupIsBehind`).
+- **K2-10:** a card ancestor whose registered name matches (by `dogSearch.nameKey`) one of hers
+  with no public id and no registration number is counted apart and offered the "Same as my …"
+  picker (`ancestors.candidates`, `choices.ancestors`, `ancestorsLinked`); never automatic.
+- **K2-14:** `decodeDogCard` refuses a `cardVersion` above `DOG_CARD_VERSION`.
+- Tests: new `tests/documentFiles.test.js`, `tests/dropbox.test.js`; `tests/dogCard.test.js`
+  (lookalike offered, linked only when picked, a pick not offered refused; a v2 card refused).
+  Load budgets: app.js 940 → 945 KB, today 1770 → 1775, waitlist-entry 2080 → 2085 (this
+  batch's data-layer code). `node --test`: 2356 pass, 1 todo. Checked in Chromium (real
+  IndexedDB): a no-kennel save stores no file; an edit whose document write fails keeps the old
+  file and stores no new one; the Duplicates card at 390 px lists a stranded file and Remove
+  deletes it. Not tried against real Dropbox (the stubbed API stands in; that Dropbox exposes
+  `Dropbox-API-Result` to the page is assumed from its CORS rules).
+- Docs: End-State guide §26 (expired grant, guarded push, Last backup, restore preview age),
+  §26.1 (files saved with their document, Files nothing uses), §36 (card version, look-alike
+  ancestors); Shared Dogs plan §3.4 (**Modified**); Review Remainder plan (status, E
+  **Modified**); `FIX_PRIORITIES.md` K02 row; README Status; tests README.
+- **Service worker:** no file added or renamed (`PRECACHE_URLS` unchanged); no `CACHE_NAME`
+  bump yet.

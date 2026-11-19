@@ -2116,6 +2116,21 @@ helper's phone (log events against a synced dog list).
   control and completes the OAuth round-trip itself. **Every page that mounts it needs its
   URL registered as a Redirect URI** (list in `docs/LAUNCH_CHECKLIST.md`).
 - Dropbox calls are cross-origin, so the service worker never caches them.
+- **An expired or revoked grant** (the refresh answered `invalid_grant`, 400 or 401) forgets
+  the tokens (`disconnectDropbox`), fires `DROPBOX_CHANGED_EVENT` (the connect control redraws
+  as not connected and the page re-renders) and throws `DropboxExpiredError`, "Your Dropbox
+  connection has expired. Connect again." A network failure keeps the connection.
+- **The backup push is guarded by revision** (`dropboxUploadJson(path, obj, { guard, force })`):
+  the file's `rev` as this device last pushed it or restored from it is kept per path
+  (`settings` `dropbox.revs`); a guarded upload is an `update` of that rev, or an `add` when
+  this device has never seen the file, so a file another phone pushed since fails with
+  `DropboxConflictError`, "A newer backup is already in Dropbox. Pull it first, or push anyway."
+  Import/Export offers both (Push anyway is `force`, an overwrite). A pull counts as seen only
+  once she restores from it (`noteDropboxRestored`), never on a preview. The feed and outbox
+  have one writer each and stay overwrites.
+- Import/Export's "Last backup" adds "N days ago. Back up again." past account health's
+  `EXPORT_MAX_DAYS`, and its restore preview warns when the file's `exported_at` is older
+  than her newest record here (`importExport.newestRecordAt`, `backupIsBehind`).
 
 ### Three files, one writer each (`data/assistantSync.js`, `DROPBOX_PATHS`)
 Keep this invariant; it's what makes the scheme conflict-free.
@@ -2172,9 +2187,21 @@ Local, offline file storage behind three surfaces:
   `document_url` is a separate link field.
 - **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-`assets/documentModal.js` is the shared add/edit and view dialog. Its `storeDocumentFile`
-(a PDF as-is, photos built into one PDF) and `createDocument` (filed under the dog's
-kennel) are the save, used by Kels's Add dogs too (§33).
+`assets/documentModal.js` is the shared add/edit and view dialog. Its `buildDocumentFile`
+(a PDF as-is, photos built into one PDF) and `fileDocument` (built, then filed under the
+dog's kennel) are the save, used by Kels's Add dogs (§33), the vet visit and the health test
+forms too. **A file is written with its document or not at all:** `documentRepo.createWithFile`
+checks the document and its kennel (`assertOwnKennel`, whose no-kennel message is
+`PICK_KENNEL_MESSAGE`, "Pick one of your kennels at the top first, then save again.") before
+anything is written, then writes the file and the document in one transaction;
+`updateWithFile` writes a new file, the document and the old file's removal in one
+transaction. The PDF is built before the transaction (anything but IndexedDB would end it).
+The pedigree import files its kept PDFs the same way. A receipt's replaced or removed file
+goes only after the expense saved (`receiptCapture`'s `afterSave`).
+
+**Files nothing uses** (`fileRepo.unused`, `removeUnused`): a `files` row no document or
+expense names, archived ones included. Import/Export's Duplicates scan lists them with their
+size and a Remove (`duplicateScanUI`), which checks again before deleting.
 
 **Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
 `blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
@@ -5808,12 +5835,20 @@ updates the same dogs.
   titles earned) with date, title and the type's cloud detail keys (`cloudDetailKeys`). Up to
   `ANCESTOR_GENERATIONS` (4) above each dog. Never notes, contacts, money, litters, other events,
   documents, plans or row ids. `tests/dogCard.test.js` pins it.
+- **Card version:** `decodeDogCard` refuses a `cardVersion` above `DOG_CARD_VERSION`, in
+  `inspectBackup`'s words ("made by a newer version of KennelOS … Update the app"): a newer
+  card may mean something this build would read wrongly. Unknown keys of the same version are
+  dropped.
 - **Preview** (`previewDogCard`, writes nothing): the sending kennel by Kennel Card rules
   (`previewKennelCard`; one of hers refuses the card); each dog sent as `create`, `update`
   (`dogChanges` plus how many tests and titles are new or changed), `unchanged` or `adopt` (she
   has it as a pedigree-only ancestor from an earlier card); look-alikes she may link to (same
   registration number, else registered name, else call name, sex and breed; only dogs with no
-  public id); ancestors as a count. Each dog's `problem` (`cardDogProblem`: a birthday in the
+  public id); ancestors as a count, with **look-alike ancestors** apart (`ancestors.lookalike`,
+  `ancestors.candidates`): a dog of hers with no public id and no registration number whose
+  registered name is the card ancestor's by `dogSearch.nameKey` (titles, case, punctuation
+  and spacing set aside), offered with the same "Same as my …" picker, never matched by
+  itself. Each dog's `problem` (`cardDogProblem`: a birthday in the
   future, a death before birth, what the dog repo would refuse) and, on an update,
   `mineNewer` (`mineIsNewer`: her copy changed after the card's `issuedAt`). Two of her dogs
   holding one of the card's ids refuses the card, naming them, until she merges them.
@@ -5827,8 +5862,9 @@ updates the same dogs.
   else `findOrCreateOutside`. New dogs are **co-owned** with a contact (picked, or a new one
   affiliated with the sending kennel) in one of her own kennels, **Lives with** them or her, or
   **external**, owned by that contact in the sending kennel. Ancestors become pedigree-only dogs
-  unless she has them by public id or the same registry and number (then only her blanks are
-  filled). An existing dog gets only the card's non-blank `DOG_FIELDS`, status only to
+  unless she has them by public id or the same registry and number, or she picked one of the
+  offered look-alikes (`choices.ancestors[publicId].linkToId`; anything else refuses the card,
+  `ancestorsLinked`). Then only her blanks are filled. An existing dog gets only the card's non-blank `DOG_FIELDS`, status only to
   Deceased, and a breeder kennel only when hers is blank; ownership, her kennel, co-owners,
   lives with, notes and everything else stay hers. Sire and dam are set only where hers are
   blank. Tests and titles match by `events.shared_ref` and are updated in place; one the sender

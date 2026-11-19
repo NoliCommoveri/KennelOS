@@ -94,7 +94,7 @@ test('received as co-owned: a new contact, her kennel, lives with them; parents 
   const preview = await C.previewDogCard(card);
   assert.equal(preview.from.action, 'create');
   assert.deepEqual(preview.dogs.map((d) => d.action), ['create']);
-  assert.deepEqual(preview.ancestors, { total: 2, added: 2, matched: 0 });
+  assert.deepEqual(preview.ancestors, { total: 2, added: 2, matched: 0, lookalike: 0, candidates: [] });
   assert.equal(tables.dogs.rows.size, 0, 'the preview writes nothing');
 
   const r = await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
@@ -209,13 +209,61 @@ test('an ancestor she has links by the same registry and number', async () => {
   const mine = await receiver();
   const gs = await dogRepo.createPedigreeOnly({ registered_name: 'Ch. Old Grandsire', sex: 'male', breed: LAB, registry: 'akc', registration_number: 'gs1' });
   const card = C.decodeDogCard(encoded);
-  assert.deepEqual((await C.previewDogCard(card)).ancestors, { total: 2, added: 1, matched: 1 });
+  assert.deepEqual((await C.previewDogCard(card)).ancestors, { total: 2, added: 1, matched: 1, lookalike: 0, candidates: [] });
   await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
   const kept = await dogRepo.getById(gs.id);
   assert.ok(kept.public_id, 'now linked');
   assert.equal(kept.registered_name, 'Ch. Old Grandsire', 'her spelling stays: only blanks are filled');
   const duke = (await dogRepo.getAll({ includePedigreeOnly: true })).find((d) => d.registered_name === 'Thornfield Duke');
   assert.equal(duke.sire_id, gs.id);
+});
+
+test('K2-10: an ancestor she typed in by hand is offered as a lookalike, and linked only when she picks it', async () => {
+  const s = await senderProgram();
+  const encoded = C.encodeDogCard(await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id] }));
+  // Without a pick: counted apart, then added as before (the automatic match stays strict).
+  clear();
+  let mine = await receiver();
+  let typed = await dogRepo.createPedigreeOnly({ registered_name: 'Old  Grandsire', sex: 'male', breed: LAB });
+  let card = C.decodeDogCard(encoded);
+  const a = (await C.previewDogCard(card)).ancestors;
+  assert.equal(a.lookalike, 1);
+  assert.equal(a.added, 1, 'Duke');
+  assert.equal(a.candidates[0].cardDog.registeredName, 'CH Old Grandsire');
+  assert.deepEqual(a.candidates[0].candidates.map((d) => d.id), [typed.id]);
+  let r = await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id });
+  assert.equal(r.ancestorsAdded, 2);
+  assert.equal((await dogRepo.getById(typed.id)).public_id ?? null, null, 'never linked by itself');
+
+  // With her pick: linked, her spelling kept, the card's number filled in.
+  clear();
+  mine = await receiver();
+  typed = await dogRepo.createPedigreeOnly({ registered_name: 'Old  Grandsire', sex: 'male', breed: LAB });
+  card = C.decodeDogCard(encoded);
+  const gsPublic = (await C.previewDogCard(card)).ancestors.candidates[0].cardDog.publicId;
+  r = await C.applyDogCard(card, { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id, ancestors: { [gsPublic]: { linkToId: typed.id } } });
+  assert.equal(r.ancestorsLinked, 1);
+  assert.equal(r.ancestorsAdded, 1);
+  const kept = await dogRepo.getById(typed.id);
+  assert.equal(kept.public_id, gsPublic);
+  assert.equal(kept.registered_name, 'Old  Grandsire');
+  assert.equal(kept.registration_number, 'GS1');
+  const duke = (await dogRepo.getAll({ includePedigreeOnly: true })).find((d) => d.registered_name === 'Thornfield Duke');
+  assert.equal(duke.sire_id, typed.id);
+
+  // A pick that isn't one of the offered lookalikes writes nothing.
+  clear();
+  mine = await receiver();
+  const other = await dogRepo.createPedigreeOnly({ registered_name: 'Someone Else', sex: 'male', breed: LAB });
+  await assert.rejects(C.applyDogCard(C.decodeDogCard(encoded), { holding: 'co_owned', newContactName: 'Thornfield', kennelId: mine.id, ancestors: { [gsPublic]: { linkToId: other.id } } }), C.DogCardError);
+});
+
+test('K2-14: a card from a newer card version is refused with the backup’s sentence', async () => {
+  const s = await senderProgram();
+  const card = await C.buildDogCard({ fromKennelId: s.k.id, dogIds: [s.maple.id] });
+  assert.equal(C.decodeDogCard(C.encodeDogCard(card)).cardVersion, C.DOG_CARD_VERSION);
+  assert.throws(() => C.decodeDogCard(C.encodeDogCard({ ...card, cardVersion: C.DOG_CARD_VERSION + 1 })),
+    (e) => e instanceof C.DogCardError && /made by a newer version of KennelOS \(card v2; this app understands up to v1\)\. Update the app/.test(e.message));
 });
 
 test('a co-owned add needs a contact and one of her kennels', async () => {
