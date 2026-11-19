@@ -5734,7 +5734,10 @@ Nothing changes for any other kennel or breeder.
   today, or for a released sale up to its end day, so a returned pup's next home's records
   never reach the family; newest 40) and
   `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
-  never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
+  never an amount), and `vet` (`placementVet`: the vet on the pup's newest vet visit up to
+  the same day, its Vet contact's name, phone and address, else the vet typed on the
+  visit; otherwise her vet; left out when there's neither, so KennelPort keeps what it
+  has). Her vet (`herVet`, the top-level `vet`): the Vet contact she names most on her own dogs'
   vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
   address. `removed`: families, placements and health records it stood for last time
   and not now (`known`, kept on the link row), so a deleted sale or event, or a contract
@@ -5742,7 +5745,9 @@ Nothing changes for any other kennel or breeder.
   it's released (voided, cancelled, returned) even once its contract is voided, so the
   portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
   go-home or last edit; after that a delivered one rests (not removed), and a released one
-  (voided, cancelled, returned) goes in `removed`. Never sent: an amount, a
+  (voided, cancelled, returned) goes in `removed`. A Delivered sale it sent that she has
+  since archived rests at once (`portalSales` `resting`), never `removed`; an archived sale
+  that wasn't Delivered is removed. Never sent: an amount, a
   family's phone or postal address, contract terms, sale notes, vet findings.
 - **`data/portalFeedSync.js`** sends it on its own, from a device linked to the site
   (`startPortalFeed`, from `app.js`) that may (`mayFeedHere`: with her cloud program on, only

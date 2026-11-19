@@ -391,3 +391,57 @@ test('K7-14: a device that isn\'t doing the server work sends nothing', async ()
   assert.equal(calls.length, 0);
   assert.equal(await sync.mayFeedHere(), true, 'no cloud session: this device sends');
 });
+
+test('each placement names the pup’s own vet: its newest visit’s vet, else her vet, else nothing (left out)', () => {
+  const b = base();
+  // Opal's newest visit was at another clinic, a contact she keeps.
+  b.contacts.push({ id: 'vet2', name: 'Riverside Vet', contact_type: ['vet'], phone: '555-0222', address: '2 River Rd', notes: 'private vet note' });
+  b.events.push({ id: 'vv2', subject_type: 'dog', subject_id: 'opal', event_type: 'vet_visit', event_date: '2026-11-30', title: 'Recheck', related_contact_id: 'vet2', details: { findings: 'private findings' } });
+  let p = buildPortalFeed(b).feed.families[0].placements[0];
+  assert.deepEqual(p.vet, { clinic: 'Riverside Vet', doctor: null, phone: '555-0222', address: '2 River Rd' });
+  assert.equal(JSON.stringify(p).includes('private'), false);
+  assert.deepEqual(buildPortalFeed(b).feed.vet.clinic, 'Elm Street Animal Clinic', 'the top-level vet stays hers');
+
+  // A visit with only the vet's name typed in.
+  const typed = base();
+  typed.events = typed.events.filter((e) => e.id !== 'vv');
+  typed.events.push({ id: 'vt', subject_type: 'dog', subject_id: 'opal', event_type: 'vet_visit', event_date: '2026-11-29', title: 'Check', details: { vet: '  Dr. Amy   Hale ' } });
+  p = buildPortalFeed(typed).feed.families[0].placements[0];
+  assert.deepEqual(p.vet, { clinic: 'Dr. Amy Hale', doctor: null, phone: null, address: null });
+
+  // No visit of its own: her vet.
+  const none = base();
+  none.events = none.events.filter((e) => e.event_type !== 'vet_visit');
+  p = buildPortalFeed(none).feed.families[0].placements[0];
+  assert.deepEqual(p.vet, { clinic: 'Elm Street Animal Clinic', doctor: null, phone: '555-0199', address: '9 Elm St' });
+
+  // No vet anywhere: the key is left out, so KennelPort keeps what it has.
+  none.contacts = none.contacts.filter((c) => c.id !== 'vet1');
+  p = buildPortalFeed(none).feed.families[0].placements[0];
+  assert.equal('vet' in p, false);
+  assert.deepEqual(Object.keys(p), PLACEMENT_KEYS.filter((k) => k !== 'vet'));
+
+  // A visit after today, or an archived one, doesn't count.
+  const future = base();
+  future.contacts.push({ id: 'vet2', name: 'Riverside Vet', contact_type: ['vet'] });
+  future.events.push({ id: 'vf', subject_type: 'dog', subject_id: 'opal', event_type: 'vet_visit', event_date: '2026-12-20', related_contact_id: 'vet2', details: {} });
+  future.events.push({ id: 'va', subject_type: 'dog', subject_id: 'opal', event_type: 'vet_visit', event_date: '2026-11-30', related_contact_id: 'vet2', details: {}, is_archived: true });
+  assert.equal(buildPortalFeed(future).feed.families[0].placements[0].vet.clinic, 'Elm Street Animal Clinic');
+});
+
+test('an archived Delivered sale the feed sent rests: not sent again, never removed', () => {
+  const b = base();
+  b.sales[0] = { ...b.sales[0], status: 'delivered' };
+  const first = buildPortalFeed(b);
+  assert.equal(first.feed.families[0].placements[0].id, 's1');
+  b.sales[0] = { ...b.sales[0], is_archived: true };
+  const { feed, known } = buildPortalFeed({ ...b, known: first.known });
+  assert.deepEqual(feed.removed, [], 'nothing about it goes as removed');
+  assert.equal(feed.families.length, 0, 'and it isn’t sent again');
+  assert.deepEqual(known.map((k) => `${k.type}:${k.id}`).sort(), first.known.map((k) => `${k.type}:${k.id}`).sort(), 'it still stands, so later sends keep it');
+  // An archived sale that wasn't Delivered still goes as removed.
+  const open = base();
+  const sent = buildPortalFeed(open);
+  open.sales[0] = { ...open.sales[0], is_archived: true };
+  assert.ok(buildPortalFeed({ ...open, known: sent.known }).feed.removed.some((r) => r.type === 'placement' && r.id === 's1'));
+});

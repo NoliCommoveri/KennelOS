@@ -6651,3 +6651,23 @@ Review Remainder plan §3 E (K2-8, K2-9, K2-10, K2-13, K2-14).
   **Modified**); `FIX_PRIORITIES.md` K02 row; README Status; tests README.
 - **Service worker:** no file added or renamed (`PRECACHE_URLS` unchanged); no `CACHE_NAME`
   bump yet.
+
+## 2026-11-19: The puppy portal feed: each placement's vet, and an archived Delivered sale rests
+
+KennelOS's half of KennelPort's `docs/plans/portal-kept-pups.md` ("KennelOS's half").
+- `placements[].vet` (`{ clinic, doctor, phone, address }`, 120/120/40/200): `placementVet`
+  takes the vet on the pup's newest vet visit up to today (a released sale's end day): its
+  Vet contact's name, phone and address, else the vet typed on the visit; otherwise her vet
+  (`herVet`). Left out when there's neither, so KennelPort keeps what the placement has. A
+  resting placement isn't sent, so its vet freezes there. The top-level `vet` is unchanged.
+  `doctor` is always null (KennelOS records no separate doctor).
+- From the review: a Delivered sale the feed sent and she has since archived rests (kept in
+  `known`, never sent, never `removed`); an archived sale that wasn't Delivered still goes as
+  removed.
+- **Needs KennelPort first:** KennelPort refuses the unknown `vet` key with a 400 until its
+  change is on its `main`. Release this only after that.
+- Tests: `tests/portalFeed.test.js` (the pup's own vet, a typed vet, her vet as fallback, left
+  out with none, future and archived visits ignored; the archived Delivered sale rests, an
+  archived open sale is removed). `node --test`: 2358 pass, 1 todo. Load budget: litter 1570 → 1575 KB.
+- Docs: End-State guide §35.1.
+- **Service worker:** no file added; no `CACHE_NAME` bump yet.
