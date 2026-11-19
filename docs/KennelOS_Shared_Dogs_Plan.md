@@ -107,7 +107,11 @@ The preview:
   that looks like the same dog (same registration number, else same registered name, else same
   call name, sex and breed). Linking is offered, never automatic: a name is not a key.
 - **Ancestors:** a count. Matched by public ID, else by the same registry and registration
-  number; the rest are added as pedigree-only dogs.
+  number; the rest are added as pedigree-only dogs. **Modified (2026-11-19, review K2-10):**
+  an ancestor whose registered name (titles and spacing aside) is one of hers with no
+  registration number is counted apart ("looks like one you already have") and offered the
+  same link picker as the dogs sent; the automatic match stays strict. A card from a newer
+  card version is refused (K2-14).
 - **Tests and titles:** how many are new or changed.
 
 ### 3.5 Updating: what a card may change on a dog she already has

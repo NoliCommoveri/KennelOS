@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A to D, F and G built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E, H and I not started. R3 and R4 are built as recommended and wait on her confirmation. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A to H built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); I not started. R1, R3, R4, R6 and R7 are the owner's (2026-11-19, as recommended; R3, R4 and R7 as built, with their **Modified** notes); R5 was built as recommended in H. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -217,6 +217,15 @@ app batch.
   automatic match stays strict.
 - **K2-14:** `decodeDogCard` refuses a `cardVersion` above `DOG_CARD_VERSION` with
   `inspectBackup`'s sentence.
+- **Modified (built 2026-11-19):** the file and the document go in one transaction through
+  `documentRepo.createWithFile` / `updateWithFile`, used by every place that files a document
+  (the modal, Kels's Add dogs, the vet visit and health test forms, the pedigree import); the
+  receipt field removes a replaced file only after the expense saved. The no-kennel message
+  is shared (`PICK_KENNEL_MESSAGE`), the Dog repo's too. A device that has never seen the
+  Dropbox backup pushes with `add`, so its first push after this asks once (Pull it first /
+  Push anyway); a pull counts as seen only once she restores from it. "Last backup" uses
+  account health's 14 days. The restore preview compares with the newest `updated_at` on the
+  device. The lookalike name match uses `dogSearch.nameKey`.
 - **Tests:** three failed saves leave no `files` rows. A failed edit keeps the old file. A
   revoked token shows Connect. A stale `rev` gets the conflict message. A hand-typed
   "Ashvale  Granite" is offered as a lookalike. A v2 card is refused.
@@ -294,6 +303,14 @@ app batch.
   `bootstrapHelper`'s `GET /assist/state` answer is cached with the session, and the gate
   skips only on that cached answer, failing closed to the ordinary gate. A role set by hand in
   `localStorage` no longer lifts the wall.
+- **Modified (built 2026-11-19):** the watcher lives in `assets/appShell.js`, loaded lazily
+  so `app.js` stays inside its load budget. "Dirty" is any typing since the page loaded or an
+  open modal, the rule live sync's reload already uses. The strip shows only for a module
+  error while online. Persistence is also asked at once on a load that already holds records
+  (a restore or a sync join on an earlier load, where no data-change event fires). The
+  confirmed-helper check (`settings.isConfirmedHelperSession`) also replaces the role check
+  in `kennelportLink.licenseOk`, which had the same bypass. A helper session stored before
+  this asks `GET /assist/state` once at the gate instead of being walled.
 - **Tests:** a simulated `controllerchange` with a dirty form shows the strip and doesn't
   reload. `persist()` isn't called before the first record. A forged `role: 'helper'` with no
   server answer still paints the wall (on the built Pro edition).

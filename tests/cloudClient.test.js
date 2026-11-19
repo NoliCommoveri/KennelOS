@@ -772,6 +772,34 @@ test('assist link: only a well-formed token in the address is read, and it leave
   assert.deepEqual(replaced, ['/?x=1#top']);
 });
 
+test('the licence gate lets support’s device through only on the server’s word (review K05-11)', async () => {
+  // A forged session: role helper typed into localStorage, with no token, then with a made-up one.
+  settings.setCloudSession({ programId: 'p-forged', role: 'helper' });
+  assert.equal(await assist.helperSkipsLicenseGate(), false, 'no token: the ordinary gate');
+  settings.setCloudSession({ token: 'f'.repeat(64), programId: 'p-forged', role: 'helper', helperConfirmedFor: 'p-other' });
+  assert.equal(await assist.helperSkipsLicenseGate(), false, 'a token the server doesn’t know: the ordinary gate');
+  assert.equal(auth.isConfirmedHelper(), false);
+
+  // A real helper session: the redeem answer is the server's word.
+  const programId = await supportSetsUp();
+  assert.equal(auth.isConfirmedHelper(), true);
+  calls.length = 0;
+  assert.equal(await assist.helperSkipsLicenseGate(), true);
+  assert.deepEqual(calls, [], 'a confirmed session asks nothing more');
+
+  // A helper session stored before the answer was kept asks the server once, then keeps it.
+  const { helperConfirmedFor, ...older } = settings.getCloudSession();
+  assert.equal(helperConfirmedFor, programId);
+  settings.setCloudSession(older);
+  assert.equal(await assist.helperSkipsLicenseGate(), true);
+  assert.deepEqual(calls, ['GET /assist/state']);
+  assert.equal(settings.getCloudSession().helperConfirmedFor, programId);
+
+  // Her own (owner) session never skips the gate, whatever is typed into it.
+  settings.setCloudSession({ ...settings.getCloudSession(), role: 'owner' });
+  assert.equal(await assist.helperSkipsLicenseGate(), false);
+});
+
 test('her takeover: her sign-in is assisted, support’s device hands her the vault key by itself, then is erased', async () => {
   await supportSetsUp();
   switchDevice('A');
