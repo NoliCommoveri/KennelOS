@@ -1,9 +1,12 @@
 # KennelOS — Free Changes Before Pups Are Born (plan)
 
-> **Status: planned, nothing built; the questions in §8 are open.** Asked by the owner
-> (2026-11-19). The breeder chooses, for each kind of change a family can make on their
-> status page, whether it applies on its own or waits for her approval. She chooses once for
-> **before pups are born** and once for **after pups are born**.
+> **Status: built on `main` (2026-11-19).** Asked by the owner (2026-11-19). The breeder
+> chooses, for each kind of change a family can make on their status page, whether it
+> applies on its own or waits for her approval, once for **before pups are born** and once
+> for **after pups are born**. The questions in §8 are decided (owner, 2026-11-19: the
+> recommendations; Q6 has none, so colors stay hidden while color matching is off).
+> **Modified:** the settings are a group in Waitlist settings (not a separate card), and
+> the Today note for free changes returning shows for 14 days after the closing.
 
 ## 1. Where things are now
 
@@ -189,21 +192,12 @@ its own or waits for her.
 **Built on `main`** (owner, 2026-11-19), then brought to `next` the usual way (merge `main`
 into `next`). It needs a `CACHE_NAME` bump on `main` when it ships, asked for as usual.
 
-## 8. Questions for the owner
+## 8. Decisions (owner, 2026-11-19)
 
-- **Q1. `sold` litters.** A litter whose pups are all sold but not yet closed: on the
-  ground (her words, "whelped and not yet closed") or not (no pup left to offer)?
-  *Recommended: on the ground, as she said; she closes the litter to reopen changes.*
-- **Q2. Litters off the waitlist** (`waitlist_off`, sold outside the list): do they count?
-  *Recommended: no, since nothing on them is offered through the list.*
-- **Q3. Auto-approval after pups are born:** the grid allows it, with the warning. *Settled
-  by her grid; the warning stays.*
-- **Q4. Hearing about free changes:** an app alert / digest line for each, or only the
-  activity line and the answer history? *Recommended: a digest line, no alert.*
-- **Q5. Phase change note:** a one-time Today line when the last litter closes ("Families can
-  change their answers themselves again")? *Recommended: yes, dismissable.*
-- **Q6. Colors with matching off:** the spec says families can change them freely, but the
-  status page hides them today. Show them as always-free notes, or keep them hidden?
-- **Q7. Per breed?** A kennel with two breeds: does a Lab litter on the ground lock changes
-  for a family waiting for a French Bulldog? *Recommended: no per-breed split for now
-  (kennel-wide, as she asked); revisit if she asks.*
+- **Q1. `sold` litters** count as pups on the ground; she closes the litter to reopen changes.
+- **Q2. Litters off the waitlist** (`waitlist_off`) don't count.
+- **Q3. Auto-approval after pups are born** is allowed, with the warning.
+- **Q4. Hearing about free changes:** a digest line, no alert.
+- **Q5. Phase change note:** a one-time Today line when the last litter closes.
+- **Q6. Colors with matching off:** stay hidden (no recommendation was made; today's behaviour kept).
+- **Q7. Per breed:** no; kennel-wide.

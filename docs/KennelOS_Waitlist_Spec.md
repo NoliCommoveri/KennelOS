@@ -1303,7 +1303,7 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 
 ### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part built 2026-10-08)
 
-**Her request.** Families can't change the answers that decide which pups they're offered.
+**Her request.** Families can't change the answers that decide which pups they're offered. **Modified (2026-11-19, owner):** she can let each of these changes apply without her OK, separately before and after pups are born (`docs/KennelOS_Family_Free_Changes_Plan.md`); unticked, they wait for her as here.
 Otherwise a family could narrow an answer just before a litter's offer reaches them, get
 skipped with no pass counted (§6.4), then change it back. Instead they **ask her to change
 it**, and she approves with **one tap** from a **Today nudge**.

@@ -101,6 +101,11 @@ function closedText(status, kennel, pageOnly = false) {
 
 const pendingOf = (kind, test = () => true) => (state.v.pending || []).filter((p) => p.kind === kind && test(p.payload || {}));
 const waiting = (kennel) => `Waiting for ${esc(kennel)} to update the list.`;
+// Free changes (docs/KennelOS_Family_Free_Changes_Plan.md): which changes apply
+// without her OK right now, as her device published them. Her device checks again
+// when it applies one, so a change saved here can still turn into a request.
+const freeNow = (kind) => state.v.family?.changes?.free?.[kind] === true;
+const savedLine = (what, kennel) => `<p class="small"><span class="badge">Saved</span> ${what}. It shows here once ${esc(possessive(kennel))} records update.</p>`;
 const signedIn = () => Boolean(state.session || state.preview);
 const canAct = () => signedIn() && ['applied', 'approved', 'active'].includes(state.v.family.status);
 
@@ -143,13 +148,29 @@ function prefEditor(prefs) {
     }
   };
   return `<form data-form="pref_change" class="mt8">
-      ${editableFields().map((f) => `<label class="q mt8">${esc(f.label)}${control(f)}</label>`).join('')}
+      ${editableFields().map((f) => `<label class="q mt8">${esc(f.label)}${mixedChanges() && !freeNow(f.key) ? ` <span class="muted small">(needs ${esc(possessive(k.name))} OK)</span>` : ''}${control(f)}</label>`).join('')}
       ${canChooseParents() ? parentsFields(state.v.family) : ''}
       <label class="q mt8">Anything you'd like to add? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
-      <p class="small muted">${esc(state.v.kennel.name)} decides on a change like this. Until then, nothing changes: your offers and your place stay as they are.</p>
-      <div class="actions"><button class="primary" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      <p class="small muted">${esc(editorNote())}</p>
+      <div class="actions"><button class="primary" type="submit">${esc(editorSubmit())}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
     </form>`;
 }
+
+// Which of the editor's changes apply by themselves: 'all', 'some' or 'none'.
+function freeKinds() {
+  const kinds = [...editableFields().map((f) => f.key), ...(canChooseParents() ? ['listen'] : [])];
+  const free = kinds.filter(freeNow);
+  return !free.length ? 'none' : free.length === kinds.length ? 'all' : 'some';
+}
+const mixedChanges = () => freeKinds() === 'some';
+function editorNote() {
+  const k = state.v.kennel.name;
+  const mode = freeKinds();
+  if (mode === 'all') return `Your changes apply as soon as ${possessive(k)} records next update. No approval needed right now.`;
+  if (mode === 'some') return `Changes to the answers not marked apply as soon as ${possessive(k)} records next update. ${k} decides on the marked ones; until then, those stay as they are.`;
+  return `${k} decides on a change like this. Until then, nothing changes: your offers and your place stay as they are.`;
+}
+const editorSubmit = () => ({ all: 'Save my changes', some: 'Save and send', none: 'Send my request' })[freeKinds()];
 
 function prefsHtml(f) {
   const prefs = f.prefs;
@@ -161,10 +182,16 @@ function prefsHtml(f) {
   const req = f.requests?.pref_change;
   const sent = pendingOf('pref_change');
   let status = '';
-  if (sent.length || (req && !req.decided)) {
-    const changes = sent.length ? sent[sent.length - 1].payload.changes : req.changes;
-    const asked = PREF_FIELDS.filter((x) => changes && changes[x.key] !== undefined).map((x) => `${x.label}: ${x.text(changes[x.key])}`).join(', ');
-    status = `<p class="small"><span class="badge warn">Requested</span> ${esc(asked)}. Waiting for ${esc(kennel)}.</p>`;
+  const last = sent.length ? sent[sent.length - 1].payload : null;
+  const freeSent = last && Array.isArray(last.free) ? last.free : [];
+  const words = (changes, keep) => PREF_FIELDS.filter((x) => changes && changes[x.key] !== undefined && keep(x.key)).map((x) => `${x.label}: ${x.text(changes[x.key])}`).join(', ');
+  if (last && freeSent.length) {
+    status = savedLine(esc(words(last.changes, (key) => freeSent.includes(key))), kennel);
+    const rest = words(last.changes, (key) => !freeSent.includes(key));
+    if (rest) status += `<p class="small"><span class="badge warn">Requested</span> ${esc(rest)}. Waiting for ${esc(kennel)}.</p>`;
+  } else if (sent.length || (req && !req.decided)) {
+    const changes = last ? last.changes : req.changes;
+    status = `<p class="small"><span class="badge warn">Requested</span> ${esc(words(changes, () => true))}. Waiting for ${esc(kennel)}.</p>`;
   } else {
     status = decidedLine(req, 'your requested change', kennel);
   }
@@ -172,8 +199,10 @@ function prefsHtml(f) {
   let action = '<p class="small muted">To change any of these, contact the breeder.</p>';
   if (canAct() && (editableFields().length || canChooseParents())) {
     action = state.open === 'pref_change' ? prefEditor(prefs)
-      : `<p class="small muted">The answers that decide which pups you're offered change only with ${esc(possessive(kennel))} OK.</p>
-         <div class="actions"><button class="secondary" type="button" data-act="open" data-what="pref_change">Ask to change</button></div>`;
+      : `<p class="small muted">${freeKinds() === 'none' ? `The answers that decide which pups you're offered change only with ${esc(possessive(kennel))} OK.`
+          : f.changes?.phase === 'before' ? `There are no puppies on the ground yet, so you can change ${freeKinds() === 'all' ? 'these' : 'some of these'} yourself.`
+            : `You can change ${freeKinds() === 'all' ? 'these' : 'some of these'} yourself.`}</p>
+         <div class="actions"><button class="secondary" type="button" data-act="open" data-what="pref_change">${freeKinds() === 'none' ? 'Ask to change' : 'Change'}</button></div>`;
   }
   return `<dl class="facts">${rows}</dl>${status}${action}`;
 }
@@ -451,9 +480,20 @@ function placeActions(f) {
 
   const pauseSent = pendingOf('pause_request');
   const pauseReq = f.requests?.pause;
-  if (pauseSent.length) parts.push(`<p class="small"><span class="badge warn">Pause requested</span> until ${esc(fmtDate(pauseSent[pauseSent.length - 1].payload.until))}. ${waiting(kennel)}</p>`);
+  if (pauseSent.length && pauseSent[pauseSent.length - 1].payload.free === true) parts.push(savedLine(`Paused until ${esc(fmtDate(pauseSent[pauseSent.length - 1].payload.until))}`, kennel));
+  else if (pauseSent.length) parts.push(`<p class="small"><span class="badge warn">Pause requested</span> until ${esc(fmtDate(pauseSent[pauseSent.length - 1].payload.until))}. ${waiting(kennel)}</p>`);
   else if (pauseReq && !pauseReq.decided) parts.push(`<p class="small"><span class="badge warn">Pause requested</span> until ${esc(fmtDate(pauseReq.until))}. Waiting for ${esc(kennel)} to decide.</p>`);
   else parts.push(decidedLine(pauseReq, 'your pause', kennel));
+
+  // Ending their pause early (Free Changes plan §5): only where she offers it.
+  const unpauseSent = pendingOf('unpause');
+  const unpauseReq = f.requests?.unpause;
+  const canUnpause = f.status === 'active' && f.paused_until && f.changes?.unpause_offered === true;
+  if (unpauseSent.length && unpauseSent[unpauseSent.length - 1].payload.free === true) parts.push(savedLine('Your pause ends today', kennel));
+  else if (unpauseSent.length) parts.push(`<p class="small"><span class="badge warn">End of pause requested</span> ${waiting(kennel)}</p>`);
+  else if (unpauseReq && !unpauseReq.decided) parts.push(`<p class="small"><span class="badge warn">End of pause requested</span> Waiting for ${esc(kennel)} to decide.</p>`);
+  else parts.push(decidedLine(unpauseReq, 'ending your pause early', kennel));
+  const unpauseOpen = canUnpause && !unpauseSent.length && !(unpauseReq && !unpauseReq.decided);
 
   if (state.open === 'pause') {
     const [y, m, d] = kennelToday().split('-').map(Number);
@@ -461,8 +501,8 @@ function placeActions(f) {
     parts.push(`<form data-form="pause" class="mt8">
         <label class="q">Pause my place until<input type="date" name="until" min="${min}" required></label>
         <label class="q mt8">Why? <span class="muted small">(optional; only ${esc(kennel)} sees this)</span><textarea name="note" maxlength="500"></textarea></label>
-        <p class="small muted">While paused you keep your place, you aren't offered pups, and it never counts as a pass. ${esc(kennel)} approves each pause.</p>
-        <div class="actions"><button class="primary" type="submit">Ask for a pause</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+        <p class="small muted">While paused you keep your place, you aren't offered pups, and it never counts as a pass. ${freeNow('pause') ? `Your pause starts as soon as ${esc(possessive(kennel))} records next update.` : `${esc(kennel)} approves each pause.`}</p>
+        <div class="actions"><button class="primary" type="submit">${freeNow('pause') ? 'Pause my place' : 'Ask for a pause'}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
       </form>`);
   } else if (state.open === 'leave') {
     parts.push(`<form data-form="leave" class="mt8">
@@ -475,7 +515,8 @@ function placeActions(f) {
   } else {
     const buttons = [];
     if (f.status === 'active') buttons.push('<button type="button" class="secondary" data-act="still_interested">Still interested</button>');
-    if (f.status === 'active' && !pauseSent.length && !(pauseReq && !pauseReq.decided)) buttons.push('<button type="button" class="secondary" data-act="open" data-what="pause">Request a pause</button>');
+    if (f.status === 'active' && !pauseSent.length && !(pauseReq && !pauseReq.decided)) buttons.push(`<button type="button" class="secondary" data-act="open" data-what="pause">${freeNow('pause') ? 'Pause my place' : 'Request a pause'}</button>`);
+    if (unpauseOpen) buttons.push(`<button type="button" class="secondary" data-act="unpause">${freeNow('unpause') ? 'End my pause' : 'Ask to end my pause'}</button>`);
     buttons.push('<button type="button" class="secondary" data-act="open" data-what="leave">Leave the list</button>');
     parts.push(`<div class="actions mt8">${buttons.join('')}</div>`);
   }
@@ -529,7 +570,7 @@ function readyHtml(f) {
   const sent = pendingOf('ready');
   if (sent.length || rc.answer) {
     const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
-    return answer === 'yes' ? '' : openCard(READY_TITLE, `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+    return answer === 'yes' ? '' : openCard(READY_TITLE, `<p class="mt0">${freeNow('pause') ? 'You said you\'re not ready yet, so your place is paused until the date you gave.' : `You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.`}</p>`);
   }
   // At the bottom: the deadline, and what not answering means. Only when there is
   // a deadline (her rule removes families who don't answer); otherwise they just
@@ -543,7 +584,7 @@ function readyHtml(f) {
     return openCard(READY_TITLE, `<form data-form="ready_no">
         <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
         <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
-        <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
+        <p class="small muted">${freeNow('pause') ? `Your place is paused until then as soon as ${esc(possessive(kennel))} records next update.` : `${esc(kennel)} sees your reason and decides on pausing your place until then.`} You keep your place.</p>
         <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
       </form>${deadline}`, 'alert');
   }
@@ -591,7 +632,9 @@ function parentsText(l) {
 function listenStatus(f) {
   const k = state.v.kennel;
   const req = f.requests?.listen;
-  if (pendingOf('listen').length) return `<p class="small"><span class="badge warn">Parents change sent</span> ${waiting(k.name)}</p>`;
+  const sent = pendingOf('listen');
+  if (sent.length && sent[sent.length - 1].payload.free === true) return savedLine(`Parents: ${esc(parentsText(sent[sent.length - 1].payload))}`, k.name);
+  if (sent.length) return `<p class="small"><span class="badge warn">Parents change sent</span> ${waiting(k.name)}</p>`;
   if (req && !req.decided) return `<p class="small"><span class="badge warn">Requested</span> Parents: ${esc(parentsText(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
   return decidedLine(req, 'your change to the parents you wait for', k.name);
 }
@@ -608,7 +651,7 @@ function parentsFields(f) {
       </div>
       ${p.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${p.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
       ${p.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${p.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. ${esc(state.v.kennel.name)} approves each change.</p>
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way.${freeNow('listen') ? '' : ` ${esc(state.v.kennel.name)} approves each change.`}</p>
     </fieldset>`;
 }
 
@@ -1248,6 +1291,8 @@ const ERRORS = {
   in_your_turn: "That litter is in your turn now: choose a pup or pass on the turn instead.",
   not_listed: "That litter isn't on the list any more.",
   not_prepassed: 'That was already taken back.',
+  'unpause:not_allowed': 'Ending a pause early isn\'t offered right now. Please contact the breeder.',
+  'unpause:not_paused': 'Your pause has already ended.',
   not_asked: 'That question has already been answered.',
   already_answered: "You've already answered. The breeder will see it at their next update.",
   not_on_list: "You can't do that right now; the page now shows where things stand.",
@@ -1395,6 +1440,13 @@ async function onClick(ev) {
       b.disabled = true;
       await act('still_interested', {}, `Thanks! ${kennel} will see that you're still interested.`);
       return;
+    case 'unpause': {
+      const free = freeNow('unpause');
+      if (!await confirmDialog({ title: 'End your pause now?', message: free ? `You'll be back in line as soon as ${possessive(kennel)} records next update, and can be offered pups again.` : `We'll ask ${kennel} to end your pause early. Until they decide, you stay paused.`, confirmLabel: free ? 'End my pause' : 'Ask to end it', cancelLabel: 'Stay paused' })) return;
+      b.disabled = true;
+      await act('unpause', {}, free ? `Done. Your pause ends as soon as ${possessive(kennel)} records next update.` : `Your request is on its way. ${kennel} decides; until then you stay paused.`);
+      return;
+    }
     default:
   }
 }
@@ -1426,11 +1478,11 @@ async function onSubmit(ev) {
     case 'ready_no': {
       const reason = String(data.get('reason') || '').trim();
       if (!reason) { state.flash = 'Please tell us why not yet.'; button.disabled = false; render(); return; }
-      await act('ready', { answer: 'no', until: data.get('until'), reason }, `Thanks for letting us know. ${kennel} decides on pausing your place; until then you won't be offered a pup.`);
+      await act('ready', { answer: 'no', until: data.get('until'), reason }, freeNow('pause') ? `Thanks for letting us know. Your place is paused until then.` : `Thanks for letting us know. ${kennel} decides on pausing your place; until then you won't be offered a pup.`);
       return;
     }
     case 'pause':
-      await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
+      await act('pause_request', { until: data.get('until'), note: data.get('note') }, freeNow('pause') ? `Saved. Your pause starts as soon as ${possessive(kennel)} records next update.` : `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
       return;
     case 'back_out': {
       const reasonId = String(data.get('reason_id') || '');
@@ -1484,7 +1536,7 @@ async function onSubmit(ev) {
         if (next.mode !== curMode || (next.mode !== 'all' && (!same(next.sire_ids, cur.sire_ids) || !same(next.dam_ids, cur.dam_ids)))) listen = next;
       }
       if (!Object.keys(changes).length && !listen) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
-      const done = `Your request is on its way. ${kennel} decides; until then nothing changes.`;
+      const done = { all: `Saved. Your changes apply as soon as ${possessive(kennel)} records next update.`, some: `Saved. The marked answers are on their way to ${kennel} to decide; the rest apply at their next update.`, none: `Your request is on its way. ${kennel} decides; until then nothing changes.` }[freeKinds()];
       if (listen && !Object.keys(changes).length) { await act('listen', listen, done); return; }
       if (listen && !(await send('/f/act', { action: 'listen', ...listen }))) { await load(); return; }
       await act('pref_change', { changes, note: data.get('note') }, done);

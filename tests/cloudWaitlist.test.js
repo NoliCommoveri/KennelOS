@@ -1311,3 +1311,33 @@ test('a family back on the list for a second pup: each record handles its own pu
   assert.ok(stranger, 'another family to try');
   assert.equal((await act(stranger.status_token, 'pause_request', { until: '2027-01-01' })).status, 403);
 });
+
+test('free changes (Free Changes plan): applied answers are logged as theirs, a pause starts and ends, and her Approve ends one early', async () => {
+  const actions = await import('../shared/data/waitlistActions.js');
+  const k = await thornfield();
+  const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status === 'active' && x.pref_sex === 'any' && !x.paused_until);
+  assert.ok(e);
+  await actions.applyFamilyPlan(e.id, { op: 'pref_apply', date: '2026-11-10', changes: { pref_sex: 'female' }, request: { requested_date: '2026-11-10', changes: { ready_timing: '3_months' }, note: '' },
+    activity: { id: 'event-901', at: '2026-11-10T18:00:00Z', body: 'Changed their answers' } });
+  let saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.pref_sex, 'female');
+  assert.deepEqual(saved.pref_change_log.at(-1), { date: '2026-11-10', field: 'pref_sex', from: 'any', to: 'female', by: 'family' });
+  assert.equal(saved.pref_change_log.filter((l) => l.date === '2026-11-10').length, 1, 'logged once, as theirs');
+  assert.deepEqual(saved.pref_change_request.changes, { ready_timing: '3_months' }, 'the rest waits for her');
+
+  await actions.applyFamilyPlan(e.id, { op: 'pause_apply', date: '2026-11-10', until: '2026-12-31', note: 'Moving', activity: null });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.paused_until, '2026-12-31');
+  await actions.applyFamilyPlan(e.id, { op: 'unpause_apply', date: '2026-11-12', activity: null });
+  assert.equal((await waitlistEntryRepo.getById(e.id)).paused_until, '2026-11-11', 'back in line today');
+
+  await waitlistEntryRepo.update(e.id, { paused_until: '2026-12-31', unpause_request: { requested_date: '2026-11-13', note: '' } });
+  await actions.declineUnpauseRequest(e.id, { date: '2026-11-13' });
+  assert.equal((await waitlistEntryRepo.getById(e.id)).paused_until, '2026-12-31');
+  await waitlistEntryRepo.update(e.id, { unpause_request: { requested_date: '2026-11-14', note: '' } });
+  await actions.approveUnpauseRequest(e.id, { date: '2026-11-14' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.paused_until, '2026-11-13');
+  assert.equal(saved.unpause_request.decided, 'approved');
+  await waitlistEntryRepo.update(e.id, { pref_sex: 'any', paused_until: null, pause_reason: '', pref_change_request: null, unpause_request: null });
+});

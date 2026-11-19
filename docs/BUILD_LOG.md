@@ -6543,3 +6543,38 @@ nudge) is built as recommended and waits on the owner's confirmation.
   to the following preferences:" with Before / After pups are born columns
   (`family_changes` booleans), plus "Let families ask to end a pause early"
   (`unpause_allowed`). Q3 settled by the grid (warning kept).
+
+## 2026-11-19: Families change their answers themselves before pups are born (built)
+
+- Built `docs/KennelOS_Family_Free_Changes_Plan.md` on `main` with the owner's decisions
+  (the recommendations; colors stay hidden while color matching is off).
+- Rules (`waitlistRules`): `FAMILY_CHANGE_KINDS`, `familyChanges`, `PUPS_ON_GROUND_STATUSES`,
+  `pupsOnGround`, `changePhase`, `freeChanges`; config keys `family_changes` (null = all off)
+  and `unpause_allowed` (false).
+- Waitlist settings → **Family changes** (online lists): "Allow auto-approval of changes to the
+  following preferences:" grid, Before / After pups are born, plus "Let families ask to end a
+  pause early"; a warning while any After box is ticked; the phase now.
+- Projection: per family `changes: { free, phase, unpause_offered }` and `requests.unpause`.
+  Server: `familyPages.changesOf`, `familyActions.freeMark` (stamps `free` on change events),
+  new action `unpause`; `notifyEvent` `push: false` and `…_free` lines (digest only, kept out of
+  later alerts).
+- Device: `planFamilyEvent` decides free vs request with her records now (`pref_apply`,
+  `listen_apply`, `pause_apply`, `unpause_apply`, `unpause_request`; "Not yet" pauses at once);
+  `applyFamilyPlan` and new `approveUnpauseRequest` / `declineUnpauseRequest`;
+  `pref_change_log` `by: 'family'`. New entry field `unpause_request` (private in
+  `syncRegistry`). Today: the unpause request nudge and "families can change their answers
+  themselves again" (14 days after the last born litter closes). Entry page: the unpause
+  request and history. Status page: Change / Save, End my pause, marked answers, saved lines.
+  Policies: the Preferences and Pausing starters follow the setting (`BASIS`).
+- Tests: new `tests/familyFreeChanges.test.js`; `tests/cloudWaitlist.test.js` (applying free
+  changes, approving an early end), `tests/waitlistProjection.test.js`,
+  `cloud/tests/familyActions.test.js`, `cloud/tests/notify.test.js`. Load budgets: today and
+  waitlist 1760 → 1770 KB, dogs 1040 → 1050, sale 1380 → 1390 (the rules). `node --test`:
+  2337 pass, 1 todo; `cd cloud && npm test`: 408 pass. Checked in Chromium at 390 px: the
+  Family changes group saves its boxes, the warning and the phase line. The family status
+  page wasn't opened in a browser (it needs the cloud server).
+- Docs: End-State guide §29 (Free changes, family actions, answer log, notifications, Today
+  table), Waitlist Spec §15.9 (**Modified**), the plan (status, decisions, **Modified**),
+  README doc map, tests README.
+- **Service worker:** no app file added or renamed (`PRECACHE_URLS` unchanged); no `CACHE_NAME`
+  bump yet.
