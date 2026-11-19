@@ -481,7 +481,7 @@ test('the estimate with turns in hours, and from her next planned opening', () =
   p.entries.ann.offers = [];
   p.turn_queue = [];
   p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }, { id: 'q2' }] };
-  p.next_opening = { litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true }] };
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '19:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true }] }];
   assert.equal(timers.turnEstimate(p, 'bo', now), null, 'only for a planned litter she shows on family pages');
   p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
   const bo = timers.turnEstimate(p, 'bo', now);
@@ -492,7 +492,7 @@ test('the estimate with turns in hours, and from her next planned opening', () =
   // Six pups, a hundred families who all want them: #7 on hears nothing (owner, 2026-11-19).
   const pups = ['a', 'b', 'c', 'd', 'e', 'f'];
   p.litters.l2.pups = pups.map((id) => ({ id }));
-  p.next_opening.queue = Array.from({ length: 100 }, (_, n) => ({ entry_id: `f${n}`, dog_ids: pups, planned: true }));
+  p.openings[0].queue = Array.from({ length: 100 }, (_, n) => ({ entry_id: `f${n}`, dog_ids: pups, planned: true }));
   for (let n = 0; n < 100; n++) p.entries[`f${n}`] = { name: `F ${n}`, status: 'active', offers: [] };
   assert.ok(timers.turnEstimate(p, 'f5', now), 'the sixth family could still get one');
   assert.equal(timers.turnEstimate(p, 'f6', now), null);
@@ -522,4 +522,53 @@ test('the family\'s page gets the estimate as a time (never a count) and each de
   const ann = statusView(p, 'ann', now);
   assert.equal(ann.family.turn_estimate, undefined);
   assert.equal(ann.offers[0].respond_by_at, '2026-10-12T05:00:00.000Z');
+});
+
+test('her example: litter A open, B opening later; a family done with A counts down to B, one still in line for A to A', () => {
+  const p = projection();
+  // A (l1) is open: Ann holds the turn until the end of Oct 11; Bo is next in line on it.
+  // Cy passed on all of A, so they're out of A's line; B (l2) opens Oct 20 at 8 am.
+  p.turn_queue = [{ entry_id: 'bo', litters: { l1: ['p1', 'p2'] }, prepassed: [] }];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }, { id: 'q2' }] };
+  p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [
+    { entry_id: 'bo', dog_ids: ['p1', 'p2', 'q1'], planned: true }, { entry_id: 'cy', dog_ids: ['q1', 'q2'], planned: true },
+  ] }];
+  const now = new Date('2026-10-10T15:00:00Z');
+  const bo = timers.turnEstimate(p, 'bo', now);
+  assert.equal(bo.litter_id, null, 'Bo: still in line on A');
+  assert.equal(new Date(bo.at).toISOString(), '2026-10-12T05:00:00.000Z');
+  const cy = timers.turnEstimate(p, 'cy', now);
+  assert.equal(cy.litter_id, 'l2', 'Cy: their next chance is B');
+  assert.equal(new Date(cy.opens_at).toISOString(), '2026-10-20T13:00:00.000Z', '8 am Chicago');
+  assert.equal(new Date(cy.at).toISOString(), '2026-10-24T05:00:00.000Z', 'after Bo\'s 3 days from when B opens');
+});
+
+test('two planned litters: a family who said "Not this litter" to the first counts to the second', () => {
+  const p = projection();
+  p.entries.ann.offers = [];
+  p.turn_queue = [];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }] };
+  p.litters.l3 = { label: 'Hazel × Ash', picks_open: false, pups: [{ id: 'r1' }] };
+  p.upcoming = [{ id: 'l2', litter_id: 'l2', family: true }, { id: 'l3', litter_id: 'l3', family: true }];
+  p.openings = [
+    { litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: true }] },
+    { litter_id: 'l3', date: '2026-10-26', time: '08:00', queue: [{ entry_id: 'bo', dog_ids: ['q1'], planned: false }, { entry_id: 'cy', dog_ids: ['r1'], planned: true }] },
+  ];
+  const now = new Date('2026-10-10T15:00:00Z');
+  assert.equal(timers.turnEstimate(p, 'bo', now).litter_id, 'l2');
+  const cy = timers.turnEstimate(p, 'cy', now);
+  assert.equal(cy.litter_id, 'l3');
+  assert.equal(new Date(cy.at).toISOString(), new Date(cy.opens_at).toISOString(), 'Bo wants nothing of Hazel × Ash, so Cy\'s turn could start when it opens');
+});
+
+test('the family\'s page names the litter it counts to', async () => {
+  const { statusView } = await import('../src/familyPages.js');
+  const p = projection();
+  p.turn_queue = [{ entry_id: 'bo', litters: { l1: ['p1', 'p2'] }, prepassed: [] }];
+  p.litters.l2 = { label: 'Willow × Ash', picks_open: false, pups: [{ id: 'q1' }] };
+  p.upcoming = [{ id: 'l2', kind: 'early_litter', litter_id: 'l2', family: true }];
+  p.openings = [{ litter_id: 'l2', date: '2026-10-20', time: '08:00', queue: [{ entry_id: 'cy', dog_ids: ['q1'], planned: true }] }];
+  const cy = statusView(p, 'cy', new Date('2026-10-10T15:00:00Z'));
+  assert.deepEqual(cy.family.turn_estimate, { at: '2026-10-20T13:00:00.000Z', next: false, opens_at: '2026-10-20T13:00:00.000Z', litter: 'Willow × Ash' });
 });

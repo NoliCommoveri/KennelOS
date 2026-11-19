@@ -6393,3 +6393,18 @@ the old address, with no warning.
   pass, 1 todo; `cd cloud && npm test`: 404 pass. Screenshots in Chromium of the family turn
   card, the estimate, Coming up's "Picks open in", the public list and her picks panel.
 - Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.
+
+## 2026-11-19: Each family's estimate counts to their own next chance
+
+- Owner's example: litter A opens Jan 4, litter B Jan 10; a family who passed on all of A should
+  count down to B while a family still waiting on A counts to A. The projection's
+  `next_opening` (her soonest planned litter only) becomes `openings` (every planned litter,
+  soonest first, at most six, each walked with the ones before it counted open).
+  `serverMoves.turnEstimate` counts a family not in line on the open litters to the first
+  planned one they'd get a turn on, and names it; families ahead who wait only on earlier
+  litters count only while their own turn would still be running (memoized). The status page
+  adds "Picks open on [litter] in …" above the estimate.
+- Tests: `serverMoves.test.js` (her example; two planned litters with "Not this litter" on the
+  first; the page names the litter). `node --test`: 2294 pass, 1 todo; `cd cloud && npm test`:
+  407 pass. A list of 200 families and 6 planned litters takes about 5 ms a page.
+- Docs: the plan and End-State guide §29. **Service worker:** rides `kennelos-shell-v161`.

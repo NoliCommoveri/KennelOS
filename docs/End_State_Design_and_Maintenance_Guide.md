@@ -2375,8 +2375,13 @@ restored into Lite keeps its waitlist rows, dormant.
   "Your turn ends in …" under the deadline (at zero: "Time's up. Waiting on [kennel].").
 - **The turn estimate** (Phase 3): open litters share one turn order, and a litter that
   opens joins it, so a family's estimate counts the families ahead of them in it: the
-  projection's `turn_queue`, or `next_opening` (`{ litter_id, date, time, queue: [{
-  entry_id, dog_ids, planned }] }`: the same walk with her soonest planned litter counted open).
+  projection's `turn_queue`, or `openings` (her planned litters, soonest first, at most six:
+  `[{ litter_id, date, time, queue: [{ entry_id, dog_ids, planned }] }]`, each the same walk
+  with it and every one before it counted open). A family not in line on the open litters
+  counts to the first planned one they'd get a turn on (`litter_id`, named on the page as
+  `turn_estimate.litter`, with its own "Picks open on … in" countdown); for it, a family ahead
+  waiting only on earlier litters counts only while their own turn would still run (a memoized
+  `turnEstimate` on the earlier openings).
   `serverMoves.turnEstimate(projection, entryId, now)` starts at the end of the open turn (or
   now, or the planned opening) and adds one full turn (`turnDue`) per family ahead. Only
   when a pup could be left for them: walking the order, the holder's pick (or one of their

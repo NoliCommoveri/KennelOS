@@ -732,6 +732,8 @@ export function statusView(projection, entryId, now = new Date()) {
     family.turn_estimate = {
       at: new Date(est.at).toISOString(), next: est.next,
       ...(est.opens_at != null ? { opens_at: new Date(est.opens_at).toISOString() } : {}),
+      // The planned litter it counts to, by its name (one she shows on family pages).
+      ...(est.litter_id ? { litter: String(projection.litters?.[est.litter_id]?.label || '').slice(0, 120) } : {}),
     };
   }
   // Asked for at the end of the application: their Pay button until they've paid.

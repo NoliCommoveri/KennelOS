@@ -514,11 +514,16 @@ function estimateHtml(f) {
   if (!t || !Date.parse(t.at)) return '';
   const kennel = state.v.kennel.name;
   if (t.next) return `<div class="estimate"><p class="small mt8"><strong>You're next in line.</strong> Your turn comes when ${esc(kennel)} offers it.</p></div>`;
+  // Counting to a planned litter (their turn on the open ones used, or none for them
+  // there): its picks open first, with its own countdown.
   const atOpening = t.opens_at && Date.parse(t.opens_at) === Date.parse(t.at);
+  const on = t.litter ? ` on ${esc(t.litter)}` : '';
+  const opens = t.opens_at && !atOpening
+    ? `<p class="small mt8"><strong>${countdownHtml(t.opens_at, { label: `Picks open${t.litter ? ` on ${t.litter}` : ''} in`, done: 'Picks are due to open now' })}</strong></p>` : '';
   const head = atOpening
-    ? `<strong>Your turn could start when picks open</strong>, ${esc(momentText(t.at))}`
+    ? `<strong>Your turn could start when picks open${on}</strong>, ${esc(momentText(t.at))}`
     : `<strong>Your turn could come by about ${esc(momentText(t.at))}</strong>`;
-  return `<div class="estimate">
+  return `<div class="estimate">${opens}
     <p class="small mt8">${head} (${countdownHtml(t.at, { label: 'in', done: 'any time now' })}).</p>
     <p class="small muted mt0">${atOpening ? '' : 'If every family ahead of you uses their full time; it comes sooner when families pass. '}An estimate, not a promise.</p>
   </div>`;

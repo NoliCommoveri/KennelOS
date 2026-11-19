@@ -473,6 +473,9 @@ function upcomingSection(kennel, config, { litters, pairings, dogs, events, dogs
   return [...litterItems, ...heatItems];
 }
 
+// At most this many planned openings are walked for the turn estimate.
+const OPENINGS_MAX = 6;
+
 const toUpcomingView = (u) => ({
   id: u.id, kind: u.kind, label: u.label, pairing_id: u.pairing_id, litter_id: u.litter_id,
   sire: u.sire, dam: u.dam, breed: u.breed, expected_whelp_date: u.expected_whelp_date, whelp_date: u.whelp_date,
@@ -580,27 +583,32 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     });
   }
 
-  // The turn order once picks open on her next planned litter (Waitlist Timers plan
-  // Phase 3): open litters share one turn order, and a litter that opens joins it, so
-  // this is turnQueue's walk with that litter counted open. The server works each
-  // family's estimate from it (familyPages.turnEstimate); only counts and times reach
-  // a family's page, never anyone else's place.
+  // The turn order as each of her planned litters opens (Waitlist Timers plan Phase 3),
+  // soonest first: open litters share one turn order, and a litter that opens joins it,
+  // so each is turnQueue's walk with that litter and every one before it counted open.
+  // A family who's used their turn on the open litters (or said "Not this litter")
+  // waits for the first planned one they'd get a turn on: the server counts their
+  // estimate to that opening (serverMoves.turnEstimate). Only times reach a family's
+  // page, never anyone else's place.
   const planned = litters
     .filter((l) => l.kennel_id === kennel.id && isWaitlistLitter(l, kennel) && !l.picks_opened_date && !l.waitlist_off)
     .map((l) => ({ l, at: plannedOpening(l, config) }))
     .filter((x) => x.at && x.at.date >= today && dogs.some((d) => d.litter_id === x.l.id && isPupAvailable(d, sales)))
-    .sort((a, b) => `${a.at.date}T${a.at.time || '00:00'}`.localeCompare(`${b.at.date}T${b.at.time || '00:00'}`) || String(a.l.id).localeCompare(String(b.l.id)))[0] || null;
-  let nextOpening = null;
-  if (planned) {
-    const withPlanned = [...openLitters, { ...planned.l, picks_opened_date: planned.at.date }];
+    .sort((a, b) => `${a.at.date}T${a.at.time || '00:00'}`.localeCompare(`${b.at.date}T${b.at.time || '00:00'}`) || String(a.l.id).localeCompare(String(b.l.id)))
+    .slice(0, OPENINGS_MAX);
+  const openings = [];
+  const countedOpen = [...openLitters];
+  for (const { l, at } of planned) {
+    countedOpen.push({ ...l, picks_opened_date: at.date });
     const queue = [];
     for (const e of rankedList(live, kennel.id, programsById)) {
-      const { offer } = splitPrepassed(e, turnLittersFor(e, kennelOffers, withPlanned, dogs, sales, opts));
+      const { offer } = splitPrepassed(e, turnLittersFor(e, kennelOffers, countedOpen, dogs, sales, opts));
       // The pups they'd pick from: the server walks the order with them, so a family whose
-      // pups would all be taken before their turn gets no estimate.
-      if (offer.length) queue.push({ entry_id: e.id, dog_ids: [...new Set(offer.flatMap((x) => x.eligibleDogs.map((d) => d.id)))].sort(), planned: offer.some((x) => x.litter.id === planned.l.id) });
+      // pups would all be taken before their turn gets no estimate. `planned`: this
+      // litter is in their turn (not only litters open before it).
+      if (offer.length) queue.push({ entry_id: e.id, dog_ids: [...new Set(offer.flatMap((x) => x.eligibleDogs.map((d) => d.id)))].sort(), planned: offer.some((x) => x.litter.id === l.id) });
     }
-    nextOpening = { litter_id: planned.l.id, date: planned.at.date, time: planned.at.time || null, queue };
+    openings.push({ litter_id: l.id, date: at.date, time: at.time || null, queue });
   }
 
   // A pending side sale (Side Sale Spec) reads to the family exactly as a turn with a
@@ -823,7 +831,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     litters: litterViews,
     upcoming: upcoming.map(toUpcomingView),
     turn_queue: turnQueue,
-    ...(nextOpening ? { next_opening: nextOpening } : {}),
+    ...(openings.length ? { openings } : {}),
     events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0,
     // For the server only, never in a family's view: her standard location (a public
     // place near her, Family Requests plan §5), where it measures a family's miles

@@ -158,8 +158,17 @@ and queue entries.
 
 - Open litters share one turn order, and a litter that opens joins it (§16.1), so the estimate
   counts the families ahead of this one in that order. Open now: the projection's
-  `turn_queue`. Her next planned litter: the projection's `next_opening` (`{ litter_id, date,
-  time, queue: [{ entry_id, dog_ids, planned }] }`), the same walk with that litter counted open.
+  `turn_queue`. Her planned litters: the projection's `openings` (soonest first, at most six:
+  `[{ litter_id, date, time, queue: [{ entry_id, dog_ids, planned }] }]`), each the same walk
+  with that litter and every one before it counted open.
+- **Each family counts to their own next chance** (owner, 2026-11-19): a family still in line on
+  the open litters counts there; one who isn't (their turn on them used, "Not this litter", no
+  pup left for them) counts to the first planned litter they'd get a turn on, and the card
+  names it: "Picks open on Willow × Ash in 5 days", then "Your turn could start when picks
+  open on Willow × Ash" or "…could come by about…". So a family who passed on litter A counts
+  down to litter B while one still waiting on A counts to A. For a later opening, a family
+  ahead who'd take that litter is one turn after it opens; one waiting only on earlier litters
+  holds things up only while their own turn would still be running then.
 - On the Worker, `serverMoves.turnEstimate(projection, entryId, now)`: starting at the end of the
   turn open now (or now, or when picks open), each family ahead uses its full time, one
   `turnDue` after another (hours and waking hours, or days, with closed days). → `{ at, next,
@@ -185,7 +194,7 @@ and queue entries.
 override, the days model unchanged), overdue at a time, writers storing the time, and the
 Worker's mirror agreeing with the device across a table of cases. The `serverMoves` tests
 cover the close at the deadline and the hours reminders; Phases 2–3 add the planned opening and
-its alert, the moments (`zonedInstant`) and words of the countdowns, `next_opening` in the
+its alert, the moments (`zonedInstant`) and words of the countdowns, `openings` in the
 projection, and the estimate in days, in hours and from a planned opening. Existing suites are
 unchanged with no `turn_hours`.
 

@@ -213,9 +213,9 @@ test('the projection: her planned opening for the server\'s alert, and the turn 
   });
   assert.deepEqual(p.litters[L.id].planned_open, { date: '2026-11-30', time: '19:00' });
   const [pip] = (await dogRepo.getAll()).filter((d) => d.litter_id === L.id);
-  assert.deepEqual(p.next_opening, { litter_id: L.id, date: '2026-11-30', time: '19:00', queue: [
+  assert.deepEqual(p.openings, [{ litter_id: L.id, date: '2026-11-30', time: '19:00', queue: [
     { entry_id: ids.lee, dog_ids: [pip.id], planned: true }, { entry_id: ids.kim, dog_ids: [pip.id], planned: true }
-  ] });
+  ] }]);
   const item = p.upcoming.find((u) => u.litter_id === L.id);
   assert.equal(item.picks_expected_time, '19:00');
   // …and the family's page: when picks open, and Kim's estimate after Lee's 24 hours.

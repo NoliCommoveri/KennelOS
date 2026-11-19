@@ -217,17 +217,28 @@ export function openTurns(projection, { includeDirect = false } = {}) {
 }
 
 // When this family's turn could come (Waitlist Timers plan Phase 3): every family
-// ahead of them in the one turn order (open litters share it; her next planned
-// litter joins it when it opens) using its full time, one after another, from the
+// ahead of them in the one turn order (open litters share it; each planned litter
+// joins it when it opens, `projection.openings`) using its full time. A family not in
+// line on the open litters (their turn there used, "Not this litter", no match) counts
+// to the first planned opening they'd get a turn on, and its litter is named
+// (`litter_id`), one after another, from the
 // end of the turn open now (or now, or when picks open). Only for a family who could
 // still get a pup: walking the order, each family ahead who'd take one of the pups
 // this family wants (still available now) takes one, the turn holder's pick first; a
 // family left with none gets no estimate (owner, 2026-11-19). Worked out from the
 // projection as it is now, so it changes with each turn. → null, or { at (epoch ms),
 // next (no one ahead and nothing open: they're next to be offered), opening (it
-// counts from her planned opening), opens_at }. Never who is ahead, nor how many.
+// counts from her planned opening), opens_at, litter_id }. Never who is ahead, nor how many.
 const ESTIMATE_MAX_AHEAD = 200;
-export function turnEstimate(projection, entryId, now = new Date()) {
+export function turnEstimate(projection, entryId, now = new Date(), upto = Infinity, memo = new Map()) {
+  const key = `${entryId}:${upto}`;
+  if (memo.has(key)) return memo.get(key);
+  memo.set(key, null); // a loop can't happen (earlier openings only), but never recurse into one
+  const out = estimateOnce(projection, entryId, now, upto, memo);
+  memo.set(key, out);
+  return out;
+}
+function estimateOnce(projection, entryId, now, upto, memo) {
   const k = projection.kennel || {};
   const tz = k.time_zone;
   if (!isTimeZone(tz)) return null;
@@ -239,47 +250,58 @@ export function turnEstimate(projection, entryId, now = new Date()) {
   const turns = openTurns(projection);
   const ends = turns.map((t) => zonedInstant(t.respondBy, t.respondByTime, tz)).filter((x) => x != null);
   const openEnd = ends.length ? Math.max(...ends) : null;
+  const queueDogs = (q) => (Array.isArray(q.dog_ids) ? q.dog_ids : Object.values(q.litters || {}).flat());
+  const available = new Set(Object.values(projection.litters || {}).flatMap((l) => (l?.pups || []).map((d) => d.id)));
+  // Could a pup they want still be there when their turn comes? Walking the order, the
+  // turn holder's pick (or one of their pups) and each family ahead who'd take one of
+  // them takes one.
+  const pupLeft = (wanted, before) => {
+    const left = new Set(wanted.filter((id) => available.has(id)));
+    for (const t of turns) {
+      if (t.picked) { left.delete(t.picked); continue; }
+      const theirs = t.offers.flatMap((o) => o.eligible_dog_ids || []).find((id) => left.has(id));
+      if (theirs) left.delete(theirs);
+    }
+    for (const dogs of before) {
+      if (!left.size) break;
+      const theirs = dogs.find((id) => left.has(id));
+      if (theirs) left.delete(theirs);
+    }
+    return left.size > 0;
+  };
+  const after = (base, ahead) => { let at = base; for (let x = 0; x < ahead; x++) at = step(at); return at; };
+
+  // In line on the open litters now.
   const queue = projection.turn_queue || [];
   const i = queue.findIndex((q) => q.entry_id === entryId);
-  const queueDogs = (q) => (Array.isArray(q.dog_ids) ? q.dog_ids : Object.values(q.litters || {}).flat());
-  let base; let ahead; let wanted; let before; let opensAt = null;
-  if (i >= 0) {
-    base = Math.max(openEnd ?? nowMs, nowMs);
-    ahead = i;
-    wanted = queueDogs(queue[i]);
-    before = queue.slice(0, i).map(queueDogs);
-  } else {
-    const n = projection.next_opening;
-    const j = n && Array.isArray(n.queue) ? n.queue.findIndex((q) => q.entry_id === entryId) : -1;
-    // Only for a planned litter she shows on family pages (T4: shown once a litter matches).
-    const shown = n && (projection.upcoming || []).some((u) => u && u.family === true && u.litter_id === n.litter_id);
-    if (j < 0 || !n.queue[j].planned || !shown) return null;
-    opensAt = zonedInstant(n.date, isTimeOfDay(n.time) ? n.time : '00:00', tz);
-    if (opensAt == null || opensAt <= nowMs) return null;
-    base = Math.max(opensAt, openEnd ?? 0);
-    ahead = j;
-    wanted = queueDogs(n.queue[j]);
-    before = n.queue.slice(0, j).map(queueDogs);
+  if (i >= 0 && i <= ESTIMATE_MAX_AHEAD && pupLeft(queueDogs(queue[i]), queue.slice(0, i).map(queueDogs))) {
+    return { at: after(Math.max(openEnd ?? nowMs, nowMs), i), next: i === 0 && openEnd == null, opening: false, opens_at: null, litter_id: null };
   }
-  if (ahead > ESTIMATE_MAX_AHEAD) return null;
-  // Could a pup they want still be there when their turn comes?
-  const available = new Set(Object.values(projection.litters || {}).flatMap((l) => (l?.pups || []).map((d) => d.id)));
-  const left = new Set(wanted.filter((id) => available.has(id)));
-  for (const t of turns) {
-    if (t.picked) { left.delete(t.picked); continue; }
-    const theirs = t.offers.flatMap((o) => o.eligible_dog_ids || []).find((id) => left.has(id));
-    if (theirs) left.delete(theirs);
+  // Else the first planned litter they'd get a turn on, that she shows on family pages
+  // (T4: shown once a litter matches) and that could leave them a pup.
+  const shown = new Set((projection.upcoming || []).filter((u) => u && u.family === true).map((u) => u.litter_id));
+  const openings = (Array.isArray(projection.openings) ? projection.openings : []).slice(0, Math.min(upto, OPENINGS_WALKED));
+  for (const [idx, n] of openings.entries()) {
+    const j = Array.isArray(n.queue) ? n.queue.findIndex((q) => q.entry_id === entryId) : -1;
+    if (j < 0 || j > ESTIMATE_MAX_AHEAD || !n.queue[j].planned || !shown.has(n.litter_id)) continue;
+    const opensAt = zonedInstant(n.date, isTimeOfDay(n.time) ? n.time : '00:00', tz);
+    if (opensAt == null || opensAt <= nowMs) continue;
+    if (!pupLeft(queueDogs(n.queue[j]), n.queue.slice(0, j).map(queueDogs))) continue;
+    // Ahead of them: families who'd also take this litter (each a turn after it opens),
+    // and families waiting only on earlier litters, who hold things up only while their
+    // own turn would still be running when this one opens.
+    let base = Math.max(opensAt, openEnd ?? 0);
+    let ahead = 0;
+    for (const q of n.queue.slice(0, j)) {
+      if (q.planned) { ahead++; continue; }
+      const theirs = turnEstimate(projection, q.entry_id, now, idx, memo);
+      if (theirs) base = Math.max(base, step(theirs.at));
+    }
+    return { at: after(base, ahead), next: false, opening: true, opens_at: opensAt, litter_id: n.litter_id };
   }
-  for (const dogs of before) {
-    if (!left.size) break;
-    const theirs = dogs.find((id) => left.has(id));
-    if (theirs) left.delete(theirs);
-  }
-  if (!left.size) return null;
-  let at = base;
-  for (let x = 0; x < ahead; x++) at = step(at);
-  return { at, next: i === 0 && openEnd == null, opening: opensAt != null, opens_at: opensAt };
+  return null;
 }
+const OPENINGS_WALKED = 6;
 
 // A turn with no pup left in it: no pick, and none of the pups its rows listed is
 // still among its litter's available pups. Her device ends such a turn, never as a
