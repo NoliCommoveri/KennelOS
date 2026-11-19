@@ -6251,3 +6251,31 @@ publish moves every pup to its own pack and trashes the old shared files.
   Mechanism (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
 - **Service worker:** no app file added, renamed or removed (KennelOS or Furever).
 
+## 2026-11-19: Review batch D: Worker reads that grow with programs, and a restore that can finish
+
+Review Remainder plan batch D (K4-11, K4-14). Worker only. R7 (chunk the restore and make it
+re-runnable, giving up "lands whole or not at all") is built as recommended and waits on the
+owner's confirmation.
+- **K4-11** (`src/retention.js`, `src/notify.js`): retention reads committed snapshots a page of
+  200 programs at a time and stops once a run's 1,000 deletes are full; the pending read has a
+  `LIMIT`. `runDigests` pages `notify_settings` by program (200). `syncCounts` is unchanged: three
+  `COUNT(*)`s, one row each.
+- **K4-14** (`src/backup.js`, `src/ops.js`): `exportAll` reads each table 1,000 rows a page and
+  leaves out the restore's own note. `importAll` checks everything first as before, then writes
+  200 rows a batch in `EXPORT_TABLES` order with `INSERT OR IGNORE`; `ops_config`
+  `restore_in_progress` (the file's `exported_at`) lets that file, and only it, carry on over a
+  partly-restored database, and is removed when it finishes. /ops says "Restored N of 33 tables
+  (…). Run it again with the same file to finish." **Modified** from the plan: `OR IGNORE`, not
+  `OR REPLACE`, since a replace deletes first and a cascading foreign key would take children.
+- **Measured** locally (node:sqlite, not D1) at 2,000 programs, 108,000 snapshots, 100,000
+  `wl_events`, 4,000 `sync_devices`: retention 0.8 s, export 0.8 s (55 MB), import 3.6 s in 1,104
+  batches. A run against a copy of production is still to do.
+- Tests: new `cloud/tests/scale.test.js`, with reads capped by row count the way D1 caps a
+  response: retention over more programs than a page keeps its cap and reaches them all, the
+  digests reach programs past the first page, the export pages, and a restore failed on its third
+  batch and run again ends identical to a clean one (another file refused meanwhile). All four
+  fail on the code before. `cd cloud && npm test`: 394 pass; `node --test`: 2256 pass, 1 todo.
+- Docs: `cloud/README.md` (retention, backup, the measured run), Cloud Phase 1 plan §6.3
+  (**Modified**), Review Remainder plan, `FIX_PRIORITIES.md`, README Status.
+- **Service worker:** no app file touched. No migration.
+

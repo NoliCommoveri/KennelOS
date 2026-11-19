@@ -529,11 +529,25 @@ export function digestEmail(items, { tz, withKennel = false, appUrl, offUrl, fre
 
 // The hourly run: every program with the digest on, when due and something
 // happened. → { due, sent, failed }
+// Every program with a digest address, a page at a time (K4-11): one SELECT * of
+// them all would meet D1's response cap as programs grow.
+export const DIGEST_PAGE = 200;
+async function* digestSettings(env) {
+  let after = '';
+  for (;;) {
+    const { results } = await env.DB.prepare(
+      `SELECT * FROM notify_settings WHERE digest_email IS NOT NULL AND program_id > ? ORDER BY program_id LIMIT ${DIGEST_PAGE}`,
+    ).bind(after).all();
+    yield* results;
+    if (results.length < DIGEST_PAGE) return;
+    after = results[results.length - 1].program_id;
+  }
+}
+
 export async function runDigests(env, { now = new Date(), origin = env.FAMILY_PAGES_ORIGIN || '' } = {}) {
   const out = { due: 0, sent: 0, failed: 0 };
   if (!mailMode(env)) return out;
-  const { results } = await env.DB.prepare('SELECT * FROM notify_settings WHERE digest_email IS NOT NULL').all();
-  for (const s of results) {
+  for await (const s of digestSettings(env)) {
     try {
       if (!digestDue(s, now)) continue;
       const kinds = parseKinds(s.digest_kinds, DIGEST_DEFAULT_KINDS);

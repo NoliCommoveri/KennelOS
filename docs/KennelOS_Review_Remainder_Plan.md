@@ -1,6 +1,6 @@
 # KennelOS: the review's remaining findings (plan)
 
-> **Status: batches A, B and C built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); D–I not started. R1 and R6 are the owner's (2026-11-19, as recommended). Written 2026-11-18 against `main` at `6aacb16`. It covers
+> **Status: batches A to D built** (`docs/BUILD_LOG.md`, 2026-11-18 and 2026-11-19); E–I not started. R1 and R6 are the owner's (2026-11-19, as recommended); R7 is built as recommended and waits on her confirmation. Written 2026-11-18 against `main` at `6aacb16`. It covers
 > every finding still open in `docs/review/FIX_PRIORITIES.md` except K15 (the UI redo) and K16
 > (the summary), which stay where that file puts them. Each finding below was rechecked in the
 > code on this commit and still stands, unless §1 says otherwise. Seven owner decisions shape
@@ -178,6 +178,11 @@ app batch.
 - **K4-11:** retention pages its snapshot reads by program (`SELECT DISTINCT program_id …
   LIMIT`, then each program's snapshots), keeping `MAX_PER_RUN` as the cap on deletes. Page
   `syncCounts` and `runDigests`'s `SELECT *` the same way.
+- **Modified (built 2026-11-19):** the restore uses `INSERT OR IGNORE`, not `OR REPLACE`
+  (a REPLACE deletes the row first, and a foreign key with a cascade would take its children
+  with it), and `ops_config.restore_in_progress` lets only the same file carry on over a
+  partly-restored database. `syncCounts` was left as it is: it is three `COUNT(*)`s, each one
+  row whatever the table's size. The measurement is local (node:sqlite), not against D1.
 - **K4-14 (R7):** `exportAll` reads each table in pages of 1,000. The restore batches 200
   statements at a time in `EXPORT_TABLES` order with `INSERT OR REPLACE`, and the flash
   reports "Restored 14 of 26 tables (users, sessions, …). Run it again to finish" on a

@@ -38,6 +38,7 @@ export const WL_INBOX_KEEP_DAYS = 30;
 export const WL_EVENTS_KEEP_DAYS = 90;
 export const ESIGN_SENDS_KEEP_DAYS = 400;
 const MAX_PER_RUN = 1000; // R2 deletes at most 1000 keys per call
+export const PROGRAM_PAGE = 200; // programs read per page (~54 snapshots each)
 
 // The bucket a snapshot competes in, or null once it's past the window.
 function bucketOf(s, nowMs) {
@@ -74,14 +75,29 @@ export async function runRetention(env, now = new Date()) {
   const iso = (ms) => new Date(ms).toISOString();
   const summary = { snapshotsDropped: 0, pendingDropped: 0, filesDropped: 0, r2Deleted: 0, r2Untracked: 0 };
 
-  const { results: committed } = await env.DB.prepare(
-    `SELECT id, program_id, created_at, r2_key FROM snapshots WHERE status = 'committed'`,
-  ).all();
+  // Committed snapshots a page of programs at a time (K4-11): one read of every
+  // program's ~54 snapshots meets D1's response cap somewhere in the low thousands
+  // of programs, and then retention stops. Paging stops once a run's deletes are full.
+  const drops = [];
+  let after = '';
+  while (drops.length < MAX_PER_RUN) {
+    const { results: page } = await env.DB.prepare(
+      `SELECT DISTINCT program_id FROM snapshots WHERE status = 'committed' AND program_id > ? ORDER BY program_id LIMIT ${PROGRAM_PAGE}`,
+    ).bind(after).all();
+    if (!page.length) break;
+    const ids = page.map((r) => r.program_id);
+    const { results: committed } = await env.DB.prepare(
+      `SELECT id, program_id, created_at, r2_key FROM snapshots
+        WHERE status = 'committed' AND program_id IN (SELECT value FROM json_each(?))`,
+    ).bind(JSON.stringify(ids)).all();
+    drops.push(...pickDrops(committed, nowMs).slice(0, MAX_PER_RUN - drops.length));
+    after = ids[ids.length - 1];
+    if (page.length < PROGRAM_PAGE) break;
+  }
   const { results: stale } = await env.DB.prepare(
-    `SELECT id, r2_key FROM snapshots WHERE status = 'pending' AND created_at < ?`,
+    `SELECT id, r2_key FROM snapshots WHERE status = 'pending' AND created_at < ? LIMIT ${MAX_PER_RUN}`,
   ).bind(iso(nowMs - DAY)).all();
 
-  const drops = pickDrops(committed, nowMs).slice(0, MAX_PER_RUN);
   const stalePart = stale.slice(0, MAX_PER_RUN - drops.length);
   const gone = [...drops, ...stalePart];
   if (gone.length) {
