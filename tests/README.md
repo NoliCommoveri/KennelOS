@@ -26,6 +26,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `license.test.js` | The Pro license verdict state machine — interval detection and the grace windows (**yearly 7d, monthly 3d**), lifetime/expired/revoked branches. |
 | `finalRelease.test.js` | The end-of-life build (`build/finalRelease.mjs`): each edition's final config nulls every server URL and Pro's license gate is off, nothing else changes, a config it can't read fails the build, and the final service worker gets a new cache name. |
 | `importExport.test.js` | The Blob ⇄ base64 marker round-trip that keeps documents/receipts durable across backup + Dropbox sync. |
+| `appShell.test.js` | The shell's watchers (`assets/appShell.js`): a new version reloads an idle page and shows the "KennelOS was updated" strip over unsaved work or a failed module load; durable storage is asked only once there's a record to keep. |
 | `serviceWorker.test.js` | The precache ↔ disk bijection (CLAUDE.md's most-forgotten step), promoted from the End-State guide's Python snippet. |
 | `referenceRegistry.test.js` | Structural integrity of the FK registry that drives hard-delete blocking. |
 | `dateUtils.test.js` | The date-only (YYYY-MM-DD, local) helpers the repos and nudges build on. |

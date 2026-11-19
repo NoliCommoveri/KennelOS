@@ -6578,3 +6578,38 @@ nudge) is built as recommended and waits on the owner's confirmation.
   README doc map, tests README.
 - **Service worker:** `CACHE_NAME` v162 → v163 (this session's batch: the listen-only lock and
   free changes reach devices); no app file added or renamed (`PRECACHE_URLS` unchanged).
+
+## 2026-11-19: Review batch H: updates reaching open pages, storage asked when there's something to keep, the helper gate on the server's word
+
+Review Remainder plan §3 H (K13-10, K13-13, K5-11). The owner also confirmed R3, R4 and R7 as
+built, and the local measurement for R7 (no run against a production copy).
+- **K13-10 (R5):** new `shared/assets/appShell.js`, loaded lazily by `app.js`. On
+  `controllerchange` a page with no open modal and no typing since it loaded reloads itself;
+  otherwise a strip says "KennelOS was updated. Save anything you're working on, then Reload".
+  The first install claiming a page is ignored. `app.js`'s lazy imports (Stripe links, Jotform
+  keys, portal feed, website banner, waitlist actions) and Today's website banner end in
+  `moduleFailed`, which shows the same strip for a module error while online.
+- **K13-13:** `navigator.storage.persist()` is asked once her first record is saved
+  (`CLOUD_DATA_CHANGED_EVENT`), or at once on a load that already holds a kennel or dog; never
+  in the Demo or the tour (`askPersistenceWhenKept`).
+- **K5-11:** the Pro licence gate skips only for a confirmed helper session
+  (`settings.isConfirmedHelperSession`: token, `role: 'helper'`, `helperConfirmedFor` =
+  `programId`). `setHelperSession` stores the redeem answer; `assistState()` stores a
+  `role: 'helper'` answer; `cloudAssist.helperSkipsLicenseGate` asks `GET /assist/state` once
+  for a session without it, and fails closed. `kennelportLink.licenseOk` uses the same check
+  (it had the same bypass).
+- Tests: new `tests/appShell.test.js` (idle reload, typed or modal → strip, first claim
+  ignored, module errors only, persistence not before the first record / once / at once with
+  records); `tests/cloudClient.test.js` (forged sessions walled, a real helper passes with no
+  request, an older helper session asks once and keeps the answer, an owner never skips);
+  `tests/siteExport.test.js` (a role alone no longer passes `licenseOk`). `node --test`: 2345
+  pass, 1 todo. Checked in Chromium: a first visit to `/shared/` doesn't call `persist()`, the
+  first data change does; a typed page shows the strip on `controllerchange`; on the built Pro
+  edition a forged `role: 'helper'` session with the network blocked paints the wall (before
+  the fix it didn't). The app.js load budget holds at 940 KB with no room left.
+- Docs: End-State guide §12 (updates reaching open pages, durable storage), §30 (assisted
+  setup's gate), the KennelPort link's licence check; Review Remainder plan (status, H
+  **Modified**); Assisted Setup plan (**Modified:** K05-11); `FIX_PRIORITIES.md` K05 and K13
+  rows; README Status.
+- **Service worker:** `assets/appShell.js` added to `PRECACHE_URLS` (not Pro-only); no
+  `CACHE_NAME` bump yet.

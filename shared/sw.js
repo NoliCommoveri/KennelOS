@@ -18,6 +18,7 @@ const PRECACHE_URLS = [
   'nav.js',
   'manifest.json',
   'assets/app.css',
+  'assets/appShell.js',
   'assets/breedTestPicker.js',
   'assets/cloudBackupUI.js',
   'assets/todayCloudCard.js',

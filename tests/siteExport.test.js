@@ -709,7 +709,9 @@ test('a lapsed or missing license stops Update website, except on support\'s hel
     assert.equal(await link.licenseOk(), false); // no license on this device
     setCloudSession({ token: 't', role: 'owner' });
     assert.equal(await link.licenseOk(), false);
-    setCloudSession({ token: 't', role: 'helper' });
+    setCloudSession({ token: 't', programId: 'p1', role: 'helper' });
+    assert.equal(await link.licenseOk(), false, 'a role alone, with no server answer, isn’t a helper (K05-11)');
+    setCloudSession({ token: 't', programId: 'p1', role: 'helper', helperConfirmedFor: 'p1' });
     assert.equal(await link.licenseOk(), true);
   } finally {
     editionFlags.licenseGate = was;

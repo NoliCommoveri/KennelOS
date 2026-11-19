@@ -1139,6 +1139,21 @@ A cache-first app-shell service worker, so the app installs and works offline.
   → update `PRECACHE_URLS` in the same edit. Bump `CACHE_NAME` once per shippable batch,
   **after asking the user** (the rule is spelled out in `CLAUDE.md`).
   `tests/serviceWorker.test.js` checks the precache against the files on disk.
+- **A new version reaching an open page** (`assets/appShell.js`, loaded lazily by `app.js`'s
+  `registerServiceWorker`): `install` calls `skipWaiting()` and `activate` calls
+  `clients.claim()`, so a new version takes over open pages at once. On `controllerchange`
+  (`watchForUpdates`) a page with no open `.modal-overlay` and no typing since it loaded
+  reloads itself; otherwise it shows a strip, "KennelOS was updated. Save anything you're
+  working on, then Reload", and is never reloaded over unsaved work. The first install
+  claiming a page that had no worker is ignored. A lazy `import()` in `app.js` (and Today's
+  website banner) that fails to load ends in `moduleFailed`, which shows the same strip for
+  a module error (a `SyntaxError` for a missing export, or a failed module fetch) while
+  online, and nothing for any other error.
+- **Durable storage** (`appShell.askPersistenceWhenKept`): `navigator.storage.persist()` is
+  asked once (`settings.wasPersistRequested`), when there's something to keep: at once on a
+  load that already holds a kennel or a dog, else on the first `CLOUD_DATA_CHANGED_EVENT`
+  (her first saved record). Never in the Demo or the tour. Kels's account health
+  (`storage-persist`, §33) asks again while the browser still says no.
 
 ---
 
@@ -3546,8 +3561,14 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **Assisted setup and help** (`data/cloud/cloudAssist.js`, `assets/cloudAssistUI.js`;
   `docs/KennelOS_Assisted_Setup_Plan.md`): KennelOS support's device signs in to a user's
   account as a **helper** through a one-time link (`?assist=<token>`, read in `app.js`
-  before the license gate, which a helper device skips). Its session (`role: 'helper'`,
-  `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
+  before the license gate). The gate skips only for a helper the server confirmed
+  (`cloudAssist.helperSkipsLicenseGate`): a session token, `role: 'helper'`, and
+  `helperConfirmedFor` equal to its `programId`, the server's own answer, cached with the
+  session by `setHelperSession` (the redeem answer) and by `assistState()` (a `role:
+  'helper'` from `GET /assist/state`). A helper session without it asks `GET /assist/state`
+  at the gate; signed out, offline or any other answer fails closed to the ordinary gate, so
+  a role typed into the stored session doesn't lift the wall. The cloud modules load only
+  when the session says helper. Its session (`role: 'helper'`, `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
   vault and sync once per program (in setup, after checking `entitlement()` finds her Pro
   purchase: sync needs it) or joins her (when she asked for help). `redeemAssistLink`
   refuses a link for another program on a device that holds any record
@@ -5580,7 +5601,8 @@ publish (or doesn't have it) leaves the send in the draft and the result says so
   backup or the cloud: each device connects once.
 - **`data/kennelportLink.js`**: `connectWebsite` (the code → token, then the kennel's
   settings), `updateWebsite` (license check first, `licenseOk`: a lapsed Pro sends nothing;
-  support's helper device, which has no license of its own, passes like the app's gate; then the
+  support's helper device, which has no license of its own, passes like the app's gate, only on
+  a confirmed helper session (`settings.isConfirmedHelperSession`, §30); then the
   site's facts, the bundle, and the answer applied), `disconnectWebsite` (this device only).
   A `not_linked` answer (Unlink in KennelPort) forgets the token. What an answer fills, by
   `addressChanges` and `kennelChanges`: a dog's `url` and a litter's `photos_url` with its
