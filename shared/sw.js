@@ -104,6 +104,7 @@ const PRECACHE_URLS = [
   'assets/invoiceDoc.js',
   'assets/invoicePdf.js',
   'assets/puppyRecordPdf.js',
+  'assets/pdfShare.js',
   'assets/invoiceGenerator.js',
   'assets/waitlistOnlineUI.js',
   'assets/notificationsUI.js',
