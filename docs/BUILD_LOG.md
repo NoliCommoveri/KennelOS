@@ -6846,5 +6846,11 @@ it goes on `main`.
   page and the Puppy Record's Share as PDF.
 - `node --test`: 2384 pass. Checked in Chromium on a computer (both PDFs download) and at
   iPhone size with a stand-in share sheet (both PDFs reach it), no errors.
+- The waitlist family page's Documents list (an invoice and a receipt per charge) had its
+  own Download PDF buttons; they now share the same way (Share PDF on iPhone), each file
+  made on its first tap and kept, with the PDF library loaded when the list draws.
+- Checked in Chromium: Financials → Invoice / Receipt → Generate, for an invoice and a
+  receipt, at iPhone size (Share PDF, both reach a stand-in share sheet); the waitlist
+  family page's receipt (shares on iPhone size, downloads on a computer). No errors.
 - Docs: End-State guide §23, §24.
 - **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`.

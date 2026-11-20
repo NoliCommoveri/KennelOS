@@ -2127,6 +2127,8 @@ rebuilt on each view.
   elsewhere (`assets/pdfShare.js`, shared with the Puppy Record, §23). The file is made as
   soon as the page is drawn, so the tap reaches the share sheet at once; a share refused for
   want of a tap says to tap again. **Print** is the browser's own print.
+  The waitlist family page's **Documents** list (each invoice and receipt) uses the same
+  Share PDF / Download PDF step, making each file on its first tap and keeping it.
 - **A family's money** (`data/familyMoney.js`, Pro-only, pure but its loaders):
   `familyAccount({ entry, statement, sale })` → `charges` (the entry's application fee, and
   the sale's pieces, §21.3: each charge by due date, with the money on it and what's owed),
