@@ -275,6 +275,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   Who it's offered to stacks its two fields (they misaligned at phone width).
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Price rules
+
+- The owner's D17 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only.
+- `docs/design/forest-look-prototype.html`: Pricing and schedules gains Price rules (New rule
+  on the heading); a rule (`S.pricerule`) is a breed with its own male and female prices,
+  an imported parent, or parent trait scores, adding an amount or a percent, on or off, with
+  the open litters it fits. A litter's Pricing shows the working from the rules, and Side
+  sale prefills from it. Sample: Golden Retriever prices, imported parent +$500 (Titan is
+  imported), Movement average 4.5+ +$300.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

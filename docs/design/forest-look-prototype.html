@@ -698,6 +698,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 /* add-on groups and payment plans */
+.rule-work { margin: 6px 0 0; font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
+.rule-work b { color: var(--ink); }
 .sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
 .quote-box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--p-green-bg); color: var(--ink); font-size: 13px; }
 .quote-box span { color: var(--muted); }
@@ -773,6 +776,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Everything a family pays for beyond the puppy is an add-on: transport and boarding after go-home sit in the same list as her own (photo session, training package, starter kit), though they're kept apart behind the scenes. <b>Business › Add-ons</b> holds the defaults: price, how it's charged (flat, per day, per mile), a note, and whether it's offered on new sales; Setup's transport and boarding rows open the same screen. On a sale, <b>Add-ons</b> is the one screen for every cost outside the puppy's price: each add-on with its default price to change for this sale, days for boarding, a one-time charge, and the puppy, add-ons, total and paid at the top. Side sale offers them as it's recorded.</p>
     <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
     <p><b>Transport</b> is priced per mile from her standard pickup place: fee per mile, round trip or one way, no charge under a distance, offered only to families living at least so far away (City / state becomes required on applications), and "in touch" past a limit. <b>Check a distance</b> gets driving miles through Mapbox (cloud backup) or Open in Maps and shows the working. <b>Handled by</b> sets the default for new sales: the kennel, or a third party, one of her transport partners or unknown. Each partner (a Transport account) carries a referral reward, per booking or a percent of their price; the Transport screen totals expected and received rewards by partner. On a sale, transport is either the kennel's (miles, Get driving miles, a fee prefilled from her rate) or a third party's (partner, anything charged on the sale, the reward expected or received). <b>Pickup places</b> (Setup › Go-home) holds her places, which one mileage starts from, which families see, and how late families can change a pickup.</p>
+    <p><b>Price rules</b> (Pricing and schedules) set litter prices from what the litter is: a breed's own prices replace the usual price, and each other rule that fits adds an amount or a percent, for an imported parent or for how the parents score on her traits. A litter's Pricing shows the working; its own price, and every sale already made, keep theirs.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1267,7 +1271,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1741,13 +1745,80 @@ const LP_Q = [
   ['fullReg', 'Full registration', ['Not offered', '+$500', '+$1,000', '+$1,500']],
 ];
 const usualOf = (k) => (k === 'male' || k === 'female') ? (SET.pricing.priceBy === 'Different prices' ? SET.pricing[k] : SET.pricing.pet) : SET.pricing[k];
+/* price rules (new; owner 2026-11-20): a litter's price starts from her usual price, or a
+   breed's own price, and every rule that fits adds on: an imported parent, or how the
+   parents score on her traits. The result fills the litter's prices (live:
+   Litter.expected_price_male/_female, which every sale reads); a litter's own price wins. */
+const IMPORTED = { titan: 'Netherlands' };
+const litBreed = () => 'Labrador Retriever';
+const BREED_LIST = ['Labrador Retriever', 'Golden Retriever', 'Goldendoodle'];
+const PRICE_RULES = [
+  { id: 'r1', kind: 'breed', breed: 'Golden Retriever', male: 3800, female: 3600, on: 1 },
+  { id: 'r2', kind: 'imported', parent: 'either', add: 500, unit: 'flat', on: 1 },
+  { id: 'r3', kind: 'score', trait: 'move', how: 'avg', min: 4.5, add: 300, unit: 'flat', on: 1 },
+];
+const amt$ = (v) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
+const traitName = (id) => (id === 'overall' ? 'Overall' : TRAITS.find((t) => t.id === id)?.n || id);
+const parentScore = (name, trait) => {
+  const t = DOG_TR[String(name).toLowerCase()]?.adult;
+  if (!t) return null;
+  if (trait !== 'overall') return t[trait] ?? null;
+  const qs = TRAITS.filter((x) => x.kind === 'q').map((x) => t[x.id]).filter((v) => v != null);
+  return qs.length ? sum(qs) / qs.length : null;
+};
+const ruleFits = (r, l) => {
+  if (r.kind === 'breed') return litBreed(l) === r.breed;
+  if (r.kind === 'imported') { const d = !!IMPORTED[l.dam.toLowerCase()], s = !!IMPORTED[l.sire.toLowerCase()]; return r.parent === 'dam' ? d : r.parent === 'sire' ? s : d || s; }
+  const a = parentScore(l.dam, r.trait), b = parentScore(l.sire, r.trait);
+  if (a == null || b == null) return false;
+  return r.how === 'both' ? a >= r.min && b >= r.min : r.how === 'either' ? a >= r.min || b >= r.min : (a + b) / 2 >= r.min;
+};
+const ruleName = (r) => r.kind === 'breed' ? r.breed : r.kind === 'imported' ? `Imported ${r.parent === 'either' ? 'parent' : r.parent}` : `${traitName(r.trait)} ${r.how === 'avg' ? 'average' : r.how === 'both' ? 'both parents' : 'either parent'} ${r.min}+`;
+const ruleEffect = (r) => (r.kind === 'breed' ? `${money(r.male)} M · ${money(r.female)} F` : r.unit === 'pct' ? `+${r.add}%` : `+${money(r.add)}`);
+const ruleIcon = (r) => (r.kind === 'breed' ? 'dog' : r.kind === 'imported' ? 'globe' : 'award');
+const ruledPrice = (l, sex) => {
+  const fits = PRICE_RULES.filter((r) => r.on && l && ruleFits(r, l)), br = fits.find((r) => r.kind === 'breed');
+  const base = br ? br[sex] : amt$(usualOf(sex)), steps = [[br ? br.breed : 'Usual', base]];
+  let total = base;
+  fits.filter((r) => r.kind !== 'breed').forEach((r) => { const a = r.unit === 'pct' ? Math.round((base * r.add) / 100) : r.add; total += a; steps.push([ruleName(r), a]); });
+  return { total, steps };
+};
+const usualFor = (k, l) => (l && (k === 'male' || k === 'female') ? money(ruledPrice(l, k).total) : usualOf(k));
+const workingLine = (w) => w.steps.map(([n, a], i) => (i ? `${esc(n)} +${money(a)}` : `${esc(n)} ${money(a)}`)).join(' · ') + (w.steps.length > 1 ? ` = <b>${money(w.total)}</b>` : '');
+const rulesFor = (r) => LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(r, l));
+
+S.pricerule = (id) => {
+  const r = PRICE_RULES.find((x) => x.id === id), fresh = !r;
+  const fm = formFor('pricerule:' + id, () => ({ kind: r?.kind || 'imported', breed: r?.breed || BREED_LIST[1], male: str(r?.male), female: str(r?.female), parent: r?.parent || 'either', trait: r?.trait || 'overall', how: r?.how || 'avg', min: str(r?.min ?? 4), add: str(r?.add), unit: r?.unit || 'flat', on: !r || r.on ? 'on' : 'off' }));
+  const draft = { kind: fm.kind, breed: fm.breed, parent: fm.parent, trait: fm.trait, how: fm.how, min: Number(fm.min) || 0 };
+  const fits = LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(draft, l));
+  const when = fm.kind === 'breed' ? fSel('breed', 'Breed', BREED_LIST)
+    : fm.kind === 'imported' ? fChips('parent', 'Imported parent', [['either', 'Either'], ['dam', 'Dam'], ['sire', 'Sire']])
+    : `${fSel('trait', 'Trait', [['overall', 'Overall (quality traits)'], ...TRAITS.filter((t) => t.kind === 'q').map((t) => [t.id, t.n])])}
+       ${fChips('how', 'Parents', [['avg', 'Average'], ['both', 'Both at least'], ['either', 'Either at least']])}
+       <div class="dates">${fIn('min', 'Score at least (1–5)', { type: 'number' })}</div>`;
+  const effect = fm.kind === 'breed'
+    ? `<div class="dates">${fIn('male', 'Male price ($)', { type: 'number' })}${fIn('female', 'Female price ($)', { type: 'number' })}</div><small class="f-hint">Replaces the usual price</small>`
+    : `${fChips('unit', 'Add', [['flat', 'Amount ($)'], ['pct', 'Percent (%)']])}<div class="dates">${fIn('add', fm.unit === 'pct' ? 'Percent' : 'Amount ($)', { type: 'number' })}</div>`;
+  return {
+    bar: bar(fresh ? 'New price rule' : ruleName(r), { sub: 'Price rule' }),
+    body: `${formCard('When', `${fChips('kind', 'Rule', [['breed', 'Breed'], ['imported', 'Imported parent'], ['score', 'Parent scores']])}${when}`)}
+      ${formCard('Price', effect)}
+      <section class="card app-card">${fChips('on', 'Active', [['on', 'On'], ['off', 'Off']])}</section>
+      <div class="group-label">Fits now</div>
+      <section class="card"><div class="rows">${fits.map((l) => row({ ic: 'paw-print', t: litterName(l), s: l.status[0], go: `littersec:${l.id}|pricing` })).join('') || '<p class="lede" style="padding:12px 14px">No open litters.</p>'}</div></section>
+      <p class="f-hint">Litters with their own price and existing sales keep theirs.</p>
+      ${saveBar(`data-prsave="${esc(id)}"`)}
+      ${r ? delRow(`data-prdel="${r.id}"`, 'Delete rule', 'Litters keep prices already set') : ''}`,
+  };
+};
 function litPriceLine(l) {
-  const v = (k) => l.prices?.[k] || usualOf(k);
+  const v = (k) => l.prices?.[k] || usualFor(k, l);
   const own = Object.keys(l.prices || {}).length;
   return `${v('male') === v('female') ? v('male') : `${v('male')} M · ${v('female')} F`} · ${v('deposit')} deposit${own ? '' : ' · default'}`;
 }
 function lpRow(l, k, label, opts) {
-  const key = `lp|${l.id}|${k}`, open = ui.qOpen === key, cur = l.prices?.[k], u = usualOf(k);
+  const key = `lp|${l.id}|${k}`, open = ui.qOpen === key, cur = l.prices?.[k], u = usualFor(k, l);
   const list = uniq([...opts, ...(cur && !opts.includes(cur) ? [cur] : [])]).filter((o) => o !== u);
   const add = ui.qOther === key
     ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${k === 'fullReg' ? '+$750' : k === 'deposit' ? '$400' : '$3,800'}" autocomplete="off" aria-label="${label}: add your own"></label><button type="button" class="fbtn" data-lpown="${key}">Add</button></div>`
@@ -1819,7 +1890,9 @@ S.littersec = (p) => {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
     const sold = SALES.filter((x) => DOGS.find((d) => d.name === x.pup)?.litter === l.id).length;
-    body = `<section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
+    const wk = ['male', 'female'].filter((x) => !l.prices?.[x]).map((x) => [x, ruledPrice(l, x)]).filter(([, w]) => w.steps.length > 1 || w.steps[0][0] !== 'Usual');
+    body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}</section>` : ''}
+      <section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
       ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
       <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button>`;
   } else {
@@ -1864,6 +1937,9 @@ S.pricing = () => {
       <p class="lede">New sales start from these. You can still change any one sale on its own. Tap a question to change its answer.</p>
       <div class="group-label">Usual price</div>
       <section class="card"><div class="rows">${pq('priceBy')}${two ? pq('male') + pq('female') : pq('pet')}${pq('fullReg')}</div></section>
+      <div class="label-row"><div class="group-label">Price rules</div><button type="button" class="set-link" data-open="pricerule:new">${icon('plus')}New rule</button></div>
+      <section class="card"><div class="rows">${PRICE_RULES.map((r) => { const n = rulesFor(r).length; return row({ ic: ruleIcon(r), t: esc(ruleName(r)), extra: r.on ? '' : pill(['Off', 'gray']), s: `${ruleEffect(r)} · ${n ? `${n} open litter${n === 1 ? '' : 's'}` : 'no open litters'}`, go: `pricerule:${r.id}` }); }).join('') || '<p class="lede" style="padding:12px 14px">No rules. Every litter starts at the usual price.</p>'}</div></section>
+      <p class="f-hint">A breed price replaces the usual; other rules add on.</p>
       <div class="group-label">Deposit and timing</div>
       <section class="card"><div class="rows">${pq('deposit')}${pq('depositsOpen')}${pq('depositDue')}${pq('balanceDue')}${pq('readyAt')}</div></section>
       <div class="group-label">Ways families pay</div>
@@ -2719,7 +2795,7 @@ S.sidesale = (fid) => {
   /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
   const lit = p && LITTERS.find((l) => l.id === p.litter);
   const amt = (v) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
-  const base = amt(p ? (lit?.prices?.[p.sex === 'm' ? 'male' : 'female'] || usualOf(p.sex === 'm' ? 'male' : 'female')) : SET.pricing.pet);
+  const base = amt(p ? (lit?.prices?.[p.sex === 'm' ? 'male' : 'female'] || usualFor(p.sex === 'm' ? 'male' : 'female', lit)) : SET.pricing.pet);
   const fullAdd = amt(lit?.prices?.fullReg || SET.pricing.fullReg);
   const auto = String(base + (fm.reg === 'Full' ? fullAdd : 0)), autoDep = String(amt(lit?.prices?.deposit || SET.pricing.deposit));
   if (!fm.price || fm.price === fm._auto) fm.price = auto; fm._auto = auto;
@@ -4130,7 +4206,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -4189,6 +4265,25 @@ document.addEventListener('click', (e) => {
     ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
   if (d.pldel) { PLACES.splice(PLACES.findIndex((x) => x.id === d.pldel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.prsave) {
+    const fm = ui.form; let r = PRICE_RULES.find((x) => x.id === d.prsave);
+    const next = { kind: fm.kind, on: fm.on === 'on' ? 1 : 0 };
+    if (fm.kind === 'breed') {
+      if (!(Number(fm.male) > 0) || !(Number(fm.female) > 0)) return toast('Male and female prices are required');
+      if (PRICE_RULES.some((x) => x !== r && x.kind === 'breed' && x.breed === fm.breed)) return toast('This breed has a rule');
+      Object.assign(next, { breed: fm.breed, male: Number(fm.male), female: Number(fm.female) });
+    } else {
+      if (!(Number(fm.add) > 0)) return toast('Amount is required');
+      Object.assign(next, { add: Number(fm.add), unit: fm.unit });
+      if (fm.kind === 'imported') next.parent = fm.parent;
+      else { const min = Number(fm.min); if (!(min >= 1 && min <= 5)) return toast('Score must be 1 to 5'); Object.assign(next, { trait: fm.trait, how: fm.how, min }); }
+    }
+    const fresh = !r;
+    if (!r) { r = { id: 'r' + (PRICE_RULES.length + 1) }; PRICE_RULES.push(r); }
+    ['breed', 'male', 'female', 'parent', 'trait', 'how', 'min', 'add', 'unit'].forEach((k) => delete r[k]);
+    Object.assign(r, next); ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
+  }
+  if (d.prdel) { PRICE_RULES.splice(PRICE_RULES.findIndex((x) => x.id === d.prdel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
   if (d.planstep) {
     const [act, i] = d.planstep.split('|'), fm = ui.form, steps = planSteps(fm);
     if (act === 'add') steps.push({ pct: steps.length ? '' : '100', due: steps.length ? 'before_pickup' : 'with_balance', n: '' });

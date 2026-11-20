@@ -341,3 +341,18 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   **Open:** the new fields (a sale's transport handled by, partner, their price, reward
   received; an Account's reward) need sync classes (`syncRegistry.js`) and a place in
   the Income view before they're built.
+- **D17. Price rules (2026-11-20).** The owner: kennel-wide prices stay (D9) and grow into
+  **price rules** on Pricing and schedules. A litter's price starts from her usual price, or
+  a **breed** rule's own male and female prices (which replace the usual); every other rule
+  that fits adds an amount or a percent of that starting price: an **imported parent**
+  (either, the dam or the sire; live `Dog.imported`), or **parent scores** on her traits
+  (a quality trait or the overall average, by the parents' average, both at least, or either
+  at least). The litter's Pricing shows the working; a litter's own price, and every
+  existing sale, keeps its own. In the prototype: `PRICE_RULES`, `S.pricerule`,
+  `ruledPrice`. **For the build:** the rules fill the litter's `expected_price_male` /
+  `_female` (what every sale, the waitlist's turn prices and her website already read), so
+  nothing downstream changes; when they fill it (on creating the litter, and again while
+  she hasn't set her own) and the new kennel fields (`price_rules`, and the usual price
+  itself) need sync classes. Breed needs each litter's breed (from its parents). Other
+  rule kinds (titles, color, health results) fit the same shape.
+
