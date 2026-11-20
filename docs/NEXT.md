@@ -505,6 +505,16 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   never sent to the server.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D24, a certain match leads with Use
+
+- The owner's answer, in D24 (`docs/KennelOS_UI_Redesign_Plan.md` §8): on an add form a certain
+  match leads with **Use [name]**. Prototype: one shared match note for Add dog (same registered
+  name; as sire or dam from a pedigree), Add person, Add family and the person picker (same
+  email or phone): an amber note with **Create new** and **Use [name]**; a name alone stays a
+  "Possible match" line. The Marsh family's sample details in Possible duplicates now match
+  their person page.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

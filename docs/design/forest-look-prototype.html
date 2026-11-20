@@ -728,6 +728,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dup-cmp .dup-diff { color: var(--p-amber-fg); font-weight: 600; }
 .dup-cmp .dup-none { color: var(--faint); font-style: italic; }
 .f-head h2 i[data-lucide], .f-head h2 svg.lucide { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; color: var(--primary); }
+.match-card { display: flex; flex-direction: column; gap: 8px; }
 .kels-task { display: flex; align-items: center; }
 .kels-task .row { flex: 1; min-width: 0; }
 .kels-star { border: 0; background: none; color: var(--faint); padding: 0 14px; align-self: stretch; cursor: pointer; }
@@ -803,7 +804,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>In <b>Financials</b> the year opens a list of her years, and Overview, Income, Expenses and Entries follow it. <b>Add entry</b> on Entries is an expense, or money received: that lists the sales with a balance, stud fees and waitlist fees still owed, and each opens where it's recorded, since income is worked out from them. <b>Accounts</b> (Business) are grouped by type, transport partners among them. An account holds its name, type and website; her login (private); a payment service's or marketplace's processing fee and whether the buyer pays it; a payment service's link and instructions; a referral link, code and instructions, shared with families or on her website; a form service's contract forms; whether she signs new e-sign templates; and this year's expenses paid to it, opening Entries filtered to them.</p>
 
     <h3>Possible duplicates</h3>
-    <p>A hub with possible duplicates shows one row at the top ("2 dogs may be entered twice", "1 person and 1 kennel may be entered twice"): Dogs, People (people and kennels), Litters (litters and pairings), Sales and Financials (expenses). With none, there is no row. It opens <b>Possible duplicates</b> for just that kind, one card per pair: why they look the same (Very likely or Possible), the two side by side with differences highlighted, what's linked to each and where each came from. <b>Not the same</b> keeps both and stops asking. <b>Merge</b> asks which to keep (the one with more linked is suggested) and, where they disagree, which value wins; blanks fill from the other, everything linked moves over, and the other is deleted. Import / Export's Find duplicates lists every kind. The app works the counts out on this device after her data changes, never when a page opens and never sent anywhere, so the row is there from the first paint and costs the server nothing.</p>
+    <p>A hub with possible duplicates shows one row at the top ("2 dogs may be entered twice", "1 person and 1 kennel may be entered twice"): Dogs, People (people and kennels), Litters (litters and pairings), Sales and Financials (expenses). With none, there is no row. It opens <b>Possible duplicates</b> for just that kind, one card per pair: why they look the same (Very likely or Possible), the two side by side with differences highlighted, what's linked to each and where each came from. <b>Not the same</b> keeps both and stops asking. <b>Merge</b> asks which to keep (the one with more linked is suggested) and, where they disagree, which value wins; blanks fill from the other, everything linked moves over, and the other is deleted. Import / Export's Find duplicates lists every kind. On the add forms (Add dog, Add person, Add family, the person picker), a <b>certain</b> match, the same email or phone, or the same registered name, leads with <b>Use</b> that one (as sire or dam when adding a parent from a pedigree) beside <b>Create new</b>; a name alone is a quieter "Possible match" line. Neither stops her saving. The app works the counts out on this device after her data changes, never when a page opens and never sent anywhere, so the row is there from the first paint and costs the server nothing.</p>
 
     <h3>More: backups, import, sharing and Kels</h3>
     <p><b>Backup &amp; Restore</b> has two tabs, Back up and Restore, then where to: Cloud, This device or Dropbox. Cloud shows when it last backed up (it backs up by itself after changes) and Back up now. This device downloads a backup file and warns when the last one is over two weeks old. Restore lists the cloud backups (kept 30 days) or opens a file, then shows what's in it before anything changes: <b>Merge</b> adds what's new, and <b>Replace all</b> asks once more before it deletes. Dropbox asks to connect first.</p>
@@ -2489,8 +2490,11 @@ S.adddog = (p) => {
   if (f.kind) {
     body += f.kind === 'puppy' ? dogFamily(null) + dogWho(null) : dogWho(null) + dogFamily(null);
     body += f.more ? dogPapers() + dogProgram(null) : `<button type="button" class="set-link more-link" data-fc="more|1">${icon('plus')}More fields</button>`;
-    if (f._dup) body += `<div class="stub-note warn">${icon('triangle-alert')}<span>A dog named ${esc(f._dup.name)} already exists. <button type="button" class="link" data-open="dog:${f._dup.id}">View</button></span></div>`;
-    body += saveBar(`data-dsave="new|${esc(p || '')}"`, f._dup ? 'Save anyway' : 'Save dog');
+    const nk = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ''), same = !f._regOk && f.reg && DOGS.find((x) => x.reg && nk(x.reg) === nk(f.reg));
+    const useDog = (x) => (mode === 'parent' ? `data-dup="usedog|${x.id}|${child}|${psex}"` : `data-dup="usedog|${x.id}"`), useLabel = (x) => `Use ${esc(x.name)}${mode === 'parent' ? ` as ${psex === 'm' ? 'sire' : 'dam'}` : ''}`;
+    if (same) body += matchNote({ certain: 1, text: `Same registered name as ${esc(same.name)}: ${esc(same.reg)}.`, use: useDog(same), useLabel: useLabel(same), other: 'data-fc="_regOk|1"', ic: 'dog' });
+    else if (f._dup) { const x = DOGS.find((y) => y.id === f._dup.id); body += matchNote({ text: `A dog named ${esc(f._dup.name)} already exists.`, use: useDog(x), useLabel: useLabel(x), other: `data-dsave="new|${esc(p || '')}"`, otherLabel: 'Save as a new dog', ic: 'dog' }); }
+    body += saveBar(`data-dsave="new|${esc(p || '')}"`, same || f._dup ? 'Save anyway' : 'Save dog');
   }
   return { bar: bar(mode === 'parent' ? `Add ${psex === 'm' ? 'sire' : 'dam'}` : 'Add dog'), body };
 };
@@ -2906,7 +2910,7 @@ S.addfamily = () => {
   let body = '';
   if (fm.pick) body += `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${esc(m.p.n)}</b>${pill([m.p.t, 'gray'])}</div>${m.d.email ? `<div class="hub-line">${icon('mail')}${esc(m.d.email)}</div>` : ''}${m.d.phone ? `<div class="hub-line">${icon('phone')}${esc(m.d.phone)}</div>` : ''}${mf && mf.pup ? `<div class="hub-line">Previous purchase: ${esc(mf.pup)}</div>` : ''}<button type="button" class="set-link" data-fc="pick|">${icon('arrow-left-right')}Change contact</button></section>`;
   else body += formCard('Contact', `${fIn('name', 'Name', { req: 1 })}${fIn('email', 'Email', { type: 'email' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Address')}`)
-    + (m ? `<div class="stub-note ${onList ? 'warn' : ''}">${icon(onList ? 'triangle-alert' : 'user-round')}<span>${onList ? `${esc(m.p.n)} is already on the waitlist${mf.st === 'active' ? ` (#${mf.pos})` : ''}. <button type="button" class="link" data-open="person:${m.p.id}">View</button>` : `Possible match: ${esc(m.p.n)} (${esc(m.p.t.toLowerCase())}). <button type="button" class="link" data-fc="pick|${m.p.id}">Use this contact</button> · <button type="button" class="link" data-fc="who|new">Create new</button>`}</span></div>` : '') + dnsNote(dnsMatch(fm));
+    + (m && onList ? `<div class="stub-note ${onList ? 'warn' : ''}">${icon(onList ? 'triangle-alert' : 'user-round')}<span>${onList ? `${esc(m.p.n)} is already on the waitlist${mf.st === 'active' ? ` (#${mf.pos})` : ''}. <button type="button" class="link" data-open="person:${m.p.id}">View</button>` : ''}</span></div>` : '') + (m && !onList ? personMatchNote(fm, m, `data-fc="pick|${m.p.id}"`) : '') + dnsNote(dnsMatch(fm));
   if (!onList) body += `<section class="card app-card">${fChips('wants', 'Sex', [['female', 'Female'], ['male', 'Male'], ['any', 'Either']])}${fChips('use', 'Purpose', PURPOSES, { multi: 1 })}${fChips('ready', 'Timing', READY)}</section>
       <section class="card app-card">${fChips('listen', 'Litters', [['all', 'Any'], ['some', 'Specific dams or sires']])}
         ${fm.listen === 'some' ? `<div class="form-stack">${fSel('ldam', 'Dam', [['', 'Any dam'], ...ownDogs('f').filter((x) => x.status === 'active_breeding').map((x) => [x.id, x.name])])}${fSel('lsire', 'Sire', [['', 'Any sire'], ...ownDogs('m').map((x) => [x.id, x.name])])}</div>` : ''}</section>
@@ -3480,11 +3484,19 @@ function dnsMatch(fm) {
 }
 const dnsNote = (x) => (x ? `<div class="stub-note warn">${icon('ban')}<span>On your Do not sell list: ${esc(x.reason || 'no reason given')}. <button type="button" class="link" data-open="dns">View</button></span></div>` : '');
 
+/* one match note for every add form (D24): a certain match (same email or phone, same registered
+   name or number) leads with Use the existing one; a name alone is only a possible match */
+const matchBy = (fm, d) => { const q = (v) => String(v || '').trim().toLowerCase(), dg = (v) => String(v || '').replace(/\D/g, ''); return fm.email && q(d.email) === q(fm.email) ? 'email' : dg(fm.phone).length >= 7 && dg(d.phone).endsWith(dg(fm.phone).slice(-7)) ? 'phone' : 'name'; };
+const matchNote = ({ certain, text, use, useLabel, other, otherLabel = 'Create new', ic = 'user-round' }) => (certain
+  ? `<div class="match-card"><div class="stub-note warn">${icon('triangle-alert')}<span>${text}</span></div><div class="actions-2"><button type="button" class="btn-2" ${other}>${otherLabel}</button><button type="button" class="primary-btn" ${use}>${icon('check')}${useLabel}</button></div></div>`
+  : `<div class="stub-note">${icon(ic)}<span>${text} <button type="button" class="link" ${use}>${useLabel}</button> · <button type="button" class="link" ${other}>${otherLabel}</button></span></div>`);
+const personMatchNote = (fm, m, use, open) => { const by = matchBy(fm, m.d), certain = by !== 'name'; return matchNote({ certain, text: certain ? `Same ${by} as ${esc(m.p.n)} (${esc(m.p.t.toLowerCase())}).` : `Possible match: ${esc(m.p.n)} (${esc(m.p.t.toLowerCase())}).`, use, useLabel: certain ? `Use ${esc(m.p.n)}` : open ? 'View' : 'Use this contact', other: 'data-fc="who|new"' }); };
+
 /* a person's details typed in, checked as she types against everyone she has (D8) */
 const personFields = (fm, mineAttr) => {
   const m = fm.who === 'new' ? null : knownMatch(fm);
   return formCard('', `${fIn('name', 'Name', { req: 1 })}${fIn('email', 'Email', { type: 'email' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Address')}`)
-    + (m ? `<div class="stub-note">${icon('user-round')}<span>Possible match: ${esc(m.p.n)} (${esc(m.p.t.toLowerCase())}). ${mineAttr ? `<button type="button" class="link" ${mineAttr(m.p.id)}>Use this contact</button>` : `<button type="button" class="link" data-open="person:${m.p.id}">View</button>`} · <button type="button" class="link" data-fc="who|new">Create new</button></span></div>` : '')
+    + (m ? personMatchNote(fm, m, mineAttr ? mineAttr(m.p.id) : `data-open="person:${m.p.id}"`, !mineAttr) : '')
     + dnsNote(dnsMatch(fm));
 };
 
@@ -3505,9 +3517,8 @@ function personBadge(id) {
 function newPersonCheck(fm) {
   const m = fm.who === 'new' ? null : knownMatch(fm);
   if (!m) return '';
-  const q = (v) => String(v || '').trim().toLowerCase(), dg = (v) => String(v || '').replace(/\D/g, '');
-  const by = fm.email && q(m.d.email) === q(fm.email) ? 'email' : dg(fm.phone).length >= 7 && dg(m.d.phone).endsWith(dg(fm.phone).slice(-7)) ? 'phone' : 'name';
-  return `<div class="stub-note">${icon('user-round')}<span>Same ${by} as ${esc(m.p.n)}. <button type="button" class="link" data-fc="pick|${m.p.id}">Use ${esc(m.p.n)}</button> · <button type="button" class="link" data-fc="who|new">Create new</button></span></div>`;
+  const by = matchBy(fm, m.d);
+  return by === 'name' ? matchNote({ text: `Same name as ${esc(m.p.n)}.`, use: `data-fc="pick|${m.p.id}"`, useLabel: `Use ${esc(m.p.n)}`, other: 'data-fc="who|new"' }) : personMatchNote(fm, m, `data-fc="pick|${m.p.id}"`);
 }
 function personPicker(fm, { title = 'Buyer', all = 'more' } = {}) {
   if (fm.pick) {
@@ -3949,7 +3960,7 @@ const DUP_PAIRS = [
   { id: 'dp3', kind: 'people', rec: ['person', 'people'], certain: 1, why: 'Same phone',
     a: { n: 'Marsh family', go: 'person:marsh', links: 'A sale, an application, 6 messages', added: 'Applied Mar 30' },
     b: { n: 'Jen Marsh', links: 'Nothing yet', added: 'Added Nov 9, from Add person' },
-    f: [['Name', 'Marsh family', 'Jen Marsh'], ['Phone', '(802) 555-0147', '(802) 555-0147'], ['Email', 'marshfam@example.com', 'jen.marsh@example.com'], ['Address', 'Lebanon, NH', '']] },
+    f: [['Name', 'Marsh family', 'Jen Marsh'], ['Phone', '(802) 555-0119', '(802) 555-0119'], ['Email', 'thea.marsh@example.com', 'jen.marsh@example.com'], ['Address', '220 Ridge Road, Barre, VT', '']] },
   { id: 'dp4', kind: 'people', rec: ['kennel', 'kennels'], why: 'Names nearly the same',
     a: { n: 'Briar Hollow Kennels', go: 'person:briar', links: 'A stud service, 2 dogs', added: 'Added Apr 2026' },
     b: { n: 'Briar Hollow', links: '1 dog', added: 'From a CSV import, Nov 2' },
@@ -3998,6 +4009,7 @@ S.dupes = (kind = 'all') => {
 };
 function dupAct(v) {
   const [k, id, a, b] = v.split('|'), p = DUP_PAIRS.find((x) => x.id === id);
+  if (k === 'usedog') { const x = DOGS.find((y) => y.id === id); ui.formSpec = null; if (a) { (PARENTS[a] ||= [null, null])[b === 'm' ? 0 : 1] = id; clearKin(); back(); return toast(`${x.name} is now the ${b === 'm' ? 'sire' : 'dam'}`); } replaceWith(`dog:${id}`); return; }
   if (k === 'notsame') { ui.dupGone.push(id); render(); return toast('Kept both'); }
   if (k === 'merge') { ui.dupMerge = id; ui.dupKeep = { ...(ui.dupKeep || {}), [id]: 'a' }; }
   else if (k === 'cancel') ui.dupMerge = null;
@@ -5524,6 +5536,8 @@ document.addEventListener('change', (e) => {
   if (fk && e.target.tagName === 'INPUT' && ['price', 'dep'].includes(fk) && /^addsale/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; if (!ui.tapping) redrawKeepFocus(); return; }
   /* email and phone are checked against everyone she has once she leaves the box */
   if (fk && ['email', 'phone'].includes(fk) && /^(addfamily|addperson|addsale|dnsadd)/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; if (!ui.tapping) redrawKeepFocus(); return; }
+  /* a registered name is checked against her dogs once she leaves the box (D24) */
+  if (fk === 'reg' && /^adddog/.test(ui.formSpec || '')) { ui.form.reg = e.target.value; delete ui.form._regOk; if (!ui.tapping) redrawKeepFocus(); return; }
   if (fk && e.target.tagName === 'SELECT') {
     ui.form[fk] = e.target.value;
     if (fk === 'litter') { const l = LITTERS.find((x) => x.id === e.target.value); if (l) ui.form.born = l.whelp; }

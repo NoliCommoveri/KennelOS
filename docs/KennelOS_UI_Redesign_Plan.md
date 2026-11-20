@@ -523,6 +523,8 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   never appears after first paint (Load Performance Phase 1); a stale count shows no row until
   the next visit. The saved counts are device-only: never `markDataChanged()`, never backed up or
   synced, so they cause no Worker requests. Adding a record checks only that record against its
-  own table, using the same rules. Open: whether a certain match on an add form leads with **Use
-  the existing one**.
+  own table, using the same rules. **On an add form (the owner, 2026-11-20):** a certain match
+  (the same email or phone; the same registration number or registered name) leads with **Use
+  [name]** as the main button beside **Create new**; a name alone is a quieter "Possible match"
+  line. Neither blocks saving: Save becomes **Save anyway**.
 
