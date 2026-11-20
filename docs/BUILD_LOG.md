@@ -6779,3 +6779,25 @@ it goes on `main`.
   countdowns ticking, Got it closing it, none at `#signin`. `node --test`: 2376 pass;
   `cd cloud && npm test`: 408 pass.
 - Docs: End-State guide §29.
+
+## 2026-11-20: Stays with us leave Away from home
+
+- The owner's extended stays (a stay extra with boarding days, e.g. "12 Week Extended Stay":
+  sold pups staying at her place) showed under Away from home, as did deferred-pickup boarding
+  and visiting studs, because the board listed every running boarding event.
+- A boarding event now says where the dog is: `details.stay_at` (`away` / `with_us`, vocab
+  `STAY_AT`, the form's **Where** select). Blank (every stay logged before) is worked out by
+  `vocab.boardingStayAt`: a stay extra's link, a pickup's standard boarding, reason Deferred
+  pickup / Extended stay, or location "With us" mean with us. Every stay the app logs sets
+  it. `awayBoard.getAwayBoardRows` lists only away stays; `getStayingWithUsRows` feeds the
+  board page's new **Staying with us** card. No data written to existing events.
+- The owner renamed training stays: the reason an extra's stay gets is now "Extended stay"
+  (`goHome.EXTENDED_STAY_REASON`), and Kels, the waitlist review, the delete refusal and the
+  contract field help say "extended stay". Older stays keep "Training" as their reason.
+- Privacy: `stay_at` is a cloud key (a declared, non-free-text boarding detail, as the vocab
+  rule makes it), so it syncs; `cloudFields.js` regenerated.
+- Load budgets raised 5 KB for app.js (947), Today (1,778) and Waitlist entry (2,091).
+- Tests: `tests/awayBoard.test.js`. `node --test`: 2380 pass; `cd cloud && npm test`: 408 pass.
+  Board page opened in Chromium, no errors.
+- Docs: End-State guide §19 (Away board), §21.2 (stays), eventRepo reads.
+- **Service worker:** no file added or removed; no `CACHE_NAME` bump yet.

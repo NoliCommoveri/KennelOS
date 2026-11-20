@@ -713,8 +713,8 @@ vocabulary through `testTokensOf(event)`; planned tests are matched against
 
 **eventRepo reads** (separate on purpose):
 - `getForSubject(type, id)` — a timeline, newest first.
-- `getBoardRows()` — dogs away on boarding now; the Away board's only source (`awayBoard.js`,
-  §19; stud-service trips are boarding events too).
+- `getBoardRows()` — boarding events running now; the board's only source, split into away
+  and with us by `awayBoard.js` (§19; stud-service trips are boarding events too).
 - `getUpcoming()`, `getScheduledPlacements()`, `getInRange(from, to)` (Calendar),
   `getByType(type)` (Shows page), `getDetailValues(type, key)` (suggestions).
 - `getReminders()` / `getDismissedReminders()`. `reminder_date` is the app's **one**
@@ -1595,8 +1595,19 @@ litter, pairing, dog and sale pages show on the edit itself, for changes made el
 "Due outs" list leaves shows out so each appears once.
 
 ### Away board (`data/awayBoard.js`)
-`getAwayBoardRows()` turns the boarding events running now (`eventRepo.getBoardRows`) into one
-row shape, used by `board.js`, Today and the dashboard tile. A stud service's trip is a
+A boarding event says where the dog is: `details.stay_at`, `away` or `with_us` (vocab
+`STAY_AT`, the event form's **Where** select; a cloud key like the other boarding details).
+`vocab.boardingStayAt(ev)` reads it and, when it's blank, works it out: a stay from a stay
+extra (`extra_charge_id`), a pickup's standard boarding (`pickup_boarding`), reason
+"Deferred pickup" or "Extended stay", or location "With us" is with us; anything else is
+away. Every stay the app logs sets it (`goHome.boardingEvent` / `trainingStayEvent`,
+`applyPickupBoarding`, the Log boarding nudge, `studBoardingPrefill`: "With us" for a stud
+coming to us).
+`getAwayBoardRows()` turns the boarding events running now (`eventRepo.getBoardRows`) whose
+dog is away into one row shape, used by `board.js`, Today and the dashboard tile.
+`getStayingWithUsRows()` is the same for stays with us: the board page's second card,
+**Staying with us** (dog, the stay's title, contact, from, until); Today and the dashboard
+count only the away ones. A stud service's trip is a
 boarding event like any other; the service's own dates never make a row. Saving a stud
 service where someone travels (new, or its dates or who travels changed, and no stud
 boarding yet, `studRules.studBoardingFor`) asks **Log the boarding?** and opens the event form
@@ -1861,7 +1872,7 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   else with the balance, filed on its paid date or due date; the invoice gets a line per step
   with its own Due by. The Sale page lists each step with a **Paid on** date.
 - **Training stays:** a price-list extra's `boarding_days` is copied onto the sale's charge.
-  Its stay is a `boarding` event on the pup (reason Training, titled with the extra's name,
+  Its stay is a `boarding` event on the pup (with us, reason "Extended stay", titled with the extra's name,
   `details.sale_id` + `details.extra_charge_id`; `goHome.trainingStayEvent`), the link stored
   on the event only. Approving its cancel offers **Remove the stay**.
 - **Stay and pickup** (`assets/stayPickupUI.js`, shared; `offerStayAndPickup`): whenever a stay
