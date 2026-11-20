@@ -6853,4 +6853,5 @@ it goes on `main`.
   receipt, at iPhone size (Share PDF, both reach a stand-in share sheet); the waitlist
   family page's receipt (shares on iPhone size, downloads on a computer). No errors.
 - Docs: End-State guide §23, §24.
-- **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`.
+- **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`;
+  `CACHE_NAME` v167 → v168 so installed devices get it.
