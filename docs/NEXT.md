@@ -306,8 +306,8 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 
 ## 2026-11-20: Price rule change on one line
 
-- Owner: a rule's change is one line, + / − and $ / % as tap-to-flip buttons before the
-  amount, no words.
+- Owner: a rule's change is one line, no words: two segmented toggles, [+ | −] and
+  [$ | %], the selected side highlighted, then the amount.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
