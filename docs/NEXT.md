@@ -493,6 +493,18 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   `star` icon is built in.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D24, possible duplicates on the hubs
+
+- The owner's D24 in `docs/KennelOS_UI_Redesign_Plan.md` §8, drawn for her review. Prototype
+  (`docs/design/forest-look-prototype.html`): Dogs, People, Litters, Sales and Financials show
+  one row when they have possible duplicates ("1 person and 1 kennel may be entered twice"; Sales
+  has none, so no row), opening **Possible duplicates** for that kind: each pair side by side
+  with differences marked, Not the same, or Merge (keep which, which value wins). Import /
+  Export's Find duplicates lists every kind. Design notes gain "Possible duplicates".
+- For the build (in D24): counts worked out on the device after a data change, read by the hub,
+  never sent to the server.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

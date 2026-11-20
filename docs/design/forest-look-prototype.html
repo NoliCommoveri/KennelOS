@@ -720,6 +720,14 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .sa-edit .form-stack { width: 100%; }
 .danger-btn { background: var(--p-red-fg); }
 .danger-card .f-head h2 { color: var(--p-red-fg); }
+.dup-cmp { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.dup-f { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); column-gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; overflow-wrap: anywhere; }
+.dup-l { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-weight: 600; }
+.dup-h { font-weight: 700; font-size: 13px; }
+.dup-h .link { font-size: 13px; text-align: left; }
+.dup-cmp .dup-diff { color: var(--p-amber-fg); font-weight: 600; }
+.dup-cmp .dup-none { color: var(--faint); font-style: italic; }
+.f-head h2 i[data-lucide], .f-head h2 svg.lucide { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; color: var(--primary); }
 .kels-task { display: flex; align-items: center; }
 .kels-task .row { flex: 1; min-width: 0; }
 .kels-star { border: 0; background: none; color: var(--faint); padding: 0 14px; align-self: stretch; cursor: pointer; }
@@ -793,6 +801,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
     <p>A sale's <b>Payments</b> (from the Sale, Sale details or the person's page) shows the total, paid, remaining and next payment; each due date (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up; and the money received. <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note; a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
     <p>In <b>Financials</b> the year opens a list of her years, and Overview, Income, Expenses and Entries follow it. <b>Add entry</b> on Entries is an expense, or money received: that lists the sales with a balance, stud fees and waitlist fees still owed, and each opens where it's recorded, since income is worked out from them. <b>Accounts</b> (Business) are grouped by type, transport partners among them. An account holds its name, type and website; her login (private); a payment service's or marketplace's processing fee and whether the buyer pays it; a payment service's link and instructions; a referral link, code and instructions, shared with families or on her website; a form service's contract forms; whether she signs new e-sign templates; and this year's expenses paid to it, opening Entries filtered to them.</p>
+
+    <h3>Possible duplicates</h3>
+    <p>A hub with possible duplicates shows one row at the top ("2 dogs may be entered twice", "1 person and 1 kennel may be entered twice"): Dogs, People (people and kennels), Litters (litters and pairings), Sales and Financials (expenses). With none, there is no row. It opens <b>Possible duplicates</b> for just that kind, one card per pair: why they look the same (Very likely or Possible), the two side by side with differences highlighted, what's linked to each and where each came from. <b>Not the same</b> keeps both and stops asking. <b>Merge</b> asks which to keep (the one with more linked is suggested) and, where they disagree, which value wins; blanks fill from the other, everything linked moves over, and the other is deleted. Import / Export's Find duplicates lists every kind. The app works the counts out on this device after her data changes, never when a page opens and never sent anywhere, so the row is there from the first paint and costs the server nothing.</p>
 
     <h3>More: backups, import, sharing and Kels</h3>
     <p><b>Backup &amp; Restore</b> has two tabs, Back up and Restore, then where to: Cloud, This device or Dropbox. Cloud shows when it last backed up (it backs up by itself after changes) and Back up now. This device downloads a backup file and warns when the last one is over two weeks old. Restore lists the cloud backups (kept 30 days) or opens a file, then shows what's in it before anything changes: <b>Merge</b> adds what's new, and <b>Replace all</b> asks once more before it deletes. Dropbox asks to connect first.</p>
@@ -1323,7 +1334,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1627,7 +1638,7 @@ S.dogs = () => {
   else rows = list.map(tr).join('');
   return {
     bar: bar('Dogs', { ic: 'dog', action: addBtn('Add dog', 'adddog') }),
-    body: `<div class="chips" role="group" aria-label="Show">${chips}</div>
+    body: `${dupRow('dogs')}<div class="chips" role="group" aria-label="Show">${chips}</div>
       ${filterBar('dogs', { placeholder: 'Search by name', shown: list.length, total: base.length })}
       <div class="card tbl-wrap"><table class="list"><thead><tr><th>Call name</th><th>Sex</th><th>Status</th>${showDisp ? '<th>Disposition</th>' : ''}<th class="wide-only">Age</th><th class="wide-only">Registered name / litter</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="color:var(--muted)">No dogs match.</td></tr>'}</tbody></table></div>`,
     filterItems: base,
@@ -1757,7 +1768,7 @@ S.litters = () => {
       { ic: 'moon', tone: 'blue', t: 'Willow', s: 'Nursing until about Nov 20 · next heat ~Jan', extra: pill(['Resting', 'blue']), go: 'dog:willow' },
     ].map(row).join('')}</div></section>`;
   }
-  return { bar: bar('Litters', { ic: 'paw-print', action: ui.litTab === 'pairings' ? addBtn('Add pairing', 'addpairing') : addBtn('Add litter', 'addlitter') }), body: `<div class="chips">${chips}</div>${body}` };
+  return { bar: bar('Litters', { ic: 'paw-print', action: ui.litTab === 'pairings' ? addBtn('Add pairing', 'addpairing') : addBtn('Add litter', 'addlitter') }), body: `${ui.litTab !== 'active' ? dupRow('litters') : ''}<div class="chips">${chips}</div>${body}` };
 };
 
 const litterLedger = (l, kind) => LEDGER.filter((e) => e.kind === kind && e.on.includes(litterName(l)));
@@ -2066,7 +2077,7 @@ S.sales = () => {
   const shown = applyF('sales', SALES);
   return {
     bar: bar('Sales & Placements', { action: addBtn('Add sale', 'addsale') }),
-    body: `<div class="kpis"><div class="card kpi">${icon('tag')}<span>Sold this year</span><b>${SALES.length}</b></div><div class="card kpi">${icon('wallet')}<span>Balances due</span><b>${money(sum(SALES.map((s) => saleTotal(s) - s.paid)))}</b></div></div>
+    body: `${dupRow('sales')}<div class="kpis"><div class="card kpi">${icon('tag')}<span>Sold this year</span><b>${SALES.length}</b></div><div class="card kpi">${icon('wallet')}<span>Balances due</span><b>${money(sum(SALES.map((s) => saleTotal(s) - s.paid)))}</b></div></div>
       ${filterBar('sales', { placeholder: 'Search pups or families', shown: shown.length, total: SALES.length })}
       <section class="card"><div class="rows">${shown.map((s) => row({ t: `${s.pup} → ${fam(s.fam).n}`, extra: pill(saleState(s)), s: `Sold ${short(s.date)} · go-home ${s.gohome}`, end: `<span class="amt">${money(s.price)}</span>`, go: `dogsec:${s.pup.toLowerCase()}|sale` })).join('') || '<p class="lede" style="padding:12px 14px">No sales match.</p>'}</div></section>`,
   };
@@ -2079,7 +2090,7 @@ S.people = () => {
   const tone = { Client: 'green', Waitlist: 'blue', 'Care team': 'violet', Network: 'gray' };
   return {
     bar: bar('People', { action: addBtn('Add', 'addperson') }),
-    body: `<div class="chips">${tabs.map((k) => `<button type="button" class="chip" data-peopletab="${k}" aria-pressed="${ui.peopleTab === k}">${k === 'Client' ? 'Clients' : k}</button>`).join('')}</div>
+    body: `${dupRow('people')}<div class="chips">${tabs.map((k) => `<button type="button" class="chip" data-peopletab="${k}" aria-pressed="${ui.peopleTab === k}">${k === 'Client' ? 'Clients' : k}</button>`).join('')}</div>
       ${filterBar('people', { placeholder: 'Search people', shown: shown.length, total: base.length })}
       ${ui.peopleTab === 'Waitlist' && FEAT.waitlist ? `<section class="card"><div class="rows">${row({ ic: 'list-ordered', t: 'The waitlist', s: 'Turn order, picks and fees across families', go: 'waitlist' })}</div></section>` : ''}
       <section class="card"><div class="rows">${shown.map((p) => row({ ic: p.t === 'Care team' ? 'stethoscope' : p.t === 'Network' ? 'building-2' : 'user-round', tone: p.t === 'Waitlist' ? 'blue' : '', t: p.n, extra: pill([p.t, tone[p.t]]), s: p.s, go: `person:${p.id}` })).join('')}</div></section>
@@ -2120,7 +2131,7 @@ S.financials = () => {
   }
   return {
     bar: bar('Financials', { action: `<button type="button" class="bar-btn" data-open="finyear">Year: ${finYear()} ${icon('chevron-down')}</button>` }),
-    body: `<div class="chips">${tabs}</div>${body}`,
+    body: `${ui.finTab !== 'income' ? dupRow('expenses') : ''}<div class="chips">${tabs}</div>${body}`,
     after() { if (ui.finTab === 'overview') drawChart(INC, EXP); const t = $('#toggle-table'); if (t) t.onclick = () => { ui.chartTable = !ui.chartTable; render(); }; },
   };
 };
@@ -3922,6 +3933,80 @@ function acSave(id) {
   ui.formSpec = null; back(); toast(fresh ? 'Account added' : 'Saved');
 }
 
+/* ================= possible duplicates: one row on the hub that has them, one screen per kind =================
+   The app works the counts out on this device after her data changes (never on a page open, never
+   sent anywhere); a hub reads its count, so the row is there from the first paint or not at all. */
+const DUP_KINDS = { dogs: ['Dogs', 'dog', ['dog', 'dogs']], people: ['People and kennels', 'users'], litters: ['Litters and pairings', 'baby'], sales: ['Sales', 'tag', ['sale', 'sales']], expenses: ['Expenses', 'receipt', ['expense', 'expenses']] };
+const DUP_PAIRS = [
+  { id: 'dp1', kind: 'dogs', rec: ['dog', 'dogs'], certain: 1, why: 'Same registration number and registered name',
+    a: { n: 'Willow', go: 'dog:willow', links: '2 litters, 31 events, 3 documents', added: 'Added May 2021' },
+    b: { n: "Thornfield's Willow in the Wind", links: '1 event', added: 'From a pedigree import, Nov 12' },
+    f: [['Call name', 'Willow', ''], ['Registered name', "Thornfield's Willow in the Wind", "Thornfield's Willow in the Wind"], ['Registration', 'SR 0918 4471', 'SR 0918 4471'], ['Born', 'May 14, 2021', 'May 14, 2021'], ['Microchip', '985 112 004 913 271', ''], ['Color', 'Black', 'Black, white chest spot']] },
+  { id: 'dp2', kind: 'dogs', rec: ['dog', 'dogs'], why: 'Registered names nearly the same',
+    a: { n: 'Titan', go: 'dog:titan', links: '1 pairing, 1 litter', added: 'Added Oct 2026, for the Clover × Titan pairing' },
+    b: { n: 'Meadow Ridge Titan', links: 'Nothing yet', added: 'From Meadow Ridge’s dog card, Nov 3' },
+    f: [['Registered name', 'Meadow Ridge Titan of the Hill', 'Meadow Ridge Titan of the Hill'], ['Born', 'Nov 3, 2019', 'Nov 3, 2019'], ['Color', 'Chocolate', 'Chocolate'], ['Health tests', 'None', 'Hips Good, Elbows Normal, EIC Clear'], ['Owner', '', 'Meadow Ridge Kennels']] },
+  { id: 'dp3', kind: 'people', rec: ['person', 'people'], certain: 1, why: 'Same phone',
+    a: { n: 'Marsh family', go: 'person:marsh', links: 'A sale, an application, 6 messages', added: 'Applied Mar 30' },
+    b: { n: 'Jen Marsh', links: 'Nothing yet', added: 'Added Nov 9, from Add person' },
+    f: [['Name', 'Marsh family', 'Jen Marsh'], ['Phone', '(802) 555-0147', '(802) 555-0147'], ['Email', 'marshfam@example.com', 'jen.marsh@example.com'], ['Address', 'Lebanon, NH', '']] },
+  { id: 'dp4', kind: 'people', rec: ['kennel', 'kennels'], why: 'Names nearly the same',
+    a: { n: 'Briar Hollow Kennels', go: 'person:briar', links: 'A stud service, 2 dogs', added: 'Added Apr 2026' },
+    b: { n: 'Briar Hollow', links: '1 dog', added: 'From a CSV import, Nov 2' },
+    f: [['Name', 'Briar Hollow Kennels', 'Briar Hollow'], ['Town', 'Woodstock, VT', 'Woodstock, VT'], ['Contact', 'Dana Price', '']] },
+  { id: 'dp5', kind: 'litters', rec: ['pairing', 'pairings'], certain: 1, why: 'Same dam, sire and breeding date',
+    a: { n: 'Clover × Titan', go: 'litter:ct', links: 'A litter, 4 events', added: 'Added Oct 6' },
+    b: { n: 'Clover × Titan', links: 'Nothing yet', added: 'Added Oct 7, from Kels' },
+    f: [['Bred', 'Oct 6 and Oct 8', 'Oct 6'], ['Method', 'Chilled semen', 'Chilled semen'], ['Status', 'Confirmed', 'Planned']] },
+  { id: 'dp6', kind: 'expenses', rec: ['expense', 'expenses'], why: 'Same amount, date and who was paid',
+    a: { n: 'Progesterone test', go: 'ledger', links: 'Willow', added: 'Entered Jul 21' },
+    b: { n: 'Progesterone test', links: 'Willow', added: 'From a CSV import, Nov 2' },
+    f: [['Amount', '$65', '$65'], ['Date', 'Jul 21, 2026', 'Jul 21, 2026'], ['Paid to', 'Hartland Animal Hospital', 'Hartland Animal Hospital'], ['Category', 'Vet & reproduction', 'Vet & reproduction']] },
+];
+const dupLeft = (kind) => DUP_PAIRS.filter((p) => !(ui.dupGone ||= []).includes(p.id) && (!kind || kind === 'all' || p.kind === kind));
+/* "2 dogs may be entered twice", "1 person and 1 kennel may be entered twice" */
+const dupLine = (list) => { const by = {}; list.forEach((p) => { by[p.rec[0]] = (by[p.rec[0]] || 0) + 1; }); const parts = Object.entries(by).map(([w, n]) => `${n} ${n === 1 ? w : list.find((p) => p.rec[0] === w).rec[1]}`); return `${parts.join(' and ')} may be entered twice`; };
+/* the hub's row: only when there are some */
+const dupRow = (kind) => { const l = dupLeft(kind); return l.length ? attnCard([['copy', 'amber', dupLine(l), `dupes:${kind}`, l.length === 1 ? l[0].why : `${l[0].why} · and ${l.length - 1} more`]]) : ''; };
+
+S.dupes = (kind = 'all') => {
+  const list = dupLeft(kind), k = DUP_KINDS[kind];
+  const card = (p) => {
+    const merging = ui.dupMerge === p.id, keep = ui.dupKeep?.[p.id] || 'a', pick = (ui.dupPick ||= {});
+    const diff = (r) => r[1] && r[2] && r[1] !== r[2];
+    const td = (v, other) => (v ? `<span${other && other !== v ? ' class="dup-diff"' : ''}>${esc(v)}</span>` : '<span class="dup-none">Blank</span>');
+    const line = (l, x, y, plain) => `<div class="dup-f"><span class="dup-l">${l}</span>${plain ? `<span>${x}</span><span>${y}</span>` : td(x, y) + td(y, x)}</div>`;
+    const table = `<div class="dup-cmp"><div class="dup-f dup-h"><span>${p.a.go ? `<button type="button" class="link" data-open="${p.a.go}">${esc(p.a.n)}</button>` : esc(p.a.n)}</span><span>${esc(p.b.n)}</span></div>
+      ${p.f.map((r) => line(r[0], r[1], r[2])).join('')}${line('Linked', p.a.links, p.b.links, 1)}${line('Added', p.a.added, p.b.added, 1)}</div>`;
+    let foot;
+    if (!merging) foot = `<div class="actions-2"><button type="button" class="btn-2" data-dup="notsame|${p.id}">Not the same</button><button type="button" class="primary-btn" data-dup="merge|${p.id}">${icon('git-compare')}Merge</button></div>`;
+    else {
+      const kept = keep === 'a' ? p.a : p.b, gone = keep === 'a' ? p.b : p.a;
+      foot = `<div class="f-group" role="radiogroup" aria-label="Keep"><div class="group-label">Keep</div>${radioList([['a', p.a], ['b', p.b]].map(([v, r]) => ({ t: r.n, sub: `${r.links}${v === 'a' ? ' · suggested, more is linked to it' : ''}`, on: keep === v, attr: `data-dup="keep|${p.id}|${v}"` })))}</div>
+        ${p.f.filter(diff).map((r) => { const cur = pick[p.id + r[0]] ?? (keep === 'a' ? 1 : 2); return `<div class="f-group"><div class="group-label">${r[0]}</div><div class="chips wrap">${[1, 2].map((i) => `<button type="button" class="chip" data-dup="val|${p.id}|${esc(r[0])}|${i}" aria-pressed="${cur === i}">${esc(r[i])}</button>`).join('')}</div></div>`; }).join('')}
+        <p class="f-hint">Blanks are filled from the other. Everything linked to ${esc(gone.n)} moves to ${esc(kept.n)}, then ${esc(gone.n)} is deleted.</p>
+        <div class="actions-2"><button type="button" class="btn-2" data-dup="cancel|${p.id}">Cancel</button><button type="button" class="primary-btn" data-dup="do|${p.id}">${icon('check')}Merge</button></div>`;
+    }
+    return `<section class="card app-card"><div class="f-head"><h2>${icon(DUP_KINDS[p.kind][1])}${esc(p.a.n === p.b.n ? `${p.a.n} (twice)` : `${p.a.n} and ${p.b.n}`)}</h2>${pill(p.certain ? ['Very likely', 'amber'] : ['Possible', 'gray'])}</div>
+      <div class="form-stack"><p class="f-hint">${p.why}</p>${table}${foot}</div></section>`;
+  };
+  return {
+    bar: bar('Possible duplicates', { sub: k ? k[0] : 'Everything' }),
+    body: list.length ? `<p class="lede">Check each pair. Nothing is merged unless you choose Merge.</p>${list.map(card).join('')}`
+      : empty('circle-check', `No possible duplicates${k ? ` in ${k[0].toLowerCase()}` : ''}.`),
+  };
+};
+function dupAct(v) {
+  const [k, id, a, b] = v.split('|'), p = DUP_PAIRS.find((x) => x.id === id);
+  if (k === 'notsame') { ui.dupGone.push(id); render(); return toast('Kept both'); }
+  if (k === 'merge') { ui.dupMerge = id; ui.dupKeep = { ...(ui.dupKeep || {}), [id]: 'a' }; }
+  else if (k === 'cancel') ui.dupMerge = null;
+  else if (k === 'keep') { ui.dupKeep[id] = a; Object.keys(ui.dupPick || {}).forEach((x) => x.startsWith(id) && delete ui.dupPick[x]); }
+  else if (k === 'val') ui.dupPick[id + a] = Number(b);
+  else if (k === 'do') { const kept = ui.dupKeep[id] === 'b' ? p.b : p.a; ui.dupGone.push(id); ui.dupMerge = null; render(); return toast(`Merged into ${kept.n}`); }
+  render();
+}
+
 /* ================= More's screens: backup and restore, import / export, danger zone, sharing, storage, Kels ================= */
 /* her backups: cloud copies kept 30 days, the last file she saved on this device, Dropbox not connected */
 const BACKUP = { cloudOn: 1, cloudLast: `${TODAY}T06:12`, fileLast: '2026-11-02', dropbox: 0 };
@@ -3970,7 +4055,6 @@ S.backup = () => {
 };
 
 const IMPORTS = [['Kennels', 'house', 'Import these first'], ['People', 'users'], ['Dogs', 'dog'], ['Pairings', 'heart-handshake'], ['Litters', 'baby'], ['Sales', 'tag'], ['Events', 'calendar-days'], ['Stud services', 'git-fork', '', 'stud'], ['Expenses', 'receipt'], ['Waitlist applications', 'list-ordered', '', 'waitlist'], ['Health tests', 'test-tube']];
-const DUPES = [['dog', 'Two dogs: Willow and Thornfield Willow', 'Same registration number'], ['users', 'Two people: Marsh family and Jen Marsh', 'Same phone'], ['house', 'Two kennels: Briar Hollow and Briar Hollow Kennels', 'Names nearly the same']];
 S.impexp = () => {
   const list = IMPORTS.filter(([, , , f]) => !f || FEAT[f]);
   return {
@@ -3980,8 +4064,8 @@ S.impexp = () => {
         <div class="rows">${row({ ic: 'list-checks', tone: 'green', t: 'Several files at once', s: 'Imported in the right order for you', go: 'stub:import-several' })}
         ${list.map(([t, ic, s]) => row({ ic, t, s, go: 'stub:import-' + t.toLowerCase().replace(/ /g, '-') })).join('')}</div></section>
       ${formCard('Blank templates', `<p class="f-hint">The columns each import reads, ready to fill in.</p><div class="chips wrap">${list.map(([t]) => `<button type="button" class="chip" data-toast="Downloaded ${t.toLowerCase().replace(/ /g, '-')}.csv">${t}</button>`).join('')}</div>`)}
-      <section class="card"><div class="section-h"><h2>${icon('copy')}Duplicates</h2>${ui.dupScan ? `<span class="fcount">${DUPES.length} found</span>` : ''}</div>
-        ${ui.dupScan ? `<div class="rows">${DUPES.map(([ic, t, s]) => row({ ic, tone: 'amber', t, s, go: 'stub:duplicates' })).join('')}</div>`
+      <section class="card"><div class="section-h"><h2>${icon('copy')}Duplicates</h2>${ui.dupScan ? `<span class="fcount">${dupLeft('all').length} found</span>` : ''}</div>
+        ${ui.dupScan ? `<div class="rows">${Object.entries(DUP_KINDS).map(([k, [t, ic]]) => { const l = dupLeft(k); return l.length ? row({ ic, tone: 'amber', t, s: dupLine(l), go: `dupes:${k}` }) : ''; }).join('') || '<p class="lede" style="padding:4px 14px 12px">No possible duplicates.</p>'}</div>`
         : `<p class="lede" style="padding:0 14px">Finds dogs, people and kennels entered twice on this device.</p><div style="padding:0 14px 14px"><button type="button" class="btn-2" data-mo="scan">${icon('search')}Find duplicates</button></div>`}</section>
       <section class="card"><div class="rows">${row({ ic: 'save', t: 'Export everything', s: 'One backup file with every record', go: 'backup' })}</div></section>`,
   };
@@ -5098,10 +5182,11 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if (d.mo) return moAct(d.mo);
+  if (d.dup) return dupAct(d.dup);
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
   if (d.fc != null) {
     const [k, v, flag] = d.fc.split('|'), f = ui.form;

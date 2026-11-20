@@ -511,4 +511,18 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   (`extraChoices`) lists them under their base. The match is on name, group, unit, price,
   description, days and payment rules. A one-off is written when the sale is saved, so a sale
   she abandons leaves none (the prototype makes it at once).
+- **D24. Possible duplicates on the hubs (2026-11-20; drawn, for the owner's review).** The
+  owner: a hub with possible duplicates shows one row ("2 dogs may be entered twice") that opens
+  them for that kind of record; none, no row. Hubs: Dogs (dogs), People (contacts and kennels),
+  Litters (litters and pairings), Sales, Financials (expenses); the Waitlist keeps its own
+  applied-twice row. Events, documents and contracts stay in Import / Export's full check. The
+  screen: one card per pair, Not the same or Merge (keep which, which value wins), as
+  `recordMerge.js` does today. **Rules for the build:** the counts come from `duplicateScan.js`,
+  run on the device in the background a few seconds after a data change (and after a sync), one
+  table at a time; a hub reads the saved count, so nothing is scanned on a page open and the row
+  never appears after first paint (Load Performance Phase 1); a stale count shows no row until
+  the next visit. The saved counts are device-only: never `markDataChanged()`, never backed up or
+  synced, so they cause no Worker requests. Adding a record checks only that record against its
+  own table, using the same rules. Open: whether a certain match on an add form leads with **Use
+  the existing one**.
 
