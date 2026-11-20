@@ -208,6 +208,18 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   under who sees the results reads **Visible to others: normal only.** with **Change setting**.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: The prototype's copy, rewritten for a professional tone
+
+- The owner: copy should read like it's for business owners. Every hint, label, button,
+  empty state and confirmation drawn this session (`docs/design/forest-look-prototype.html`)
+  is rewritten short and plain: field labels ("Date of birth", "Disposition", "Referral
+  source", "Registration type"), statuses ("Position: #8", "Credited toward Poppy",
+  "Requested Nov 14. Position begins on receipt."), errors ("Name is required"),
+  confirmations ("Saved", "Pairing added"). Explanations of how things work are gone
+  (pedigree tips, where costs go, what a program is). Log a test's category is a chip choice.
+  D14 in the plan gains the tone rule.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

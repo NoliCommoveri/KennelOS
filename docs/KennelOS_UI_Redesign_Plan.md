@@ -303,3 +303,8 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
 - **D14. Short copy (2026-11-20).** The owner: hints and notes are a few plain words, like
   "Prefilled from the litter" and "Custom for this sale", not sentences that explain how
   things work. A line earns its place only if she'd otherwise get it wrong.
+  **Tone (same day):** written for business owners, in the register of professional
+  software: labels and statuses ("Status", "Position: #8", "Fee waived (Military)",
+  "Next pass removes them from the list."), errors as "Name is required", confirmations as
+  "Saved". No addressing her as "you" to explain, no "they"/"them" chattiness, no reassurance
+  ("they're told kindly"), no describing how the app works inside.

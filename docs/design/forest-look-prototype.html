@@ -1390,7 +1390,7 @@ S.person = (id) => {
   if (f) {
     t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
     if (!['applied', 'declined'].includes(f.st)) t.push([`personsec:${id}|offers`, 'list-ordered', 'Offers & passes', f.st === 'active' ? `#${f.pos} · ${passesUsed(f.id)} of ${SET.waitlist.passes} passes` : f.pup ? `Took ${f.pup}` : `${passesUsed(f.id)} passes`]);
-    t.push([`personsec:${id}|fee`, 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not asked for yet' : PROGRAMS.find((x) => x.n === f.program)?.fee === 'Waived' ? `Waived (${f.program})` : f.st === 'approved' ? `${SET.waitlist.fee} due` : `${SET.waitlist.fee} paid`]);
+    t.push([`personsec:${id}|fee`, 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested' : PROGRAMS.find((x) => x.n === f.program)?.fee === 'Waived' ? `Waived (${f.program})` : f.st === 'approved' ? `${SET.waitlist.fee} due` : `${SET.waitlist.fee} paid`]);
   }
   if (sale) {
     t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${saleState(sale)[0]}`]);
@@ -1531,7 +1531,7 @@ S.wlprograms = () => {
   return {
     bar: bar('Programs', { action: addBtn('New program', 'wlprogram:new') }),
     body: `<section class="card"><div class="rows">${list.map((p) => { const n = WL.filter((f) => f.program === p.n && ['active', 'approved', 'applied'].includes(f.st)).length; return row({ ic: p.ic, tone: p.tone, t: p.n, s: `${progLine(p)} · ${n ? `${n} famil${n === 1 ? 'y' : 'ies'}` : 'no families yet'}`, go: `wlprogram:${p.id}` }); }).join('')}</div></section>
-      <p class="lede">A program changes the rules for the families you put in it. Families never choose one.</p>`,
+`,
   };
 };
 
@@ -1722,7 +1722,7 @@ const usualOf = (k) => (k === 'male' || k === 'female') ? (SET.pricing.priceBy =
 function litPriceLine(l) {
   const v = (k) => l.prices?.[k] || usualOf(k);
   const own = Object.keys(l.prices || {}).length;
-  return `${v('male') === v('female') ? v('male') : `${v('male')} M · ${v('female')} F`} · ${v('deposit')} deposit${own ? '' : ' · your usual'}`;
+  return `${v('male') === v('female') ? v('male') : `${v('male')} M · ${v('female')} F`} · ${v('deposit')} deposit${own ? '' : ' · default'}`;
 }
 function lpRow(l, k, label, opts) {
   const key = `lp|${l.id}|${k}`, open = ui.qOpen === key, cur = l.prices?.[k], u = usualOf(k);
@@ -1730,8 +1730,8 @@ function lpRow(l, k, label, opts) {
   const add = ui.qOther === key
     ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${k === 'fullReg' ? '+$750' : k === 'deposit' ? '$400' : '$3,800'}" autocomplete="off" aria-label="${label}: add your own"></label><button type="button" class="fbtn" data-lpown="${key}">Add</button></div>`
     : `<button type="button" class="chip own" data-qother="${key}" aria-label="Add your own" title="Add your own">${icon('plus')}</button>`;
-  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${label}</span><span class="a">${cur ? esc(cur) : `${esc(u)}<small class="usual"> your usual</small>`}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>
-    ${open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Your usual · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
+  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${label}</span><span class="a">${cur ? esc(cur) : `${esc(u)}<small class="usual"> default</small>`}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>
+    ${open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Default · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
 }
 
 const LITTER_ATTN = { wa: [['car', '', 'Go-home weekend · Nov 21–22', 'littersec:wa|gohome'], ['stethoscope', 'red', 'Wren · vet recheck overdue', 'dog:wren']], ct: [['scan-line', 'blue', 'X-ray for puppy count · Mon Nov 23', 'littersec:ct|pregnancy']] };
@@ -1797,10 +1797,9 @@ S.littersec = (p) => {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
     const sold = SALES.filter((x) => DOGS.find((d) => d.name === x.pup)?.litter === l.id).length;
-    body = `<p class="lede">What this litter’s pups sell for. Each answer starts as your usual; pick another or add your own for this litter only.</p>
-      <section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
-      ${sold ? `<p class="f-hint">${sold} pup${sold === 1 ? ' is' : 's are'} already sold; ${sold === 1 ? 'that sale keeps its' : 'those sales keep their'} price. Change one on its sale.</p>` : ''}
-      <button type="button" class="set-link" data-open="pricing">${icon('settings')}Change your usual prices, for every litter</button>`;
+    body = `<section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
+      ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
+      <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button>`;
   } else {
     body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
   }
@@ -2056,7 +2055,7 @@ function remRow(a) {
   const open = ui.remOpen === a.id, b = remBucket(a);
   const tag = a.done ? pill([`Done ${short(a.done)}`, 'gray']) : b === 'overdue' ? pill(['Overdue', 'red']) : b === 'soon' ? pill([days(TODAY, a.due) <= 1 ? whenText(a) : `${days(TODAY, a.due)} days`, 'amber']) : '';
   let edit = '';
-  if (open && a.done) edit = `<div class="q-edit"><button type="button" class="chip" data-rem="undo|${a.id}">${icon('history')}Not done yet</button><button type="button" class="chip" data-open="${a.go}">Open ${esc(a.t.split(' · ')[0])}</button></div>`;
+  if (open && a.done) edit = `<div class="q-edit"><button type="button" class="chip" data-rem="undo|${a.id}">${icon('history')}Mark not done</button><button type="button" class="chip" data-open="${a.go}">Open ${esc(a.t.split(' · ')[0])}</button></div>`;
   else if (open) edit = `<div class="q-edit">
       <button type="button" class="chip go" data-rem="done|${a.id}">${icon('check')}Done</button>
       ${[[1, 'Tomorrow'], [3, '3 days'], [7, '1 week']].map(([n, l]) => `<button type="button" class="chip" data-rem="snooze|${a.id}|${n}">${l}</button>`).join('')}
@@ -2073,11 +2072,11 @@ S.reminders = () => {
   let body = `<div class="tabs" role="tablist">${[['pending', `To do`, pending], ['done', 'Done']].map(([k, l, n]) => `<button type="button" role="tab" data-remtab="${k}" aria-selected="${tab === k}">${l}${n ? ` <span class="tab-n">${n}</span>` : ''}</button>`).join('')}</div>
     ${filterBar('reminders', { placeholder: 'Search reminders', shown: shown.length, total: all.length })}`;
   if (tab === 'done') {
-    body += shown.length ? `<section class="card"><div class="rows">${shown.sort((a, b) => b.done.localeCompare(a.done)).map(remRow).join('')}</div></section><p class="lede">Done reminders stay on their dog's or litter's history.</p>` : empty('circle-check', 'Nothing marked done yet.');
+    body += shown.length ? `<section class="card"><div class="rows">${shown.sort((a, b) => b.done.localeCompare(a.done)).map(remRow).join('')}</div></section>` : empty('circle-check', 'No completed reminders.');
   } else {
     const groups = [['overdue', 'Overdue', 'circle-alert'], ['soon', 'Next 7 days', 'calendar-check'], ['later', 'Later', 'calendar-days']];
     body += groups.map(([k, l, ic]) => { const list = shown.filter((a) => remBucket(a) === k).sort((a, b) => a.due.localeCompare(b.due)); return list.length ? `<section class="card"><div class="section-h"><h2>${icon(ic)}${l}</h2><span class="fcount">${list.length}</span></div><div class="rows">${list.map(remRow).join('')}</div></section>` : ''; }).join('')
-      || empty('calendar-check', all.length ? 'No reminders match.' : 'Nothing to remind you of. Reminders come from events with a reminder date.');
+      || empty('calendar-check', all.length ? 'No reminders match.' : 'No open reminders.');
   }
   return { bar: bar('Reminders', { sub: `${pending} to do` }), body: body + `<button type="button" class="set-link" data-open="calendar">${icon('calendar-days')}See them on the calendar</button>`, filterItems: all };
 };
@@ -2090,7 +2089,7 @@ S.upcoming = () => {
   const wk = addDays(TODAY, 7 - ((new Date(TODAY + 'T12:00:00').getDay() + 6) % 7) - 1); /* Sunday that ends this week */
   const groups = [['This week', (a) => a.due <= wk], ['Next week', (a) => a.due > wk && a.due <= addDays(wk, 7)], ['Later', (a) => a.due > addDays(wk, 7)]];
   const body = groups.map(([l, test]) => { const list = shown.filter(test); return list.length ? `<div class="group-label">${l}</div><section class="card"><div class="rows">${list.map((a) => row({ ic: a.ic, tone: a.tone, t: a.t, s: `${wday(a.due)}${a.time ? ' · ' + a.time : ''} · ${a.s}`, go: a.go })).join('')}</div></section>` : ''; }).join('')
-    || empty('calendar-days', 'Nothing coming up matches.');
+    || empty('calendar-days', 'No matching items.');
   return { bar: bar('Coming up', { sub: 'From today on' }), body: `${filterBar('upcoming', { placeholder: 'Search coming up', shown: shown.length, total: all.length })}${body}<button type="button" class="set-link" data-open="calendar">${icon('calendar-days')}See it on the calendar</button>`, filterItems: all };
 };
 
@@ -2110,7 +2109,7 @@ S.calendar = () => {
   const dayItems = on(sel);
   const dayCard = `<section class="card"><div class="section-h"><h2>${fmt(sel, { weekday: 'long', month: 'short', day: 'numeric' })}</h2>${sel === TODAY ? pill(['Today', 'green']) : ''}</div>
     ${dayItems.length ? `<div class="rows">${dayItems.map((a) => row({ ic: a.ic, tone: a.tone, t: a.t, extra: a.done ? pill(['Done', 'gray']) : a.rem && a.due < TODAY ? pill(['Overdue', 'red']) : '', s: `${a.time ? a.time + ' · ' : ''}${a.kind} · ${a.s}`, go: a.go })).join('')}</div>
-      <div class="cal-foot"><button type="button" class="set-link" data-gcal="${sel}">${icon('calendar-days')}Add to Google Calendar</button></div>` : `<p class="lede cal-none">Nothing on this day.</p>`}</section>`;
+      <div class="cal-foot"><button type="button" class="set-link" data-gcal="${sel}">${icon('calendar-days')}Add to Google Calendar</button></div>` : `<p class="lede cal-none">No events.</p>`}</section>`;
   const mName = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   return {
     bar: bar('Calendar'),
@@ -2119,7 +2118,7 @@ S.calendar = () => {
         <div class="cal-grid">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => `<span class="cal-wd">${w}</span>`).join('')}${grid}</div>
       </section>
       <div class="cal-split">${dayCard}
-      <section class="card"><div class="rows">${row({ ic: 'calendar-check', t: 'Reminders', s: `${agenda().filter((a) => a.rem && !a.done).length} to do · ${agenda().filter((a) => a.rem && !a.done && a.due < TODAY).length} overdue`, go: 'reminders' })}${row({ ic: 'list', t: 'Coming up', s: 'Everything from today on, as a list', go: 'upcoming' })}${row({ ic: 'link', t: 'Calendar feed', s: 'See all of this in Google, Apple or Outlook calendar', go: 'setupsec:voice', planned: 2 })}</div></section></div>`,
+      <section class="card"><div class="rows">${row({ ic: 'calendar-check', t: 'Reminders', s: `${agenda().filter((a) => a.rem && !a.done).length} to do · ${agenda().filter((a) => a.rem && !a.done && a.due < TODAY).length} overdue`, go: 'reminders' })}${row({ ic: 'list', t: 'Coming up', s: 'List view', go: 'upcoming' })}${row({ ic: 'link', t: 'Calendar feed', s: 'Subscribe in Google, Apple or Outlook', go: 'setupsec:voice', planned: 2 })}</div></section></div>`,
   };
 };
 
@@ -2141,7 +2140,7 @@ S.notifications = () => {
   const card = (l, arr) => arr.length ? `<section class="card"><div class="section-h"><h2>${l}</h2>${l === 'New' ? `<span class="fcount">${arr.length}</span>` : ''}</div><div class="rows">${arr.map((n) => row({ ic: n.ic, tone: n.tone, t: n.t, s: `${n.s} · ${when(n)}`, go: n.go })).join('')}</div></section>` : '';
   return {
     bar: bar('Notifications'),
-    body: (list.length ? card('New', fresh) + card('Earlier', earlier) : empty('bell', 'Nothing yet. Applications, messages and requests from families show here.'))
+    body: (list.length ? card('New', fresh) + card('Earlier', earlier) : empty('bell', 'No notifications.'))
       + setLink('Change notification settings', 'setupsec:notifications'),
     after: () => { NOTES.forEach((n) => { n.fresh = 0; }); }, /* seen once opened; the bell's dot goes on the next screen */
   };
@@ -2158,11 +2157,11 @@ S.kennels = () => {
   return {
     bar: bar('Kennels', { action: addBtn('Add kennel', 'stub:add-kennel') }),
     body: `<div class="group-label">${own.length > 1 ? 'Your kennels' : 'Your kennel'}</div>
-      <section class="card big-rows"><div class="rows">${own.map((k) => `<button type="button" class="row" data-kennel="${esc(k.n)}"><span class="row-ic ${k.n === KENNEL ? 'green' : ''}">${icon(k.n === KENNEL ? 'check' : 'house')}</span><span class="row-main"><span class="row-t">${k.n}${k.n === KENNEL && own.length > 1 ? pill(['Working in this one', 'green']) : ''}</span><span class="row-s">${k.s}</span></span><span class="row-end">${k.n === KENNEL ? '' : '<span class="link">Switch</span>'}${chev}</span></button>`).join('')}</div></section>
-      ${FEAT.multiKennel ? '<p class="lede">Each kennel has its own dogs, litters, waitlist and money. Switching changes what every tab shows.</p>' : setLink('More than one kennel? Turn it on in What you use', 'setupsec:features')}
+      <section class="card big-rows"><div class="rows">${own.map((k) => `<button type="button" class="row" data-kennel="${esc(k.n)}"><span class="row-ic ${k.n === KENNEL ? 'green' : ''}">${icon(k.n === KENNEL ? 'check' : 'house')}</span><span class="row-main"><span class="row-t">${k.n}${k.n === KENNEL && own.length > 1 ? pill(['Active', 'green']) : ''}</span><span class="row-s">${k.s}</span></span><span class="row-end">${k.n === KENNEL ? '' : '<span class="link">Switch</span>'}${chev}</span></button>`).join('')}</div></section>
+      ${FEAT.multiKennel ? '' : setLink('Enable multiple kennels', 'setupsec:features')}
       <div class="group-label">Other kennels</div>
       <section class="card"><div class="rows">${row({ ic: 'building-2', t: 'Meadow Ridge Kennels', s: 'Titan · Concord, NH', go: 'person:meadow' })}${row({ ic: 'building-2', t: 'Briar Hollow Kennels', s: 'Duke, Cassius · stud client · Woodstock, VT', go: 'person:briar' })}</div></section>
-      <p class="lede">Kennels behind outside dogs and stud clients. Their people are in Business › People.</p>`,
+`,
   };
 };
 
@@ -2189,18 +2188,18 @@ const REGISTRIES = ['AKC', 'UKC', 'CKC', 'Not registered'];
 const OUTSIDE_KENNELS = ['Meadow Ridge Kennels', 'Briar Hollow Kennels'];
 const dogChoices = (sex, not) => [['', 'Not entered'], ...[...DOGS, ...ANCESTORS].filter((d) => d.sex === sex && d.id !== not).map((d) => [d.id, d.reg ? `${d.name} · ${d.reg}` : d.name])];
 const WHELPED = () => LITTERS.filter((l) => l.whelp);
-const KINDS = [['puppy', 'A puppy you bred'], ['breeding', 'Your breeding dog'], ['outside', 'An outside dog'], ['other', 'A pet or retired dog']];
+const KINDS = [['puppy', 'Puppy (bred here)'], ['breeding', 'Breeding dog'], ['outside', 'External dog'], ['other', 'Pet / retired']];
 const KIND_STATUS = { puppy: 'puppy', breeding: 'active_breeding', outside: 'external_reference', other: 'pet_home' };
 
 /* the parts of a dog's form; Add shows the first two and opens the rest on request */
 function dogWho(d) {
   const f = ui.form;
   return formCard('Who', `
-    ${fIn('name', 'Call name', { req: 1, ph: 'What you call her or him' })}
-    ${fIn('reg', 'Registered name', { ph: f.status === 'puppy' ? 'Can wait until the papers come' : '' })}
+    ${fIn('name', 'Call name', { req: 1 })}
+    ${fIn('reg', 'Registered name')}
     ${fChips('sex', 'Sex', [['f', 'Female'], ['m', 'Male']])}
-    <div class="dates">${fIn('born', 'Born', { type: 'date' })}${d ? fIn('died', 'Died', { type: 'date' }) : ''}</div>
-    ${fChips('estimated', '', [['1', 'The birth date is a guess']], { toggle: 1 })}
+    <div class="dates">${fIn('born', 'Date of birth', { type: 'date' })}${d ? fIn('died', 'Date of death', { type: 'date' }) : ''}</div>
+    ${fChips('estimated', '', [['1', 'Estimated DOB']], { toggle: 1 })}
     ${fSel('color', 'Color', ['', ...COLORS.filter((c) => c.kind === 'color').map((c) => c.n)].map((c) => [c, c || 'Not set']), { add: 'Add a color' })}
     ${f.color === '__add' ? `<div class="fbar-top"><label><input id="d-newcolor" placeholder="New color name" autocomplete="off"></label><button type="button" class="fbtn" data-dcolor>Add</button></div>` : ''}
     ${fSel('breed', 'Breed', BREEDS)}`);
@@ -2209,10 +2208,9 @@ function dogFamily(d) {
   const f = ui.form, lit = f.status === 'puppy' ? WHELPED().find((l) => l.id === f.litter) : null;
   return formCard('Parents', `
     ${f.status === 'puppy' ? fSel('litter', 'Litter', [['', 'Not from a litter here'], ...WHELPED().map((l) => [l.id, `${litterName(l)} · ${fmt(l.whelp)}`])]) : ''}
-    ${lit ? `<p class="f-note">${icon('info')}<span>Sire, dam and birth date come from the litter.</span></p>` : `
+    ${lit ? `<p class="f-note">${icon('info')}<span>Sire, dam and DOB from litter.</span></p>` : `
     ${fSel('sire', 'Sire', dogChoices('m', d && d.id))}
-    ${fSel('dam', 'Dam', dogChoices('f', d && d.id))}
-    <p class="f-hint">Parents not on the list are added as dogs too, from the pedigree.</p>`}`);
+    ${fSel('dam', 'Dam', dogChoices('f', d && d.id))}`}`);
 }
 function dogPapers() {
   const f = ui.form;
@@ -2220,17 +2218,17 @@ function dogPapers() {
     ${fChips('registry', 'Registry', REGISTRIES, { own: 1 })}
     ${f.registry && f.registry !== 'Not registered' ? fIn('regno', 'Registration number') : ''}
     ${fIn('chip', 'Microchip', { ph: '15 digits', type: 'text' })}
-    ${fChips('imported', 'Imported from another country?', [['no', 'No'], ['yes', 'Yes']])}
-    ${f.imported === 'yes' ? fIn('country', 'Country it came from') : ''}`);
+    ${fChips('imported', 'Imported', [['no', 'No'], ['yes', 'Yes']])}
+    ${f.imported === 'yes' ? fIn('country', 'Country of origin') : ''}`);
 }
 function dogProgram(d) {
   const f = ui.form, own = f.status !== 'external_reference';
   return formCard('In your program', `
     ${d ? fChips('status', 'Status', Object.entries(STATUS).map(([k, [l]]) => [k, l])) : ''}
-    ${f.status === 'puppy' ? fChips('disp', 'Plan for this puppy', Object.entries(DISP).map(([k, [l]]) => [k, l])) : ''}
+    ${f.status === 'puppy' ? fChips('disp', 'Disposition', Object.entries(DISP).map(([k, [l]]) => [k, l])) : ''}
     ${own ? fChips('ownership', 'Ownership', ['Owned', 'Co-owned', 'Leased', 'Guardian home']) : fSel('kennel', 'Kennel', [['', 'Not set'], ...OUTSIDE_KENNELS], { add: 'Add a kennel' })}
-    ${own && f.ownership && f.ownership !== 'Owned' ? fIn('coowners', f.ownership === 'Guardian home' ? 'Guardian family' : 'Co-owners', { ph: 'Pick from People' }) : ''}
-    ${own ? fIn('lives', 'Lives with', { ph: 'Here, unless she lives somewhere else' }) : fIn('owner', 'Owner', { ph: 'Pick from People' })}`);
+    ${own && f.ownership && f.ownership !== 'Owned' ? fIn('coowners', f.ownership === 'Guardian home' ? 'Guardian family' : 'Co-owners', { ph: 'Select a contact' }) : ''}
+    ${own ? fIn('lives', 'Lives with', { ph: 'On site' }) : fIn('owner', 'Owner', { ph: 'Select a contact' })}`);
 }
 function dogOnline() {
   return FEAT.waitlistOnline && ['puppy', 'active_breeding'].includes(ui.form.status) ? formCard('Online', `
@@ -2247,14 +2245,14 @@ S.adddog = (p) => {
   const [mode, child, psex] = (p || '').split('|');
   const f = formFor('adddog:' + (p || ''), () => dogInit(null, mode === 'parent' ? { kind: 'outside', status: 'external_reference', sex: psex } : {}));
   let body = '';
-  if (mode === 'parent') body += `<div class="stub-note">${icon('git-fork')}<span>Adding ${pedName(child)}’s ${psex === 'm' ? 'sire' : 'dam'}. A dog that’s only in the pedigree is fine: fill in what you know.</span></div>`;
-  else body += `<section class="card app-card">${fChips('kind', 'What kind of dog?', KINDS)}</section>`;
+  if (mode === 'parent') body += `<div class="stub-note">${icon('git-fork')}<span>${psex === 'm' ? 'Sire' : 'Dam'} of ${pedName(child)}</span></div>`;
+  else body += `<section class="card app-card">${fChips('kind', 'Type', KINDS)}</section>`;
   if (f.kind) {
     body += f.kind === 'puppy' ? dogFamily(null) + dogWho(null) : dogWho(null) + dogFamily(null);
-    body += f.more ? dogPapers() + dogProgram(null) : `<button type="button" class="set-link more-link" data-fc="more|1">${icon('plus')}Papers, ownership${f.status === 'external_reference' ? ' and kennel' : ''}</button>`;
-    if (f._dup) body += `<div class="stub-note warn">${icon('triangle-alert')}<span>You already have a dog called ${esc(f._dup.name)}. <button type="button" class="link" data-open="dog:${f._dup.id}">Open ${esc(f._dup.name)}</button> or save this one anyway.</span></div>`;
+    body += f.more ? dogPapers() + dogProgram(null) : `<button type="button" class="set-link more-link" data-fc="more|1">${icon('plus')}More fields</button>`;
+    if (f._dup) body += `<div class="stub-note warn">${icon('triangle-alert')}<span>A dog named ${esc(f._dup.name)} already exists. <button type="button" class="link" data-open="dog:${f._dup.id}">View</button></span></div>`;
     body += saveBar(`data-dsave="new|${esc(p || '')}"`, f._dup ? 'Save anyway' : 'Save dog');
-  } else body += '<p class="lede">That decides which questions come first. You can change any answer later.</p>';
+  }
   return { bar: bar(mode === 'parent' ? `Add ${psex === 'm' ? 'sire' : 'dam'}` : 'Add dog'), body };
 };
 S.editdog = (id) => {
@@ -2263,7 +2261,7 @@ S.editdog = (id) => {
   return {
     bar: bar('Edit', { sub: d.name }),
     body: `${dogWho(d)}${dogFamily(d)}${dogPapers()}${dogProgram(d)}${dogOnline()}${saveBar(`data-dsave="${d.id}"`)}
-      <section class="card big-rows danger"><div class="rows"><button type="button" class="row" data-archive="${d.id}"><span class="row-ic">${icon('folder')}</span><span class="row-main"><span class="row-t">Archive ${d.name}</span><span class="row-s">Hidden from lists, kept in pedigrees and history. You can bring ${d.sex === 'm' ? 'him' : 'her'} back.</span></span><span class="row-end">${chev}</span></button></div></section>`,
+      <section class="card big-rows danger"><div class="rows"><button type="button" class="row" data-archive="${d.id}"><span class="row-ic">${icon('folder')}</span><span class="row-main"><span class="row-t">Archive ${d.name}</span><span class="row-s">Hidden from lists; kept in pedigrees</span></span><span class="row-end">${chev}</span></button></div></section>`,
   };
 };
 
@@ -2303,10 +2301,10 @@ S.addevent = (p) => {
   if (!f.type) {
     const cats = uniq(EV_TYPES.filter(fits).map((t) => t[4]));
     const tchip = (t) => `<button type="button" class="type-chip" data-fc="type|${t[0]}"><span class="row-ic ${t[3]}">${icon(t[2])}</span>${t[1]}</button>`;
-    const tests = kind === 'dog' ? `<section class="card"><div class="rows">${row({ ic: 'shield-check', tone: 'blue', t: 'Health test', s: 'OFA, PennHIP, DNA, eyes, heart: logged with its result', go: `logtest:${id}` })}</div></section>` : `<section class="card"><div class="rows">${row({ ic: 'scale', t: 'Weigh puppies', s: 'Every puppy’s weight in one go', go: `littersec:${id}|weigh` })}</div></section>`;
+    const tests = kind === 'dog' ? `<section class="card"><div class="rows">${row({ ic: 'shield-check', tone: 'blue', t: 'Health test', s: 'OFA, PennHIP, DNA, eyes, cardiac', go: `logtest:${id}` })}</div></section>` : `<section class="card"><div class="rows">${row({ ic: 'scale', t: 'Weigh puppies', s: 'All puppies at once', go: `littersec:${id}|weigh` })}</div></section>`;
     return {
       bar: bar('Add event', { sub: subj }),
-      body: `<section class="card app-card"><div class="group-label">You add these most</div><div class="type-grid">${EV_USED.map(evType).filter(fits).map(tchip).join('')}</div></section>${tests}
+      body: `<section class="card app-card"><div class="group-label">Frequent</div><div class="type-grid">${EV_USED.map(evType).filter(fits).map(tchip).join('')}</div></section>${tests}
         ${cats.map((c) => `<section class="card app-card"><div class="group-label">${c}</div><div class="type-grid">${EV_TYPES.filter((t) => t[4] === c && fits(t)).map(tchip).join('')}</div></section>`).join('')}`,
     };
   }
@@ -2323,9 +2321,9 @@ S.addevent = (p) => {
     bar: bar(t[1], { sub: subj }),
     body: `<button type="button" class="type-now" data-fc="type|">${`<span class="row-ic ${t[3]}">${icon(t[2])}</span>`}<span>${t[1]}</span><span class="link">Change</span></button>
       ${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div>${q}${fText('notes', 'Notes')}`)}
-      <section class="card app-card">${fChips('remind', 'Remind me', vacc ? [['vacc', `When it’s due again (${f.good === '1 year' ? 'in a year' : 'in 3 years'})`], ...REMIND] : REMIND)}
+      <section class="card app-card">${fChips('remind', 'Remind me', vacc ? [['vacc', `At expiry (${f.good === '1 year' ? '1 yr' : '3 yr'})`], ...REMIND] : REMIND)}
         ${f.remind === 'pick' ? `<div class="dates">${fIn('remindOn', 'On', { type: 'date' })}</div>` : ''}
-        ${f.remind ? '<p class="f-hint">It shows in Reminders and on Home that week.</p>' : ''}</section>
+</section>
       ${saveBar(`data-evsave="${esc(p || 'dog|willow')}"`)}`,
   };
 };
@@ -2343,15 +2341,15 @@ S.logtest = (id) => {
   const names = uniq([...todo, ...PREF_TESTS.filter((n) => !done.includes(n))]);
   return {
     bar: bar('Log a test', { sub: d.name }),
-    body: `${todo.length ? `<div class="stub-note">${icon('calendar-clock')}<span>Still to do for ${d.name}: ${todo.join(', ')}.</span></div>` : ''}
+    body: `${todo.length ? `<div class="stub-note">${icon('calendar-clock')}<span>Outstanding: ${todo.join(', ')}</span></div>` : ''}
       <section class="card app-card">${fChips('name', 'Test', names, { own: 1 })}
-        ${f.name ? `<p class="f-hint">Filed as ${TEST_KIND[kind]}. ${['ofa', 'dna', 'other'].filter((k) => k !== kind).map((k) => `<button type="button" class="link" data-fc="kind|${k}">${TEST_KIND[k]}</button>`).join(' or ')} instead?</p>` : ''}</section>
+        ${f.name ? `${fChips('kind', 'Category', Object.entries(TEST_KIND).map(([k, l]) => [k, l]))}` : ''}</section>
       ${f.name ? `${formCard('Result', `${fChips('result', '', RESULTS[kind], { own: 1 })}
         ${fChips('outcome', 'Normal or abnormal?', [['Normal', 'Normal'], ['Abnormal', 'Abnormal']])}`)}
       ${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div>
         ${fIn('lab', kind === 'dna' ? 'Lab' : 'Vet or clinic', { ph: kind === 'dna' ? 'Embark, Wisdom, Paw Print…' : 'Hartland Animal Hospital' })}
         ${fIn('cert', 'Certificate number')}
-        <button type="button" class="btn-2" data-toast="Opens your camera or files. The certificate goes into Storage › Documents.">${icon('file-text')}Add the certificate</button>`)}
+        <button type="button" class="btn-2" data-toast="Choose a file or take a photo">${icon('file-text')}Add the certificate</button>`)}
       ${FEAT.waitlistOnline && d.status !== 'puppy' ? `<section class="card app-card">${fChips('online', `${d.name}’s results on family pages`, [['', 'Follow your setting'], ['normal', 'Normal results only'], ['all', 'All results']])}<p class="f-hint">Visible to others: ${SET.waitlist.tests === 'Normal results only' ? 'normal only' : 'all results'}. <button type="button" class="link" data-open="setupsec:waitlist">Change setting</button></p></section>` : ''}
       ${saveBar(`data-tsave="${d.id}"`)}` : ''}`,
   };
@@ -2375,8 +2373,7 @@ S.pedigree = (id) => {
     body: `<section class="card hub-head"><div class="hub-pills">${sex(PED[d].sex)}<b class="ped-root">${pedName(d)}</b>${dog ? '' : pill(['Pedigree only', 'gray'])}</div><div class="hub-line">${known} of ${total} ancestors entered in ${gens} generations</div>
         <div class="chips">${[3, 4, 5].map((n) => `<button type="button" class="chip" data-pedgen="${n}" aria-pressed="${gens === n}">${n} generations</button>`).join('')}</div></section>
       <div class="card ped-wrap"><div class="ped" style="--gens:${gens}">${cols.map((c, g) => `<div class="ped-gh">${['Parents', 'Grandparents', 'Great-grand', '3× great', '4× great'][g]}</div>`).join('')}${cols.map((c) => `<div class="ped-col">${c.map(node).join('')}</div>`).join('')}</div></div>
-      <p class="f-hint">Tap a dog to see its own pedigree. + adds a missing parent.</p>
-      <section class="card"><div class="rows">${dog ? row({ ic: 'dog', t: `Open ${dog.name}`, s: 'Back to the dog', go: `dog:${d}` }) : ''}${dog ? row({ ic: 'users', t: 'Relatives', s: 'How every dog in your program is related to this one', go: `dogsec:${d}|relatives` }) : ''}${row({ ic: 'arrow-down-up', t: 'Import pedigrees', s: 'From a file or another breeder’s dog card', go: 'stub:import-export' })}</div></section>`,
+      <section class="card"><div class="rows">${dog ? row({ ic: 'dog', t: `Open ${dog.name}`, s: 'Dog record', go: `dog:${d}` }) : ''}${dog ? row({ ic: 'users', t: 'Relatives', s: 'Relationships across your program', go: `dogsec:${d}|relatives` }) : ''}${row({ ic: 'arrow-down-up', t: 'Import pedigrees', s: 'From a file or dog card', go: 'stub:import-export' })}</div></section>`,
   };
 };
 
@@ -2386,16 +2383,15 @@ S.dogcard = (id) => {
   const how = ui.cardHow || 'link';
   return {
     bar: bar('Dog card', { sub: d.name }),
-    body: `<section class="card"><div class="rows">${row({ ic: 'send', tone: 'green', t: `Sent to ${x.card ? x.card.replace('Sent to ', '') : 'nobody yet'}`, s: x.card ? `Oct 2 · ${d.name} and ${anc.length} ancestors · they added it` : 'Send it to a breeder you co-own with', go: x.card ? 'person:briar' : '' })}</div></section>
-      <section class="card app-card"><div class="f-head"><h2>What goes on it</h2></div>
+    body: `<section class="card"><div class="rows">${row({ ic: 'send', tone: 'green', t: `Sent to ${x.card ? x.card.replace('Sent to ', '') : 'nobody yet'}`, s: x.card ? `Oct 2 · ${d.name} + ${anc.length} ancestors · imported` : 'Not sent', go: x.card ? 'person:briar' : '' })}</div></section>
+      <section class="card app-card"><div class="f-head"><h2>Included</h2></div>
         <ul class="ticks">${[`${d.name}: names, registration, color, born`, `Parents and grandparents (${anc.length})`, `Health tests (${x.tests.length})`, 'Titles'].map((t) => `<li>${icon('check')}${t}</li>`).join('')}</ul>
-        <div class="group-label">Never on a card</div><p class="f-hint">Your notes, contacts, sales and money, litters, heats and plans.</p></section>
-      <section class="card app-card"><div class="f-head"><h2>${x.card ? 'Send again' : 'Send'}</h2><span>${x.card ? 'Their copy updates; nothing is duplicated' : ''}</span></div>
-        <div class="chips">${[['link', 'As a link'], ['code', 'As a code'], ['file', 'As a file']].map(([k, l]) => `<button type="button" class="chip" data-cardhow="${k}" aria-pressed="${how === k}">${l}</button>`).join('')}</div>
-        <p class="f-hint">${how === 'link' ? 'A link you text or email. It opens in their KennelOS.' : how === 'code' ? 'A code they paste into Add dogs from a card.' : 'A file to email or share. Works offline.'}</p>
-        <button type="button" class="primary-btn" data-toast="${how === 'link' ? 'Link copied. Paste it in a text or email.' : how === 'code' ? 'Code copied.' : 'File saved: ' + d.name + '-dog-card.kos'}">${icon('send')}${how === 'link' ? 'Copy the link' : how === 'code' ? 'Copy the code' : 'Save the file'}</button></section>
-      <div class="plan-box planned">${icon('bell-ring')}<span>Live updates: new tests and titles reach their copy by themselves</span>${planTag(7)}</div>
-      ${setLink('All dog cards, sent and received, are in More › Sharing', 'stub:sharing')}`,
+        <div class="group-label">Not included</div><p class="f-hint">Notes, contacts, financials, litters, heat records, plans</p></section>
+      <section class="card app-card"><div class="f-head"><h2>${x.card ? 'Send again' : 'Send'}</h2><span>${x.card ? 'Updates the recipient’s copy' : ''}</span></div>
+        <div class="chips">${[['link', 'Link'], ['code', 'Code'], ['file', 'File']].map(([k, l]) => `<button type="button" class="chip" data-cardhow="${k}" aria-pressed="${how === k}">${l}</button>`).join('')}</div>
+        <button type="button" class="primary-btn" data-toast="${how === 'file' ? 'Downloaded' : 'Copied'}">${icon('send')}${how === 'link' ? 'Copy link' : how === 'code' ? 'Copy code' : 'Download file'}</button></section>
+      <div class="plan-box planned">${icon('bell-ring')}<span>Live updates: new tests and titles sync automatically</span>${planTag(7)}</div>
+      ${setLink('All dog cards', 'stub:sharing')}`,
   };
 };
 
@@ -2423,15 +2419,15 @@ S.addpairing = (p) => {
     bar: bar('Add pairing'),
     body: `${formCard('Who', `${fSel('dam', 'Dam', dogOpts('f', 'Pick her'))}${fSel('sire', 'Sire', dogOpts('m', 'Pick him'))}`)}
       ${pairPeek(f.sire, f.dam)}
-      <section class="card app-card">${fChips('status', 'Where it is', ['Planned', 'Bred', 'Confirmed pregnant'])}</section>
+      <section class="card app-card">${fChips('status', 'Status', ['Planned', 'Bred', 'Confirmed pregnant'])}</section>
       ${f.status === 'Planned'
-        ? formCard('When', `${heat ? fChips('d', '', [[heat.due, `Her next heat, about ${wday(heat.due)}`]], { toggle: 1 }) : ''}<div class="dates">${fIn('d', 'Planned for', { type: 'date' })}</div>
-            ${fChips('method', 'How', METHODS)}`)
+        ? formCard('When', `${heat ? fChips('d', '', [[heat.due, `Next heat (est. ${short(heat.due)})`]], { toggle: 1 }) : ''}<div class="dates">${fIn('d', 'Planned for', { type: 'date' })}</div>
+            ${fChips('method', 'Method', METHODS)}`)
         : formCard('Breeding', `<div class="dates">${fIn('d', 'First breeding', { type: 'date' })}${fIn('d2', 'Again on', { type: 'date' })}</div>
-            ${fChips('method', 'How', METHODS)}
-            ${due ? `<p class="f-note">${icon('baby')}<span>Due about <b>${wday(due)}</b>, 63 days from the first breeding.</span></p>` : '<p class="f-hint">The due date follows from the first breeding.</p>'}`)}
-      ${FEAT.waitlistOnline ? `<section class="card app-card">${fChips('web', 'Show on your website as an upcoming litter', [['yes', 'Yes'], ['no', 'Not yet']])}</section>` : ''}
-      ${formCard('', fText('notes', 'Notes', 'Why this pair, what you hope for'))}
+            ${fChips('method', 'Method', METHODS)}
+            ${due ? `<p class="f-note">${icon('baby')}<span>Est. due date: <b>${wday(due)}</b></span></p>` : ''}`)}
+      ${FEAT.waitlistOnline ? `<section class="card app-card">${fChips('web', 'List on website as upcoming litter', [['yes', 'Yes'], ['no', 'Not yet']])}</section>` : ''}
+      ${formCard('', fText('notes', 'Notes'))}
       ${saveBar('data-pairsave="1"')}`,
   };
 };
@@ -2444,23 +2440,22 @@ S.addlitter = () => {
   const usual = `${SET.pricing.priceBy === 'Same for both sexes' ? SET.pricing.pet : `${SET.pricing.male} male · ${SET.pricing.female} female`} · ${SET.pricing.deposit} deposit`;
   return {
     bar: bar('Add litter'),
-    body: `<section class="card app-card">${fChips('from', 'From which pairing?', [...open.map((q) => [`${q.dam}~${q.sire}`, `${q.dam} × ${q.sire}`]), ['none', 'Not planned here']])}
+    body: `<section class="card app-card">${fChips('from', 'Pairing', [...open.map((q) => [`${q.dam}~${q.sire}`, `${q.dam} × ${q.sire}`]), ['none', 'None on record']])}
         ${pairing ? `<p class="f-hint">${pairing.status[0]} · ${pairing.s}</p>` : ''}</section>
       ${f.from === 'none' ? formCard('Parents', `${fSel('dam', 'Dam', dogOpts('f', 'Pick her'))}${fSel('sire', 'Sire', dogOpts('m', 'Pick him'))}`) + pairPeek(f.sire, f.dam) : ''}
-      <section class="card app-card">${fChips('born', 'Born yet?', [['expected', 'Not yet'], ['born', 'Yes, they’re here']])}</section>
+      <section class="card app-card">${fChips('born', 'Status', [['expected', 'Expected'], ['born', 'Whelped']])}</section>
       ${f.born === 'expected'
-        ? formCard('Expected', `<div class="dates">${fIn('bred', 'Bred on', { type: 'date' })}${fIn('d', 'Due', { type: 'date' })}</div><p class="f-hint">Leave Due empty and it’s 63 days from Bred on.</p>`)
-        : formCard('Born', `<div class="dates">${fIn('d', 'Whelped', { type: 'date' })}</div>
-            <div class="dates">${fIn('m', 'Males born alive', { type: 'number' })}${fIn('fem', 'Females born alive', { type: 'number' })}${fIn('lost', 'Born not alive', { type: 'number' })}</div>
-            ${fChips('delivery', 'Delivery', ['Natural', 'C-section, planned', 'C-section, emergency'])}
-            <p class="f-hint">Record each pup (time, weight, color) in Births afterwards; the counts follow.</p>`)}
+        ? formCard('Expected', `<div class="dates">${fIn('bred', 'Breeding date', { type: 'date' })}${fIn('d', 'Due', { type: 'date' })}</div><p class="f-hint">Due defaults to breeding date + 63 days.</p>`)
+        : formCard('Whelping', `<div class="dates">${fIn('d', 'Whelp date', { type: 'date' })}</div>
+            <div class="dates">${fIn('m', 'Males (live)', { type: 'number' })}${fIn('fem', 'Females (live)', { type: 'number' })}${fIn('lost', 'Stillborn', { type: 'number' })}</div>
+            ${fChips('delivery', 'Delivery', ['Natural', 'C-section, planned', 'C-section, emergency'])}`)}
       <section class="card app-card"><div class="f-head"><h2>Prices</h2></div>
-        ${fChips('prices', '', [['usual', `Your usual: ${usual}`], ['own', 'Different for this litter']])}
+        ${fChips('prices', '', [['usual', `Default: ${usual}`], ['own', 'Custom']])}
         ${f.prices === 'own' ? `<div class="dates">${fIn('pm', 'Male price ($)', { type: 'number' })}${fIn('pf', 'Female price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>` : ''}
-        <button type="button" class="set-link" data-open="pricing">${icon('settings')}Change your usual prices</button></section>
-      ${FEAT.waitlist ? `<section class="card app-card">${fChips('wl', 'Offer it to your waitlist', [['yes', 'Yes'], ['no', 'Not this one']])}<p class="f-hint">Picks open ${SET.waitlist.openPicks.toLowerCase()} (Setup › Waitlist).</p></section>` : ''}
-      ${FEAT.foster ? `<section class="card app-card">${fChips('foster', 'Whelped under a foster arrangement?', [['no', 'No'], ['yes', 'Yes']])}</section>` : ''}
-      ${formCard('', `${fIn('nick', 'Nickname', { ph: 'The Autumn litter' })}${fText('notes', 'Notes')}`)}
+        <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button></section>
+      ${FEAT.waitlist ? `<section class="card app-card">${fChips('wl', 'Offer to waitlist', [['yes', 'Yes'], ['no', 'No']])}<p class="f-hint">Picks open: ${SET.waitlist.openPicks.toLowerCase()}. <button type="button" class="link" data-open="setupsec:waitlist">Change setting</button></p></section>` : ''}
+      ${FEAT.foster ? `<section class="card app-card">${fChips('foster', 'Foster litter', [['no', 'No'], ['yes', 'Yes']])}</section>` : ''}
+      ${formCard('', `${fIn('nick', 'Nickname', {})}${fText('notes', 'Notes')}`)}
       ${saveBar('data-litsave="1"', 'Save litter')}`,
   };
 };
@@ -2477,12 +2472,12 @@ S.addexpense = (p) => {
   return {
     bar: bar('Add expense', { sub: subj || 'Kennel' }),
     body: `${formCard('', `<label class="amt-in">Amount<span><b>$</b><input data-fv="amt" type="number" inputmode="decimal" step="0.01" value="${fv('amt')}" placeholder="0.00"></span></label>
-        ${fIn('what', 'What for', { ph: 'Puppy food, microchips, x-ray…', req: 1 })}
+        ${fIn('what', 'Description', { req: 1 })}
         <div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>`)}
       <section class="card app-card">${fChips('cat', 'Category', EXP_CATS, { own: 1 })}</section>
       <section class="card app-card">${fChips('party', 'Paid to', vendors, { own: 1 })}</section>
-      <section class="card app-card">${fChips('on', 'Count it toward', forOpts, { multi: 1 })}<p class="f-hint">Pick more than one to share it; it shows on each one’s Expenses.</p></section>
-      ${formCard('Receipt', `${fIn('rcpt', 'Receipt number')}<button type="button" class="btn-2" data-toast="Opens your camera or files. The receipt is kept with this expense.">${icon('receipt')}Add a photo of the receipt</button>${fText('notes', 'Notes')}`)}
+      <section class="card app-card">${fChips('on', 'Applies to', forOpts, { multi: 1 })}</section>
+      ${formCard('Receipt', `${fIn('rcpt', 'Receipt number')}<button type="button" class="btn-2" data-toast="Choose a file or take a photo">${icon('receipt')}Attach receipt</button>${fText('notes', 'Notes')}`)}
       ${saveBar(`data-expsave="${esc(p || '')}"`)}`,
   };
 };
@@ -2546,25 +2541,25 @@ PSEC.offers = (f) => {
   const prog = PROGRAMS.find((p) => p.n === f.program);
   const holds = OFFER.open && OFFER.fam === f.id;
   const side = SALES.find((s) => s.fam === f.id && s.side);
-  const tRow = (t) => { const [l, tone, ic] = turnOut(t); return `<div class="row static"><span class="row-ic ${tone}">${icon(ic)}</span><span class="row-main"><span class="row-t">${t.lit}${pill([l, tone])}${t.counts ? pill(['Counted as a pass', 'gray']) : ''}</span><span class="row-s">Offered ${short(t.on)} · answer by ${short(t.by)}${t.reason ? ` · “${esc(t.reason)}”` : ''}</span></span></div>`; };
+  const tRow = (t) => { const [l, tone, ic] = turnOut(t); return `<div class="row static"><span class="row-ic ${tone}">${icon(ic)}</span><span class="row-main"><span class="row-t">${t.lit}${pill([l, tone])}${t.counts ? pill(['Counted', 'gray']) : ''}</span><span class="row-s">Offered ${short(t.on)} · answer by ${short(t.by)}${t.reason ? ` · “${esc(t.reason)}”` : ''}</span></span></div>`; };
   const act = (key, ic, t, s, inner, tone = '') => `<div class="rem${ui.pAct === key ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${ui.pAct === key}"><span class="row-ic ${tone}">${icon(ic)}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><span class="row-end"><span class="chev">${icon(ui.pAct === key ? 'chevron-up' : 'chevron-down')}</span></span></button>${ui.pAct === key ? `<div class="q-edit">${inner}</div>` : ''}</div>`;
   let body = '';
   if (on) body += `<section class="card hub-head"><div class="place">${placeFor(f).map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}<div><b>${used} of ${max}</b><span>passes used</span></div></div>
       <div class="hub-line">In line since ${fmt(f.joined)}${prog ? ` · ${prog.n}: ${prog.passes === 'No' ? 'passes aren’t held against them' : prog.priority === 'Ahead of standard' ? 'ahead of standard families' : ''}` : ''}</div>
-      ${used ? `<div class="hub-line">${used + 1 >= max ? 'One more pass takes them off the list.' : 'They keep their place after a pass.'}</div>` : ''}</section>`;
+      ${used ? `<div class="hub-line">${used + 1 >= max ? 'Next pass removes them from the list.' : ''}</div>` : ''}</section>`;
   if (holds) body += attnCard([['clock', 'amber', `Their turn: ${DOGS.find((d) => d.id === OFFER.pup).name}, answer by ${wday(OFFER.due)}`, 'wloffer']]);
   if (side) body += attnCard([['arrow-left-right', 'blue', `Side sale: ${side.pup}, deposit due ${wday(side.due)}`, `dogsec:${side.pup.toLowerCase()}|sale`]]);
-  body += `<div class="group-label">Turns</div>` + (turns.length ? `<section class="card"><div class="rows">${turns.map(tRow).join('')}</div></section>` : `<section class="card"><p class="lede pad">No turns yet.${on ? ` They’re next after ${activeFams().filter((x) => x.pos < f.pos).length} famil${activeFams().filter((x) => x.pos < f.pos).length === 1 ? 'y' : 'ies'} for a pup that fits.` : ''}</p></section>`);
+  body += `<div class="group-label">Turns</div>` + (turns.length ? `<section class="card"><div class="rows">${turns.map(tRow).join('')}</div></section>` : `<section class="card"><p class="lede pad">No offers yet.${on ? ` ${activeFams().filter((x) => x.pos < f.pos).length} ahead.` : ''}</p></section>`);
   if (on) {
     const turnFam = OFFER.open ? fam(OFFER.fam) : null;
     body += `<div class="group-label">Do something</div><section class="card"><div class="rows">
-      ${holds ? '' : act('offer', 'list-ordered', 'Offer them a turn now', 'Out of order, on a litter with pups open', turnFam ? `<p class="f-hint">The ${turnFam.n} holds the turn on Willow × Ash until ${wday(OFFER.due)}. You can offer the next turn out of order after that, or sell a pup outside the turn order now.</p><button type="button" class="chip" data-open="sidesale:${f.id}">${icon('arrow-left-right')}Sell a pup outside the turn order</button>` : `<button type="button" class="chip go" data-toast="Turn offered on Willow × Ash. The ${f.n} is emailed the pups that fit them.">Willow × Ash</button>`, 'amber')}
-      ${holds ? '' : row({ ic: 'arrow-left-right', tone: 'blue', t: 'Sell them a pup outside the turn order', s: 'A side sale. To them it’s their pick', go: `sidesale:${f.id}` })}
-      ${act('move', 'move', 'Move their place', `Now #${f.pos} of ${activeFams().length}`, `<div class="fbar-top"><label>#<input id="pa-pos" type="number" min="1" max="${activeFams().length}" value="${f.pos}" aria-label="New place"></label><button type="button" class="fbtn" data-pdo="move|${f.id}">Move</button></div><p class="f-hint">Everyone between shifts by one. Logged in their History.</p>`)}
-      ${act('pause', 'clock', f.paused ? `Paused until ${f.paused}` : 'Pause their place', f.paused ? 'They keep their place; no turns until then' : 'They keep their place; no turns until the date', f.paused ? `<button type="button" class="chip go" data-pdo="unpause|${f.id}">End the pause now</button>` : `<div class="fbar-top"><label>Until<input id="pa-until" type="date" min="${TODAY}" value="${addDays(TODAY, 60)}"></label><button type="button" class="fbtn" data-pdo="pause|${f.id}">Pause</button></div>`)}
-      ${act('off', 'x', 'Take them off the list', 'They withdrew, or you’re removing them', `<button type="button" class="chip" data-pdo="withdrew|${f.id}">They withdrew</button><button type="button" class="chip" data-pdo="removed|${f.id}">You’re removing them</button><p class="f-hint">Either can be undone for 7 days. They’re told kindly, in your words.</p>`, 'red')}
+      ${holds ? '' : act('offer', 'list-ordered', 'Offer a turn', 'Out of order', turnFam ? `<p class="f-hint">${turnFam.n} holds the current turn (Willow × Ash) until ${short(OFFER.due)}.</p><button type="button" class="chip" data-open="sidesale:${f.id}">${icon('arrow-left-right')}Side sale</button>` : `<button type="button" class="chip go" data-toast="Offer sent">Willow × Ash</button>`, 'amber')}
+      ${holds ? '' : row({ ic: 'arrow-left-right', tone: 'blue', t: 'Side sale', s: 'Outside the turn order', go: `sidesale:${f.id}` })}
+      ${act('move', 'move', 'Change position', `#${f.pos} of ${activeFams().length}`, `<div class="fbar-top"><label>#<input id="pa-pos" type="number" min="1" max="${activeFams().length}" value="${f.pos}" aria-label="New place"></label><button type="button" class="fbtn" data-pdo="move|${f.id}">Move</button></div>`)}
+      ${act('pause', 'clock', f.paused ? `Paused until ${f.paused}` : 'Pause', f.paused ? 'Position held' : 'Position held; no offers until end date', f.paused ? `<button type="button" class="chip go" data-pdo="unpause|${f.id}">End pause</button>` : `<div class="fbar-top"><label>Until<input id="pa-until" type="date" min="${TODAY}" value="${addDays(TODAY, 60)}"></label><button type="button" class="fbtn" data-pdo="pause|${f.id}">Pause</button></div>`)}
+      ${act('off', 'x', 'Remove from list', 'Withdrawn or removed', `<button type="button" class="chip" data-pdo="withdrew|${f.id}">Withdrawn</button><button type="button" class="chip" data-pdo="removed|${f.id}">Removed</button><p class="f-hint">Undo available for 7 days.</p>`, 'red')}
     </div></section>`;
-  } else if (['removed', 'withdrawn'].includes(f.st)) body += `<section class="card"><div class="rows">${row({ ic: 'history', t: 'Put them back in line', s: 'In their old place. Their passes stay as they were', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-pdo="restore|${f.id}"`)}</div></section>`;
+  } else if (['removed', 'withdrawn'].includes(f.st)) body += `<section class="card"><div class="rows">${row({ ic: 'history', t: 'Restore to list', s: 'Original position', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-pdo="restore|${f.id}"`)}</div></section>`;
   return { title: 'Offers & passes', body };
 };
 PSEC.fee = (f) => {
@@ -2574,41 +2569,41 @@ PSEC.fee = (f) => {
   const credit = SET.waitlist.feeCredit === 'Counts toward the price';
   let state;
   if (waived) state = [`Waived (${prog.n})`, 'violet'];
-  else if (f.st === 'applied') state = ['Not asked for yet', 'gray'];
+  else if (f.st === 'applied') state = ['Not requested', 'gray'];
   else if (f.st === 'approved') state = [`Due ${wday(f.feeDue)}`, 'amber'];
   else state = ['Paid', 'green'];
   const sale = SALES.find((s) => s.fam === f.id);
   let body = `<section class="card hub-head"><div class="hub-pills"><b class="big-amt">${waived ? '$0' : SET.waitlist.fee}</b>${pill(state)}</div>
-      <div class="hub-line">${f.st === 'applied' ? 'Asked for when you approve their application.' : waived ? 'Their program waives it. They joined the list when you approved them.' : f.st === 'approved' ? `Asked for when you approved them on ${short(f.joined)}. Their place starts when it’s in.` : `Paid ${ledger ? fmt(ledger.d) : fmt(f.joined)}${ledger ? ' · Venmo' : ''}. Their place counts from that day.`}</div>
-      ${!waived && f.st !== 'applied' ? `<div class="hub-line">${credit ? (sale ? `Counted toward ${sale.pup}’s price.` : 'Counts toward their puppy’s price.') : 'Kept as a fee; not part of the price.'}</div>` : ''}</section>`;
+      <div class="hub-line">${f.st === 'applied' ? 'Requested on approval' : waived ? 'Position assigned on approval' : f.st === 'approved' ? `Requested ${short(f.joined)}. Position begins on receipt.` : `Received ${ledger ? fmt(ledger.d) : fmt(f.joined)}${ledger ? ' · Venmo' : ''}`}</div>
+      ${!waived && f.st !== 'applied' ? `<div class="hub-line">${credit ? (sale ? `Credited toward ${sale.pup}` : 'Credited toward purchase price') : 'Not credited toward purchase price'}</div>` : ''}</section>`;
   if (f.st === 'approved' && !waived) {
     const fm = formFor('fee:' + f.id, () => ({ how: 'Venmo', d: TODAY }));
-    body += `<section class="card app-card"><div class="f-head"><h2>Mark it received</h2></div>${fChips('how', 'How they paid', ['Venmo', 'Zelle', 'Cash', 'Check', 'Card online'], { own: 1 })}<div class="form-stack"><div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('ref', 'Reference', { ph: 'Check number, note' })}</div></div>
-      <p class="f-hint">They join the list at #${activeFams().length + 1}, the end, and you’ll see which litters they’re next for.</p>
+    body += `<section class="card app-card"><div class="f-head"><h2>Record payment</h2></div>${fChips('how', 'Method', ['Venmo', 'Zelle', 'Cash', 'Check', 'Card online'], { own: 1 })}<div class="form-stack"><div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('ref', 'Reference', { ph: 'Check number, note' })}</div></div>
+      <p class="f-hint">Position on receipt: #${activeFams().length + 1}</p>
       <button type="button" class="primary-btn" data-pdo="fee|${f.id}">${icon('check')}Fee received</button></section>`;
   }
   body += `<section class="card"><div class="rows">
-      ${!waived && f.st !== 'applied' && f.st !== 'approved' ? row({ ic: 'receipt', t: 'Fee receipt', s: 'PDF, the one they were emailed', go: '', end: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Opens the fee receipt as a PDF"`) : ''}
-      ${row({ ic: 'hand-coins', t: 'Money they paid you some other way', s: 'A credit, used toward the fee, deposit, then the price', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Adds a credit: amount, date, how they paid"`)}
-    </div></section>${setLink(`Your fee and its rules are in Setup › Waitlist`, 'setupsec:waitlist')}`;
+      ${!waived && f.st !== 'applied' && f.st !== 'approved' ? row({ ic: 'receipt', t: 'Fee receipt', s: 'PDF', go: '', end: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Opens the fee receipt as a PDF"`) : ''}
+      ${row({ ic: 'hand-coins', t: 'Add credit', s: 'Applied to fee, deposit, then balance', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Add credit: amount, date, method"`)}
+    </div></section>${setLink('Fee settings', 'setupsec:waitlist')}`;
   return { title: 'Fee', body };
 };
 PSEC.messages = (f, id) => {
   if (!f) return null;
   const list = msgsOf(f), d = DETAILS[id] || {};
   const item = (m) => m.kind === 'email'
-    ? `<div class="msg-sys${m.failed ? ' failed' : ''}">${icon(m.failed ? 'triangle-alert' : 'mail')}<span>${esc(m.t)} · ${short(m.at)}${m.failed ? ' · <b>didn’t send</b>' : ''}</span>${m.failed ? `<button type="button" class="link" data-toast="Sent again to ${esc(d.email || 'their email')}">Send again</button>` : ''}</div>`
-    : `<div class="msg ${m.kind}"><div class="msg-b">${esc(m.body)}</div><div class="msg-at">${m.kind === 'them' ? 'From their status page' : 'You'} · ${short(m.at)}</div></div>`;
+    ? `<div class="msg-sys${m.failed ? ' failed' : ''}">${icon(m.failed ? 'triangle-alert' : 'mail')}<span>${esc(m.t)} · ${short(m.at)}${m.failed ? ' · <b>failed</b>' : ''}</span>${m.failed ? `<button type="button" class="link" data-toast="Resent">Resend</button>` : ''}</div>`
+    : `<div class="msg ${m.kind}"><div class="msg-b">${esc(m.body)}</div><div class="msg-at">${m.kind === 'them' ? 'Via status page' : 'You'} · ${short(m.at)}</div></div>`;
   const fm = formFor('msg:' + id, () => ({ tpl: '', body: '' }));
-  const TPL = { 'Pickup details': `Hi! Pickup is ${GOHOME.find((g) => g.fam === f.id)?.when || 'on go-home weekend'}. Bring a collar, leash and a towel.`, 'A reminder': 'Just a reminder that your answer is due soon on your status page.', 'Just a note': '' };
+  const TPL = { 'Pickup details': `Pickup: ${GOHOME.find((g) => g.fam === f.id)?.when || 'go-home weekend'}. Please bring a collar, leash and crate.`, 'Response reminder': 'Your response is due soon. Please reply on your status page.', 'Blank': '' };
   return {
     title: 'Messages',
     body: `<section class="card thread">${list.map(item).join('')}</section>
-      <section class="card app-card"><div class="f-head"><h2>Write to them</h2><span>They answer on their status page</span></div>
+      <section class="card app-card"><div class="f-head"><h2>New message</h2><span>Replies arrive via their status page</span></div>
         ${fChips('tpl', '', Object.keys(TPL))}
-        <div class="form-stack"><label>Message<textarea data-fv="body" rows="3" placeholder="Say it in your own words">${esc(fm.body || TPL[fm.tpl] || '')}</textarea></label></div>
-        <div class="actions-2"><button type="button" class="btn-2" data-toast="Copied. Paste it into Messenger or a text.">${icon('copy')}Copy for a text</button><button type="button" class="primary-btn" data-pdo="send|${id}">${icon('send')}Email it</button></div>
-        <p class="f-hint">Goes to ${d.email ? esc(d.email) : 'their email'}. <button type="button" class="link" data-open="personedit:${id}">Change their email</button></p></section>`,
+        <div class="form-stack"><label>Message<textarea data-fv="body" rows="3">${esc(fm.body || TPL[fm.tpl] || '')}</textarea></label></div>
+        <div class="actions-2"><button type="button" class="btn-2" data-toast="Copied">${icon('copy')}Copy text</button><button type="button" class="primary-btn" data-pdo="send|${id}">${icon('send')}Send email</button></div>
+        <p class="f-hint">To: ${d.email ? esc(d.email) : 'no email on file'} · <button type="button" class="link" data-open="personedit:${id}">Edit</button></p></section>`,
   };
 };
 PSEC.status = (f, id) => {
@@ -2618,21 +2613,21 @@ PSEC.status = (f, id) => {
     : holds ? ['It’s your turn!', `Cedar is available to you · answer by ${wday(OFFER.due)}`]
     : f.st === 'active' ? [`#${f.pos} on the list`, `Passes used: ${passesUsed(f.id)} of ${SET.waitlist.passes} · Clover × Titan, due Dec 8: ${f.listen && !f.listen.includes('Clover') ? 'not a match for you' : 'a match for you'}`]
     : f.st === 'approved' ? ['You’re approved', `Pay the ${SET.waitlist.fee} fee by ${wday(f.feeDue)} to join the list`]
-    : f.st === 'applied' ? ['Application received', 'Waiting for the breeder’s review'] : [WL_ST[f.st][0], ''];
-  const can = f.st === 'placed' ? ['Message you', 'Ask for a different pickup time', 'Ask for their Companion link']
-    : f.st === 'active' ? ['Take or pass a turn', 'Change what they’re looking for (you approve)', 'Ask to pause', 'Leave the list', 'Message you'] : ['Answer your questions', 'Message you'];
+    : f.st === 'applied' ? ['Application received', 'Under review'] : [WL_ST[f.st][0], ''];
+  const can = f.st === 'placed' ? ['Send messages', 'Request pickup changes', 'Request Companion link']
+    : f.st === 'active' ? ['Accept or pass offers', 'Update preferences (requires approval)', 'Request a pause', 'Withdraw', 'Send messages'] : ['Answer application questions', 'Send messages'];
   return {
     title: 'Status page',
-    body: `<div class="group-label">What they see now</div>
+    body: `<div class="group-label">Current view</div>
       <section class="card status-prev"><div class="sp-top">Thornfield Kennels</div><div class="sp-body"><b>${theySee[0]}</b><span>${theySee[1]}</span></div></section>
       <section class="card"><div class="rows">
         <div class="row static"><span class="row-ic">${icon('eye')}</span><span class="row-main"><span class="row-t">Last opened</span><span class="row-s">${SEEN[f.id] || 'Never'}</span></span></div>
-        <div class="row static"><span class="row-ic">${icon('mail')}</span><span class="row-main"><span class="row-t">Sign-in codes go to</span><span class="row-s">${d.email ? esc(d.email) : 'No email yet'} · <button type="button" class="link" data-open="personedit:${id}">Change</button></span></span></div>
+        <div class="row static"><span class="row-ic">${icon('mail')}</span><span class="row-main"><span class="row-t">Sign-in email</span><span class="row-s">${d.email ? esc(d.email) : 'None on file'} · <button type="button" class="link" data-open="personedit:${id}">Edit</button></span></span></div>
       </div></section>
-      <section class="card app-card"><div class="group-label">On it they can</div><ul class="ticks">${can.map((t) => `<li>${icon('check')}${t}</li>`).join('')}</ul></section>
-      <div class="actions-2"><button type="button" class="btn-2" data-toast="Link copied. Send it by text or Messenger.">${icon('copy')}Copy their link</button><button type="button" class="primary-btn" data-toast="Opens their page as they see it. Buttons work there, but nothing is sent.">${icon('eye')}See it as they do</button></div>
-      <button type="button" class="set-link" data-toast="A new link is emailed to them; the old one stops working.">${icon('link')}Their link was shared by mistake? Make a new one</button>
-      ${setLink('What family pages show is in Setup › Website & family pages', 'setupsec:website')}`,
+      <section class="card app-card"><div class="group-label">Available actions</div><ul class="ticks">${can.map((t) => `<li>${icon('check')}${t}</li>`).join('')}</ul></section>
+      <div class="actions-2"><button type="button" class="btn-2" data-toast="Copied">${icon('copy')}Copy link</button><button type="button" class="primary-btn" data-toast="Preview: actions are not sent">${icon('eye')}Preview</button></div>
+      <button type="button" class="set-link" data-toast="New link sent; previous link disabled">${icon('link')}Reset link</button>
+      ${setLink('Family page settings', 'setupsec:website')}`,
   };
 };
 PSEC.history = (f, id) => {
@@ -2640,7 +2635,7 @@ PSEC.history = (f, id) => {
   const E = (d, type, t, body = '') => evs.push({ d, type, t, body, i: evs.length });
   if (f) {
     E(f.joined, ['Applied', 'violet', 'inbox'], `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`, f.from ? `Heard about you: ${esc(f.from)}` : '');
-    if (!['applied', 'declined'].includes(f.st)) E(f.joined, ['Approved', 'green', 'check'], f.program ? `You approved them · ${f.program}` : 'You approved them', f.st === 'approved' ? `${SET.waitlist.fee} fee asked for` : '');
+    if (!['applied', 'declined'].includes(f.st)) E(f.joined, ['Approved', 'green', 'check'], f.program ? `Approved · ${f.program}` : 'Approved', f.st === 'approved' ? `${SET.waitlist.fee} fee asked for` : '');
     const fee = LEDGER.find((e) => e.cat === 'Waitlist fees' && e.party === f.n);
     if (fee) E(fee.d, ['Fee', 'green', 'wallet'], `${money(fee.amt)} received`, `Joined the list`);
     turnsOf(f.id).forEach((t) => { const [l, tone] = turnOut(t); E(t.on, ['Turn', tone, 'list-ordered'], `${t.lit}: ${l.toLowerCase()}`, t.reason ? `“${esc(t.reason)}”` : ''); });
@@ -2649,13 +2644,13 @@ PSEC.history = (f, id) => {
   }
   LEDGER.filter((e) => e.party === p.n && e.cat !== 'Waitlist fees').forEach((e) => E(e.d, [e.kind === 'in' ? 'Payment' : 'Paid them', e.kind === 'in' ? 'green' : 'gray', 'wallet'], `${money(e.amt)} · ${e.what}`, e.on.join(', ')));
   evs.sort((a, b) => b.d.localeCompare(a.d) || b.i - a.i);
-  return { title: 'History', body: evs.length ? timeline(evs) : empty('history', `Nothing recorded with ${p.n} yet.`) };
+  return { title: 'History', body: evs.length ? timeline(evs) : empty('history', 'No history.') };
 };
 
 /* add a family by hand (someone who phoned, a returning client): who first, and if
    she already knows them, it's that person, never a second one */
 const PURPOSES = ['Pet', 'Performance', 'Show', 'Breeding', 'Co-own'];
-const READY = ['As soon as possible', 'Within a month', 'In 3 months', '6 months or more'];
+const READY = ['ASAP', '1 month', '3 months', '6+ months'];
 function knownMatch(fm) {
   const q = (s) => String(s || '').trim().toLowerCase(), digits = (s) => String(s || '').replace(/\D/g, '');
   const n = q(fm.name).replace(/ family$/, ''), em = q(fm.email), ph = digits(fm.phone);
@@ -2669,17 +2664,17 @@ S.addfamily = () => {
   const prog = PROGRAMS.find((x) => x.id === fm.prog);
   const at = fm.fee === 'paid' || (prog && prog.fee === 'Waived') ? (prog && prog.priority === 'Ahead of standard' ? Math.max(0, ...activeFams().filter((x) => x.program === prog.n).map((x) => x.pos)) + 1 : activeFams().length + 1) : null;
   let body = '';
-  if (fm.pick) body += `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${esc(m.p.n)}</b>${pill([m.p.t, 'gray'])}</div>${m.d.email ? `<div class="hub-line">${icon('mail')}${esc(m.d.email)}</div>` : ''}${m.d.phone ? `<div class="hub-line">${icon('phone')}${esc(m.d.phone)}</div>` : ''}${mf && mf.pup ? `<div class="hub-line">Back for another puppy. ${esc(mf.pup)} stays on their page.</div>` : ''}<button type="button" class="set-link" data-fc="pick|">${icon('arrow-left-right')}Someone else</button></section>`;
-  else body += formCard('Who', `${fIn('name', 'Name', { ph: 'The Rivera family', req: 1 })}${fIn('email', 'Email', { type: 'email', ph: 'For offers and their status page' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Town or address')}`)
-    + (m ? `<div class="stub-note ${onList ? 'warn' : ''}">${icon(onList ? 'triangle-alert' : 'user-round')}<span>${onList ? `The ${esc(m.p.n.replace(/ family$/, ''))} family is already ${mf.st === 'active' ? `#${mf.pos} on your list` : 'waiting on you'}. <button type="button" class="link" data-open="person:${m.p.id}">Open their page</button>` : `Is this the ${esc(m.p.n)}? ${esc(m.p.s)}. <button type="button" class="link" data-fc="pick|${m.p.id}">Yes, it’s them</button> · <button type="button" class="link" data-fc="who|new">No, someone new</button>`}</span></div>` : '');
-  if (!onList) body += `<section class="card app-card">${fChips('wants', 'They want', [['female', 'A female'], ['male', 'A male'], ['any', 'Either']])}${fChips('use', 'For', PURPOSES, { multi: 1 })}${fChips('ready', 'Ready', READY)}</section>
-      <section class="card app-card">${fChips('listen', 'Which litters', [['all', 'Any litter'], ['some', 'Only some dams or sires']])}
-        ${fm.listen === 'some' ? `<p class="f-hint">Pick the dams and sires they’re waiting for, as many as they like.</p><div class="form-stack">${fSel('ldam', 'Dam', [['', 'Any dam'], ...ownDogs('f').filter((x) => x.status === 'active_breeding').map((x) => [x.id, x.name])])}${fSel('lsire', 'Sire', [['', 'Any sire'], ...ownDogs('m').map((x) => [x.id, x.name])])}</div>` : ''}</section>
+  if (fm.pick) body += `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${esc(m.p.n)}</b>${pill([m.p.t, 'gray'])}</div>${m.d.email ? `<div class="hub-line">${icon('mail')}${esc(m.d.email)}</div>` : ''}${m.d.phone ? `<div class="hub-line">${icon('phone')}${esc(m.d.phone)}</div>` : ''}${mf && mf.pup ? `<div class="hub-line">Previous purchase: ${esc(mf.pup)}</div>` : ''}<button type="button" class="set-link" data-fc="pick|">${icon('arrow-left-right')}Change contact</button></section>`;
+  else body += formCard('Contact', `${fIn('name', 'Name', { req: 1 })}${fIn('email', 'Email', { type: 'email' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Address')}`)
+    + (m ? `<div class="stub-note ${onList ? 'warn' : ''}">${icon(onList ? 'triangle-alert' : 'user-round')}<span>${onList ? `${esc(m.p.n)} is already on the waitlist${mf.st === 'active' ? ` (#${mf.pos})` : ''}. <button type="button" class="link" data-open="person:${m.p.id}">View</button>` : `Possible match: ${esc(m.p.n)} (${esc(m.p.t.toLowerCase())}). <button type="button" class="link" data-fc="pick|${m.p.id}">Use this contact</button> · <button type="button" class="link" data-fc="who|new">Create new</button>`}</span></div>` : '');
+  if (!onList) body += `<section class="card app-card">${fChips('wants', 'Sex', [['female', 'Female'], ['male', 'Male'], ['any', 'Either']])}${fChips('use', 'Purpose', PURPOSES, { multi: 1 })}${fChips('ready', 'Timing', READY)}</section>
+      <section class="card app-card">${fChips('listen', 'Litters', [['all', 'Any'], ['some', 'Specific dams or sires']])}
+        ${fm.listen === 'some' ? `<div class="form-stack">${fSel('ldam', 'Dam', [['', 'Any dam'], ...ownDogs('f').filter((x) => x.status === 'active_breeding').map((x) => [x.id, x.name])])}${fSel('lsire', 'Sire', [['', 'Any sire'], ...ownDogs('m').map((x) => [x.id, x.name])])}</div>` : ''}</section>
       <section class="card app-card">${fChips('prog', 'Program', [['', 'None'], ...PROGRAMS.map((x) => [x.id, x.n])])}
-        ${prog && prog.fee === 'Waived' ? `<p class="f-hint">${prog.n} waives the fee.</p>` : fChips('fee', `The ${SET.waitlist.fee} fee`, [['paid', 'They’ve paid it'], ['due', `Ask for it (due in ${SET.waitlist.feeDays})`]])}
-        <p class="f-hint">${at ? `They’ll be #${at} on the list${prog && prog.priority === 'Ahead of standard' ? `, ahead of standard families` : ', at the end'}.` : 'They join the list when the fee is in.'}</p></section>
-      ${formCard('', `${fIn('from', 'How they heard about you', { ph: 'A friend, Facebook, a show' })}${fText('notes', 'Your notes', 'Only you see these')}`)}
-      ${saveBar('data-famsave="1"', fm.pick && mf ? 'Add them back to the list' : 'Add to the list')}`;
+        ${prog && prog.fee === 'Waived' ? `<p class="f-hint">Fee waived (${prog.n})</p>` : fChips('fee', `Fee (${SET.waitlist.fee})`, [['paid', 'Paid'], ['due', `Request (due in ${SET.waitlist.feeDays})`]])}
+        <p class="f-hint">${at ? `Position: #${at}${prog && prog.priority === 'Ahead of standard' ? ' (priority)' : ''}` : 'Position assigned on payment'}</p></section>
+      ${formCard('', `${fIn('from', 'Referral source')}${fText('notes', 'Notes')}`)}
+      ${saveBar('data-famsave="1"', 'Add to waitlist')}`;
   return { bar: bar('Add family'), body };
 };
 
@@ -2690,11 +2685,11 @@ S.sidesale = (fid) => {
   const p = fm.pup && DOGS.find((d) => d.id === fm.pup);
   const notes = [];
   if (f && p) {
-    if (p.disp !== 'available') notes.push(['info', `${p.name} is ${DISP[p.disp][0].toLowerCase()}. Held for the ${f.n} until the deposit is in.`]);
-    if (f.wants !== 'any' && (f.wants === 'male') !== (p.sex === 'm')) notes.push(['info', `They asked for a ${f.wants}; ${p.name} is ${p.sex === 'm' ? 'male' : 'female'}.`, 'match']);
-    if (f.listen) notes.push(['info', `They’re waiting for ${f.listen} only.`]);
-    if (f.paused) notes.push(['info', `They’re paused until ${f.paused}.`]);
-    if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `The ${fam(OFFER.fam).n} has ${p.name} in their turn, answer by ${wday(OFFER.due)}. First deposit in gets ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
+    if (p.disp !== 'available') notes.push(['info', `${p.name}: ${DISP[p.disp][0].toLowerCase()}. Held for ${f.n} pending deposit.`]);
+    if (f.wants !== 'any' && (f.wants === 'male') !== (p.sex === 'm')) notes.push(['info', `Preference: ${f.wants}.`, 'match']);
+    if (f.listen) notes.push(['info', `Waiting on ${f.listen} only.`]);
+    if (f.paused) notes.push(['info', `Paused until ${f.paused}.`]);
+    if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `Also offered to ${fam(OFFER.fam).n} (due ${short(OFFER.due)}). First deposit received takes ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
   }
   /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
   const lit = p && LITTERS.find((l) => l.id === p.litter);
@@ -2708,20 +2703,19 @@ S.sidesale = (fid) => {
   fm.sched ||= SCHEDULES.find((x) => x.usual).id;
   return {
     bar: bar('Side sale', { sub: 'Outside the turn order' }),
-    body: `<p class="lede">Sell a pup outside the turn order. No one’s turn changes.</p>
-      ${fid ? `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${f.n}</b>${pill([`#${f.pos}`, 'green'])}</div><div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}</div></section>`
-        : formCard('Family', fSel('fam', 'Family on the list', [['', 'Pick a family'], ...activeFams().map((x) => [x.id, `#${x.pos} ${x.n}${OFFER.open && OFFER.fam === x.id ? ' (holds the turn)' : ''}`])]))}
-      ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>They hold the turn now. Record their pick on <button type="button" class="link" data-open="wloffer">their turn</button> instead.</span></div>` : `
+    body: `      ${fid ? `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${f.n}</b>${pill([`#${f.pos}`, 'green'])}</div><div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}</div></section>`
+        : formCard('Family', fSel('fam', 'Family on the list', [['', 'Select'], ...activeFams().map((x) => [x.id, `#${x.pos} ${x.n}${OFFER.open && OFFER.fam === x.id ? ' (holds the turn)' : ''}`])]))}
+      ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>Holds the current turn. <button type="button" class="link" data-open="wloffer">Record via their offer</button></span></div>` : `
       <section class="card app-card">${fChips('pup', 'Pup', pups.map((d) => [d.id, `${d.name} · ${d.sex === 'm' ? 'M' : 'F'}${d.disp !== 'available' ? ' · ' + DISP[d.disp][0].toLowerCase() : ''}`]))}</section>
-      ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
+      ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Preferences will be updated' : 'Update preferences to match'}</button>` : ''}</span></div>`).join('')}
       <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
         <p class="f-hint">${!p ? 'Prefilled from the litter' : fm.price !== auto || fm.dep !== autoDep ? 'Custom for this sale · <button type="button" class="link" data-sreset-price>Reset</button>' : 'Prefilled from the litter'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
-        ${fChips('sched', 'Payments after the deposit', sched)}
-        <div class="form-stack">${fText('notes', 'Notes', 'Only you see these')}</div>
-        <p class="f-hint">They get the usual deposit request and reminders.</p></section>
-      ${saveBar('data-sidesave="1"', 'Record the side sale')}`}`,
+        ${fChips('sched', 'Payment schedule', sched)}
+        <div class="form-stack">${fText('notes', 'Notes')}</div>
+</section>
+      ${saveBar('data-sidesave="1"', 'Record side sale')}`}`,
   };
 };
 
@@ -2732,10 +2726,10 @@ const PROGRAMS = [
 ];
 const PROG_Q = [
   ['fee', 'Application fee', ['Same as everyone', 'Waived', '$100'], 1],
-  ['priority', 'Place in line', ['Same as everyone', 'Ahead of standard']],
+  ['priority', 'Priority', ['Standard', 'Ahead of standard']],
   ['respond', 'Time to answer an offer', ['Same as everyone', '5 days', '7 days'], 1],
   ['passes', 'Do passes count toward removal?', ['Yes', 'No']],
-  ['pause', 'Can they pause without losing their place?', ['Yes', 'No']],
+  ['pause', 'Pause without losing position', ['Yes', 'No']],
 ];
 const progLine = (p) => [p.fee === 'Same as everyone' ? '' : p.fee === 'Waived' ? 'Fee waived' : `${p.fee} fee`, p.priority === 'Ahead of standard' ? 'ahead of standard' : '', p.respond === 'Same as everyone' ? '' : `${p.respond} to answer`, p.passes === 'No' ? 'passes don’t count' : ''].filter(Boolean).join(' · ') || 'Same rules as everyone';
 S.wlprogram = (id) => {
@@ -2749,11 +2743,11 @@ S.wlprogram = (id) => {
   };
   return {
     bar: bar(p.n || 'New program', { sub: 'Program' }),
-    body: `${formCard('', `<label>Name<input data-progname="${p.id}" value="${esc(p.n)}" placeholder="Returning family, Veteran…" autocomplete="off"></label>`)}
-      <div class="group-label">What it changes</div><section class="card"><div class="rows">${PROG_Q.map(q).join('')}</div></section>
-      ${formCard('What families see', `<label>About this program<textarea data-progdesc="${p.id}" rows="2" placeholder="Leave empty to keep it private">${esc(p.desc)}</textarea></label><p class="f-hint">Shown on their status page only if you write something. Never on the application: only you put a family in a program.</p>`)}
-      <div class="group-label">Families in it</div>
-      <section class="card">${fams.length ? `<div class="rows">${fams.map((f) => row({ ic: 'user-round', t: f.n, s: famLine(f), go: `person:${f.id}` })).join('')}</div>` : `<p class="lede pad">None yet. Put a family in it from Add family, or their application.</p>`}</section>
+    body: `${formCard('', `<label>Name<input data-progname="${p.id}" value="${esc(p.n)}" autocomplete="off"></label>`)}
+      <div class="group-label">Rules</div><section class="card"><div class="rows">${PROG_Q.map(q).join('')}</div></section>
+      ${formCard('Public description', `<label>Shown on family status pages<textarea data-progdesc="${p.id}" rows="2" placeholder="Optional">${esc(p.desc)}</textarea></label>`)}
+      <div class="group-label">Assigned families</div>
+      <section class="card">${fams.length ? `<div class="rows">${fams.map((f) => row({ ic: 'user-round', t: f.n, s: famLine(f), go: `person:${f.id}` })).join('')}</div>` : `<p class="lede pad">No families assigned.</p>`}</section>
       ${p.fresh ? `<button type="button" class="primary-btn" data-progdone="${p.id}">${icon('check')}Save program</button>` : ''}`,
   };
 };
@@ -3589,8 +3583,8 @@ function wlAct(act, id) {
 function clearKin() { Object.keys(depthMemo).forEach((k) => delete depthMemo[k]); kinMemo = {}; kinCalcMemo = {}; }
 function dogSave(spec) {
   const f = ui.form, name = (f.name || '').trim();
-  if (!name) return toast('Give the dog a call name first');
-  if (!f.sex) return toast('Pick female or male');
+  if (!name) return toast('Call name is required');
+  if (!f.sex) return toast('Sex is required');
   const [mode, pmode, child, psex] = spec.split('|');
   const lit = f.status === 'puppy' ? LITTERS.find((l) => l.id === f.litter) : null;
   const litParents = lit ? [DOGS.find((x) => x.name === lit.sire)?.id || null, DOGS.find((x) => x.name === lit.dam)?.id || null] : null;
@@ -3608,7 +3602,7 @@ function dogSave(spec) {
     if (f.color && f.color !== '__add') COLOR_OF[id] = f.color;
     if (pmode === 'parent') { (PARENTS[child] ||= [null, null])[psex === 'm' ? 0 : 1] = id; }
     clearKin(); ui.formSpec = null;
-    if (pmode === 'parent') { back(); toast(`${name} added as ${pedName(child)}’s ${psex === 'm' ? 'sire' : 'dam'}`); }
+    if (pmode === 'parent') { back(); toast(`${name} added as ${psex === 'm' ? 'sire' : 'dam'}`); }
     else { replaceWith(`dog:${id}`); toast(`${name} added`); }
     return;
   }
@@ -3624,7 +3618,7 @@ function dogSave(spec) {
 }
 function eventSave(spec) {
   const f = ui.form, t = evType(f.type), [kind, id] = spec.split('|');
-  if (!f.d) return toast('Pick the date');
+  if (!f.d) return toast('Date is required');
   const subj = kind === 'litter' ? litterName(LITTERS.find((l) => l.id === id)) : dogById(id).name;
   const vals = t[5].map(([k, label, opts]) => [label, opts === 'mate' ? (f[k] ? pedName(f[k]) : '') : f[k]]).filter(([, v]) => v);
   const title = f.type === 'weight_check' && f.weight ? `${f.weight} lb` : f.type === 'breeding_tie' && f.with ? `with ${pedName(f.with)}` : vals[0]?.[1] || t[1];
@@ -3638,22 +3632,22 @@ function eventSave(spec) {
 }
 function pairSave() {
   const f = ui.form;
-  if (!f.dam || !f.sire) return toast('Pick the dam and the sire');
+  if (!f.dam || !f.sire) return toast('Dam and sire are required');
   const dam = pedName(f.dam), sire = pedName(f.sire);
-  if (PAIRINGS.some((q) => q.dam === dam && q.sire === sire && !hasLitter(q))) return toast(`${dam} × ${sire} is already in your pairings`);
+  if (PAIRINGS.some((q) => q.dam === dam && q.sire === sire && !hasLitter(q))) return toast(`${dam} × ${sire} already exists`);
   const due = f.status !== 'Planned' && f.d ? addDays(f.d, 63) : '';
   const st = { Planned: ['Planned', 'blue'], Bred: ['Bred', 'violet'], 'Confirmed pregnant': ['Confirmed pregnant', 'green'] }[f.status];
   const line = f.status === 'Planned' ? (f.d ? `Planned for about ${short(f.d)} · ${f.method.toLowerCase()}` : `Date not set · ${f.method.toLowerCase()}`) : `Bred ${f.d ? short(f.d) : '—'}${f.d2 ? ` and ${short(f.d2)}` : ''}${due ? ` · due ${short(due)}` : ''}`;
   PAIRINGS.unshift({ dam, sire, status: st, s: line });
-  ui.formSpec = null; ui.litTab = 'pairings'; back(); toast(`${dam} × ${sire} added to your pairings`);
+  ui.formSpec = null; ui.litTab = 'pairings'; back(); toast('Pairing added');
 }
 function litterSave() {
   const f = ui.form, open = f.from && f.from !== 'none';
   const [dam, sire] = open ? f.from.split('~') : [pedName(f.dam || ''), pedName(f.sire || '')];
-  if (!dam || !sire) return toast('Pick the dam and the sire');
+  if (!dam || !sire) return toast('Dam and sire are required');
   const born = f.born === 'born';
-  if (born && !f.d) return toast('Add the whelping date');
-  if (!born && !f.d && !f.bred) return toast('Add when she was bred or when she’s due');
+  if (born && !f.d) return toast('Whelp date is required');
+  if (!born && !f.d && !f.bred) return toast('Breeding date or due date is required');
   const due = born ? '' : f.d || addDays(f.bred, 63), bred = born ? '' : f.bred || addDays(due, -63);
   const m = Number(f.m) || 0, fe = Number(f.fem) || 0;
   const id = 'l' + (LITTERS.length + 1);
@@ -3664,16 +3658,16 @@ function litterSave() {
   LITTERS.push(l);
   const q = PAIRINGS.find((x) => x.dam === dam && x.sire === sire && !['Whelped'].includes(x.status[0]));
   if (q) { q.status = born ? ['Whelped', 'green'] : q.status[0] === 'Planned' ? ['Bred', 'violet'] : q.status; q.s = born ? `Whelped ${short(f.d)} · ${m + fe} puppies` : `Bred ${short(bred)} · due ${short(due)}`; }
-  ui.formSpec = null; replaceWith(`litter:${id}`); toast(`${dam} × ${sire} added`);
+  ui.formSpec = null; replaceWith(`litter:${id}`); toast('Litter added');
 }
 function expenseSave(spec) {
   const f = ui.form, amt = Number(f.amt);
-  if (!(amt > 0)) return toast('Type the amount');
-  if (!(f.what || '').trim()) return toast('Say what it was for');
-  if (!(f.on || []).length) return toast('Pick what it counts toward');
+  if (!(amt > 0)) return toast('Amount is required');
+  if (!(f.what || '').trim()) return toast('Description is required');
+  if (!(f.on || []).length) return toast('Select at least one');
   LEDGER.push({ d: f.d || TODAY, kind: 'out', cat: f.cat || 'Other', amt, what: f.what.trim(), on: f.on.slice(), party: f.party || '' });
   LEDGER.sort((a, b) => a.d.localeCompare(b.d));
-  ui.formSpec = null; back(); toast(`${money(amt)} added to ${f.on.join(' and ')}`);
+  ui.formSpec = null; back(); toast('Expense added');
 }
 
 /* the Waitlist batch's actions */
@@ -3682,18 +3676,18 @@ function personDo(spec) {
   if (act === 'move') {
     const list = activeFams(), n = Math.max(1, Math.min(list.length, Number($('#pa-pos')?.value) || f.pos));
     list.splice(list.indexOf(f), 1); list.splice(n - 1, 0, f); list.forEach((x, i) => { x.pos = i + 1; });
-    ui.pAct = null; render(); toast(`The ${f.n} is #${n} now`); return;
+    ui.pAct = null; render(); toast(`Moved to #${n}`); return;
   }
-  if (act === 'pause') { const v = $('#pa-until')?.value; if (!v) return toast('Pick the date'); f.paused = short(v); ui.pAct = null; render(); toast(`Paused until ${f.paused}. They keep #${f.pos}.`); return; }
-  if (act === 'unpause') { delete f.paused; ui.pAct = null; render(); toast('Pause ended. They can be offered turns again.'); return; }
-  if (act === 'withdrew' || act === 'removed') { f._pos = f.pos; f.st = act === 'withdrew' ? 'withdrawn' : 'removed'; delete f.pos; renumber(); ui.pAct = null; render(); toast(`The ${f.n} is off the list. Undo here within 7 days.`); return; }
-  if (act === 'restore') { f.st = 'active'; f.pos = (f._pos || activeFams().length + 1) - 0.5; renumber(); render(); toast(`The ${f.n} is back at #${f.pos}`); return; }
+  if (act === 'pause') { const v = $('#pa-until')?.value; if (!v) return toast('Date is required'); f.paused = short(v); ui.pAct = null; render(); toast(`Paused until ${f.paused}`); return; }
+  if (act === 'unpause') { delete f.paused; ui.pAct = null; render(); toast('Pause ended'); return; }
+  if (act === 'withdrew' || act === 'removed') { f._pos = f.pos; f.st = act === 'withdrew' ? 'withdrawn' : 'removed'; delete f.pos; renumber(); ui.pAct = null; render(); toast('Removed from list'); return; }
+  if (act === 'restore') { f.st = 'active'; f.pos = (f._pos || activeFams().length + 1) - 0.5; renumber(); render(); toast(`Restored at #${f.pos}`); return; }
   if (act === 'fee') { LEDGER.push({ d: ui.form.d || TODAY, kind: 'in', cat: 'Waitlist fees', amt: Number(String(SET.waitlist.fee).replace(/\D/g, '')), what: 'Application fee', on: ['Waitlist'], party: f.n }); ui.formSpec = null; wlAct('fee', id); return; }
   if (act === 'send') {
     const text = ($('textarea[data-fv="body"]')?.value || '').trim();
-    if (!text) return toast('Write your message first');
+    if (!text) return toast('Message is required');
     (MSGS[id] ||= msgsOf(f).slice()).push({ at: TODAY, kind: 'you', body: text });
-    ui.formSpec = null; render(); toast(`Emailed to ${DETAILS[id]?.email || 'them'}`);
+    ui.formSpec = null; render(); toast('Sent');
   }
 }
 function familySave() {
@@ -3701,10 +3695,10 @@ function familySave() {
   let id = fm.pick, f = id && fam(id);
   if (!id) {
     const name = (fm.name || '').trim();
-    if (!name) return toast('Add their name');
-    if (fm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fm.email.trim())) return toast('That email doesn’t look right');
+    if (!name) return toast('Name is required');
+    if (fm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fm.email.trim())) return toast('Invalid email');
     const m = fm.who === 'new' ? null : knownMatch(fm);
-    if (m) return toast(`Check first: is this the ${m.p.n}?`);
+    if (m) return toast(`Possible match: ${m.p.n}`);
     id = name.toLowerCase().replace(/ family$/, '').replace(/[^a-z0-9]+/g, '-'); while (DETAILS[id] || fam(id)) id += '-2';
     DETAILS[id] = { email: (fm.email || '').trim(), phone: (fm.phone || '').trim(), addr: (fm.addr || '').trim() };
   }
@@ -3722,25 +3716,25 @@ function familySave() {
   if (!f) WL.push(entry);
   if (paid && fm.fee === 'paid' && !(prog && prog.fee === 'Waived')) LEDGER.push({ d: TODAY, kind: 'in', cat: 'Waitlist fees', amt: Number(String(SET.waitlist.fee).replace(/\D/g, '')), what: 'Application fee', on: ['Waitlist'], party: n });
   renumber(); ui.formSpec = null; replaceWith(`person:${id}`);
-  toast(paid ? `The ${n} is #${entry.pos} on the list` : `Added. The ${n} is asked for the ${SET.waitlist.fee} fee.`);
+  toast(paid ? `Added at #${entry.pos}` : 'Added; fee requested');
 }
 function sideSave() {
   const fm = ui.form, f = fam(fm.fam), p = DOGS.find((d) => d.id === fm.pup);
-  if (!f) return toast('Pick the family');
-  if (!p) return toast('Pick the pup');
-  if (!fm.due) return toast('Pick when the deposit is due');
+  if (!f) return toast('Family is required');
+  if (!p) return toast('Pup is required');
+  if (!fm.due) return toast('Deposit due date is required');
   const price = Number(fm.price), dep = Number(fm.dep);
-  if (!(price > 0)) return toast('Type the price');
-  if (!(dep >= 0) || dep > price) return toast('The deposit can’t be more than the price');
+  if (!(price > 0)) return toast('Price is required');
+  if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
   SALES.push({ pup: p.name, fam: f.id, price, deposit: dep, paid: 0, date: TODAY, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', side: 1, due: fm.due, sched: fm.sched, notes: fm.notes || '' });
   if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
-  ui.formSpec = null; back(); toast(`Side sale recorded: ${p.name} at ${money(price)}. The ${f.n} is asked for the ${money(dep)} deposit by ${wday(fm.due)}.`);
+  ui.formSpec = null; back(); toast('Side sale recorded; deposit requested');
 }
 
 function testSave(id) {
   const f = ui.form, d = dogById(id);
-  if (!f.name) return toast('Pick the test');
-  if (!f.result) return toast('Pick or type the result');
+  if (!f.name) return toast('Test is required');
+  if (!f.result) return toast('Result is required');
   const x = (DOG_X[id] ||= {}), cur = info(d);
   x.tests = [...cur.tests.filter(([n]) => n !== f.name), [f.name, f.result, f.d]];
   x.planned = cur.planned.filter(([n]) => n !== f.name);
@@ -3748,7 +3742,7 @@ function testSave(id) {
   EVENTS[id] ||= eventsFor(d).slice();
   EVENTS[id].push({ d: f.d, type: [TEST_KIND[kind], 'blue', kind === 'dna' ? 'dna' : 'bone'], cat: 'Health', t: f.name, cost: Number(f.cost) || 0, body: `Result: <strong>${esc(f.result)}</strong>${f.outcome ? ` · ${f.outcome}` : ''}${f.lab ? ` · ${esc(f.lab)}` : ''}` });
   EVENTS[id].sort((a, b) => b.d.localeCompare(a.d));
-  ui.formSpec = null; back(); toast(`${f.name}: ${f.result}, saved for ${d.name}`);
+  ui.formSpec = null; back(); toast('Saved');
 }
 
 /* ================= render ================= */
@@ -3814,19 +3808,19 @@ document.addEventListener('click', (e) => {
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
   if ('sresetPrice' in d) { ui.form.price = ''; ui.form.dep = ''; render(); return; }
-  if (d.lpset != null) { const [, lid, k, v] = d.lpset.split('|'), l = LITTERS.find((x) => x.id === lid); l.prices ||= {}; if (v) l.prices[k] = v; else delete l.prices[k]; ui.qOpen = null; render(); toast(v ? `${litterName(l)}: ${v}` : 'Back to your usual'); return; }
+  if (d.lpset != null) { const [, lid, k, v] = d.lpset.split('|'), l = LITTERS.find((x) => x.id === lid); l.prices ||= {}; if (v) l.prices[k] = v; else delete l.prices[k]; ui.qOpen = null; render(); toast('Saved'); return; }
   if (d.lpown) {
     const [, lid, k] = d.lpown.split('|'), l = LITTERS.find((x) => x.id === lid); let v = ($('#qo-input')?.value || '').trim();
     if (!/[0-9]/.test(v)) return toast('Type an amount, like $3,800');
     v = (k === 'fullReg' ? '+' : '') + '$' + Number(v.replace(/[^0-9.]/g, '')).toLocaleString('en-US', { maximumFractionDigits: 2 });
-    (l.prices ||= {})[k] = v; ui.qOther = null; ui.qOpen = null; render(); toast(`${litterName(l)}: ${v}`); return;
+    (l.prices ||= {})[k] = v; ui.qOther = null; ui.qOpen = null; render(); toast('Saved'); return;
   }
   if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }
   if (d.sidesave) { sideSave(); return; }
   if (d.progset) { const [pid, k, v] = d.progset.split('|'); PROGRAMS.find((x) => x.id === pid)[k] = v; ui.qOpen = null; render(); toast('Saved'); return; }
-  if (d.progdone) { const pr = PROGRAMS.find((x) => x.id === d.progdone); if (!pr.n.trim()) return toast('Give the program a name'); delete pr.fresh; back(); toast(`${pr.n} added`); return; }
+  if (d.progdone) { const pr = PROGRAMS.find((x) => x.id === d.progdone); if (!pr.n.trim()) return toast('Name is required'); delete pr.fresh; back(); toast('Program added'); return; }
   if (d.dd) { ui.sheet.dd = ui.sheet.dd === d.dd ? null : d.dd; ui.sheet.ddq = ''; renderSheet(); if (ui.sheet.dd) $('#sheet .dd.open')?.scrollIntoView({ block: 'nearest' }); return; }
   if (d.ddclear) { ui.sheet.draft.sel[d.ddclear] = []; renderSheet(); return; }
   if (d.dsave) { dogSave(d.dsave); return; }
@@ -3836,7 +3830,7 @@ document.addEventListener('click', (e) => {
   if (d.archive) {
     const dog = dogById(d.archive); DOGS.splice(DOGS.indexOf(dog), 1);
     while (hist.length > 1 && String(top().p || '').includes(dog.id)) hist.pop();
-    ui.formSpec = null; render(); toast(`${dog.name} archived. Dogs › All › Archived brings ${dog.sex === 'm' ? 'him' : 'her'} back.`); return;
+    ui.formSpec = null; render(); toast(`${dog.name} archived`); return;
   }
   if (d.evsave) { eventSave(d.evsave); return; }
   if (d.tsave) { testSave(d.tsave); return; }
@@ -3847,8 +3841,8 @@ document.addEventListener('click', (e) => {
     const [act, id, n] = d.rem.split('|'), a = AGENDA.find((x) => x.id === id);
     if (act === 'open') { ui.remOpen = ui.remOpen === id ? null : id; ui.remDate = null; render(); return; }
     if (act === 'pick') { ui.remDate = id; render(); $('#rem-date')?.focus(); return; }
-    if (act === 'done') { a.done = TODAY; ui.remOpen = null; render(); toast(`Done. It stays on ${a.t.split(' · ')[0]}'s history.`); return; }
-    if (act === 'undo') { delete a.done; ui.remOpen = null; render(); toast('Back on your reminders'); return; }
+    if (act === 'done') { a.done = TODAY; ui.remOpen = null; render(); toast('Marked done'); return; }
+    if (act === 'undo') { delete a.done; ui.remOpen = null; render(); toast('Restored'); return; }
     const to = act === 'date' ? $('#rem-date')?.value : addDays(a.due < TODAY ? TODAY : a.due, Number(n));
     if (!to) return toast('Pick a date first');
     a.due = to; a.snoozed = 1; ui.remOpen = null; ui.remDate = null; render(); toast(`Snoozed to ${wday(to)}`); return;
@@ -3860,8 +3854,8 @@ document.addEventListener('click', (e) => {
     else { const m = new Date((ui.calMonth || TODAY.slice(0, 7)) + '-15T12:00:00'); m.setMonth(m.getMonth() + Number(d.calmove)); ui.calMonth = m.toISOString().slice(0, 7); ui.calDay = ui.calMonth === TODAY.slice(0, 7) ? TODAY : ui.calMonth + '-01'; }
     render(); return;
   }
-  if (d.gcal) { toast('Opens Google Calendar with this day’s items filled in'); return; }
-  if (d.kennel) { if (d.kennel === KENNEL) { open('setupsec:kennel'); return; } KENNEL = d.kennel; back(); toast(`Working in ${KENNEL}`); return; }
+  if (d.gcal) { toast('Opening Google Calendar'); return; }
+  if (d.kennel) { if (d.kennel === KENNEL) { open('setupsec:kennel'); return; } KENNEL = d.kennel; back(); toast(`Switched to ${KENNEL}`); return; }
   if (d.coiedit) { ui.coiEdit = ui.coiEdit === d.coiedit ? null : d.coiedit; ui.coiMethod = null; render(); return; }
   if (d.coimethod) { ui.coiMethod = d.coimethod; const v = $('#coi-val')?.value; render(); if (v != null && $('#coi-val')) $('#coi-val').value = v; return; }
   if (d.coisave) { const v = parseFloat($('#coi-val')?.value); if (!(v >= 0 && v <= 100)) return toast('Enter a COI between 0 and 100%'); const old = REC_PAIR[d.coisave]; REC_PAIR[d.coisave] = { value: v / 100, method: ui.coiMethod || (old && old.method.split(' (')[0]) || 'Trial mating' }; ui.coiEdit = null; ui.coiMethod = null; render(); toast('Recorded COI saved. Warnings use it.'); return; }
@@ -3900,7 +3894,7 @@ document.addEventListener('click', (e) => {
     const id = d.psave, val = (k) => ($('#pe-' + k)?.value || '').trim();
     const n = val('name'), email = val('email');
     if (!n) return toast('Their name can’t be blank');
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('That email doesn’t look right');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Invalid email');
     const was = DETAILS[id]?.email;
     DETAILS[id] = { email, phone: val('phone'), addr: val('addr') };
     if (fam(id)) fam(id).n = n; else { const o = OTHERS.find((x) => x.id === id); if (o) o.n = n; }
