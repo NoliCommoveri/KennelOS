@@ -6833,4 +6833,4 @@ it goes on `main`.
   sheet receiving `Daisy Puppy Record.pdf` (application/pdf), no errors.
 - Docs: End-State guide §23.
 - **Service worker:** `assets/puppyRecordPdf.js` added to `PRECACHE_URLS` and `proPages.js`
-  (Lite drops it); no `CACHE_NAME` bump yet.
+  (Lite drops it); `CACHE_NAME` v166 → v167 so installed devices get Share as PDF.
