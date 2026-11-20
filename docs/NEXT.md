@@ -410,6 +410,26 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the box. The waitlist family note on Add sale no longer explains why.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: One sale screen; one list of people
+
+- The owner: a sale to a waitlist family shouldn't go to a different screen or be named
+  differently; she shouldn't see a difference because of how records are kept. In the
+  prototype (`docs/design/forest-look-prototype.html`, published to the artifact) the Side sale
+  screen is gone: **Add sale** is the one sale screen, opened from Sales, a pup, the turn order
+  or a family's page (**Sell them a pup**). With a buyer on the list it says what doesn't
+  match what they asked for (Update their answers to match), a pup another family has in their
+  turn, a pup held for them, and their open turn; saving keeps their place and passes, or
+  records their turn when they hold it (the Side Sale spec's rules, never named on screen).
+- The owner: no "Waitlist" and "People" groups when picking a person; waitlist families are
+  people too. `personPicker`: one list searched by name, email or phone as she types, each
+  with a badge (#2 on the list, Fee due, Applied, Client, Care team), families on the list
+  first; a name nobody has is someone new, with email, phone and address, checked against
+  everyone and Do not sell. Used on Add sale and Do not sell.
+- Fixed: email and phone typed backwards on Add family and the new forms (each keystroke
+  redrew the page and the cursor jumped to the start); they're now checked when she leaves
+  the box.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
