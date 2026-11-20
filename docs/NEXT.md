@@ -546,6 +546,16 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the Clover × Titan stud contract.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D25, documents for more than a dog; smaller files (planned)
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D25** (asked by the owner; planned, not built):
+  a document belongs to a dog, the kennel, a litter, a person, a sale or a stud service
+  (additive `owner_type` / `owner_id`, `dog_id` kept), types by owner, Documents grouped by owner
+  with tiles on the litter, person and sale pages and Setup › Your kennel. Smaller files: scanned
+  PDFs compressed like photos (vendored pdf.js on that path only), text and signed PDFs never
+  touched, one copy per file on the phone by SHA-256, storage use shown. Three open questions.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

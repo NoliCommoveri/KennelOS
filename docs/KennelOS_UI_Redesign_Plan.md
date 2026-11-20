@@ -527,6 +527,52 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   (the same email or phone; the same registration number or registered name) leads with **Use
   [name]** as the main button beside **Create new**; a name alone is a quieter "Possible match"
   line. Neither blocks saving: Save becomes **Save anyway**.
+- **D25. Documents for more than a dog; smaller files (the owner, 2026-11-20; planned, not
+  built).** Asked by the owner. Nothing here is drawn or decided past what's written; the open
+  questions are at the end.
+  - **Today, in live:** a document must belong to one dog (`documentRepo` refuses one without
+    `dog_id`); a contract's signed copy is a dog's document with a `contract_id` back-link. The
+    only other stored files are an expense's receipt (`receipt_file_id`, not listed in Documents)
+    and the kennel logo. Papers about the kennel, a litter, a person or a whole stud service have
+    nowhere to go.
+  - **Who a document belongs to:** one owner: a dog, the kennel, a litter, a person, a sale or a
+    stud service. Additive only: `dog_id` stays for a dog's document (a shipped field is never
+    renamed), and new optional `owner_type` + `owner_id` name any other owner, with a compound
+    index in a new `db.version` block. Each owner is a new `referenceRegistry.js` entry (an owner
+    can't be hard-deleted while it has documents); the fields are classified in `syncRegistry.js`
+    (making them `cloud` is a privacy decision, to surface). Backups: check before building that
+    an older build reading a file with a non-dog document skips it rather than failing; if it
+    can't, that decides whether the backup format version is bumped.
+  - **Types by owner:** a dog keeps today's six. The kennel adds License or inspection,
+    Insurance, Breeder program; a litter adds Litter registration and Litter vet check; a person
+    adds Application and Proof of payment; a sale or stud service uses Contract and Other.
+  - **Screens:** Documents groups by owner (the kennel first, then dogs, litters, people), with a
+    "Belongs to" filter in the shared sheet. A Documents tile on the litter page, the person page
+    and a sale, and a Documents row in Setup › Your kennel. A litter's documents also show on each
+    of its pups' Documents as "From the litter", worked out when shown, never stored twice.
+  - **Smaller files.** Already: photos and screenshots become a compressed PDF (`pdfBuild.js`:
+    longest edge 2,000 px, JPEG 0.8, a 320 px thumbnail), and the cloud stores each file once by
+    its SHA-256 (`cloud/src/files.js`), refusing files over 25 MB. To add:
+    - **Scanned PDFs are compressed too.** An uploaded PDF over about 1.5 MB that is mostly page
+      images is re-rendered page by page and rebuilt with `pdfBuild.js`'s settings, showing the
+      size before and after; she can keep the original instead. Needs a PDF renderer vendored
+      into `shared/vendor/` (pdf.js) and loaded only on that path, so no page carries it.
+    - **Never touched:** a PDF with text (e-sign output, a registry's certificate) or any signed
+      contract. They're already small, and re-rendering would flatten the text and break a
+      signature's validity.
+    - **One copy on the phone:** a file attached twice (one stud contract on the stud and the
+      bitch) is stored once, by SHA-256, and deleted only when its last document goes. That
+      changes today's rule that a file belongs to exactly one document (`referenceRegistry.js`'s
+      Document note), so the guide changes with it.
+    - **Storage shows what's used:** on this device and in cloud backup, with the largest
+      files first, so she can find the one 20 MB scan.
+  - **Worker cost:** a file goes to the cloud once (already content-addressed); compression
+    makes each upload smaller. Nothing here adds a request per page open.
+  - **Open (the owner's):** (1) Can one document belong to two owners (the stud contract on both
+    dogs), or does it have one owner and show elsewhere as a link? Recommended: one owner, with
+    the litter-to-pups case shown as above. (2) Is compressing a scan automatic, or offered with
+    the sizes? Recommended: automatic, with "Keep the original" on the same screen. (3) Does
+    Lite get documents beyond dogs, or is it Pro (`proPages.js`, `editionConfig.js`)?
 
 ## 9. Carry-over notes
 
