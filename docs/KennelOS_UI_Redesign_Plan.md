@@ -388,4 +388,9 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   offer"): one setting shown in two places, or two settings. (3) Her usual price, deposit,
   ready age, deposits-open and balance-due rules are new kennel fields (live keeps these per
   litter or per sale), each needing a sync class.
+- **D18. Share components (2026-11-20).** The owner: share and reuse where able. A control
+  that looks and works like one already drawn uses that one's class and markup (the
+  segmented toggle is `.seg`, also the prototype's Phone / Desktop switch; notes and results
+  are `.stub-note`; hints are `.f-hint`), and a new class is added only for what no
+  existing one does. The build follows the same rule in `shared/assets/app.css`.
 

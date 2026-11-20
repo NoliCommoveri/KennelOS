@@ -698,22 +698,14 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 /* add-on groups and payment plans */
-.adj-line { display: flex; gap: 6px; align-items: stretch; }
+.adj-line { display: flex; gap: 6px; align-items: center; }
+.adj-line .seg { flex: none; }
 .adj-line input { flex: 1; min-width: 0; }
-.adj-seg { display: inline-flex; flex: none; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
-.adj-seg button { width: 34px; border: 0; background: var(--bg); color: var(--muted); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
-.adj-seg button + button { border-left: 1px solid var(--line-strong); }
-.adj-seg button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
 .form-stack input[type="time"] { min-height: 38px; }
 .rule-work { margin: 6px 0 0; font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
 .rule-work b { color: var(--ink); }
 .sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
-.quote-box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--p-green-bg); color: var(--ink); font-size: 13px; }
-.quote-box span { color: var(--muted); }
-.quote-box .off, .f-hint.off { color: var(--p-amber-fg); }
-.label-note { font-size: 12px; color: var(--muted); font-weight: 500; }
-.f-hint { font-size: 12px; color: var(--faint); margin-top: -4px; }
 .plan-steps { display: flex; flex-direction: column; gap: 10px; }
 .plan-step { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .plan-step .link { align-self: flex-end; }
@@ -1831,7 +1823,7 @@ S.pricerule = (id) => {
        <div class="dates">${fIn('min', 'Score at least (1–5)', { type: 'number' })}</div>`;
   const effect = fm.kind === 'breed'
     ? `<div class="dates">${fIn('male', 'Male price ($)', { type: 'number' })}${fIn('female', 'Female price ($)', { type: 'number' })}</div><small class="f-hint">Replaces the usual price</small>`
-    : `<label>Change<span class="adj-line">${[['sign', [['add', '+', 'Add'], ['sub', '−', 'Subtract']]], ['unit', [['flat', '$', 'Dollars'], ['pct', '%', 'Percent']]]].map(([k, opts]) => `<span class="adj-seg" role="group">${opts.map(([v, t, n]) => `<button type="button" data-fc="${k}|${v}" aria-pressed="${fm[k] === v}" aria-label="${n}">${t}</button>`).join('')}</span>`).join('')}<input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
+    : `<label>Change<span class="adj-line">${[['sign', [['add', '+', 'Add'], ['sub', '−', 'Subtract']]], ['unit', [['flat', '$', 'Dollars'], ['pct', '%', 'Percent']]]].map(([k, opts]) => `<span class="seg" role="group">${opts.map(([v, t, n]) => `<button type="button" data-fc="${k}|${v}" aria-pressed="${fm[k] === v}" aria-label="${n}">${t}</button>`).join('')}</span>`).join('')}<input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
   return {
     bar: bar(fresh ? 'New price rule' : ruleName(r), { sub: 'Price rule' }),
     body: `${formCard('When', `${fChips('kind', 'Rule', [['breed', 'Breed'], ['parent', 'A parent'], ['title', 'Parent title'], ['registry', 'Registry'], ['imported', 'Imported parent'], ['score', 'Parent scores']])}${when}`)}
@@ -2972,7 +2964,7 @@ S.addons = () => {
   const sect = (g) => {
     const list = ADDONS.filter((a) => (a.group || '') === (g ? g.id : ''));
     if (!g && !list.length) return '';
-    const head = g ? `<div class="label-row"><div class="group-label">${esc(g.n)}</div>${g.fixed ? '<span class="label-note">Set in Go-home & transport</span>' : ''}</div>` : '<div class="group-label">Not in a group</div>';
+    const head = g ? `<div class="label-row"><div class="group-label">${esc(g.n)}</div>${g.fixed ? '<span class="f-hint">Set in Go-home & transport</span>' : ''}</div>` : '<div class="group-label">Not in a group</div>';
     const rules = g && !g.fixed ? row({ ic: 'sliders-horizontal', t: 'Group settings', s: groupLine(g), go: `addongroup:${g.id}` }) : '';
     return `${head}<section class="card"><div class="rows">${rules}${list.map((a) => row({ ic: a.ic, t: a.n, extra: a.on ? '' : pill(['Off', 'gray']), s: addonLine(a), go: `addon:${a.id}` })).join('') || '<p class="lede" style="padding:12px 14px">No add-ons in this group.</p>'}</div></section>`;
   };
@@ -3108,7 +3100,7 @@ S.transport = () => {
       ${formCard('Handled by', `${fChips('by', '', [['kennel', 'Kennel'], ['third', 'Third party']])}${fm.by === 'third' ? fChips('partner', 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']]) : ''}`, 'Default for new sales')}
       ${formCard('Check a distance', `${fIn('to', 'Address', { ph: 'Street, city, state' })}
         <div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip go" data-trmiles>Get driving miles</button><button type="button" class="chip" data-toast="Opens Google Maps directions from ${esc(std?.n || 'your standard place')}">Open in Maps</button></div>
-        ${q ? `<div class="quote-box"><b>${fm._miles} miles · ${((m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`))(Math.round(fm._miles * 1.1))} one way</b><span>${q.text}</span>${TRANSPORT.far && fm._miles > Number(fm.far) ? '<span class="off">Past your limit: families are told you’ll be in touch</span>' : ''}</div>` : ''}`, 'Mapbox · cloud backup')}
+        ${q ? `<div class="stub-note${TRANSPORT.far && fm._miles > Number(fm.far) ? ' warn' : ''}">${icon('map-pin')}<span><b>${fm._miles} miles · ${((m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`))(Math.round(fm._miles * 1.1))} one way</b><br>${q.text}${TRANSPORT.far && fm._miles > Number(fm.far) ? '<br>Past your limit: families are told you’ll be in touch' : ''}</span></div>` : ''}`, 'Mapbox · cloud backup')}
       <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
       ${saveBar('data-trsave')}
       <div class="label-row"><div class="group-label">Referral partners</div><button type="button" class="set-link" data-open="partner:new">${icon('plus')}New partner</button></div>

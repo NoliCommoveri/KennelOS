@@ -310,6 +310,14 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   [$ | %], the selected side highlighted, then the amount.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D18, shared components
+
+- The owner's D18 in `docs/KennelOS_UI_Redesign_Plan.md` §8. Prototype: a price rule's
+  [+ | −] [$ | %] toggles use `.seg`; Transport's distance result uses `.stub-note`; a
+  duplicate `.f-hint` rule added this session (it overrode every hint's size and color) and
+  `.label-note` are removed in favor of `.f-hint`.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
