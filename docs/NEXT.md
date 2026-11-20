@@ -14,7 +14,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
   drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
-  Sales and Financials so far).
+  Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage
+  and Kels so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -474,6 +475,22 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   at another price makes a **one-off add-on** (prefilled, never offered), or uses the one-off
   that already has those values. Business › Add-ons › One-off add-ons lists them, with the
   sales using each.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws More's screens
+
+- Prototype (`docs/design/forest-look-prototype.html`, published): More's stubs drawn in its own
+  components, from what the live app's pages hold. **Backup & Restore**: Back up / Restore tabs,
+  then Cloud, This device or Dropbox; cloud status and Back up now; a file backup with a warning
+  past two weeks; restore from the cloud's 30 days of backups or a file, showing what's in it,
+  Merge, or Replace all after a second confirm. **Import / Export**: import by type (kennels
+  first) or several files at once, blank templates, Find duplicates, Export everything.
+  **Danger zone**: what's on this device, then Reset KennelOS (type RESET, sign out of cloud
+  backup, Delete everything). **Sharing**: for families (Companion messages, Furever), your
+  helper, other breeders (dog cards). **Storage**: Documents, Shows; Accounts point to Business.
+  **Kels**: an unfinished task, Finding / Understanding something, and every task with search
+  and stars. Design notes gain a "More" section; the plan's status lists them. The Lucide
+  `star` icon is built in.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
