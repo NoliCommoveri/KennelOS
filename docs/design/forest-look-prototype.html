@@ -809,7 +809,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <h3>More: backups, import, sharing and Kels</h3>
     <p><b>Backup &amp; Restore</b> has two tabs, Back up and Restore, then where to: Cloud, This device or Dropbox. Cloud shows when it last backed up (it backs up by itself after changes) and Back up now. This device downloads a backup file and warns when the last one is over two weeks old. Restore lists the cloud backups (kept 30 days) or opens a file, then shows what's in it before anything changes: <b>Merge</b> adds what's new, and <b>Replace all</b> asks once more before it deletes. Dropbox asks to connect first.</p>
     <p><b>Import / Export</b> imports a spreadsheet by type (kennels first) or several files at once, each previewed before saving. It also has blank templates, a duplicates check across dogs, people and kennels, and Export everything, which is the backup file. <b>Danger zone</b> shows what's on this device, then Reset KennelOS: type RESET, optionally sign out of cloud backup, and Delete everything.</p>
-    <p><b>Sharing</b> groups who it's for: families (Companion messages, Furever), your helper, and other breeders (dog cards sent, Send a dog, Add dogs from a card). <b>Storage</b> holds Documents and Shows; Accounts are in Business. <b>Documents</b> lists every document under its dog, newest first, with a chip per type (pedigree, health test, vet summary, registration, contract, other), search over titles, labs and results, and the shared filter for date and dog. <b>Kels</b> offers to finish an unfinished task, then Finding something, Understanding something, and Doing something: every task with a search box, starred ones first.</p>
+    <p><b>Sharing</b> groups who it's for: families (Companion messages, Furever), your helper, and other breeders (dog cards sent, Send a dog, Add dogs from a card). <b>Storage</b> holds Documents and Shows; Accounts are in Business. <b>Documents</b> lists every document under its dog, newest first, with a chip per type (pedigree, health test, vet summary, registration, contract, other), search over titles, labs and results, and the shared filter for date and dog. The same documents show where she'd look for them: a <b>Documents</b> tile on every dog; each health test names its certificate (or says none is attached); a contract's signed copy says it's in the pup's documents, and <b>Attach signed contract</b> files a scan there; search finds documents by title, lab, result or dog. <b>Kels</b> offers to finish an unfinished task, then Finding something, Understanding something, and Doing something: every task with a search box, starred ones first.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1685,6 +1685,8 @@ function dogSectionsBase(d) {
   if (FEAT.shows && !['puppy', 'external_reference'].includes(d.status)) out.push([base + 'shows', 'trophy', 'Shows & titles', x.titles || 'No titles yet']);
   out.push([base + 'expenses', 'receipt', 'Expenses', cost ? `${money(cost)} this year` : 'None logged']);
   out.push([base + 'pedigree', 'git-fork', 'Pedigree', `${x.sire} × ${x.dam}`]);
+  const dn = DOCS.filter((y) => y.dog === d.id);
+  out.push([base + 'docs', 'file-text', 'Documents', dn.length ? `${dn.length} · ${uniq(dn.map((y) => DOC_T[y.type][0].toLowerCase())).slice(0, 2).join(', ')}` : 'None yet']);
   if (x.card) out.push([`dogcard:${d.id}`, 'send', 'Dog card', `${x.card} · live updates`, 7]);
   return out;
 }
@@ -1715,9 +1717,15 @@ S.dogsec = (p) => {
     const shown = applyF('history', evs);
     body = `${filterBar('history', { placeholder: 'Search events', shown: shown.length, total: evs.length })}${timeline(shown)}`;
     filterItems = evs;
+  } else if (k === 'docs') {
+    action = addBtn('Add', 'stub:add-document');
+    const dl = DOCS.filter((y) => y.dog === d.id).sort((a, b) => b.d.localeCompare(a.d));
+    body = dl.length ? `<section class="card"><div class="rows">${dl.map((y) => docRow(y, 1)).join('')}</div></section>${setLink('All documents', 'documents')}`
+      : empty('file-text', `No documents for ${d.name} yet. Add registration papers, health results and vet records.`, 'Add document');
   } else if (k === 'health') {
+    const cert = (t) => DOCS.find((y) => y.dog === d.id && y.type === 'health_test' && t.replace(/\(.*?\)/g, '').toLowerCase().split(/\s+/).some((w) => w.length > 3 && y.t.toLowerCase().includes(w)));
     body = x.tests.length || x.planned.length
-      ? `<section class="card"><div class="section-h"><h2>Done</h2></div><div class="rows">${x.tests.map(([t, r, dt]) => row({ ic: 'shield-check', tone: 'blue', t, extra: pill([r, 'green']), s: fmt(dt) })).join('')}</div></section>
+      ? `<section class="card"><div class="section-h"><h2>Done</h2></div><div class="rows">${x.tests.map(([t, r, dt]) => { const c = cert(t); return row({ ic: 'shield-check', tone: 'blue', t, extra: pill([r, 'green']), s: `${fmt(dt)}${c ? ` · ${icon('file-text')} ${esc(c.t)}` : ' · no certificate attached'}`, go: c ? 'stub:document' : `logtest:${d.id}` }); }).join('')}</div></section>
          ${x.planned.length ? `<section class="card"><div class="section-h"><h2>Planned</h2></div><div class="rows">${x.planned.map(([t, s]) => row({ ic: 'calendar-clock', tone: 'amber', t, s })).join('')}</div></section>` : ''}${primary('Log a test', `logtest:${d.id}`)}`
       : empty('shield-check', `No health tests for ${d.name} yet.`, 'Log a test', `logtest:${d.id}`);
   } else if (k === 'sale') {
@@ -2190,7 +2198,7 @@ S.more = () => ({
     <section class="card big-rows"><div class="rows">${row({ ic: 'settings', t: 'Setup', s: `Your program, waitlist, pricing, devices · ${SETUP_TODO.length} to finish`, go: 'setup' })}</div></section>
     <section class="card big-rows"><div class="rows">
       ${row({ ic: 'share-2', t: 'Sharing', s: 'Companion messages, Furever, Assistant, Dog cards', go: 'sharing' })}
-      ${row({ ic: 'folder', t: 'Storage', s: 'Documents, shows and accounts', go: 'storage' })}
+      ${row({ ic: 'folder', t: 'Storage', s: 'Documents and shows', go: 'storage' })}
       ${row({ ic: 'sparkles', t: 'Kels', s: 'Guided help with common jobs', go: 'kels' })}
     </div></section>
     <section class="card big-rows"><div class="rows">
@@ -3725,9 +3733,10 @@ S.contract = (id) => {
   const acts = c.st === 'draft' ? [row({ ic: 'send', t: 'Send for signature', s: 'Through e-sign', go: `contractsend:${id}` })]
     : c.st === 'sent' ? [`<button type="button" class="row" data-ctdo="remind|${id}"><span class="row-ic">${icon('bell-ring')}</span><span class="row-main"><span class="row-t">Send a reminder</span><span class="row-s">${esc(DETAILS[c.who]?.email || p.n)}</span></span></button>`,
       `<button type="button" class="row" data-ctdo="copy|${id}"><span class="row-ic">${icon('copy')}</span><span class="row-main"><span class="row-t">Copy signing link</span><span class="row-s">To send by text</span></span></button>`]
-    : c.st === 'signed' ? [`<button type="button" class="row" data-toast="Opens the signed PDF"><span class="row-ic green">${icon('file-text')}</span><span class="row-main"><span class="row-t">Signed copy</span><span class="row-s">PDF${c.esign ? ' from e-sign' : ''}</span></span></button>`] : [];
+    : c.st === 'signed' ? [`<button type="button" class="row" data-toast="Opens the signed PDF"><span class="row-ic green">${icon('file-text')}</span><span class="row-main"><span class="row-t">Signed copy</span><span class="row-s">PDF${c.esign ? ' from e-sign' : ''}${c.pup ? ` · in ${esc(c.pup)}’s documents` : ''}</span></span></button>`] : [];
   if (['draft', 'sent'].includes(c.st)) acts.push(`<div class="rem${markOpen ? ' open' : ''}"><button type="button" class="row" data-pact="ct|signed" aria-expanded="${markOpen}"><span class="row-ic">${icon('circle-check')}</span><span class="row-main"><span class="row-t">Mark signed</span><span class="row-s">Signed on paper</span></span><span class="row-end"><span class="chev">${icon(markOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>
       ${markOpen ? `<div class="q-edit sa-edit"><div class="form-stack"><div class="dates">${fIn('d', 'Signed on', { type: 'date' })}</div></div><div class="sa-btns"><button type="button" class="chip go" data-ctdo="signed|${id}">Save</button></div></div>` : ''}</div>`);
+  if (!c.esign || c.st !== 'signed') acts.push(row({ ic: 'file-text', t: c.st === 'signed' ? 'Attach another copy' : 'Attach signed contract', s: c.pup ? `A scan or photo, filed in ${esc(c.pup)}’s documents` : 'A scan or photo, filed with the dog it’s for', go: 'stub:add-document' }));
   const lit = c.litter && LITTERS.find((l) => l.id === c.litter);
   return {
     bar: bar('Contract', { sub: ctTitle(c), action: `<button type="button" class="bar-btn" data-open="contractedit:${id}">${icon('pencil')}Edit</button>` }),
@@ -4031,9 +4040,12 @@ const DOCS = [
   { id: 'dc7', dog: 'titan', type: 'pedigree', t: 'Meadow Ridge Titan, pedigree', d: '2026-10-05', by: 'AKC' },
   { id: 'dc8', dog: 'titan', type: 'health_test', t: 'EIC and CNM results', d: '2024-01-22', by: 'Paw Print Genetics', res: 'Clear' },
   { id: 'dc9', dog: 'poppy', type: 'contract', t: 'Puppy sale contract, signed', d: '2026-11-12', by: 'Okafor family' },
+  { id: 'dc12', dog: 'hazel', type: 'contract', t: 'Puppy sale contract, signed', d: '2026-11-06', by: 'Lindqvist family' },
+  { id: 'dc13', dog: 'clover', type: 'contract', t: 'Stud service contract with Meadow Ridge, signed', d: '2026-09-28', by: 'Meadow Ridge Kennels' },
   { id: 'dc10', dog: 'fern', type: 'vet_summary', t: 'First vaccines and wellness exam', d: '2026-10-29', by: 'Hartland Animal Hospital' },
   { id: 'dc11', dog: 'clover', type: 'vet_summary', t: 'Ultrasound, confirmed pregnant', d: '2026-11-03', by: 'Dr. Okonkwo' },
 ];
+const docRow = (x, noType) => { const [l, ic, tone] = DOC_T[x.type]; return row({ ic, tone, t: esc(x.t), extra: noType ? pill([l, tone || 'gray']) : '', s: [fmt(x.d), x.by, x.res].filter(Boolean).map(esc).join(' · '), go: 'stub:document' }); };
 FDEF.docs = { date: 'Date', dd: ['Dog'], items: () => DOCS.filter((x) => (ui.docType || 'all') === 'all' || x.type === ui.docType), get: { date: (x) => x.d, Dog: (x) => dogById(x.dog).name }, text: (x) => `${x.t} ${x.by || ''} ${x.res || ''} ${dogById(x.dog).name}` };
 S.documents = () => {
   const type = ui.docType || 'all', base = FDEF.docs.items(), list = applyF('docs', base);
@@ -4044,7 +4056,7 @@ S.documents = () => {
     bar: bar('Documents', { action: addBtn('Add', 'stub:add-document') }),
     body: `<div class="chips" role="group" aria-label="Type">${chips}</div>
       ${filterBar('docs', { placeholder: 'Search titles, labs, results', shown: list.length, total: base.length })}
-      ${dogs.map((id) => { const g = list.filter((x) => x.dog === id).sort((a, b) => b.d.localeCompare(a.d)); return `<section class="card"><div class="section-h"><h2>${icon('dog')}<button type="button" class="link" data-open="dog:${id}">${esc(dogById(id).name)}</button></h2><span class="fcount">${g.length}</span></div><div class="rows">${g.map((x) => { const [l, ic, tone] = DOC_T[x.type]; return row({ ic, tone, t: esc(x.t), extra: type === 'all' ? pill([l, tone || 'gray']) : '', s: [fmt(x.d), x.by, x.res].filter(Boolean).map(esc).join(' · '), go: 'stub:document' }); }).join('')}</div></section>`; }).join('')
+      ${dogs.map((id) => { const g = list.filter((x) => x.dog === id).sort((a, b) => b.d.localeCompare(a.d)); return `<section class="card"><div class="section-h"><h2>${icon('dog')}<button type="button" class="link" data-open="dog:${id}">${esc(dogById(id).name)}</button></h2><span class="fcount">${g.length}</span></div><div class="rows">${g.map((x) => docRow(x, type === 'all')).join('')}</div></section>`; }).join('')
         || (DOCS.length ? '<p class="lede">No documents match.</p>' : empty('file-text', 'No documents yet. Add registration papers, health results and contracts to a dog.', 'Add document'))}
       <p class="f-hint">Each document belongs to one dog and is stored on this device${BACKUP.cloudOn ? ', and in your cloud backup' : ''}.</p>`,
     filterItems: base,
@@ -4945,7 +4957,7 @@ const SCREENS = [
   ['Notifications', 'bell', 'Applications, messages and requests', 'notifications'],
   ['Kennels', 'house', 'Switch kennels, outside kennels', 'kennels'],
 ];
-const SEARCH_GROUPS = ['Go to', 'Dogs', 'Litters', 'Waitlist', 'People', 'Sales', 'History', 'Money', 'Settings', 'Reports'];
+const SEARCH_GROUPS = ['Go to', 'Dogs', 'Litters', 'Waitlist', 'People', 'Sales', 'History', 'Documents', 'Money', 'Settings', 'Reports'];
 function searchIndex() {
   const out = [], add = (group, ic, t, s, go, preq) => out.push({ group, ic, t, s, go, preq });
   SCREENS.forEach(([t, ic, s, go]) => (FEAT.waitlist || !go.startsWith('wl') && go !== 'waitlist') && add('Go to', ic, t, s, go));
@@ -4957,6 +4969,7 @@ function searchIndex() {
   if (FEAT.contracts) CONTRACTS.forEach((c) => add('Contracts', 'file-pen-line', ctTitle(c), `${CT_ST[c.st][0]} · ${personOf(c.who)?.n || ''}`, `contract:${c.id}`));
   SALES.forEach((s) => add('Sales', 'tag', `${s.pup} → ${fam(s.fam).n}`, `${saleState(s)[0]} · ${money(s.price)} · go-home ${s.gohome}`, `dogsec:${s.pup.toLowerCase()}|sale`));
   Object.entries(EVENTS).forEach(([id, evs]) => evs.forEach((e) => add('History', e.type[2], `${e.type[0]}: ${e.t}`, `${dogById(id).name} · ${fmt(e.d)}`, `dogsec:${id}|history`, `history|${e.t}`)));
+  DOCS.forEach((x) => add('Documents', DOC_T[x.type][1], x.t, `${dogById(x.dog).name} · ${DOC_T[x.type][0]} · ${fmt(x.d)}${x.by ? ' · ' + x.by : ''}${x.res ? ' · ' + x.res : ''}`, `dogsec:${x.dog}|docs`));
   LEDGER.forEach((e) => add('Money', e.kind === 'in' ? 'arrow-down-left' : 'arrow-up-right', e.what, `${short(e.d)} · ${e.on.join(', ')} · ${e.party} · ${e.kind === 'in' ? '+' : '−'}${money(e.amt)}`, 'ledger', `ledger|${e.what}`));
   [...SETUP.program, ...SETUP.app].forEach(([k, ic, t, sm, , feat, , to]) => {
     if (feat && !FEAT[feat]) return;

@@ -535,6 +535,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   for it now names what it holds. Design notes and the plan's status updated.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Documents where she looks for them
+
+- Prototype (`docs/design/forest-look-prototype.html`): screens already drawn that should show
+  documents now do. Every dog gets a **Documents** tile (its documents, newest first, Add, All
+  documents); a health test names its certificate, or says none is attached and opens Log a test;
+  a contract's signed copy says it's in the pup's documents, and **Attach signed contract** (or
+  another copy) files a scan with the dog, as live's contract page does; search has a Documents
+  group; More's Storage line is "Documents and shows". Sample documents gain Hazel's contract and
+  the Clover × Titan stud contract.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
