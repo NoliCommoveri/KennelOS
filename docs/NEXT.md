@@ -202,6 +202,10 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - Side sale (`docs/design/forest-look-prototype.html`): under price and deposit, "Prefilled
   from the litter", or "Custom for this sale · Reset"; its intro, warnings and closing hint
   cut to a line each.
+- The owner's first edits to the rest of the hint copy: Notifications' link reads **Change
+  notification settings**; Add event drops its line about costs going into Financials; Log a
+  test's "Overall" becomes **Normal or abnormal?** without its explaining line, and the line
+  under who sees the results reads **Visible to others: normal only.** with **Change setting**.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

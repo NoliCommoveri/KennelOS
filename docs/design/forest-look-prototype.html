@@ -2142,7 +2142,7 @@ S.notifications = () => {
   return {
     bar: bar('Notifications'),
     body: (list.length ? card('New', fresh) + card('Earlier', earlier) : empty('bell', 'Nothing yet. Applications, messages and requests from families show here.'))
-      + setLink('What you’re told about is in Setup › Notifications', 'setupsec:notifications'),
+      + setLink('Change notification settings', 'setupsec:notifications'),
     after: () => { NOTES.forEach((n) => { n.fresh = 0; }); }, /* seen once opened; the bell's dot goes on the next screen */
   };
 };
@@ -2322,7 +2322,7 @@ S.addevent = (p) => {
   return {
     bar: bar(t[1], { sub: subj }),
     body: `<button type="button" class="type-now" data-fc="type|">${`<span class="row-ic ${t[3]}">${icon(t[2])}</span>`}<span>${t[1]}</span><span class="link">Change</span></button>
-      ${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div><p class="f-hint">A cost also goes into Financials as an expense for ${esc(subj)}.</p>${q}${fText('notes', 'Notes')}`)}
+      ${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div>${q}${fText('notes', 'Notes')}`)}
       <section class="card app-card">${fChips('remind', 'Remind me', vacc ? [['vacc', `When it’s due again (${f.good === '1 year' ? 'in a year' : 'in 3 years'})`], ...REMIND] : REMIND)}
         ${f.remind === 'pick' ? `<div class="dates">${fIn('remindOn', 'On', { type: 'date' })}</div>` : ''}
         ${f.remind ? '<p class="f-hint">It shows in Reminders and on Home that week.</p>' : ''}</section>
@@ -2347,13 +2347,12 @@ S.logtest = (id) => {
       <section class="card app-card">${fChips('name', 'Test', names, { own: 1 })}
         ${f.name ? `<p class="f-hint">Filed as ${TEST_KIND[kind]}. ${['ofa', 'dna', 'other'].filter((k) => k !== kind).map((k) => `<button type="button" class="link" data-fc="kind|${k}">${TEST_KIND[k]}</button>`).join(' or ')} instead?</p>` : ''}</section>
       ${f.name ? `${formCard('Result', `${fChips('result', '', RESULTS[kind], { own: 1 })}
-        ${fChips('outcome', 'Overall', [['Normal', 'Normal'], ['Abnormal', 'Abnormal']])}
-        <p class="f-hint">Overall decides what “Normal results only” shows families.</p>`)}
+        ${fChips('outcome', 'Normal or abnormal?', [['Normal', 'Normal'], ['Abnormal', 'Abnormal']])}`)}
       ${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div>
         ${fIn('lab', kind === 'dna' ? 'Lab' : 'Vet or clinic', { ph: kind === 'dna' ? 'Embark, Wisdom, Paw Print…' : 'Hartland Animal Hospital' })}
         ${fIn('cert', 'Certificate number')}
         <button type="button" class="btn-2" data-toast="Opens your camera or files. The certificate goes into Storage › Documents.">${icon('file-text')}Add the certificate</button>`)}
-      ${FEAT.waitlistOnline && d.status !== 'puppy' ? `<section class="card app-card">${fChips('online', `${d.name}’s results on family pages`, [['', 'Follow your setting'], ['normal', 'Normal results only'], ['all', 'All results']])}<p class="f-hint">Your setting is ${SET.waitlist.tests.toLowerCase()} (Setup › Waitlist).</p></section>` : ''}
+      ${FEAT.waitlistOnline && d.status !== 'puppy' ? `<section class="card app-card">${fChips('online', `${d.name}’s results on family pages`, [['', 'Follow your setting'], ['normal', 'Normal results only'], ['all', 'All results']])}<p class="f-hint">Visible to others: ${SET.waitlist.tests === 'Normal results only' ? 'normal only' : 'all results'}. <button type="button" class="link" data-open="setupsec:waitlist">Change setting</button></p></section>` : ''}
       ${saveBar(`data-tsave="${d.id}"`)}` : ''}`,
   };
 };
