@@ -397,6 +397,19 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the prototype publishes it there. The plan's header points to it.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Add sale and Side sale: add-ons by +, prices that follow
+
+- The owner's review of Add sale (`docs/design/forest-look-prototype.html`, published to the
+  artifact): add-ons are no longer every add-on as chips. **Add** opens her add-ons by name
+  (and a one-time charge); each one added shows its amount and **Edit amounts**: transport
+  (handled by, partner, miles, fee) and boarding (per day, week or month, rate, length) just
+  change, since they're the sale's own; an add-on from her list at another price asks "Your
+  usual is $150. Add $120 as a one-time charge?" Same on Side sale (`addonPicker`).
+- A registration change now moves a price she typed by the full registration difference
+  (`prefillPrice`, shared by both). The line under price and deposit follows once she leaves
+  the box. The waitlist family note on Add sale no longer explains why.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

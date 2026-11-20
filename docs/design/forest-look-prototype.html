@@ -2894,9 +2894,7 @@ S.sidesale = (fid) => {
     if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `Also offered to ${fam(OFFER.fam).n} (due ${short(OFFER.due)}). First deposit received takes ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
   }
   /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
-  const { fullAdd, auto, autoDep } = salePrices(p, fm.reg);
-  if (!fm.price || fm.price === fm._auto) fm.price = auto; fm._auto = auto;
-  if (!fm.dep || fm.dep === fm._autoDep) fm.dep = autoDep; fm._autoDep = autoDep;
+  const { fullAdd, auto, autoDep } = prefillPrice(fm, p);
   const sched = SCHEDULES.map((x) => [x.id, x.n]);
   fm.sched ||= SCHEDULES.find((x) => x.usual).id;
   return {
@@ -2911,11 +2909,10 @@ S.sidesale = (fid) => {
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
         <p class="f-hint">${!p ? 'Prefilled from the litter' : fm.price !== auto || fm.dep !== autoDep ? 'Custom for this sale · <button type="button" class="link" data-sreset-price>Reset</button>' : 'Prefilled from the litter'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
-        ${fChips('adds', 'Add-ons', ADDONS.filter((a) => a.on).map((a) => [a.id, `${a.n} · ${addonPrice(a)}`]), { multi: 1 })}
-        ${(fm.adds || []).includes('boarding') ? `<div class="dates">${fIn('bdays', 'Boarding days', { type: 'number' })}</div>` : ''}
         ${fChips('sched', 'Payment schedule', sched)}
         <div class="form-stack">${fText('notes', 'Notes')}</div>
 </section>
+      ${addonPicker(fm)}
       ${saveBar('data-sidesave="1"', 'Record side sale')}`}`,
   };
 };
@@ -3393,6 +3390,87 @@ function salePrices(p, reg) {
   return { lit, fullAdd, auto: String(base + (reg === 'Full' ? fullAdd : 0)), autoDep: String(amt(lit?.prices?.deposit || SET.pricing.deposit)) };
 }
 
+/* the price and deposit on a sale being recorded (Side sale, Add sale): they start from the
+   litter and are hers to change (D13). A registration change moves her own price by the full
+   registration difference, so it always shows the price for what's picked. */
+function prefillPrice(fm, p) {
+  const r = salePrices(p, fm.reg);
+  if (fm._reg != null && fm._reg !== fm.reg && fm.price && fm.price !== fm._auto) {
+    const d = (fm.reg === 'Full' ? r.fullAdd : 0) - (fm._reg === 'Full' ? r.fullAdd : 0);
+    fm.price = String((Number(fm.price) || 0) + d);
+  }
+  fm._reg = fm.reg;
+  if (!fm.price || fm.price === fm._auto) fm.price = r.auto; fm._auto = r.auto;
+  if (!fm.dep || fm.dep === fm._autoDep) fm.dep = r.autoDep; fm._autoDep = r.autoDep;
+  return r;
+}
+
+/* add-ons on a sale being recorded: + opens her add-ons by name; each one added shows its
+   amount and Edit amounts. Transport and boarding are the sale's own, so they just change; an
+   add-on from her list at another price is confirmed as a one-time charge for this sale. */
+const draftAdd = (a) => (a.id === 'transport' ? { id: 'transport', by: TRANSPORT.by, partner: TRANSPORT.partner, qty: '', amount: TRANSPORT.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0 }
+  : a.id === 'boarding' ? { id: 'boarding', freq: 'Day', days: 3, rate: a.price, amount: a.price * 3 } : { id: a.id, amount: a.price });
+const draftSub = (x) => (x.id === 'transport' ? transportSub(x) : x.id === 'boarding' ? `${x.days} ${x.freq.toLowerCase()}${x.days === 1 ? '' : 's'} × ${money(x.rate)}` : x.id === 'custom' ? 'One-time charge' : 'Your usual price');
+function addonPicker(fm) {
+  const list = (fm.adds ||= []);
+  const left = ADDONS.filter((a) => a.on && !list.some((x) => x.id === a.id));
+  const pick = ui.pAct === 'ad|pick';
+  const rows = list.map((x, i) => {
+    const key = 'ad|' + i, open = ui.pAct === key, a = ADDONS.find((y) => y.id === x.id), g = (k) => `ad${i}${k}`;
+    let edit = '';
+    if (open) {
+      if (fm._adEdit !== key) { fm._adEdit = key; fm._confirm = null; Object.assign(fm, { [g('amount')]: str(x.amount || ''), [g('qty')]: str(x.qty), [g('days')]: str(x.days), [g('rate')]: str(x.rate), [g('freq')]: x.freq || 'Day', [g('by')]: x.by || 'kennel', [g('partner')]: x.partner || '', [g('label')]: x.label || '' }); }
+      const fields = x.id === 'transport'
+        ? `${fChips(g('by'), 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}${fm[g('by')] === 'third'
+          ? `${fChips(g('partner'), 'Partner', [...PARTNERS.map((pt) => [pt.id, pt.n]), ['', 'Unknown']])}<div class="dates">${fIn(g('amount'), 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>`
+          : TRANSPORT.mode === 'flat' ? `<div class="dates">${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div>`
+          : `<div class="dates">${fIn(g('qty'), 'Miles, one way', { type: 'number' })}${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div><small class="f-hint">${tPrice()}</small>`}`
+        : x.id === 'boarding' ? `${fChips(g('freq'), 'Charged per', [['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month']])}<div class="dates">${fIn(g('rate'), `Rate ($ a ${fm[g('freq')].toLowerCase()})`, { type: 'number' })}${fIn(g('days'), `${fm[g('freq')]}s`, { type: 'number' })}</div>`
+        : x.id === 'custom' ? `<div class="dates">${fIn(g('label'), 'Description')}${fIn(g('amount'), 'Amount ($)', { type: 'number' })}</div>`
+        : `<div class="dates">${fIn(g('amount'), 'Price ($)', { type: 'number' })}</div>`;
+      edit = `<div class="q-edit sa-edit"><div class="form-stack">${fields}</div>
+        ${fm._confirm === i ? `<div class="stub-note warn">${icon('info')}<span>Your usual is ${money(a.price)}. Add ${money(Number(fm[g('amount')]) || 0)} as a one-time charge?</span></div>
+          <div class="sa-btns"><button type="button" class="chip" data-addo="keep|${i}">Keep ${money(a.price)}</button><button type="button" class="chip go" data-addo="custom|${i}">Add one-time charge</button></div>`
+        : `<div class="sa-btns"><button type="button" class="chip" data-addo="rm|${i}">Remove</button><button type="button" class="chip go" data-addo="save|${i}">Update</button></div>`}</div>`;
+    }
+    return `<div class="rem${open ? ' open' : ''}"><div class="row static"><span class="row-ic green">${icon(a ? a.ic : 'receipt')}</span><span class="row-main"><span class="row-t">${esc(addonName(x) || 'One-time charge')}</span><span class="row-s">${draftSub(x)}</span></span><span class="row-end">${x.amount ? `<span class="amt">${money(x.amount)}</span>` : ''}${open ? `<button type="button" class="link" data-addo="keep|${i}">Done</button>` : `<button type="button" class="link" data-pact="${key}">Edit amounts</button>`}</span></div>${edit}</div>`;
+  }).join('');
+  return `<div class="label-row"><div class="group-label">Add-ons</div><button type="button" class="set-link" data-pact="ad|pick">${icon(pick ? 'x' : 'plus')}${pick ? 'Close' : 'Add'}</button></div>
+    ${pick ? `<section class="card"><div class="rows">${left.map((a) => `<button type="button" class="row" data-addo="add|${a.id}"><span class="row-ic">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${esc(a.n)}</span></span></button>`).join('')}<button type="button" class="row" data-addo="add|custom"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">One-time charge</span></span></button></div></section>` : ''}
+    ${list.length ? `<section class="card"><div class="rows">${rows}</div></section>` : pick ? '' : '<p class="f-hint">None</p>'}`;
+}
+function adDo(spec) {
+  const [act, v] = spec.split('|'), fm = ui.form, list = (fm.adds ||= []), i = Number(v), x = list[i], g = (k) => fm[`ad${i}${k}`];
+  const close = () => { ui.pAct = null; fm._adEdit = null; fm._confirm = null; render(); };
+  if (act === 'add') {
+    if (v === 'custom') { list.push({ id: 'custom', label: '', amount: 0 }); ui.pAct = 'ad|' + (list.length - 1); fm._adEdit = null; render(); return; }
+    list.push(draftAdd(ADDONS.find((a) => a.id === v))); ui.pAct = null; render(); return;
+  }
+  if (act === 'rm') { list.splice(i, 1); close(); return; }
+  if (act === 'keep') { close(); return; }
+  if (act === 'custom') { list[i] = { id: 'custom', label: ADDONS.find((a) => a.id === x.id).n, amount: Number(g('amount')) || 0 }; close(); return; }
+  if (x.id === 'transport') {
+    x.by = g('by'); x.partner = x.by === 'third' ? g('partner') : ''; x.qty = Number(g('qty')) || '';
+    x.amount = Number(g('amount')) || (x.by === 'kennel' && x.qty ? tQuote(x.qty).fee || 0 : 0);
+  } else if (x.id === 'boarding') {
+    const rate = Number(g('rate')), n = Number(g('days'));
+    if (!(rate >= 0) || !(n > 0)) return toast('Rate and length are required');
+    Object.assign(x, { freq: g('freq'), rate, days: n, amount: rate * n });
+  } else if (x.id === 'custom') {
+    const label = (g('label') || '').trim(), amt = Number(g('amount'));
+    if (!label) return toast('Description is required');
+    if (!(amt > 0)) return toast('Amount is required');
+    Object.assign(x, { label, amount: amt });
+  } else {
+    const amt = Number(g('amount')), a = ADDONS.find((y) => y.id === x.id);
+    if (!(amt >= 0)) return toast('Price is required');
+    if (amt !== a.price) { fm._confirm = i; render(); return; }
+    x.amount = amt;
+  }
+  close();
+}
+const addsOf = (fm) => (fm.adds || []).map((x) => ({ ...x }));
+
 /* her do-not-sell list (live DoNotSell): checked wherever a person is typed in */
 const DNS = [
   { id: 'dn1', n: 'Rick Hollis', email: 'rick.hollis@example.com', phone: '(518) 555-0199', reason: 'Resold a puppy within a month', added: '2025-08-02' },
@@ -3423,12 +3501,10 @@ S.addsale = (pid) => {
   const listed = activeFams().concat(WL.filter((f) => ['approved', 'applied'].includes(f.st)));
   const buyer = fm.pick && personOf(fm.pick), bf = fm.pick && fam(fm.pick);
   const onList = bf && ['active', 'approved', 'applied'].includes(bf.st);
-  const { fullAdd, auto, autoDep } = salePrices(p, fm.reg);
-  if (!fm.price || fm.price === fm._auto) fm.price = auto; fm._auto = auto;
-  if (!fm.dep || fm.dep === fm._autoDep) fm.dep = autoDep; fm._autoDep = autoDep;
+  const { fullAdd, auto, autoDep } = prefillPrice(fm, p);
   const who = fm.pick
     ? `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${esc(buyer.n)}</b>${pill([buyer.t, 'gray'])}</div>${DETAILS[fm.pick]?.email ? `<div class="hub-line">${icon('mail')}${esc(DETAILS[fm.pick].email)}</div>` : ''}${DETAILS[fm.pick]?.phone ? `<div class="hub-line">${icon('phone')}${esc(DETAILS[fm.pick].phone)}</div>` : ''}<button type="button" class="set-link" data-fc="pick|">${icon('arrow-left-right')}Change buyer</button></section>
-      ${onList ? `<div class="stub-note warn">${icon('list-ordered')}<span>${bf.pos ? `#${bf.pos} on your waitlist` : 'On your waitlist'}. Record as a side sale to keep their place and turns right. <button type="button" class="link" data-salenew="side|${bf.id}">Continue as side sale</button></span></div>` : ''}`
+      ${onList ? `<div class="stub-note warn">${icon('list-ordered')}<span>${bf.pos ? `#${bf.pos} on your waitlist` : 'On your waitlist'}. <button type="button" class="link" data-salenew="side|${bf.id}">Continue in Side sale</button></span></div>` : ''}`
     : `${formCard('Buyer', fSel('pick', 'Existing person', [['', 'Someone new'], { group: 'Waitlist', opts: listed.map((f) => [f.id, `${f.pos ? `#${f.pos} ` : ''}${f.n}`]) }, { group: 'People', opts: PEOPLE_OF().filter((x) => x.t === 'Client' || x.t === 'Network').map((x) => [x.id, x.n]) }]))}
       ${personFields(fm, (id) => `data-fc="pick|${id}"`)}`;
   return {
@@ -3443,9 +3519,8 @@ S.addsale = (pid) => {
         ${fSwitch('depIn', 'Deposit received', 'yes', 'no')}
         <div class="form-stack">${fm.depIn === 'yes' ? `<div class="dates">${fIn('depDate', 'Received', { type: 'date' })}</div>${fSel('depVia', 'Paid via', PAY_ACCTS)}` : `<div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}</div>`}
         <div class="dates">${fIn('gohome', 'Go-home', { type: 'date' })}</div>
-        ${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}</div>
-        ${fChips('adds', 'Add-ons', ADDONS.filter((a) => a.on).map((a) => [a.id, `${a.n} · ${addonPrice(a)}`]), { multi: 1 })}
-        ${(fm.adds || []).includes('boarding') ? `<div class="dates">${fIn('bdays', 'Boarding days', { type: 'number' })}</div>` : ''}</section>
+        ${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}</div></section>
+      ${addonPicker(fm)}
       ${formCard('Source', `${fSel('channel', 'Sold through', CHANNELS)}${fIn('lead', 'Lead source', { ph: 'Website, Instagram, a referral' })}${fSel('ref', 'Referred by', [['', 'Nobody'], ...PEOPLE_OF().map((x) => [x.id, x.n])])}`)}
       ${formCard('', fText('notes', 'Notes'))}
       ${saveBar('data-salenew="save"', 'Add sale')}`}`,
@@ -3479,7 +3554,7 @@ function saleNew(spec) {
   } else fam(bid).pup = p.name;
   const got = fm.depIn === 'yes';
   SALES.push({ pup: p.name, fam: bid, price, deposit: dep, paid: got ? dep : 0, depIn: got, date: TODAY, depDate: got ? fm.depDate || TODAY : '', depVia: fm.depVia, due: got ? '' : fm.due, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', gohomeIso: fm.gohome || '', reg: fm.reg, sched: fm.sched, channel: fm.channel, lead: fm.lead || '', ref: fm.ref, notes: fm.notes || '', payments: [] });
-  SALE_ADDONS[p.name] = (fm.adds || []).map((aid) => { const a = ADDONS.find((x) => x.id === aid); return aid === 'transport' ? { id: aid, by: TRANSPORT.by, partner: TRANSPORT.partner, amount: TRANSPORT.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0 } : a.unit === 'day' ? { id: aid, days: Number(fm.bdays) || 1, amount: a.price * (Number(fm.bdays) || 1) } : { id: aid, amount: a.price }; });
+  SALE_ADDONS[p.name] = addsOf(fm);
   if (p.status === 'puppy') p.disp = 'placed';
   const s = SALES.at(-1);
   if (got && dep) { LEDGER.push({ d: s.depDate, kind: 'in', cat: 'Puppy sales', amt: dep, what: 'Deposit', on: saleOn(s), party: fam(bid).n }); LEDGER.sort((a, b) => a.d.localeCompare(b.d)); }
@@ -4784,7 +4859,7 @@ function sideSave() {
   if (!(price > 0)) return toast('Price is required');
   if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
   SALES.push({ pup: p.name, fam: f.id, price, deposit: dep, paid: 0, date: TODAY, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', side: 1, due: fm.due, sched: fm.sched, notes: fm.notes || '' });
-  SALE_ADDONS[p.name] = (fm.adds || []).map((id) => { const a = ADDONS.find((x) => x.id === id); return id === 'transport' ? { id, by: TRANSPORT.by, partner: TRANSPORT.partner, amount: TRANSPORT.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0 } : a.unit === 'day' ? { id, days: Number(fm.bdays) || 1, amount: a.price * (Number(fm.bdays) || 1) } : { id, amount: a.price }; });
+  SALE_ADDONS[p.name] = addsOf(fm);
   if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
   ui.formSpec = null; back(); toast('Side sale recorded; deposit requested');
 }
@@ -4843,7 +4918,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -5043,6 +5118,7 @@ document.addEventListener('click', (e) => {
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }
   if (d.sidesave) { sideSave(); return; }
+  if (d.addo) { adDo(d.addo); return; }
   if (d.salenew) { saleNew(d.salenew); return; }
   if (d.personsave) { personSave(); return; }
   if (d.dnsdo) { dnsDo(d.dnsdo); return; }
@@ -5161,6 +5237,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', (e) => {
   const fk = e.target.dataset?.fv;
+  if (fk && e.target.tagName === 'INPUT' && ['price', 'dep'].includes(fk) && /^(addsale|sidesale)/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; render(); return; }
   if (fk && e.target.tagName === 'SELECT') {
     ui.form[fk] = e.target.value;
     if (fk === 'litter') { const l = LITTERS.find((x) => x.id === e.target.value); if (l) ui.form.born = l.whelp; }
