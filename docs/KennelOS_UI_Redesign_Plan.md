@@ -3,21 +3,23 @@
 > Status: **plan only, nothing built** (2026-11-19). Work goes on `next` (CLAUDE.md "Next
 > release").
 >
-> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
-> copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `KCfKzER1Fo7aEYd7idfpS4`, version 3 of 2026-11-19: the 2026-11-18 design, artifact
-> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page, D9's Pricing and schedules and D10's +
-> drawn in, and its icons built into the page instead of loaded from a CDN). Open it in a browser and use
-> the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
-> owner changes the artifact, copy it in again and note the date here; the repo copy is what
-> builds are checked against.
+> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, published
+> for the owner as the artifact "KennelOS Forest Look",
+> https://claude.ai/artifact/1fhGXn25fAQVyJjcXSUxLa (from 2026-11-20). Every session that changes
+> the prototype publishes it there (CLAUDE.md). It began as the 2026-11-18 design (artifact
+> `Qon8foccjzDmQc4ssLcua1`, now out of date), with D8's one person page, D9's Pricing and
+> schedules and D10's + drawn in, and its icons built into the page instead of loaded from a CDN.
+> Open it and use the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design
+> notes). The repo copy is what builds are checked against.
 >
 > **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
 > `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
 > Notifications and Kennels; Add dog, Edit dog, Add
 > event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense; on a
 > person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
-> sale, Programs and a program. Each is the owner's to approve or change, like any
+> sale, Programs and a program; Add sale, Add person, Do not sell, a sale's Payments, Contracts
+> (the list, a contract, Send for signature, its details), Add entry, the Financials year,
+> Accounts and an account. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
@@ -164,7 +166,7 @@ piece can't do the job** (D18).
 | Job | Component (prototype helper · class) | Use it for | Not for |
 |---|---|---|---|
 | Open a record or screen | `row()` · `.row` in `.card .rows` | Any list of things to tap: icon, title, subline, end value | Read-only lines |
-| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row | Anything tappable |
+| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row; optional tone and end value (a due date and its amount, a signer) | Anything tappable |
 | Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
 | A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
 | A setting she answers | `qRow()` · `.q-row` | One question that saves at once: an amount, time or list she can name opens to chips and + (D10); fixed phrase answers open to a radio list | Form fields saved with Save |
@@ -195,6 +197,8 @@ piece can't do the job** (D18).
 | Edit in place | `.rem` + `.q-edit` | A row that opens to edit one item (a sale's add-ons) | Whole records: open their screen |
 | A record's header | `.hub-head` | Its name, pills and one-line facts | |
 | Filters | `filterBar()` + the filter sheet | Every list that can be filtered (D11) | |
+| Sort | **Sort** at the top of the filter sheet: `ddBox` with `.dd-opt.one` (the date range's single pick), from the list's `FDEF[key].sorts`, the first its default; a sort she picks shows as a chip; the button reads **Sort & filter** (D22) | Any list she'd order more than one way (People, a person picker) | Column headers (tables only, live's `listView`) |
+| Choose a person | `personPicker()`: the filter bar, its box also the new person's name, then matching people as rows with `personBadge()` (#2 on the list, Fee due, Applied, Client, Care team), then New person's details | Every place a person is chosen: a sale's buyer, Do not sell (D21) | A `<select>` of people, or groups by kind of record |
 | History | `timeline()` | Events by date | |
 | Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
 
@@ -476,4 +480,34 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   **Same day:** question rows with fixed phrase answers (Setup, Pricing and schedules, a
   litter's Pricing split) open to a radio list; questions she can answer with her own value
   keep chips and +. A list of dogs is grouped **Sires, then Dams**, alphabetical in each.
+- **D21. One sale screen; people as one list (2026-11-20).** The owner: she never sees a
+  difference that comes from how records are kept. A sale to a waitlist family is drawn on the
+  same Add sale screen as any other, never named as a side sale; what's different shows only as
+  notes (what doesn't match, another claim, a held pup, their open turn). Choosing a person is
+  one list, not "Waitlist" and "People": waitlist families are people too; where they stand is a
+  badge, and the order and filters do the rest. The live-app change is
+  `docs/KennelOS_Unified_Sale_Plan.md`.
+- **D22. Sorts and filters on a person list (2026-11-20).** The owner: a list of people sorts
+  (Waitlist first, Name A–Z, Name Z–A) and filters (applied: on the list, fee due, applied,
+  haven't applied). Live sorts only by table column headers, which card lists don't have, so
+  Sort joins the shared filter sheet as its first dropdown (§3.1). People and the person picker
+  have it; other lists gain their sorts as they're converted (phase 8).
+- **D23. Add-ons on a sale; one-off add-ons (2026-11-20).** The owner: a sale's add-ons, on Add
+  sale and on a saved sale's Add-ons screen, show only the ones on that sale, with **+ Add**
+  (her add-ons by name, and a one-time charge) and **Edit amounts** on each. Transport and
+  boarding are the sale's own and just change. An add-on from her list at another price asks
+  to **make a one-off add-on**, prefilled with everything else the same, because contracts
+  (an Extra agreement's `extra_list_id`) and the statement read the list row live: a one-time
+  charge would lose that. Before making one, a one-off from the same add-on with the same values
+  is used instead, so two sales at $120 share "Photo session ($120)". One-offs are never offered
+  (status pages, her website, new sales, the + list, Pricing's Add-on payments); Business ›
+  Add-ons › **One-off add-ons** lists them with the sales using each. In the prototype:
+  `addonPicker`, `adDo`, `S.saleaddons`, `S.oneoffs`, `oneOffs`, `sameOneOff`.
+  **For the build:** a row of `Kennel.extra_charge_list` gains `one_off` (boolean) and
+  `base_list_id` (the row it came from); both private like the list (`syncRegistry`), optional
+  in backups. Every place that offers extras skips `one_off` rows: the status page's requestable
+  extras, the website feed, new-sale presets and pickers; contracts' form-kind pick
+  (`extraChoices`) lists them under their base. The match is on name, group, unit, price,
+  description, days and payment rules. A one-off is written when the sale is saved, so a sale
+  she abandons leaves none (the prototype makes it at once).
 

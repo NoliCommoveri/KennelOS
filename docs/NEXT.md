@@ -13,7 +13,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
-  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters and Waitlist so far).
+  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
+  Sales and Financials so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -349,6 +350,130 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - Prototype: `qRow()` with fixed answers (no + of her own) opens to `radioList()`; so does a
   litter's "Deposit and full registration". `fSel()` takes option groups; a price rule's
   Name lists Sires, then Dams, alphabetical.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Sales and Financials screens
+
+- `docs/design/forest-look-prototype.html` draws the Sales and Financials placeholders, traced
+  against live's Sale, Contact, DoNotSell, Contract, Account and payments fields, in the
+  existing components (D18):
+  - **Add sale** (Sales & Placements, a pup's empty Sale): the dog (puppies, then adults), the
+    buyer (someone she has, or new, checked as she types against People and Do not sell),
+    registration, price and deposit prefilled as on Side sale (one shared `salePrices`),
+    deposit received or due, go-home, schedule, add-ons, sold through, lead source, referred
+    by, notes. A buyer outside the waitlist is a client (in People, never on the list).
+  - **Add person** (People › Add): details with the same checks, contact types, kennel, first
+    contact source, notes. **Do not sell**: the list, each row opens to Take off the list;
+    Add from People or someone new, with a reason. Add family now warns on the list too.
+  - A sale's **Payments**: total, paid, remaining, next; the deposit and each due date (her
+    schedule's, or one balance) with Paid / Due soon / Overdue / Coming up; money received,
+    each opening to change or remove; Record a payment (amount, date, method, paid via,
+    reference, note); Mark paid in full. Linked from the Sale, Sale details and the person.
+  - **Contracts**: Open / Signed / All, grouped waiting, drafts, signed, ended; a **contract**
+    (signers, then send, remind, copy link, mark signed, or the signed copy; reservation
+    facts); **Send for signature** (forms by kind, fitting ones first; the buyer's email with
+    Change; you sign too; message); **Contract details** by type (sale, reservation's litter,
+    sex, color and deposit, who it's with, lease dates).
+  - **Financials**: the year opens a list of her years, and Overview, Income, Expenses and
+    Entries follow it (2025 sample entries added). **Add entry**: an expense, or money
+    received, which lists what's owed (sales, stud fees, waitlist fees) and opens each where
+    it's recorded, since live works income out from them.
+  - **Accounts** by type (transport partners among them) and an **account**: name, type,
+    website, login (private), processing fee, payment link and instructions, referral
+    (shared with families, on her website), contract forms, e-sign signer, this year's
+    expenses (opening Entries filtered), Archive.
+- `srow()` takes an optional tone and end value (plan §3.1). Design notes gain "Sales,
+  contracts and money". Not yet seen by the owner. Proposals for her: a waitlist family
+  picked on Add sale goes to Side sale; Add sale starts on the usual schedule like Side sale
+  (§8's open question 1); Add entry records no income directly.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype published where the owner sees it
+
+- The prototype had stopped reaching the owner: the docs named artifact `KCfKzER1Fo7aEYd7idfpS4`,
+  which her account can't open, and the one in her list (`Qon8foccjzDmQc4ssLcua1`) was still the
+  Nov 18 copy. The repo copy is now published as "KennelOS Forest Look",
+  https://claude.ai/artifact/1fhGXn25fAQVyJjcXSUxLa, and CLAUDE.md says every session that changes
+  the prototype publishes it there. The plan's header points to it.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Add sale and Side sale: add-ons by +, prices that follow
+
+- The owner's review of Add sale (`docs/design/forest-look-prototype.html`, published to the
+  artifact): add-ons are no longer every add-on as chips. **Add** opens her add-ons by name
+  (and a one-time charge); each one added shows its amount and **Edit amounts**: transport
+  (handled by, partner, miles, fee) and boarding (per day, week or month, rate, length) just
+  change, since they're the sale's own; an add-on from her list at another price asks "Your
+  usual is $150. Add $120 as a one-time charge?" Same on Side sale (`addonPicker`).
+- A registration change now moves a price she typed by the full registration difference
+  (`prefillPrice`, shared by both). The line under price and deposit follows once she leaves
+  the box. The waitlist family note on Add sale no longer explains why.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: One sale screen; one list of people
+
+- The owner: a sale to a waitlist family shouldn't go to a different screen or be named
+  differently; she shouldn't see a difference because of how records are kept. In the
+  prototype (`docs/design/forest-look-prototype.html`, published to the artifact) the Side sale
+  screen is gone: **Add sale** is the one sale screen, opened from Sales, a pup, the turn order
+  or a family's page (**Sell them a pup**). With a buyer on the list it says what doesn't
+  match what they asked for (Update their answers to match), a pup another family has in their
+  turn, a pup held for them, and their open turn; saving keeps their place and passes, or
+  records their turn when they hold it (the Side Sale spec's rules, never named on screen).
+- The owner: no "Waitlist" and "People" groups when picking a person; waitlist families are
+  people too. `personPicker`: one list searched by name, email or phone as she types, each
+  with a badge (#2 on the list, Fee due, Applied, Client, Care team), families on the list
+  first; a name nobody has is someone new, with email, phone and address, checked against
+  everyone and Do not sell. Used on Add sale and Do not sell.
+- Fixed: email and phone typed backwards on Add family and the new forms (each keystroke
+  redrew the page and the cursor jumped to the start); they're now checked when she leaves
+  the box.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Plan: one sale, whoever's buying
+
+- `docs/KennelOS_Unified_Sale_Plan.md` (new): the owner wants every sale to do what a side
+  sale does, since live's Sale page predates the waitlist. One sale form from every entry
+  point; the buyer from one list; the checks (another claim at recording time, what doesn't
+  match, a held pup), registration defaults and a deposit due date (new `Sale.deposit_due_date`)
+  on every sale; saving decides turn pick, side-sale shape or ordinary sale from the buyer.
+  Owner questions U1–U8; three phases. README's doc map gains its row. Same day, the owner:
+  the buyer needn't be on the waitlist; the pup and deposit rules (another family holds it, a
+  held pup, deposit due, settling two claims) apply to every sale, the plan's §2.2.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D21 and D22: one sale screen, people as one list, sorts
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 records D21 (one sale screen; people as one list,
+  drawn earlier today) and D22: Sort joins the shared filter sheet as its first dropdown
+  (single pick, like the date range), with a chip when changed and the button reading **Sort &
+  filter**. §3.1 lists Sort and Choose a person (`personPicker`, `personBadge`).
+- Prototype (`docs/design/forest-look-prototype.html`, published): the person picker uses the
+  shared filter bar (its box is also the new person's name), sorts Waitlist first / Name A–Z /
+  Name Z–A and filters by Application (On the list, Fee due, Applied, Haven't applied); People
+  gets the same sorts and the Application filter.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: A new person's checks; taps and typing not lost
+
+- Prototype (`docs/design/forest-look-prototype.html`, published): the person picker's New
+  person details check the typed name, email and phone against everyone she has, contacts and
+  applicants alike, and say which matched ("Same phone as the Ito family", Use them or Create
+  new); saving checks all three too.
+- Fixed: leaving a box by tapping a button (Save) redrew the page first and the tap was lost;
+  moving to another box lost focus and could scramble what she typed next. Redraws now wait
+  for a button's own redraw, and keep her in the box she moved to.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D23, a sale's Add-ons and one-off add-ons
+
+- The owner's D23 in `docs/KennelOS_UI_Redesign_Plan.md` §8. Prototype
+  (`docs/design/forest-look-prototype.html`, published): a saved sale's **Add-ons** uses Add
+  sale's picker (only its add-ons, + Add, Edit amounts; transport keeps partner, their price,
+  reward, Get driving miles and the settings links; boarding its duration note). A list add-on
+  at another price makes a **one-off add-on** (prefilled, never offered), or uses the one-off
+  that already has those values. Business › Add-ons › One-off add-ons lists them, with the
+  sales using each.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
