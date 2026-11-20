@@ -13,7 +13,7 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
-  drawn in, a few at a time, for the owner to approve.
+  drawn in, a batch at a time, for the owner to approve (Home's screens and Dogs so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -92,6 +92,22 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   Design notes section explains them. Not yet seen by the owner.
 - `docs/KennelOS_UI_Redesign_Plan.md` notes that the repo copy now draws screens beyond the
   artifact, each a proposal until she approves it.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Dogs screens
+
+- `docs/design/forest-look-prototype.html` draws six more `stub:` placeholders in its own
+  components and tokens, sharing one set of form parts (titled cards over the `.form-stack`
+  look, chips with D10's + where she'd name her own): **Add dog** (what kind of dog first; a
+  puppy starts from its litter; papers and ownership on request; a duplicate name warns),
+  **Edit dog** (every question open, status, the puppy's plan, ownership, online, Archive),
+  **Add event** (the types she uses most, then by kind, only the ones that fit the dog or
+  litter; each type's own questions from today's event types; cost becomes an expense; Remind
+  me feeds Reminders), **Log a test** (still-to-do tests first, filed by name, result chips,
+  Overall, certificate, what families see), **Pedigree** (3–5 generations, tap to re-center,
+  + adds a missing parent) and **Dog card** (who it went to, what travels and what never does,
+  send again as a link, code or file; live updates still planned). Saving updates the
+  prototype's sample data. A Design notes section explains them. Not yet seen by the owner.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
