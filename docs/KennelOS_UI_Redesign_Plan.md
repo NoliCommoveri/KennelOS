@@ -141,6 +141,67 @@ Today's app (`shared/assets/app.css`) is a different design: `#f6f7f9` page, `#2
 accent, system font at 15px, 8px radius, no dark mode. None of its values carry over where
 the prototype has its own.
 
+## 3.1 Components: one piece for each job
+
+The goal is one unified, cohesive look across the whole app: the same kind of thing always
+looks and works the same way, on every screen. So the display components are tracked here,
+by the job each one does, and **nothing new is made until we've checked that an existing
+piece can't do the job** (D18).
+
+**For every new field, control or display** (in the prototype or the build):
+1. **Name the job.** What is she doing: picking one of a few fixed choices, flipping a
+   two-way switch next to a value, typing an amount, turning something on or off, opening
+   a record, reading a status?
+2. **Find it in the table below** and use that component's helper and class, as is. Vary it
+   only through the options it already has (a tone, a sub-note, multi-select), never with
+   new CSS on top.
+3. **If nothing fits**, don't make it yet. Say why each close match doesn't work and bring
+   the proposal to the owner. Once approved, it's drawn in the prototype and added to this
+   table in the same change, so the next screen can reuse it.
+4. **Each prototype batch is checked for duplicates** before it's committed: no class that
+   repeats an existing one, no second way of drawing the same job.
+
+| Job | Component (prototype helper · class) | Use it for | Not for |
+|---|---|---|---|
+| Open a record or screen | `row()` · `.row` in `.card .rows` | Any list of things to tap: icon, title, subline, end value | Read-only lines |
+| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row | Anything tappable |
+| Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
+| A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
+| A setting she answers | `qRow()` · `.q-row` | One question, common answers as chips, + for her own (D10); saves at once | Form fields saved with Save |
+| One of a few fixed choices | `fChips()` · `.chip` | Choices that fit as words (Kennel / Third party, Flat / Per day) | Lists that grow with her records |
+| Several of a few choices | `fChips({ multi })` · `.chip` | Ticking any number (add-ons on a sale, what a due date covers) | Long lists |
+| Two-way flip beside a value | `.seg` | Symbols or two short words in one line (+ / −, $ / %, Phone / Desktop) | Three or more choices, or long words |
+| On or off, saved at once | `.switch-row` · `.switch` | Feature and trait switches | Yes / No inside a form saved with Save |
+| A list that grows with her records | `fSel()` · `select`; filter dropdowns (D11) | Dogs, groups, partners, families, schedules | Two or three fixed choices |
+| Text, number, date, time | `fIn()` · label above the input, hint as `<small>` | Every typed value | |
+| Longer text | `fText()` · `textarea` | Notes, messages | |
+| Fields side by side | `.dates` | Two or three short fields that belong together | Labels long enough to wrap at phone width (stack them) |
+| A section of a form | `formCard(title, inner, sub)` · `.card.app-card` | Each group of fields, with a short note on the right | |
+| Save and Cancel | `saveBar()` · `.actions-2` | The end of every form | |
+| The header's one action | `addBtn()` · `.bar-btn` | New, Edit (at most one, with search and back) | A second action: use a row or a link |
+| A link to another screen or action | `setLink()` · `.set-link` | "Edit default add-ons", "New schedule" | The main action |
+| A heading with an action | `.label-row` + `.group-label` + `.set-link` | A section heading that adds to it (Saved schedules, Price rules) | |
+| Section heading | `.group-label` (between cards), `.section-h` (inside a card, with a count) | | |
+| A status | `pill([label, tone])` · `.pill` | Status and kind tags, the fixed tones only | Sentences |
+| A short summary | `facts()` · `.facts` | Key and value pairs at the top of a record | Long lists |
+| Big numbers | `.kpis` / `.kpi` | Totals at the top of a money screen | |
+| A hint | `.f-hint` | One short line under a field or card (D14) | Warnings |
+| A note, result or warning | `.stub-note` (`.warn` for amber) | A worked result, a heads-up, a conflict | Hints |
+| Nothing yet | `empty()` · `.card.empty` | An empty list, with its one action | |
+| Delete or end | `delRow()` · `.big-rows.danger` | The destructive action, last on the screen | |
+| Edit in place | `.rem` + `.q-edit` | A row that opens to edit one item (a sale's add-ons) | Whole records: open their screen |
+| A record's header | `.hub-head` | Its name, pills and one-line facts | |
+| Filters | `filterBar()` + the filter sheet | Every list that can be filtered (D11) | |
+| History | `timeline()` | Events by date | |
+| Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
+
+**Known duplicates to resolve** (found while writing this list; each needs one way):
+- **Repeating payment steps** are drawn two ways: an add-on's payment plan (`.plan-steps`,
+  steps inline in one card) and a saved schedule (one card per due date). They do the same
+  job and should share one step component.
+- **Yes / No inside forms** is two chips; the switch (`.switch`) does on / off. Which one a
+  form's yes-or-no question uses should be one rule.
+
 ## 4. What the prototype loads that the app can't
 
 The app has no CDN (CLAUDE.md). The prototype loads Figtree and Inter from Google Fonts
@@ -388,9 +449,9 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   offer"): one setting shown in two places, or two settings. (3) Her usual price, deposit,
   ready age, deposits-open and balance-due rules are new kennel fields (live keeps these per
   litter or per sale), each needing a sync class.
-- **D18. Share components (2026-11-20).** The owner: share and reuse where able. A control
-  that looks and works like one already drawn uses that one's class and markup (the
-  segmented toggle is `.seg`, also the prototype's Phone / Desktop switch; notes and results
-  are `.stub-note`; hints are `.f-hint`), and a new class is added only for what no
-  existing one does. The build follows the same rule in `shared/assets/app.css`.
+- **D18. Share components (2026-11-20).** The owner: share and reuse where able, for one
+  unified, cohesive look across the whole app. The display components are tracked by job in
+  §3.1; every new field or piece is checked against that list first, reuses the one that
+  fits, and a new piece is made only once we've verified none does (and the owner agrees).
+  The build follows the same rule in `shared/assets/app.css`.
 

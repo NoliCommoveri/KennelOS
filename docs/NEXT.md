@@ -318,6 +318,14 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   `.label-note` are removed in favor of `.f-hint`.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Component list (§3.1)
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §3.1: the display components by job (helper and
+  class, use it for, not for), the four-step check every new field or piece goes through,
+  and two duplicates found to resolve (payment steps drawn two ways; Yes / No chips vs the
+  switch). D18 points to it.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
