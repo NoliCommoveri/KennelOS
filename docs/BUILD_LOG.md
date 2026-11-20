@@ -6810,3 +6810,48 @@ it goes on `main`.
   breeder's From KennelOS → Add, Place fields / Preview on the copy; `docs/LAUNCH_CHECKLIST.md`)
   and the live Mapbox try of the waitlist address checks (Waitlist Fixes plan step 9).
   README Status no longer lists either.
+
+## 2026-11-20: Puppy Record — Share as PDF
+
+- The owner's iPhone home-screen app stopped opening the print dialog from the Puppy
+  Record's Print / Save as PDF (the page's `window.print()` call is unchanged and still
+  works in a desktop browser). Added a backup that doesn't use the print dialog:
+  **More ▾ → Share as PDF** draws the record as a PDF on the device with the vendored jsPDF
+  and hands it to the share sheet (print, Save to Files, send), or downloads it where files
+  can't be shared. Print / Save as PDF is unchanged; Choose fields moved into More ▾ (three
+  buttons in view).
+- `puppy-record.js` now builds each record (and the cover page) as a plain-text model and
+  draws the page from it; the new `assets/puppyRecordPdf.js` draws the same model. The page
+  renders the same text, and pixel-identical below the button row, for one pup and for the
+  multi-pup file with its cover page. The owner reviewed a prototype of the PDF beside the
+  print version and approved it (Helvetica; long dashes print as hyphens).
+- The PDF is made as soon as the page is drawn, so a tap reaches the share sheet at once; a
+  share refused for want of a tap says "Your PDF is ready. Tap Share as PDF again."
+- Tests: `tests/puppyRecordPdf.test.js` (text, pages, cover, health columns flowing onto more
+  pages, and a guard that every section kind the page builds is drawn). `node --test`: 2384
+  pass. Checked in Chromium at desktop and iPhone sizes: menu, download, a stand-in share
+  sheet receiving `Daisy Puppy Record.pdf` (application/pdf), no errors.
+- Docs: End-State guide §23.
+- **Service worker:** `assets/puppyRecordPdf.js` added to `PRECACHE_URLS` and `proPages.js`
+  (Lite drops it); `CACHE_NAME` v166 → v167 so installed devices get Share as PDF.
+
+## 2026-11-20: Invoice page — Share PDF on iPhone
+
+- The Invoice page's **Download PDF** (opened from Financials, a sale or a waitlist family)
+  downloads a file, which an iPhone home-screen app can't do usefully. It now reads
+  **Share PDF** where the device can hand files to the share sheet and opens it, and stays
+  **Download PDF** elsewhere. The file is made as soon as the page is drawn, as on the
+  Puppy Record, so the tap reaches the share sheet at once.
+- The share-or-download step is now one module, `assets/pdfShare.js`, used by the Invoice
+  page and the Puppy Record's Share as PDF.
+- `node --test`: 2384 pass. Checked in Chromium on a computer (both PDFs download) and at
+  iPhone size with a stand-in share sheet (both PDFs reach it), no errors.
+- The waitlist family page's Documents list (an invoice and a receipt per charge) had its
+  own Download PDF buttons; they now share the same way (Share PDF on iPhone), each file
+  made on its first tap and kept, with the PDF library loaded when the list draws.
+- Checked in Chromium: Financials → Invoice / Receipt → Generate, for an invoice and a
+  receipt, at iPhone size (Share PDF, both reach a stand-in share sheet); the waitlist
+  family page's receipt (shares on iPhone size, downloads on a computer). No errors.
+- Docs: End-State guide §23, §24.
+- **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`;
+  `CACHE_NAME` v167 → v168 so installed devices get it.

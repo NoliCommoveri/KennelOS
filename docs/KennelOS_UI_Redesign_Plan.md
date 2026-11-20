@@ -19,7 +19,8 @@
 > person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
 > sale, Programs and a program; Add sale, Add person, Do not sell, a sale's Payments, Contracts
 > (the list, a contract, Send for signature, its details), Add entry, the Financials year,
-> Accounts and an account. Each is the owner's to approve or change, like any
+> Accounts and an account; Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
+> Documents and Kels. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
@@ -314,6 +315,12 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Her terms, not ours.** Breeders aren't expected to understand how records are stored,
     and no screen explains it. The screens are designed to fit how she thinks about people,
     so they look like the data was built that way.
+    **Applies to every screen, not only people (the owner, 2026-11-20):** no copy exists to
+    tell her about the plumbing: where a file or record is kept or filed ("in Poppy's
+    documents"), that it's on this device or in the cloud, what moves where on a merge, what is
+    or isn't stored, or which service carries it ("through your Dropbox"). A line stays only
+    when it changes what she decides or does (Replace deletes what's on this phone; a reset
+    can't be undone).
   - **Change it where she is.** Where she'd reasonably believe a page is the place to change
     something (an applicant's email, on that applicant's page), it is. She's never sent to
     another page to change it.
@@ -510,4 +517,90 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   (`extraChoices`) lists them under their base. The match is on name, group, unit, price,
   description, days and payment rules. A one-off is written when the sale is saved, so a sale
   she abandons leaves none (the prototype makes it at once).
+- **D24. Possible duplicates on the hubs (2026-11-20; drawn, for the owner's review).** The
+  owner: a hub with possible duplicates shows one row ("2 dogs may be entered twice") that opens
+  them for that kind of record; none, no row. Hubs: Dogs (dogs), People (contacts and kennels),
+  Litters (litters and pairings), Sales, Financials (expenses); the Waitlist keeps its own
+  applied-twice row. Events, documents and contracts stay in Import / Export's full check. The
+  screen: one card per pair, Not the same or Merge (keep which, which value wins), as
+  `recordMerge.js` does today. **Rules for the build:** the counts come from `duplicateScan.js`,
+  run on the device in the background a few seconds after a data change (and after a sync), one
+  table at a time; a hub reads the saved count, so nothing is scanned on a page open and the row
+  never appears after first paint (Load Performance Phase 1); a stale count shows no row until
+  the next visit. The saved counts are device-only: never `markDataChanged()`, never backed up or
+  synced, so they cause no Worker requests. Adding a record checks only that record against its
+  own table, using the same rules. **On an add form (the owner, 2026-11-20):** a certain match
+  (the same email or phone; the same registration number or registered name) leads with **Use
+  [name]** as the main button beside **Create new**; a name alone is a quieter "Possible match"
+  line. Neither blocks saving: Save becomes **Save anyway**.
+- **D25. Documents for more than a dog; smaller files (the owner, 2026-11-20; planned, not
+  built).** Asked by the owner. Nothing here is drawn or decided past what's written; the open
+  questions are at the end.
+  - **Today, in live:** a document must belong to one dog (`documentRepo` refuses one without
+    `dog_id`); a contract's signed copy is a dog's document with a `contract_id` back-link. The
+    only other stored files are an expense's receipt (`receipt_file_id`, not listed in Documents)
+    and the kennel logo. Papers about the kennel, a litter, a person or a whole stud service have
+    nowhere to go.
+  - **Who a document belongs to:** one owner: a dog, the kennel, a litter, a person, a sale or a
+    stud service. Additive only: `dog_id` stays for a dog's document (a shipped field is never
+    renamed), and new optional `owner_type` + `owner_id` name any other owner, with a compound
+    index in a new `db.version` block. Each owner is a new `referenceRegistry.js` entry (an owner
+    can't be hard-deleted while it has documents); the fields are classified in `syncRegistry.js`
+    (making them `cloud` is a privacy decision, to surface). Backups: check before building that
+    an older build reading a file with a non-dog document skips it rather than failing; if it
+    can't, that decides whether the backup format version is bumped.
+  - **Types by owner:** a dog keeps today's six. The kennel adds License or inspection,
+    Insurance, Breeder program; a litter adds Litter registration and Litter vet check; a person
+    adds Application and Proof of payment; a sale or stud service uses Contract and Other.
+  - **Screens:** Documents groups by owner (the kennel first, then dogs, litters, people), with a
+    "Belongs to" filter in the shared sheet. A Documents tile on the litter page, the person page
+    and a sale, and a Documents row in Setup › Your kennel. A litter's documents also show on each
+    of its pups' Documents as "From the litter", worked out when shown, never stored twice.
+  - **Smaller files.** Already: photos and screenshots become a compressed PDF (`pdfBuild.js`:
+    longest edge 2,000 px, JPEG 0.8, a 320 px thumbnail), and the cloud stores each file once by
+    its SHA-256 (`cloud/src/files.js`), refusing files over 25 MB. To add:
+    - **Scanned PDFs are compressed too.** An uploaded PDF over about 1.5 MB that is mostly page
+      images is re-rendered page by page and rebuilt with `pdfBuild.js`'s settings, showing the
+      size before and after; she can keep the original instead. Needs a PDF renderer vendored
+      into `shared/vendor/` (pdf.js) and loaded only on that path, so no page carries it.
+    - **Never touched:** a PDF with text (e-sign output, a registry's certificate) or any signed
+      contract. They're already small, and re-rendering would flatten the text and break a
+      signature's validity.
+    - **One copy on the phone:** a file attached twice (one stud contract on the stud and the
+      bitch) is stored once, by SHA-256, and deleted only when its last document goes. That
+      changes today's rule that a file belongs to exactly one document (`referenceRegistry.js`'s
+      Document note), so the guide changes with it.
+    - **Storage shows what's used:** on this device and in cloud backup, with the largest
+      files first, so she can find the one 20 MB scan.
+  - **Worker cost:** a file goes to the cloud once (already content-addressed); compression
+    makes each upload smaller. Nothing here adds a request per page open.
+  - **Open (the owner's):** (1) Can one document belong to two owners (the stud contract on both
+    dogs), or does it have one owner and show elsewhere as a link? Recommended: one owner, with
+    the litter-to-pups case shown as above. (2) Is compressing a scan automatic, or offered with
+    the sizes? Recommended: automatic, with "Keep the original" on the same screen. (3) Does
+    Lite get documents beyond dogs, or is it Pro (`proPages.js`, `editionConfig.js`)?
 
+## 9. Carry-over notes
+
+Gaps in the live app to close when the screen that has them is rebuilt. Each is the owner's or
+found in the code; none is built yet.
+
+- **C1. Pedigree import doesn't find a parent typed by call name (the owner, 2026-11-20).** In
+  live, Kels's litter task asks only for an outside sire's or dam's call name (registered name and
+  number are optional), so she often saves "Titan" with neither. The pedigree import
+  (`data/pedigreeImport.js` `planImport`) matches a chart's dogs by registration number, then
+  by registered name, never by call name, so the same Titan arriving on a chart as "Meadow
+  Ridge Titan of the Hill" becomes a second, pedigree-only dog. When pedigree import is brought
+  into the redesign:
+  - A chart dog that matches nothing by number or registered name is also compared with dogs
+    that have neither (a call name only), by `dogSearch`'s word match. The strongest clue is
+    position: the chart's sire or dam where the dog the chart is for already has a sire or dam
+    recorded. A match goes to the import's review ("Same as your Titan?"), never automatically.
+  - Choosing it fills the existing dog's blanks (registered name, number, color, birth date)
+    from the chart, as the import already does for a matched dog, and its ancestors hang off that
+    dog. Nothing it has is overwritten.
+  - Kels's outside-parent step and Add dog's outside dog offer the registered name and number
+    (still optional), so fewer dogs are saved with a call name only.
+  - Possible duplicates (D24) also raises a call-name-only dog and a pedigree-only dog whose
+    registered name contains that call name, with the same breed and sex, as a **Possible**
+    pair, so ones already split can be merged.

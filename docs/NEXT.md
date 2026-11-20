@@ -14,7 +14,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
   drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
-  Sales and Financials so far).
+  Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
+  Documents and Kels so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -474,6 +475,98 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   at another price makes a **one-off add-on** (prefilled, never offered), or uses the one-off
   that already has those values. Business › Add-ons › One-off add-ons lists them, with the
   sales using each.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws More's screens
+
+- Prototype (`docs/design/forest-look-prototype.html`, published): More's stubs drawn in its own
+  components, from what the live app's pages hold. **Backup & Restore**: Back up / Restore tabs,
+  then Cloud, This device or Dropbox; cloud status and Back up now; a file backup with a warning
+  past two weeks; restore from the cloud's 30 days of backups or a file, showing what's in it,
+  Merge, or Replace all after a second confirm. **Import / Export**: import by type (kennels
+  first) or several files at once, blank templates, Find duplicates, Export everything.
+  **Danger zone**: what's on this device, then Reset KennelOS (type RESET, sign out of cloud
+  backup, Delete everything). **Sharing**: for families (Companion messages, Furever), your
+  helper, other breeders (dog cards). **Storage**: Documents, Shows; Accounts point to Business.
+  **Kels**: an unfinished task, Finding / Understanding something, and every task with search
+  and stars. Design notes gain a "More" section; the plan's status lists them. The Lucide
+  `star` icon is built in.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D24, possible duplicates on the hubs
+
+- The owner's D24 in `docs/KennelOS_UI_Redesign_Plan.md` §8, drawn for her review. Prototype
+  (`docs/design/forest-look-prototype.html`): Dogs, People, Litters, Sales and Financials show
+  one row when they have possible duplicates ("1 person and 1 kennel may be entered twice"; Sales
+  has none, so no row), opening **Possible duplicates** for that kind: each pair side by side
+  with differences marked, Not the same, or Merge (keep which, which value wins). Import /
+  Export's Find duplicates lists every kind. Design notes gain "Possible duplicates".
+- For the build (in D24): counts worked out on the device after a data change, read by the hub,
+  never sent to the server.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D24, a certain match leads with Use
+
+- The owner's answer, in D24 (`docs/KennelOS_UI_Redesign_Plan.md` §8): on an add form a certain
+  match leads with **Use [name]**. Prototype: one shared match note for Add dog (same registered
+  name; as sire or dam from a pedigree), Add person, Add family and the person picker (same
+  email or phone): an amber note with **Create new** and **Use [name]**; a name alone stays a
+  "Possible match" line. The Marsh family's sample details in Possible duplicates now match
+  their person page.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Carry-over note C1, pedigree import and call names
+
+- `docs/KennelOS_UI_Redesign_Plan.md` gains §9 *Carry-over notes* (live gaps to close when a
+  screen is rebuilt) with the owner's **C1**: a sire or dam typed through Kels by call name only
+  isn't matched when the same dog arrives on a pedigree chart (the import matches by number and
+  registered name only), so it becomes a second dog. When pedigree import is brought over: also
+  compare call-name-only dogs, by position first, in review; fill blanks on a match; offer the
+  registered name and number when adding an outside parent; and raise already-split pairs in
+  Possible duplicates.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws Documents
+
+- Prototype (`docs/design/forest-look-prototype.html`): More › Storage › **Documents**, from the
+  live page: every document under its dog (newest first), type chips with counts (pedigree,
+  health test, vet summary, registration, contract, other), search over titles, labs and
+  results, the shared filter for date and dog; each dog's name opens the dog. Storage's line
+  for it now names what it holds. Design notes and the plan's status updated.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Documents where she looks for them
+
+- Prototype (`docs/design/forest-look-prototype.html`): screens already drawn that should show
+  documents now do. Every dog gets a **Documents** tile (its documents, newest first, Add, All
+  documents); a health test names its certificate, or says none is attached and opens Log a test;
+  a contract's signed copy says it's in the pup's documents, and **Attach signed contract** (or
+  another copy) files a scan with the dog, as live's contract page does; search has a Documents
+  group; More's Storage line is "Documents and shows". Sample documents gain Hazel's contract and
+  the Clover × Titan stud contract.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D25, documents for more than a dog; smaller files (planned)
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D25** (asked by the owner; planned, not built):
+  a document belongs to a dog, the kennel, a litter, a person, a sale or a stud service
+  (additive `owner_type` / `owner_id`, `dog_id` kept), types by owner, Documents grouped by owner
+  with tiles on the litter, person and sale pages and Setup › Your kennel. Smaller files: scanned
+  PDFs compressed like photos (vendored pdf.js on that path only), text and signed PDFs never
+  touched, one copy per file on the phone by SHA-256, storage use shown. Three open questions.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: No plumbing copy (D8, every screen)
+
+- The owner: no copy exists to tell her about the plumbing. D8's "her terms, not ours" in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8 now says it applies to every screen, with what counts.
+- Prototype: removed "in Poppy's documents" and "filed in … documents" (contracts), "stored on
+  this device, and in your cloud backup" (Documents), what moves where on a merge (now "Willow
+  keeps everything from both"), "your helper's app reads it from there" and "through your
+  Dropbox" (Backup, Sharing), "Everything stays on this device" (Kels), "on this device" on
+  Find duplicates, the Accounts-are-in-Business row (Storage), "never stored" (relationships),
+  the private vault wording on What gets backed up (now what it means for her), and Danger
+  zone's "On this device" heading (now "Your records").
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

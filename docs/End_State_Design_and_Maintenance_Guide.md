@@ -2052,10 +2052,10 @@ referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referr
 
 ---
 
-## 23. Puppy Record (print-only PDF)
+## 23. Puppy Record (print + shared PDF)
 
-**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html` and
-`data/puppyRecordFields.js` are in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html`,
+`data/puppyRecordFields.js` and `assets/puppyRecordPdf.js` are in `proPages.js`).
 
 `pages/puppy-record.html?sale=<id>` is a printable record for a puppy being sold: puppy
 info, sire and dam with their test results (Genetic, OFA / PennHIP and Breed-specific
@@ -2080,10 +2080,23 @@ omitted. Read-only, through the repos.
   **Other puppies with a sale** for pups with a sale in progress on no such litter; an
   optional **Start with my readiness cover page**, off by default), or Kels's Pups are going home
   (`?autoprint=1`).
+- **One model, drawn twice:** `puppy-record.js` builds each record as a plain-text model
+  (`recordModel`: header plus sections of kind `info` / `parents` / `health` / `buyer`;
+  `coverModel` for the cover page) and draws it as the page. **More ▾ → Share as PDF** draws
+  the same models with the vendored jsPDF (`assets/puppyRecordPdf.js`, Helvetica, US Letter,
+  each record on a new page, health columns flowing onto the next page) and hands the file
+  to the share sheet (`navigator.share` with files), or downloads it where files can't be
+  shared (`assets/pdfShare.js`, shared with the Invoice page, §24). It's the way out when the print dialog won't open (an iPhone home-screen app).
+  The file is made as soon as the page is drawn, so the tap reaches the share sheet at once;
+  if a share is refused for want of a tap, the page says to tap again.
+  `tests/puppyRecordPdf.test.js` fails when the page builds a section kind the PDF doesn't
+  draw. The page's header holds Back, Print / Save as PDF and More ▾ (Share as PDF, and
+  **Choose fields** for an own kennel).
 - **Fields per kennel:** the Kennel page's **Puppy Record fields** card saves
   `Kennel.puppy_record_fields` (only what's off). `data/puppyRecordFields.js` is the one list
   and `puppyRecordShows(kennel)` the read rule; anything not stored shows. A new printed field
-  must be added to the list **and** gated with `shows(key)` in `puppy-record.js`.
+  must be added to the list **and** gated with `shows(key)` in `puppy-record.js`'s model
+  builders (the page and the shared PDF both read the model).
 - **Whose kennel:** the puppy's `kennel_id`, else the active kennel, else the sole own
   kennel; its name and logo head the record.
 
@@ -2109,6 +2122,13 @@ rebuilt on each view.
   Latin-1). The middle column is `colLabel`: Due by (invoices), Received (a family's
   receipts: date and method), none (a stud receipt). A family's documents end with an
   **Account summary** (`summary`).
+- **The page's PDF button** is **Share PDF** where the device can hand files to the share
+  sheet (an iPhone, where Print can't open from the home-screen app) and **Download PDF**
+  elsewhere (`assets/pdfShare.js`, shared with the Puppy Record, §23). The file is made as
+  soon as the page is drawn, so the tap reaches the share sheet at once; a share refused for
+  want of a tap says to tap again. **Print** is the browser's own print.
+  The waitlist family page's **Documents** list (each invoice and receipt) uses the same
+  Share PDF / Download PDF step, making each file on its first tap and keeping it.
 - **A family's money** (`data/familyMoney.js`, Pro-only, pure but its loaders):
   `familyAccount({ entry, statement, sale })` → `charges` (the entry's application fee, and
   the sale's pieces, §21.3: each charge by due date, with the money on it and what's owed),
