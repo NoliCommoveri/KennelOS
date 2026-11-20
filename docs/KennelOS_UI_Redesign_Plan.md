@@ -12,6 +12,11 @@
 > owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
+> **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
+> `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
+> Notifications and Kennels so far. Each is the owner's to approve or change, like any
+> screen; until she has seen it, it's a proposal (§2.5).
+>
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes

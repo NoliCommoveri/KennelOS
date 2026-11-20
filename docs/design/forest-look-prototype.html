@@ -538,6 +538,53 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .coi-form { display: flex; flex-direction: column; gap: 10px; }
 .coi-cell sup { font-size: 9px; margin-left: 1px; }
 .gen-name small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
+/* reminders: a row that opens to Done and Snooze */
+.rows > .rem { border-top: 1px solid var(--line); }
+.rows > .rem:first-child { border-top: 0; }
+.rem > .row { border-top: 0; }
+.rem.open > .row { background: var(--surface-2); }
+.rem .q-edit { padding-top: 10px; background: var(--surface-2); }
+.q-edit .chip { display: inline-flex; align-items: center; gap: 5px; }
+.q-edit .chip i[data-lucide], .q-edit .chip svg.lucide { width: 15px; height: 15px; }
+.chip.go { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+.tab-n { color: var(--faint); font-weight: 500; font-variant-numeric: tabular-nums; }
+.tabs button[aria-selected="true"] .tab-n { color: inherit; opacity: .75; }
+/* calendar: a month grid; dots on a phone, names on desktop */
+.cal { padding-bottom: 8px; }
+.cal-head { display: flex; align-items: center; gap: 6px; padding: 12px 14px 8px; }
+.cal-head h2 { margin: 0 auto 0 0; font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.cal-nav { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; }
+.cal-nav i[data-lucide], .cal-nav svg.lucide { width: 16px; height: 16px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 0 8px; }
+.cal-wd { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); text-align: center; padding: 4px 0 6px; }
+.cal-day { min-height: 46px; border: 0; background: none; border-radius: var(--r-sm); padding: 5px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: var(--ink); font: inherit; min-width: 0; }
+.cal-day:hover { background: var(--surface-2); }
+.cal-day.out { color: var(--faint); }
+.cal-day.sel { background: var(--primary-soft); }
+.cal-n { font-size: 13px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.cal-day.today .cal-n { background: var(--primary); color: var(--primary-ink); }
+.cal-dots { display: flex; gap: 3px; min-height: 6px; }
+.cal-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--p-gray-fg); }
+.cal-dot.green { background: var(--p-green-fg); } .cal-dot.blue { background: var(--p-blue-fg); } .cal-dot.rose { background: var(--p-rose-fg); }
+.cal-dot.amber { background: var(--p-amber-fg); } .cal-dot.red { background: var(--p-red-fg); } .cal-dot.violet { background: var(--p-violet-fg); }
+.cal-dot.past { opacity: .45; }
+.cal-chips { display: none; }
+.cal-foot { padding: 4px 14px 12px; }
+.cal-none { padding: 2px 14px 14px; }
+.cal-split { display: flex; flex-direction: column; gap: 12px; }
+@container app (min-width: 760px) {
+  .cal-day { min-height: 88px; align-items: stretch; padding: 6px; border: 1px solid var(--line); border-radius: var(--r-sm); }
+  .cal-day.out { background: var(--surface-2); border-color: transparent; }
+  .cal-n { width: 22px; height: 22px; font-size: 12.5px; }
+  .cal-dots { display: none; }
+  .cal-chips { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .cal-chip { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; background: var(--p-gray-bg); color: var(--p-gray-fg); }
+  .cal-chip.green { background: var(--p-green-bg); color: var(--p-green-fg); } .cal-chip.blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+  .cal-chip.rose { background: var(--p-rose-bg); color: var(--p-rose-fg); } .cal-chip.amber { background: var(--p-amber-bg); color: var(--p-amber-fg); }
+  .cal-chip.red { background: var(--p-red-bg); color: var(--p-red-fg); } .cal-chip.violet { background: var(--p-violet-bg); color: var(--p-violet-fg); }
+  .cal-more { font-size: 11px; color: var(--muted); text-align: left; padding-left: 5px; }
+  .cal-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
 </style>
 
 <div class="proto">
@@ -579,6 +626,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Search</h3>
     <p>A search button sits in the header of every screen (on desktop it's a box with a / shortcut; Ctrl+K or Cmd+K work too). It opens one keyword box over everything: screens, dogs, litters, waitlist families, contacts, sales, health and breeding events, money entries, every setup question and every report. Results are grouped by kind, with the matching words highlighted, and every word you type has to match. Recent searches stay at the top of the empty box. Opening a money entry or an event lands on its list already narrowed to it.</p>
+
+    <h3>Reminders, Coming up and the calendar</h3>
+    <p>One set of dated things feeds all three. <b>Reminders</b> (Home's "All reminders") groups what she set a reminder for into Overdue, Next 7 days and Later; tapping one opens Done, Snooze (tomorrow, 3 days, 1 week or a date) and a way to the dog or litter. Done ones stay on that dog's or litter's history and can be put back. <b>Coming up</b> is everything from today on, a week at a time, go-homes with their times. The <b>Calendar</b> is a month at a time: dots on a phone, names on desktop; tapping a day lists it, with Add to Google Calendar. <b>Notifications</b> (the bell) lists what families and the server did while she was away, new first; which ones she's told about stays in Setup › Notifications. The kennel name under the brand opens <b>Kennels</b>: hers, with the switch when she runs more than one, and the outside kennels on record.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1054,7 +1104,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1070,7 +1120,7 @@ function bar(title, { ic, action = '', sub = '' } = {}) {
   return `${backBtn()}<h1>${ic && hist.length <= 1 ? icon(ic) : ''}<span>${title}${sub ? `<span class="sub">${sub}</span>` : ''}</span></h1>${action}`;
 }
 const addBtn = (label, spec) => `<button type="button" class="bar-btn" data-open="${spec}">${icon('plus')}${label}</button>`;
-const brandBlock = `<div class="brand"><div class="brand-name">KennelOS <span class="ed-tag">PRO</span></div><button type="button" class="kennel-switch" data-open="stub:kennels">Thornfield Kennels ${icon('chevron-down')}</button></div>`;
+const brandBlock = () => `<div class="brand"><div class="brand-name">KennelOS <span class="ed-tag">PRO</span></div><button type="button" class="kennel-switch" data-open="kennels">${KENNEL} ${icon('chevron-down')}</button></div>`;
 
 /* ================= waitlist logic (mirrors the list rules) ================= */
 const activeFams = () => WL.filter((f) => f.st === 'active').sort((a, b) => a.pos - b.pos);
@@ -1115,17 +1165,17 @@ S.home = () => {
     { ic: 'syringe', tone: 'blue', t: 'Birch, Cedar · 2nd vaccines', s: 'Thu Nov 26' },
     { ic: 'baby', tone: '', t: 'Clover × Titan · due date', s: 'Tue Dec 8 · whelping box set-up Dec 1' },
     FEAT.shows && { ic: 'trophy', tone: 'blue', t: 'Gunnar · Granite State KC show', s: 'Sat Dec 12 · Manchester, NH' },
-  ].filter(Boolean).map((r) => row({ ...r, go: 'stub:upcoming' })).join('');
+  ].filter(Boolean).map((r) => row({ ...r, go: 'upcoming' })).join('');
   return {
-    bar: `${backBtn()}${brandBlock}<div class="head-icons"><button type="button" class="icon-btn" aria-label="Setup" data-open="setup">${icon('settings')}</button><button type="button" class="icon-btn bell" aria-label="Notifications, 3 new" data-open="stub:notifications">${icon('bell')}<span class="dot"></span></button></div>`,
+    bar: `${backBtn()}${brandBlock()}<div class="head-icons"><button type="button" class="icon-btn" aria-label="Setup" data-open="setup">${icon('settings')}</button><button type="button" class="icon-btn bell" aria-label="Notifications${newNotes() ? `, ${newNotes()} new` : ''}" data-open="notifications">${icon('bell')}${newNotes() ? '<span class="dot"></span>' : ''}</button></div>`,
     body: `
       <div class="today-h"><h2>Today</h2><span>Wednesday, Nov 18</span></div>
       <div class="tiles">${t}</div>
       <div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Clover x-ray done”</span>${planTag(2)}</div>
       <div class="home-cols">
-        <section class="card"><div class="section-h"><h2>${icon('calendar-check')}This week</h2><button type="button" class="link" data-open="stub:reminders">All reminders</button></div><div class="rows">${week}</div></section>
+        <section class="card"><div class="section-h"><h2>${icon('calendar-check')}This week</h2><button type="button" class="link" data-open="reminders">All reminders</button></div><div class="rows">${week}</div></section>
         <div class="stack">
-          <section class="card"><div class="section-h"><h2>${icon('calendar-days')}Coming up</h2><button type="button" class="link" data-open="stub:calendar">Calendar</button></div><div class="rows">${later}</div></section>
+          <section class="card"><div class="section-h"><h2>${icon('calendar-days')}Coming up</h2><button type="button" class="link" data-open="calendar">Calendar</button></div><div class="rows">${later}</div></section>
           <section class="card"><div class="rows">${row({ ic: 'cloud', t: 'Cloud backup is on', s: 'Last backup today, 6:12 AM', go: 'setupsec:cloud' })}</div></section>
         </div>
       </div>
@@ -1778,6 +1828,158 @@ S.setupsec = (k) => {
   return { bar: bar(title, { sub: 'Setup' }), body };
 };
 
+/* ================= Home's screens: reminders, coming up, the calendar, notifications, kennels ================= */
+/* one agenda: every dated event and reminder. Reminders are the ones with a reminder
+   (rem); Coming up is what's scheduled from today on; the calendar shows all of it. */
+const AGENDA = [
+  { id: 'a1', d: '2026-10-06', ic: 'heart', tone: 'violet', kind: 'Breeding', t: 'Clover × Titan · bred', s: 'Chilled semen from Meadow Ridge · again Oct 8', go: 'dog:clover' },
+  { id: 'a2', d: '2026-10-29', ic: 'syringe', tone: 'blue', kind: 'Vaccination', t: 'Willow × Ash · DHPP #1', s: '6 puppies · Hartland Animal Hospital', go: 'litter:wa', rem: 1, done: '2026-10-29' },
+  { id: 'a3', d: '2026-11-03', ic: 'activity', tone: 'violet', kind: 'Ultrasound', t: 'Clover · confirmed pregnant', s: 'About 7 sacs · Dr. Okonkwo', go: 'dog:clover' },
+  { id: 'a4', d: '2026-11-10', ic: 'scan-line', tone: 'blue', kind: 'Microchip', t: 'Poppy · register microchip', s: 'AKC Reunite', go: 'dog:poppy', rem: 1, done: '2026-11-10' },
+  { id: 'a5', d: '2026-11-12', ic: 'scale', tone: '', kind: 'Weight check', t: 'Willow × Ash · puppies weighed', s: '8.4 to 11.3 lb', go: 'littersec:wa|weigh' },
+  { id: 'a6', d: '2026-11-13', ic: 'syringe', tone: 'blue', kind: 'Vaccination', t: 'Ash · rabies booster', s: '3-year · book with Hartland Animal Hospital', go: 'dog:ash', rem: 1 },
+  { id: 'a7', d: '2026-11-16', ic: 'stethoscope', tone: 'red', kind: 'Vet visit', t: 'Wren · vet recheck', s: 'Umbilical hernia · Dr. Okonkwo', go: 'dog:wren', rem: 1 },
+  { id: 'a8', d: '2026-11-20', ic: 'scan-line', tone: 'blue', kind: 'Microchip', t: 'Fern · register microchip', s: 'Before go-home Sun Nov 22', go: 'dog:fern', rem: 1 },
+  { id: 'a9', d: '2026-11-21', time: '10:00 AM', ic: 'car', tone: 'green', kind: 'Go-home', t: 'Hazel goes home', s: 'Lindqvist family · $2,700 balance due', go: 'littersec:wa|gohome', sched: 1 },
+  { id: 'a10', d: '2026-11-21', time: '1:00 PM', ic: 'car', tone: 'green', kind: 'Go-home', t: 'Poppy goes home', s: 'Okafor family · paid in full', go: 'littersec:wa|gohome', sched: 1 },
+  { id: 'a11', d: '2026-11-22', time: '11:00 AM', ic: 'car', tone: 'green', kind: 'Go-home', t: 'Fern goes home', s: 'Marsh family · contract not signed yet', go: 'littersec:wa|gohome', sched: 1 },
+  { id: 'a12', d: '2026-11-23', time: '9:30 AM', ic: 'scan-line', tone: 'blue', kind: 'Vet visit', t: 'Clover · x-ray for count', s: 'Day 48 · Hartland Animal Hospital', go: 'dog:clover', rem: 1, sched: 1 },
+  { id: 'a13', d: '2026-11-25', ic: 'flame', tone: 'amber', kind: 'Heat', t: 'Juniper · expected heat', s: 'Her cycles average 176 days', go: 'dog:juniper', rem: 1 },
+  { id: 'a14', d: '2026-11-26', time: '2:00 PM', ic: 'syringe', tone: 'blue', kind: 'Vaccination', t: 'Birch, Cedar · 2nd vaccines', s: 'DHPP #2 · Hartland Animal Hospital', go: 'litter:wa', rem: 1, sched: 1 },
+  { id: 'a15', d: '2026-12-01', ic: 'house', tone: '', kind: 'Whelping', t: 'Clover · set up the whelping box', s: 'One week before her due date', go: 'dog:clover', rem: 1 },
+  { id: 'a16', d: '2026-12-02', ic: 'trophy', tone: 'blue', kind: 'Show', t: 'Gunnar · entries close', s: 'Granite State KC, Dec 12', go: 'dog:gunnar', rem: 1, feat: 'shows' },
+  { id: 'a17', d: '2026-12-08', ic: 'baby', tone: 'green', kind: 'Due date', t: 'Clover × Titan · due', s: 'Day 63 from Oct 6', go: 'litter:ct', sched: 1 },
+  { id: 'a18', d: '2026-12-12', time: '8:00 AM', ic: 'trophy', tone: 'blue', kind: 'Show', t: 'Gunnar · Granite State KC show', s: 'Manchester, NH · Open Dog', go: 'dog:gunnar', sched: 1, feat: 'shows' },
+  { id: 'a19', d: '2027-01-12', ic: 'stethoscope', tone: 'blue', kind: 'Vet visit', t: 'Willow · annual exam', s: 'Hartland Animal Hospital', go: 'dog:willow', rem: 1 },
+].map((a) => ({ ...a, due: a.d }));
+const agenda = () => AGENDA.filter((a) => !a.feat || FEAT[a.feat]);
+const addDays = (iso, n) => { const t = new Date(iso + 'T12:00:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
+const remBucket = (a) => a.due < TODAY ? 'overdue' : a.due <= addDays(TODAY, 7) ? 'soon' : 'later';
+const whenText = (a) => {
+  const n = days(TODAY, a.due);
+  if (n < 0) return `Was due ${wday(a.due)}`;
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  return wday(a.due);
+};
+FDEF.reminders = { date: 'Due', items: () => agenda().filter((a) => a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
+FDEF.upcoming = { date: 'Date', items: () => agenda().filter((a) => a.sched || a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
+
+/* a reminder: the row opens it; Done and Snooze sit under it when it's open */
+function remRow(a) {
+  const open = ui.remOpen === a.id, b = remBucket(a);
+  const tag = a.done ? pill([`Done ${short(a.done)}`, 'gray']) : b === 'overdue' ? pill(['Overdue', 'red']) : b === 'soon' ? pill([days(TODAY, a.due) <= 1 ? whenText(a) : `${days(TODAY, a.due)} days`, 'amber']) : '';
+  let edit = '';
+  if (open && a.done) edit = `<div class="q-edit"><button type="button" class="chip" data-rem="undo|${a.id}">${icon('history')}Not done yet</button><button type="button" class="chip" data-open="${a.go}">Open ${esc(a.t.split(' · ')[0])}</button></div>`;
+  else if (open) edit = `<div class="q-edit">
+      <button type="button" class="chip go" data-rem="done|${a.id}">${icon('check')}Done</button>
+      ${[[1, 'Tomorrow'], [3, '3 days'], [7, '1 week']].map(([n, l]) => `<button type="button" class="chip" data-rem="snooze|${a.id}|${n}">${l}</button>`).join('')}
+      ${ui.remDate === a.id ? `<div class="fbar-top"><label>${icon('calendar-days')}<input type="date" id="rem-date" min="${TODAY}" value="${addDays(TODAY, 14)}" aria-label="Snooze until"></label><button type="button" class="fbtn" data-rem="date|${a.id}">Snooze</button></div>` : `<button type="button" class="chip" data-rem="pick|${a.id}">Pick a date</button>`}
+      <button type="button" class="chip" data-open="${a.go}">Open ${esc(a.t.split(' · ')[0])}</button>
+    </div>`;
+  return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-rem="open|${a.id}" aria-expanded="${open}"><span class="row-ic ${a.tone}">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${a.t}</span><span class="row-s">${a.done ? a.kind : `${whenText(a)} · ${a.kind}`}${a.snoozed ? ' · snoozed' : ''}</span></span><span class="row-end">${tag}<span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>${edit}</div>`;
+}
+S.reminders = () => {
+  const tab = ui.remTab || 'pending';
+  const all = agenda().filter((a) => a.rem && (tab === 'done' ? a.done : !a.done));
+  const shown = applyF('reminders', all);
+  const pending = agenda().filter((a) => a.rem && !a.done).length;
+  let body = `<div class="tabs" role="tablist">${[['pending', `To do`, pending], ['done', 'Done']].map(([k, l, n]) => `<button type="button" role="tab" data-remtab="${k}" aria-selected="${tab === k}">${l}${n ? ` <span class="tab-n">${n}</span>` : ''}</button>`).join('')}</div>
+    ${filterBar('reminders', { placeholder: 'Search reminders', shown: shown.length, total: all.length })}`;
+  if (tab === 'done') {
+    body += shown.length ? `<section class="card"><div class="rows">${shown.sort((a, b) => b.done.localeCompare(a.done)).map(remRow).join('')}</div></section><p class="lede">Done reminders stay on their dog's or litter's history.</p>` : empty('circle-check', 'Nothing marked done yet.');
+  } else {
+    const groups = [['overdue', 'Overdue', 'circle-alert'], ['soon', 'Next 7 days', 'calendar-check'], ['later', 'Later', 'calendar-days']];
+    body += groups.map(([k, l, ic]) => { const list = shown.filter((a) => remBucket(a) === k).sort((a, b) => a.due.localeCompare(b.due)); return list.length ? `<section class="card"><div class="section-h"><h2>${icon(ic)}${l}</h2><span class="fcount">${list.length}</span></div><div class="rows">${list.map(remRow).join('')}</div></section>` : ''; }).join('')
+      || empty('calendar-check', all.length ? 'No reminders match.' : 'Nothing to remind you of. Reminders come from events with a reminder date.');
+  }
+  return { bar: bar('Reminders', { sub: `${pending} to do` }), body: body + `<button type="button" class="set-link" data-open="calendar">${icon('calendar-days')}See them on the calendar</button>`, filterItems: all };
+};
+
+/* Coming up: everything dated from today on, a week at a time */
+S.upcoming = () => {
+  const all = agenda().filter((a) => (a.sched || a.rem) && !a.done && a.due >= TODAY);
+  const mins = (t) => { if (!t) return 0; const [, h, m, pm] = t.match(/(\d+):(\d+) (AM|PM)/); return (Number(h) % 12 + (pm === 'PM' ? 12 : 0)) * 60 + Number(m); };
+  const shown = applyF('upcoming', all).sort((a, b) => a.due.localeCompare(b.due) || mins(a.time) - mins(b.time));
+  const wk = addDays(TODAY, 7 - ((new Date(TODAY + 'T12:00:00').getDay() + 6) % 7) - 1); /* Sunday that ends this week */
+  const groups = [['This week', (a) => a.due <= wk], ['Next week', (a) => a.due > wk && a.due <= addDays(wk, 7)], ['Later', (a) => a.due > addDays(wk, 7)]];
+  const body = groups.map(([l, test]) => { const list = shown.filter(test); return list.length ? `<div class="group-label">${l}</div><section class="card"><div class="rows">${list.map((a) => row({ ic: a.ic, tone: a.tone, t: a.t, s: `${wday(a.due)}${a.time ? ' · ' + a.time : ''} · ${a.s}`, go: a.go })).join('')}</div></section>` : ''; }).join('')
+    || empty('calendar-days', 'Nothing coming up matches.');
+  return { bar: bar('Coming up', { sub: 'From today on' }), body: `${filterBar('upcoming', { placeholder: 'Search coming up', shown: shown.length, total: all.length })}${body}<button type="button" class="set-link" data-open="calendar">${icon('calendar-days')}See it on the calendar</button>`, filterItems: all };
+};
+
+/* the calendar: a month at a time; tap a day for what's on it */
+S.calendar = () => {
+  const m = ui.calMonth || TODAY.slice(0, 7), sel = ui.calDay || TODAY;
+  const first = new Date(m + '-01T12:00:00'), lead = (first.getDay() + 6) % 7; /* weeks start Monday */
+  const start = addDays(m + '-01', -lead), cells = [];
+  for (let i = 0; i < 42; i++) { const d = addDays(start, i); if (i >= 35 && d.slice(0, 7) !== m) break; cells.push(d); }
+  const on = (d) => agenda().filter((a) => a.due === d);
+  const grid = cells.map((d) => {
+    const items = on(d), cls = ['cal-day', d.slice(0, 7) !== m && 'out', d === TODAY && 'today', d === sel && 'sel'].filter(Boolean).join(' ');
+    return `<button type="button" class="${cls}" data-calday="${d}" aria-label="${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${items.length ? `: ${items.length} item${items.length > 1 ? 's' : ''}` : ''}" aria-pressed="${d === sel}"><span class="cal-n">${Number(d.slice(8))}</span>
+      <span class="cal-dots">${items.slice(0, 3).map((a) => `<i class="cal-dot ${a.tone || 'gray'}${a.done || (a.due < TODAY && !a.rem) ? ' past' : ''}"></i>`).join('')}</span>
+      <span class="cal-chips">${items.slice(0, 2).map((a) => `<span class="cal-chip ${a.tone || 'gray'}">${a.t.split(' · ')[0]}</span>`).join('')}${items.length > 2 ? `<span class="cal-more">+${items.length - 2} more</span>` : ''}</span></button>`;
+  }).join('');
+  const dayItems = on(sel);
+  const dayCard = `<section class="card"><div class="section-h"><h2>${fmt(sel, { weekday: 'long', month: 'short', day: 'numeric' })}</h2>${sel === TODAY ? pill(['Today', 'green']) : ''}</div>
+    ${dayItems.length ? `<div class="rows">${dayItems.map((a) => row({ ic: a.ic, tone: a.tone, t: a.t, extra: a.done ? pill(['Done', 'gray']) : a.rem && a.due < TODAY ? pill(['Overdue', 'red']) : '', s: `${a.time ? a.time + ' · ' : ''}${a.kind} · ${a.s}`, go: a.go })).join('')}</div>
+      <div class="cal-foot"><button type="button" class="set-link" data-gcal="${sel}">${icon('calendar-days')}Add to Google Calendar</button></div>` : `<p class="lede cal-none">Nothing on this day.</p>`}</section>`;
+  const mName = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return {
+    bar: bar('Calendar'),
+    body: `<section class="card cal">
+        <div class="cal-head"><h2>${mName}</h2><button type="button" class="chip" data-calmove="today">Today</button><button type="button" class="cal-nav" data-calmove="-1" aria-label="Previous month">${icon('arrow-left')}</button><button type="button" class="cal-nav" data-calmove="1" aria-label="Next month">${icon('arrow-right')}</button></div>
+        <div class="cal-grid">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => `<span class="cal-wd">${w}</span>`).join('')}${grid}</div>
+      </section>
+      <div class="cal-split">${dayCard}
+      <section class="card"><div class="rows">${row({ ic: 'calendar-check', t: 'Reminders', s: `${agenda().filter((a) => a.rem && !a.done).length} to do · ${agenda().filter((a) => a.rem && !a.done && a.due < TODAY).length} overdue`, go: 'reminders' })}${row({ ic: 'list', t: 'Coming up', s: 'Everything from today on, as a list', go: 'upcoming' })}${row({ ic: 'link', t: 'Calendar feed', s: 'See all of this in Google, Apple or Outlook calendar', go: 'setupsec:voice', planned: 2 })}</div></section></div>`,
+  };
+};
+
+/* notifications: what families and the server did while she was away (Notifications plan §1) */
+const NOTES = [
+  { id: 'n1', at: '2026-11-18', time: '9:12 AM', ic: 'message-square-text', tone: 'blue', t: 'Okafor family asked for a different pickup time', s: '2:00 PM instead of 1:00 PM on Sat Nov 21', go: 'wlrequests', fresh: 1, feat: 'waitlist' },
+  { id: 'n2', at: '2026-11-18', time: '7:40 AM', ic: 'inbox', tone: 'violet', t: 'Silva family applied', s: 'Wants a male · referred by the Okafor family', go: 'wlapps', fresh: 1, feat: 'waitlist' },
+  { id: 'n3', at: '2026-11-17', time: '8:05 PM', ic: 'inbox', tone: 'violet', t: 'Park family applied', s: 'Wants a female · from your website', go: 'wlapps', fresh: 1, feat: 'waitlist' },
+  { id: 'n4', at: '2026-11-15', time: '6:31 PM', ic: 'message-square-text', tone: 'blue', t: 'Lindqvist family sent a message', s: '“Can we bring her crate on Saturday?”', go: 'person:lindqvist', feat: 'waitlist' },
+  { id: 'n5', at: '2026-11-12', time: '11:02 AM', ic: 'file-pen-line', tone: 'green', t: 'Poppy’s contract is signed by everyone', s: 'Okafor family · through e-sign', go: 'stub:contracts', feat: 'contracts' },
+  { id: 'n6', at: '2026-11-10', time: '4:47 PM', ic: 'clock', tone: 'amber', t: 'Delgado family paused their place', s: 'Until Jan 4 · they keep their place', go: 'person:delgado', feat: 'waitlist' },
+  { id: 'n7', at: '2026-11-06', time: '7:15 AM', ic: 'arrow-right', tone: 'gray', t: 'Kowalski family passed on their turn', s: 'One pass used · they keep their place', go: 'person:kowalski', feat: 'waitlist' },
+];
+const notes = () => NOTES.filter((n) => !n.feat || FEAT[n.feat]);
+const newNotes = () => notes().filter((n) => n.fresh).length;
+S.notifications = () => {
+  const list = notes(), fresh = list.filter((n) => n.fresh), earlier = list.filter((n) => !n.fresh);
+  const when = (n) => (n.at === TODAY ? n.time : n.at === addDays(TODAY, -1) ? `Yesterday, ${n.time}` : `${short(n.at)}, ${n.time}`);
+  const card = (l, arr) => arr.length ? `<section class="card"><div class="section-h"><h2>${l}</h2>${l === 'New' ? `<span class="fcount">${arr.length}</span>` : ''}</div><div class="rows">${arr.map((n) => row({ ic: n.ic, tone: n.tone, t: n.t, s: `${n.s} · ${when(n)}`, go: n.go })).join('')}</div></section>` : '';
+  return {
+    bar: bar('Notifications'),
+    body: (list.length ? card('New', fresh) + card('Earlier', earlier) : empty('bell', 'Nothing yet. Applications, messages and requests from families show here.'))
+      + setLink('What you’re told about is in Setup › Notifications', 'setupsec:notifications'),
+    after: () => { NOTES.forEach((n) => { n.fresh = 0; }); }, /* seen once opened; the bell's dot goes on the next screen */
+  };
+};
+
+/* kennels: the one she's working in, her others, and outside kennels on record */
+let KENNEL = 'Thornfield Kennels';
+const OWN_KENNELS = [
+  { n: 'Thornfield Kennels', s: '13 dogs · 3 litters · THORN · Hartland, VT' },
+  { n: 'Thornfield North', s: '2 dogs · no litters yet · TNORTH · Stowe, VT', multi: 1 },
+];
+S.kennels = () => {
+  const own = OWN_KENNELS.filter((k) => !k.multi || FEAT.multiKennel);
+  return {
+    bar: bar('Kennels', { action: addBtn('Add kennel', 'stub:add-kennel') }),
+    body: `<div class="group-label">${own.length > 1 ? 'Your kennels' : 'Your kennel'}</div>
+      <section class="card big-rows"><div class="rows">${own.map((k) => `<button type="button" class="row" data-kennel="${esc(k.n)}"><span class="row-ic ${k.n === KENNEL ? 'green' : ''}">${icon(k.n === KENNEL ? 'check' : 'house')}</span><span class="row-main"><span class="row-t">${k.n}${k.n === KENNEL && own.length > 1 ? pill(['Working in this one', 'green']) : ''}</span><span class="row-s">${k.s}</span></span><span class="row-end">${k.n === KENNEL ? '' : '<span class="link">Switch</span>'}${chev}</span></button>`).join('')}</div></section>
+      ${FEAT.multiKennel ? '<p class="lede">Each kennel has its own dogs, litters, waitlist and money. Switching changes what every tab shows.</p>' : setLink('More than one kennel? Turn it on in What you use', 'setupsec:features')}
+      <div class="group-label">Other kennels</div>
+      <section class="card"><div class="rows">${row({ ic: 'building-2', t: 'Meadow Ridge Kennels', s: 'Titan · Concord, NH', go: 'person:meadow' })}${row({ ic: 'building-2', t: 'Briar Hollow Kennels', s: 'Duke, Cassius · stud client · Woodstock, VT', go: 'person:briar' })}</div></section>
+      <p class="lede">Kennels behind outside dogs and stud clients. Their people are in Business › People.</p>`,
+  };
+};
+
 const STUBS = {
   sharing: ['Sharing', ['Companion messaging (prospective, current families, partners)', 'Furever', 'Assistant', 'Dog cards']],
   storage: ['Storage', ['Documents', 'Shows', 'Accounts moved to Business']],
@@ -1787,11 +1989,6 @@ const STUBS = {
   danger: ['Danger zone', ['Data totals', 'Reset this device', 'Delete all data']],
   stud: ['Stud Services', ['Stud clients and fees', 'Results by service']],
   contracts: ['Contracts', ['Contracts list', 'Templates', 'E-sign status', 'Send for e-sign shows its credit cost (planned, note 1)']],
-  reminders: ['Reminders', ['Overdue, due soon, later', 'Snooze and done']],
-  upcoming: ['Upcoming', ['Next 30 days across dogs, litters and sales']],
-  calendar: ['Calendar', ['Month view', 'Calendar feed']],
-  kennels: ['Kennels', ['Switch the active kennel', 'Your kennels and outside kennels']],
-  notifications: ['Notifications', ['Offers, payments and requests from families', 'Settings are in Setup › Notifications']],
   'side-sale': ['Side sale', ['Sell a pup to a family outside the turn order', 'Who loses or keeps a turn because of it']],
 };
 S.stub = (key) => {
@@ -2512,8 +2709,11 @@ const SCREENS = [
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
   ['Import / Export', 'arrow-down-up', 'CSV import, export', 'stub:import-export'],
   ['Danger zone', 'shield-alert', 'Reset or delete', 'stub:danger'],
-  ['Reminders', 'calendar-check', 'Overdue and due soon', 'stub:reminders'],
-  ['Calendar', 'calendar-days', 'Month view', 'stub:calendar'],
+  ['Reminders', 'calendar-check', 'Overdue and due soon', 'reminders'],
+  ['Coming up', 'list', 'Everything from today on', 'upcoming'],
+  ['Calendar', 'calendar-days', 'Month view', 'calendar'],
+  ['Notifications', 'bell', 'Applications, messages and requests', 'notifications'],
+  ['Kennels', 'house', 'Switch kennels, outside kennels', 'kennels'],
 ];
 const SEARCH_GROUPS = ['Go to', 'Dogs', 'Litters', 'Waitlist', 'People', 'Sales', 'History', 'Money', 'Settings', 'Reports'];
 function searchIndex() {
@@ -2629,7 +2829,7 @@ function render() {
   $('#appbar').innerHTML = scr.bar + (t.s === 'search' ? '' : searchBtn);
   $('#screen').innerHTML = scr.body;
   const tab = currentTab(), ny = needsYou().length;
-  $('#tabbar').innerHTML = `<div class="rail-brand"><div class="brand-name">KennelOS <span class="ed-tag">PRO</span></div><button type="button" class="kennel-switch" data-open="stub:kennels">Thornfield Kennels ${icon('chevron-down')}</button></div>` +
+  $('#tabbar').innerHTML = `<div class="rail-brand"><div class="brand-name">KennelOS <span class="ed-tag">PRO</span></div><button type="button" class="kennel-switch" data-open="kennels">${KENNEL} ${icon('chevron-down')}</button></div>` +
     TABS().map(([k, l, ic]) => `<button type="button" class="tab" data-go="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span>${k === 'waitlist' && ny ? `<span class="badge" aria-label="${ny} need you">${ny}</span>` : ''}</button>`).join('') +
     `<div class="rail-foot"><button type="button" class="tab" data-open="setup">${icon('settings')}<span>Setup</span></button></div>`;
   if (scr.after) scr.after();
@@ -2639,10 +2839,29 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
+  if (d.rem) {
+    const [act, id, n] = d.rem.split('|'), a = AGENDA.find((x) => x.id === id);
+    if (act === 'open') { ui.remOpen = ui.remOpen === id ? null : id; ui.remDate = null; render(); return; }
+    if (act === 'pick') { ui.remDate = id; render(); $('#rem-date')?.focus(); return; }
+    if (act === 'done') { a.done = TODAY; ui.remOpen = null; render(); toast(`Done. It stays on ${a.t.split(' · ')[0]}'s history.`); return; }
+    if (act === 'undo') { delete a.done; ui.remOpen = null; render(); toast('Back on your reminders'); return; }
+    const to = act === 'date' ? $('#rem-date')?.value : addDays(a.due < TODAY ? TODAY : a.due, Number(n));
+    if (!to) return toast('Pick a date first');
+    a.due = to; a.snoozed = 1; ui.remOpen = null; ui.remDate = null; render(); toast(`Snoozed to ${wday(to)}`); return;
+  }
+  if (d.remtab) { ui.remTab = d.remtab; ui.remOpen = null; render(); return; }
+  if (d.calday) { ui.calDay = d.calday; if (d.calday.slice(0, 7) !== (ui.calMonth || TODAY.slice(0, 7))) ui.calMonth = d.calday.slice(0, 7); render(); return; }
+  if (d.calmove) {
+    if (d.calmove === 'today') { ui.calMonth = TODAY.slice(0, 7); ui.calDay = TODAY; }
+    else { const m = new Date((ui.calMonth || TODAY.slice(0, 7)) + '-15T12:00:00'); m.setMonth(m.getMonth() + Number(d.calmove)); ui.calMonth = m.toISOString().slice(0, 7); ui.calDay = ui.calMonth === TODAY.slice(0, 7) ? TODAY : ui.calMonth + '-01'; }
+    render(); return;
+  }
+  if (d.gcal) { toast('Opens Google Calendar with this day’s items filled in'); return; }
+  if (d.kennel) { if (d.kennel === KENNEL) { open('setupsec:kennel'); return; } KENNEL = d.kennel; back(); toast(`Working in ${KENNEL}`); return; }
   if (d.coiedit) { ui.coiEdit = ui.coiEdit === d.coiedit ? null : d.coiedit; ui.coiMethod = null; render(); return; }
   if (d.coimethod) { ui.coiMethod = d.coimethod; const v = $('#coi-val')?.value; render(); if (v != null && $('#coi-val')) $('#coi-val').value = v; return; }
   if (d.coisave) { const v = parseFloat($('#coi-val')?.value); if (!(v >= 0 && v <= 100)) return toast('Enter a COI between 0 and 100%'); const old = REC_PAIR[d.coisave]; REC_PAIR[d.coisave] = { value: v / 100, method: ui.coiMethod || (old && old.method.split(' (')[0]) || 'Trial mating' }; ui.coiEdit = null; ui.coiMethod = null; render(); toast('Recorded COI saved. Warnings use it.'); return; }

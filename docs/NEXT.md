@@ -11,7 +11,9 @@ release"). The copy of this file on `origin/next` is the one that counts:
 
 Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
-- Nothing yet: `next` is the same as `main`.
+- Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
+  `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
+  drawn in, a few at a time, for the owner to approve.
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -76,6 +78,20 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the + on Setup's and Pricing and schedules' questions; **New schedule** moved onto the Saved
   schedules heading; the 126 Lucide 0.460.0 icons it uses built into the page (they didn't
   draw in the phone app when loaded from unpkg).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws Home's screens
+
+- `docs/design/forest-look-prototype.html` draws five screens that were `stub:` placeholders,
+  in its own components and tokens: **Reminders** (Overdue / Next 7 days / Later, a row opens
+  to Done and Snooze, a Done tab, the filter sheet), **Coming up** (from today on, by week,
+  filterable), **Calendar** (month grid with dots on a phone and names on desktop, a day's
+  list, Add to Google Calendar, the planned calendar feed), **Notifications** (the bell: new,
+  then earlier; the dot clears once seen) and **Kennels** (hers, the switch when More than one
+  kennel is on, outside kennels). One agenda feeds the first three. Search finds them; a
+  Design notes section explains them. Not yet seen by the owner.
+- `docs/KennelOS_UI_Redesign_Plan.md` notes that the repo copy now draws screens beyond the
+  artifact, each a proposal until she approves it.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
