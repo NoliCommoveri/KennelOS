@@ -304,6 +304,12 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   parent +$400 (Titan), CKC both parents −$300. Color rules waiting on the owner.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Price rule change on one line
+
+- Owner: a rule's change is one line, + / − and $ / % as tap-to-flip buttons before the
+  amount, no words.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

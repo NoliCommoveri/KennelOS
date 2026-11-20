@@ -698,6 +698,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 /* add-on groups and payment plans */
+.adj-line { display: flex; gap: 6px; align-items: stretch; }
+.adj-line input { flex: 1; min-width: 0; }
+.adj-tog { flex: none; width: 42px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--p-green-bg); color: var(--p-green-fg); font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
 .form-stack input[type="time"] { min-height: 38px; }
 .rule-work { margin: 6px 0 0; font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
@@ -1825,7 +1828,7 @@ S.pricerule = (id) => {
        <div class="dates">${fIn('min', 'Score at least (1–5)', { type: 'number' })}</div>`;
   const effect = fm.kind === 'breed'
     ? `<div class="dates">${fIn('male', 'Male price ($)', { type: 'number' })}${fIn('female', 'Female price ($)', { type: 'number' })}</div><small class="f-hint">Replaces the usual price</small>`
-    : `${fChips('sign', '', [['add', 'Add'], ['sub', 'Subtract']])}${fChips('unit', '', [['flat', 'Amount ($)'], ['pct', 'Percent (%)']])}<div class="dates">${fIn('add', fm.unit === 'pct' ? 'Percent' : 'Amount ($)', { type: 'number' })}</div>`;
+    : `<label>Change<span class="adj-line"><button type="button" class="adj-tog" data-fc="sign|${fm.sign === 'sub' ? 'add' : 'sub'}" aria-label="${fm.sign === 'sub' ? 'Subtract; tap to add' : 'Add; tap to subtract'}">${fm.sign === 'sub' ? '−' : '+'}</button><button type="button" class="adj-tog" data-fc="unit|${fm.unit === 'pct' ? 'flat' : 'pct'}" aria-label="${fm.unit === 'pct' ? 'Percent; tap for dollars' : 'Dollars; tap for percent'}">${fm.unit === 'pct' ? '%' : '$'}</button><input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
   return {
     bar: bar(fresh ? 'New price rule' : ruleName(r), { sub: 'Price rule' }),
     body: `${formCard('When', `${fChips('kind', 'Rule', [['breed', 'Breed'], ['parent', 'A parent'], ['title', 'Parent title'], ['registry', 'Registry'], ['imported', 'Imported parent'], ['score', 'Parent scores']])}${when}`)}
