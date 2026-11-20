@@ -13,7 +13,7 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
-  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs and Litters so far).
+  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters and Waitlist so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -141,6 +141,32 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - The owner's D12 in `docs/KennelOS_UI_Redesign_Plan.md` §8 (and §3's table): header titles at
   the brand's 21px instead of 23px, and less space around the back arrow, on every screen of
   the prototype (`docs/design/forest-look-prototype.html`).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Waitlist screens
+
+- `docs/design/forest-look-prototype.html` draws the Waitlist batch, held to D8 (one person,
+  one page; no screen shows or asks for a second set of details, and none explains how
+  records are kept):
+  - On a person's page, the tiles that were placeholders: **Offers & passes** (their place
+    overall and for what they want, passes used, every turn with outcome and reason, and
+    offer a turn, side sale, move place, pause, take off the list with 7-day undo), **Fee**
+    (waived, due, or paid and counted toward the price; mark received with how they paid),
+    **Messages** (one thread: theirs from the status page, hers, and each email sent, with
+    Send again; write by email or copy for a text; their email shown with Change),
+    **Status page** (what they see now, last opened, where codes go with Change, what they can
+    do, copy link, see it as they do, new link) and **History** (everything, newest first;
+    for care-team and network people, money paid to or by them).
+  - **Add family**: who first, checked as she types against everyone she has (email, phone,
+    name); "Is this the Okafor family?" adds that person back rather than a second one. Then
+    wants, purposes, readiness, which dams and sires, program, fee, and the place they'll get.
+  - **Side sale** (Side Sale spec): family and pup, each mismatch said plainly, the two-claims
+    warning when another family holds the pup in their turn, Limited or Full, deposit due.
+  - **Programs** list and a **program** screen: name, what it changes as question rows,
+    what families see, families in it; New program in the header.
+- Turns are recorded per family, so passes counted, the turn order and History agree; the
+  turn order reads who took each pup from sales. A fee marked received now gives the right
+  place (it counted the family twice).
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

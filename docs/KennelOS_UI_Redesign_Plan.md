@@ -15,7 +15,9 @@
 > **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
 > `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
 > Notifications and Kennels; Add dog, Edit dog, Add
-> event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense. Each is the owner's to approve or change, like any
+> event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense; on a
+> person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
+> sale, Programs and a program. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).

@@ -664,6 +664,34 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dd-foot { display: flex; justify-content: space-between; padding: 6px 12px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
 .dd-foot .link:disabled { color: var(--faint); cursor: default; }
 .dd-none { padding: 6px 12px; }
+/* waitlist: a person's parts */
+.row.static { cursor: default; }
+.row.static:hover { background: none; }
+.lede.pad { padding: 12px 14px; }
+.place { display: flex; gap: 18px; flex-wrap: wrap; }
+.place div { display: flex; flex-direction: column; }
+.place b { font-family: var(--font-display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.place span { font-size: 12px; color: var(--muted); }
+.big-amt { font-family: var(--font-display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* messages: theirs on the left, hers on the right, emails sent as quiet lines */
+.thread { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 82%; display: flex; flex-direction: column; gap: 3px; }
+.msg-b { padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; }
+.msg.them { align-self: flex-start; }
+.msg.them .msg-b { background: var(--surface-2); border-bottom-left-radius: 4px; }
+.msg.you { align-self: flex-end; text-align: right; }
+.msg.you .msg-b { background: var(--primary-soft); border-bottom-right-radius: 4px; text-align: left; }
+.msg-at { font-size: 11.5px; color: var(--faint); }
+.msg-sys { align-self: center; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); text-align: center; flex-wrap: wrap; justify-content: center; }
+.msg-sys svg.lucide, .msg-sys i[data-lucide] { width: 14px; height: 14px; flex: none; }
+.msg-sys.failed { color: var(--p-red-fg); }
+.msg-sys .link { font-size: 12px; }
+/* a family's status page, as they see it */
+.status-prev { overflow: hidden; }
+.sp-top { background: var(--forest); color: var(--forest-ink); font-family: var(--font-display); font-weight: 700; font-size: 14px; padding: 8px 14px; }
+.sp-body { padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+.sp-body b { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
+.sp-body span { font-size: 13px; color: var(--muted); }
 </style>
 
 <div class="proto">
@@ -714,6 +742,10 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Adding litters, pairings and expenses</h3>
     <p><b>Add litter</b> starts from the pairings that don't have a litter yet (or "Not planned here", with the parents and a quick pair check). Not born yet asks for the breeding date or the due date, each worked out from the other (63 days); born asks for the whelping date, how many were born alive and lost, and the delivery, with each pup recorded in Births afterwards. Her usual prices apply unless she sets this litter's own, and it's offered to her waitlist unless she says not this one. Saving opens the new litter, with its pairing moved along. <b>Add pairing</b> (on Litters › Pairings, and "Plan this pairing" on a pair check) shows the pair check's warnings as soon as both dogs are picked, then where it is: planned (her next heat offered as the date), bred (the dates, how, and the due date it gives) or confirmed. <b>Add expense</b> (from a litter's or dog's Expenses) takes the amount, what it was for, a category and who was paid, each with a + for her own, and what it counts toward; picking more than one shares it.</p>
+
+    <h3>A family on the waitlist</h3>
+    <p>Everything about a family hangs off their one page (One person, one page). Its tiles open one job each, and none of them asks for or repeats their name, email or phone: where a screen uses one (sign-in codes, an email she sends), it shows it with <b>Change</b>, which opens Their details. <b>Offers &amp; passes</b> opens on their place (overall, and among families who want what they want) and passes used, then every turn they've had with its outcome and reason, then what she can do: offer a turn out of order, sell them a pup outside the turn order, move their place, pause it, or take them off the list (they withdrew, or she's removing them; 7 days to undo). <b>Fee</b> says what it is and where it stands (waived by a program, due, paid and counted toward the price) and marks it received, with how they paid. <b>Messages</b> is one thread: what they wrote on their status page, what she wrote, and each email sent, with Send again on one that failed; she writes from a starting point or her own words, by email or copied for a text. <b>Status page</b> shows what they see right now, when they last looked, where their sign-in codes go, what they can do there, their link, and a new link if it was shared by mistake. <b>History</b> is all of it, newest first.</p>
+    <p><b>Add family</b> asks who first and checks as she types: an email, phone or name she already has brings up "Is this the Okafor family?", and Yes adds that person back to the list (their earlier puppy stays on their page), so nobody is ever entered twice. Then what they want, which litters (any, or only some dams and sires), a program, and whether the fee is in, with the place they'll get. A <b>Side sale</b> (from the turn order or a family's Offers &amp; passes) is her pick for a family, outside the turn order: each mismatch is said plainly (a pup on hold, a different sex, another family holding that pup in their turn) and none blocks it. <b>Programs</b> are hers to name; each is the same question rows as Setup (fee, place in line, time to answer, whether passes count, pausing), what families see if she writes it, and the families in it.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1208,7 +1240,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addlitter: 'litters', addpairing: 'litters', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1296,7 +1328,7 @@ S.waitlist = () => {
   const open = pups.filter((d) => d.disp === 'available');
   const act = activeFams();
   return {
-    bar: bar('Waitlist', { ic: 'list-ordered', action: addBtn('Add family', 'stub:add-family') }),
+    bar: bar('Waitlist', { ic: 'list-ordered', action: addBtn('Add family', 'addfamily') }),
     body: `
       <section class="card"><div class="section-h"><h2>${icon('bell-ring')}Needs you</h2><span class="fcount">${ny.length}</span></div>
         <div class="rows">${ny.map(([ic, tone, t, go, s]) => row({ ic, tone, t, s, go })).join('') || '<p class="lede" style="padding:4px 14px 12px">Nothing waiting on you.</p>'}
@@ -1333,34 +1365,36 @@ S.wllist = () => {
       go: `person:${f.id}`,
     })).join('')}</div></section>`;
   }).join('');
-  return { bar: bar('The list', { sub: 'One list across litters', action: addBtn('Add', 'stub:add-family') }), body: `${filterBar('wl', { placeholder: 'Search families', shown: shown.length, total: all.length })}${groups || '<p class="lede">No families match.</p>'}` };
+  return { bar: bar('The list', { sub: 'One list across litters', action: addBtn('Add', 'addfamily') }), body: `${filterBar('wl', { placeholder: 'Search families', shown: shown.length, total: all.length })}${groups || '<p class="lede">No families match.</p>'}` };
 };
 
 /* one person, one page (D8): the same page from the Waitlist, People, a sale or search */
 S.person = (id) => {
   const p = personOf(id), f = fam(id), d = DETAILS[id] || {};
-  const sale = f && SALES.find((x) => x.fam === f.id);
+  const sale = f && SALES.find((x) => x.fam === f.id && !x.side);
   const req = f && REQUESTS.find((r) => r.fam === f.id && r.open);
   const attn = [];
   if (f && OFFER.open && OFFER.fam === f.id) attn.push(['clock', 'amber', `Offered ${DOGS.find((x) => x.id === OFFER.pup).name} · answer due ${wday(OFFER.due)}`, 'wloffer']);
   if (f && f.st === 'approved') attn.push(['wallet', 'amber', `${SET.waitlist.fee} fee due ${wday(f.feeDue)}`, 'wlfees']);
   if (f && f.st === 'applied') attn.push(['inbox', 'violet', 'Application waiting for your review', 'wlapps']);
   if (req) attn.push(['message-square-text', 'blue', `Asks: ${req.kind.toLowerCase()}`, 'wlrequests']);
-  if (sale && sale.paid < sale.price) attn.push(['wallet', 'amber', `${money(sale.price - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
+  const side = f && SALES.find((x) => x.fam === f.id && x.side);
+  if (side) attn.push(['arrow-left-right', 'blue', `Side sale: ${side.pup}, deposit due ${wday(side.due)}`, `personsec:${id}|offers`]);
+  if (sale && !sale.side && sale.paid < sale.price) attn.push(['wallet', 'amber', `${money(sale.price - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
   const t = [];
   if (f) {
     t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
-    if (!['applied', 'declined'].includes(f.st)) t.push(['stub:offers-and-passes', 'list-ordered', 'Offers & passes', f.passes ? `${f.passes} pass` : f.pup ? `Took ${f.pup}` : 'No passes']);
-    t.push(['stub:fee', 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested yet' : f.st === 'approved' ? `${SET.waitlist.fee} due` : f.program === 'Military' ? 'Waived (Military)' : `${SET.waitlist.fee} paid`]);
+    if (!['applied', 'declined'].includes(f.st)) t.push([`personsec:${id}|offers`, 'list-ordered', 'Offers & passes', f.st === 'active' ? `#${f.pos} · ${passesUsed(f.id)} of ${SET.waitlist.passes} passes` : f.pup ? `Took ${f.pup}` : `${passesUsed(f.id)} passes`]);
+    t.push([`personsec:${id}|fee`, 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not asked for yet' : PROGRAMS.find((x) => x.n === f.program)?.fee === 'Waived' ? `Waived (${f.program})` : f.st === 'approved' ? `${SET.waitlist.fee} due` : `${SET.waitlist.fee} paid`]);
   }
   if (sale) {
     t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${saleState(sale)[0]}`]);
     t.push(['littersec:wa|gohome', 'car', 'Go-home', GOHOME.find((g) => g.fam === f.id)?.when || 'Not set']);
     if (FEAT.contracts) t.push(['stub:contracts', 'file-pen-line', 'Contract', sale.pup === 'Fern' ? 'Sent Nov 9 · not signed' : 'Signed']);
   }
-  if (f) t.push(['stub:messages', 'message-square-text', 'Messages', 'Last: Nov 12']);
-  if (f && FEAT.waitlistOnline) t.push(['stub:status-page', 'globe', 'Status page', 'Online · seen Nov 17']);
-  t.push(['stub:person-history', 'history', 'History', 'Everything with them, newest first']);
+  if (f) { const ms = msgsOf(f), last = ms[ms.length - 1], unread = ms.filter((m) => m.fresh).length; t.push([`personsec:${id}|messages`, 'message-square-text', 'Messages', unread ? `${unread} new · ${short(last.at)}` : `Last ${short(last.at)}`]); }
+  if (f && FEAT.waitlistOnline) t.push([`personsec:${id}|status`, 'globe', 'Status page', `Last opened: ${SEEN[f.id] || 'never'}`]);
+  t.push([`personsec:${id}|history`, 'history', 'History', 'Everything with them, newest first']);
   const pills = f ? [pill(WL_ST[f.st]), f.program ? pill([f.program, 'violet'], 'award') : '', f.paused ? pill([`Paused to ${f.paused}`, 'amber']) : '', f.listen ? pill([`Listening: ${f.listen}`, 'blue']) : ''].join('')
     : pill([p.t, p.t === 'Care team' ? 'violet' : 'gray']);
   const line = (ic, v) => (v ? `<div class="hub-line">${icon(ic)}${esc(v)}</div>` : '');
@@ -1396,7 +1430,8 @@ S.personedit = (id) => {
    repeated here: those are the ones at the top of their page. */
 S.personsec = (q) => {
   const [id, k] = q.split('|'), f = fam(id);
-  if (k !== 'application' || !f) return S.stub(k);
+  if (k !== 'application') { const r = PSEC[k] && PSEC[k](f, id); if (!r) return S.stub(k); return { bar: bar(r.title, { sub: personOf(id).n }), body: r.body }; }
+  if (!f) return S.stub(k);
   return {
     bar: bar('Application', { sub: f.n }),
     body: `<section class="card"><div class="section-h"><h2>What they asked for</h2></div>${facts([['Applied', fmt(f.joined)], ['Heard about you', f.from || 'Website'], ['Wants', WANTS[f.wants]], ['Looking for', f.use], ...(f.listen ? [['Only from', f.listen]] : []), ...(f.program ? [['Program', f.program]] : [])])}</section>
@@ -1426,7 +1461,7 @@ S.wloffer = () => {
 
 S.wlpicks = () => {
   const pups = DOGS.filter((d) => d.litter === 'wa');
-  const placed = WL.filter((f) => f.st === 'placed' && pups.some((p) => p.name === f.pup));
+  const placed = SALES.filter((s) => !s.side && pups.some((p) => p.name === s.pup)).map((s) => ({ ...fam(s.fam), pup: s.pup }));
   const p = DOGS.find((d) => d.id === OFFER.pup);
   const nextUp = OFFER.open ? eligibleFor(p, [OFFER.fam, ...OFFER.passed]) : [];
   const skipped = OFFER.open ? activeFams().filter((f) => f.id !== OFFER.fam && (skipReason(f, p) || OFFER.passed.includes(f.id))) : [];
@@ -1440,8 +1475,8 @@ S.wlpicks = () => {
       </div></section>
       ${OFFER.open ? `<section class="card"><div class="section-h"><h2>Next if ${p.name} is still open</h2></div><div class="ladder">${nextUp.map((f, i) => rung('', placed.length + 2 + i, f.n, `#${f.pos} · wants ${WANTS[f.wants].toLowerCase()}`, `person:${f.id}`)).join('')}</div></section>
       <section class="card"><div class="section-h"><h2>Skipped for this pup</h2></div><div class="ladder">${skipped.map((f) => rung('skip', '–', f.n, skipReason(f, p) || `Passed on ${p.name}`, `person:${f.id}`)).join('')}</div></section>` : ''}
-      <section class="card"><div class="section-h"><h2>Pups</h2></div><div class="rows">${pups.map((q) => row({ t: q.name, extra: `${sex(q.sex)}${pill(DISP[q.disp])}`, s: q.disp === 'keeping' ? 'Not offered · staying' : q.disp === 'health_hold' ? 'Not offered · health hold' : q.disp === 'placed' ? `With the ${fam(WL.find((f) => f.pup === q.name).id).n}` : OFFER.open && OFFER.pup === q.id ? 'Offered now' : 'Open', go: `dog:${q.id}` })).join('')}</div></section>
-      <button type="button" class="btn-2" data-open="stub:side-sale">${icon('arrow-left-right')}Sell a pup outside the turn order</button>`,
+      <section class="card"><div class="section-h"><h2>Pups</h2></div><div class="rows">${pups.map((q) => row({ t: q.name, extra: `${sex(q.sex)}${pill(DISP[q.disp])}`, s: q.disp === 'keeping' ? 'Not offered · staying' : q.disp === 'health_hold' ? 'Not offered · health hold' : q.disp === 'placed' ? `With the ${fam(SALES.find((s) => s.pup === q.name && !s.side).fam).n}` : OFFER.open && OFFER.pup === q.id ? 'Offered now' : 'Open', go: `dog:${q.id}` })).join('')}</div></section>
+      <button type="button" class="btn-2" data-open="sidesale">${icon('arrow-left-right')}Sell a pup outside the turn order</button>`,
   };
 };
 
@@ -1486,10 +1521,14 @@ S.wlpreview = () => {
   };
 };
 
-S.wlprograms = () => ({
-  bar: bar('Programs'),
-  body: `<section class="card"><div class="rows">${row({ ic: 'award', tone: 'violet', t: 'Military', s: 'Fee waived · ahead of standard · 1 family', go: 'stub:program' })}${row({ ic: 'ribbon', tone: 'rose', t: 'Cancer support', s: 'Fee waived · 7 days to answer · no families yet', go: 'stub:program' })}</div></section>${setLink('Program rules are in Setup › Waitlist', 'setupsec:waitlist')}`,
-});
+S.wlprograms = () => {
+  const list = PROGRAMS.filter((p) => p.n);
+  return {
+    bar: bar('Programs', { action: addBtn('New program', 'wlprogram:new') }),
+    body: `<section class="card"><div class="rows">${list.map((p) => { const n = WL.filter((f) => f.program === p.n && ['active', 'approved', 'applied'].includes(f.st)).length; return row({ ic: p.ic, tone: p.tone, t: p.n, s: `${progLine(p)} · ${n ? `${n} famil${n === 1 ? 'y' : 'ies'}` : 'no families yet'}`, go: `wlprogram:${p.id}` }); }).join('')}</div></section>
+      <p class="lede">A program changes the rules for the families you put in it. Families never choose one.</p>`,
+  };
+};
 
 /* ---------- Dogs ---------- */
 S.dogs = () => {
@@ -2416,6 +2455,264 @@ S.addexpense = (p) => {
   };
 };
 
+/* ================= Waitlist: one person's parts, adding a family, side sales, programs ================= */
+/* Everything here hangs off the person (D8). Their name, email, phone and address are the
+   ones at the top of their page; no screen below repeats them as something to fill in,
+   and where a screen uses one (codes go to their email), it links to changing it there. */
+
+/* each time a family's turn came up (Waitlist spec §4.3): litter, dates, outcome, and
+   whether it counted as a pass, frozen when it was recorded */
+const TURNS = {
+  lindqvist: [{ lit: 'Willow × Ash', on: '2026-11-05', by: '2026-11-08', out: 'took', pup: 'Hazel' }],
+  okafor: [{ lit: 'Willow × Ash', on: '2026-11-05', by: '2026-11-08', out: 'took', pup: 'Poppy' }],
+  kowalski: [{ lit: 'Willow × Ash', on: '2026-11-06', by: '2026-11-09', out: 'passed', reason: 'Not ready yet: moving in December', counts: 1 }],
+  marsh: [{ lit: 'Willow × Ash', on: '2026-11-07', by: '2026-11-10', out: 'took', pup: 'Fern' }],
+  turner: [{ lit: 'Ivy × Ash', on: '2025-04-30', by: '2025-05-03', out: 'passed', reason: 'Wanted a yellow female', counts: 1 }, { lit: 'Willow × Ash', on: '2026-11-05', by: '2026-11-08', out: 'none', counts: 1 }],
+};
+const turnsOf = (id) => [...(TURNS[id] || []), ...(OFFER.open && OFFER.fam === id ? [{ lit: 'Willow × Ash', on: OFFER.sent, by: OFFER.due, out: 'open', pup: DOGS.find((d) => d.id === OFFER.pup).name }] : [])].sort((a, b) => b.on.localeCompare(a.on));
+const passesUsed = (id) => turnsOf(id).filter((t) => t.counts).length;
+const turnOut = (t) => ({ took: [`Took ${t.pup}`, 'green', 'check'], passed: ['Passed', 'gray', 'arrow-right'], none: ['No answer by the deadline', 'amber', 'clock'], open: [`Has ${t.pup} now`, 'amber', 'clock'], voided: ['Called off by you', 'gray', 'x'] }[t.out]);
+/* their place for what they want (Waitlist spec §16.9): overall, then among families who
+   want the same or wider */
+function placeFor(f) {
+  const ahead = activeFams().filter((x) => x.pos < f.pos);
+  const out = [[`#${f.pos}`, 'overall']];
+  if (f.wants !== 'any') out.push([`#${ahead.filter((x) => x.wants === f.wants || x.wants === 'any').length + 1}`, `for ${WANTS[f.wants].toLowerCase()}s`]);
+  return out;
+}
+/* messages: what they wrote on their status page, what she wrote, and the emails sent */
+const MSGS = {
+  okafor: [
+    { at: '2026-03-05', kind: 'email', t: 'Application received' },
+    { at: '2026-03-05', kind: 'email', t: 'Fee received: you’re #2 on the list' },
+    { at: '2026-11-05', kind: 'email', t: 'It’s your turn: pick from 4 pups by Sun Nov 8' },
+    { at: '2026-11-06', kind: 'them', body: 'We’d love Poppy! Sending the deposit tonight.' },
+    { at: '2026-11-06', kind: 'email', t: 'Deposit request: $500 for Poppy' },
+    { at: '2026-11-14', kind: 'email', t: 'Receipt: $2,700 balance paid' },
+    { at: '2026-11-18', kind: 'them', body: 'Could we pick Poppy up at 2:00 PM instead of 1:00 PM on Saturday? Our flight lands late.', fresh: 1 },
+  ],
+  lindqvist: [
+    { at: '2026-11-05', kind: 'email', t: 'It’s your turn: pick from 6 pups by Sun Nov 8' },
+    { at: '2026-11-05', kind: 'them', body: 'Hazel, please! She came right to us at the visit.' },
+    { at: '2026-11-09', kind: 'you', body: 'Hazel is yours. Pickup is Saturday the 21st at 10. Bring a towel that smells like home.' },
+    { at: '2026-11-15', kind: 'them', body: 'Can we bring her crate on Saturday? It’s the 36" wire one.', fresh: 1 },
+  ],
+  reyes: [
+    { at: '2026-08-03', kind: 'email', t: 'Fee received: you’re on the list' },
+    { at: '2026-11-17', kind: 'email', t: 'It’s your turn: Cedar is available to you, answer by Fri Nov 20' },
+    { at: '2026-11-18', kind: 'email', t: 'Reminder: your turn ends Fri Nov 20', failed: 1 },
+  ],
+};
+const msgsOf = (f) => MSGS[f.id] || [{ at: f.joined, kind: 'email', t: 'Application received' }, ...(['active', 'placed'].includes(f.st) ? [{ at: f.joined, kind: 'email', t: f.program === 'Military' ? 'Approved: fee waived, you’re on the list' : 'Fee received: you’re on the list' }] : f.st === 'approved' ? [{ at: f.joined, kind: 'email', t: `Approved: ${SET.waitlist.fee} fee due ${short(f.feeDue)}` }] : [])];
+const SEEN = { okafor: 'Today, 9:10 AM', lindqvist: 'Nov 15', reyes: 'Yesterday', marsh: 'Nov 12', bennett: 'Nov 2', kowalski: 'Nov 6', delgado: 'Nov 10', cho: 'Oct 30', ito: 'Nov 17', haddad: 'Never', nguyen: 'Nov 14', park: 'Nov 17', silva: 'Today' };
+
+/* the parts of a person, from their page's tiles */
+const PSEC = {};
+PSEC.offers = (f) => {
+  if (!f) return null;
+  const turns = turnsOf(f.id), used = passesUsed(f.id), max = Number(SET.waitlist.passes), on = f.st === 'active';
+  const prog = PROGRAMS.find((p) => p.n === f.program);
+  const holds = OFFER.open && OFFER.fam === f.id;
+  const side = SALES.find((s) => s.fam === f.id && s.side);
+  const tRow = (t) => { const [l, tone, ic] = turnOut(t); return `<div class="row static"><span class="row-ic ${tone}">${icon(ic)}</span><span class="row-main"><span class="row-t">${t.lit}${pill([l, tone])}${t.counts ? pill(['Counted as a pass', 'gray']) : ''}</span><span class="row-s">Offered ${short(t.on)} · answer by ${short(t.by)}${t.reason ? ` · “${esc(t.reason)}”` : ''}</span></span></div>`; };
+  const act = (key, ic, t, s, inner, tone = '') => `<div class="rem${ui.pAct === key ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${ui.pAct === key}"><span class="row-ic ${tone}">${icon(ic)}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><span class="row-end"><span class="chev">${icon(ui.pAct === key ? 'chevron-up' : 'chevron-down')}</span></span></button>${ui.pAct === key ? `<div class="q-edit">${inner}</div>` : ''}</div>`;
+  let body = '';
+  if (on) body += `<section class="card hub-head"><div class="place">${placeFor(f).map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}<div><b>${used} of ${max}</b><span>passes used</span></div></div>
+      <div class="hub-line">In line since ${fmt(f.joined)}${prog ? ` · ${prog.n}: ${prog.passes === 'No' ? 'passes aren’t held against them' : prog.priority === 'Ahead of standard' ? 'ahead of standard families' : ''}` : ''}</div>
+      ${used ? `<div class="hub-line">${used + 1 >= max ? 'One more pass takes them off the list.' : 'They keep their place after a pass.'}</div>` : ''}</section>`;
+  if (holds) body += attnCard([['clock', 'amber', `Their turn: ${DOGS.find((d) => d.id === OFFER.pup).name}, answer by ${wday(OFFER.due)}`, 'wloffer']]);
+  if (side) body += attnCard([['arrow-left-right', 'blue', `Side sale: ${side.pup}, deposit due ${wday(side.due)}`, `dogsec:${side.pup.toLowerCase()}|sale`]]);
+  body += `<div class="group-label">Turns</div>` + (turns.length ? `<section class="card"><div class="rows">${turns.map(tRow).join('')}</div></section>` : `<section class="card"><p class="lede pad">No turns yet.${on ? ` They’re next after ${activeFams().filter((x) => x.pos < f.pos).length} famil${activeFams().filter((x) => x.pos < f.pos).length === 1 ? 'y' : 'ies'} for a pup that fits.` : ''}</p></section>`);
+  if (on) {
+    const turnFam = OFFER.open ? fam(OFFER.fam) : null;
+    body += `<div class="group-label">Do something</div><section class="card"><div class="rows">
+      ${holds ? '' : act('offer', 'list-ordered', 'Offer them a turn now', 'Out of order, on a litter with pups open', turnFam ? `<p class="f-hint">The ${turnFam.n} holds the turn on Willow × Ash until ${wday(OFFER.due)}. You can offer the next turn out of order after that, or sell a pup outside the turn order now.</p><button type="button" class="chip" data-open="sidesale:${f.id}">${icon('arrow-left-right')}Sell a pup outside the turn order</button>` : `<button type="button" class="chip go" data-toast="Turn offered on Willow × Ash. The ${f.n} is emailed the pups that fit them.">Willow × Ash</button>`, 'amber')}
+      ${holds ? '' : row({ ic: 'arrow-left-right', tone: 'blue', t: 'Sell them a pup outside the turn order', s: 'A side sale. To them it’s their pick', go: `sidesale:${f.id}` })}
+      ${act('move', 'move', 'Move their place', `Now #${f.pos} of ${activeFams().length}`, `<div class="fbar-top"><label>#<input id="pa-pos" type="number" min="1" max="${activeFams().length}" value="${f.pos}" aria-label="New place"></label><button type="button" class="fbtn" data-pdo="move|${f.id}">Move</button></div><p class="f-hint">Everyone between shifts by one. Logged in their History.</p>`)}
+      ${act('pause', 'clock', f.paused ? `Paused until ${f.paused}` : 'Pause their place', f.paused ? 'They keep their place; no turns until then' : 'They keep their place; no turns until the date', f.paused ? `<button type="button" class="chip go" data-pdo="unpause|${f.id}">End the pause now</button>` : `<div class="fbar-top"><label>Until<input id="pa-until" type="date" min="${TODAY}" value="${addDays(TODAY, 60)}"></label><button type="button" class="fbtn" data-pdo="pause|${f.id}">Pause</button></div>`)}
+      ${act('off', 'x', 'Take them off the list', 'They withdrew, or you’re removing them', `<button type="button" class="chip" data-pdo="withdrew|${f.id}">They withdrew</button><button type="button" class="chip" data-pdo="removed|${f.id}">You’re removing them</button><p class="f-hint">Either can be undone for 7 days. They’re told kindly, in your words.</p>`, 'red')}
+    </div></section>`;
+  } else if (['removed', 'withdrawn'].includes(f.st)) body += `<section class="card"><div class="rows">${row({ ic: 'history', t: 'Put them back in line', s: 'In their old place. Their passes stay as they were', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-pdo="restore|${f.id}"`)}</div></section>`;
+  return { title: 'Offers & passes', body };
+};
+PSEC.fee = (f) => {
+  if (!f) return null;
+  const prog = PROGRAMS.find((p) => p.n === f.program), waived = prog && prog.fee === 'Waived';
+  const ledger = LEDGER.find((e) => e.cat === 'Waitlist fees' && e.party === f.n);
+  const credit = SET.waitlist.feeCredit === 'Counts toward the price';
+  let state;
+  if (waived) state = [`Waived (${prog.n})`, 'violet'];
+  else if (f.st === 'applied') state = ['Not asked for yet', 'gray'];
+  else if (f.st === 'approved') state = [`Due ${wday(f.feeDue)}`, 'amber'];
+  else state = ['Paid', 'green'];
+  const sale = SALES.find((s) => s.fam === f.id);
+  let body = `<section class="card hub-head"><div class="hub-pills"><b class="big-amt">${waived ? '$0' : SET.waitlist.fee}</b>${pill(state)}</div>
+      <div class="hub-line">${f.st === 'applied' ? 'Asked for when you approve their application.' : waived ? 'Their program waives it. They joined the list when you approved them.' : f.st === 'approved' ? `Asked for when you approved them on ${short(f.joined)}. Their place starts when it’s in.` : `Paid ${ledger ? fmt(ledger.d) : fmt(f.joined)}${ledger ? ' · Venmo' : ''}. Their place counts from that day.`}</div>
+      ${!waived && f.st !== 'applied' ? `<div class="hub-line">${credit ? (sale ? `Counted toward ${sale.pup}’s price.` : 'Counts toward their puppy’s price.') : 'Kept as a fee; not part of the price.'}</div>` : ''}</section>`;
+  if (f.st === 'approved' && !waived) {
+    const fm = formFor('fee:' + f.id, () => ({ how: 'Venmo', d: TODAY }));
+    body += `<section class="card app-card"><div class="f-head"><h2>Mark it received</h2></div>${fChips('how', 'How they paid', ['Venmo', 'Zelle', 'Cash', 'Check', 'Card online'], { own: 1 })}<div class="form-stack"><div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('ref', 'Reference', { ph: 'Check number, note' })}</div></div>
+      <p class="f-hint">They join the list at #${activeFams().length + 1}, the end, and you’ll see which litters they’re next for.</p>
+      <button type="button" class="primary-btn" data-pdo="fee|${f.id}">${icon('check')}Fee received</button></section>`;
+  }
+  body += `<section class="card"><div class="rows">
+      ${!waived && f.st !== 'applied' && f.st !== 'approved' ? row({ ic: 'receipt', t: 'Fee receipt', s: 'PDF, the one they were emailed', go: '', end: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Opens the fee receipt as a PDF"`) : ''}
+      ${row({ ic: 'hand-coins', t: 'Money they paid you some other way', s: 'A credit, used toward the fee, deposit, then the price', go: '' }).replace('<button type="button" class="row"', `<button type="button" class="row" data-toast="Adds a credit: amount, date, how they paid"`)}
+    </div></section>${setLink(`Your fee and its rules are in Setup › Waitlist`, 'setupsec:waitlist')}`;
+  return { title: 'Fee', body };
+};
+PSEC.messages = (f, id) => {
+  if (!f) return null;
+  const list = msgsOf(f), d = DETAILS[id] || {};
+  const item = (m) => m.kind === 'email'
+    ? `<div class="msg-sys${m.failed ? ' failed' : ''}">${icon(m.failed ? 'triangle-alert' : 'mail')}<span>${esc(m.t)} · ${short(m.at)}${m.failed ? ' · <b>didn’t send</b>' : ''}</span>${m.failed ? `<button type="button" class="link" data-toast="Sent again to ${esc(d.email || 'their email')}">Send again</button>` : ''}</div>`
+    : `<div class="msg ${m.kind}"><div class="msg-b">${esc(m.body)}</div><div class="msg-at">${m.kind === 'them' ? 'From their status page' : 'You'} · ${short(m.at)}</div></div>`;
+  const fm = formFor('msg:' + id, () => ({ tpl: '', body: '' }));
+  const TPL = { 'Pickup details': `Hi! Pickup is ${GOHOME.find((g) => g.fam === f.id)?.when || 'on go-home weekend'}. Bring a collar, leash and a towel.`, 'A reminder': 'Just a reminder that your answer is due soon on your status page.', 'Just a note': '' };
+  return {
+    title: 'Messages',
+    body: `<section class="card thread">${list.map(item).join('')}</section>
+      <section class="card app-card"><div class="f-head"><h2>Write to them</h2><span>They answer on their status page</span></div>
+        ${fChips('tpl', '', Object.keys(TPL))}
+        <div class="form-stack"><label>Message<textarea data-fv="body" rows="3" placeholder="Say it in your own words">${esc(fm.body || TPL[fm.tpl] || '')}</textarea></label></div>
+        <div class="actions-2"><button type="button" class="btn-2" data-toast="Copied. Paste it into Messenger or a text.">${icon('copy')}Copy for a text</button><button type="button" class="primary-btn" data-pdo="send|${id}">${icon('send')}Email it</button></div>
+        <p class="f-hint">Goes to ${d.email ? esc(d.email) : 'their email'}. <button type="button" class="link" data-open="personedit:${id}">Change their email</button></p></section>`,
+  };
+};
+PSEC.status = (f, id) => {
+  if (!f) return null;
+  const d = DETAILS[id] || {}, sale = SALES.find((s) => s.fam === f.id), holds = OFFER.open && OFFER.fam === f.id;
+  const theySee = f.st === 'placed' ? [`${f.pup} is yours`, sale ? (sale.paid >= sale.price ? `Paid in full · go-home ${sale.gohome}` : `${money(sale.price - sale.paid)} due at go-home, ${sale.gohome}`) : '']
+    : holds ? ['It’s your turn!', `Cedar is available to you · answer by ${wday(OFFER.due)}`]
+    : f.st === 'active' ? [`#${f.pos} on the list`, `Passes used: ${passesUsed(f.id)} of ${SET.waitlist.passes} · Clover × Titan, due Dec 8: ${f.listen && !f.listen.includes('Clover') ? 'not a match for you' : 'a match for you'}`]
+    : f.st === 'approved' ? ['You’re approved', `Pay the ${SET.waitlist.fee} fee by ${wday(f.feeDue)} to join the list`]
+    : f.st === 'applied' ? ['Application received', 'Waiting for the breeder’s review'] : [WL_ST[f.st][0], ''];
+  const can = f.st === 'placed' ? ['Message you', 'Ask for a different pickup time', 'Ask for their Companion link']
+    : f.st === 'active' ? ['Take or pass a turn', 'Change what they’re looking for (you approve)', 'Ask to pause', 'Leave the list', 'Message you'] : ['Answer your questions', 'Message you'];
+  return {
+    title: 'Status page',
+    body: `<div class="group-label">What they see now</div>
+      <section class="card status-prev"><div class="sp-top">Thornfield Kennels</div><div class="sp-body"><b>${theySee[0]}</b><span>${theySee[1]}</span></div></section>
+      <section class="card"><div class="rows">
+        <div class="row static"><span class="row-ic">${icon('eye')}</span><span class="row-main"><span class="row-t">Last opened</span><span class="row-s">${SEEN[f.id] || 'Never'}</span></span></div>
+        <div class="row static"><span class="row-ic">${icon('mail')}</span><span class="row-main"><span class="row-t">Sign-in codes go to</span><span class="row-s">${d.email ? esc(d.email) : 'No email yet'} · <button type="button" class="link" data-open="personedit:${id}">Change</button></span></span></div>
+      </div></section>
+      <section class="card app-card"><div class="group-label">On it they can</div><ul class="ticks">${can.map((t) => `<li>${icon('check')}${t}</li>`).join('')}</ul></section>
+      <div class="actions-2"><button type="button" class="btn-2" data-toast="Link copied. Send it by text or Messenger.">${icon('copy')}Copy their link</button><button type="button" class="primary-btn" data-toast="Opens their page as they see it. Buttons work there, but nothing is sent.">${icon('eye')}See it as they do</button></div>
+      <button type="button" class="set-link" data-toast="A new link is emailed to them; the old one stops working.">${icon('link')}Their link was shared by mistake? Make a new one</button>
+      ${setLink('What family pages show is in Setup › Website & family pages', 'setupsec:website')}`,
+  };
+};
+PSEC.history = (f, id) => {
+  const p = personOf(id), evs = [];
+  const E = (d, type, t, body = '') => evs.push({ d, type, t, body, i: evs.length });
+  if (f) {
+    E(f.joined, ['Applied', 'violet', 'inbox'], `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`, f.from ? `Heard about you: ${esc(f.from)}` : '');
+    if (!['applied', 'declined'].includes(f.st)) E(f.joined, ['Approved', 'green', 'check'], f.program ? `You approved them · ${f.program}` : 'You approved them', f.st === 'approved' ? `${SET.waitlist.fee} fee asked for` : '');
+    const fee = LEDGER.find((e) => e.cat === 'Waitlist fees' && e.party === f.n);
+    if (fee) E(fee.d, ['Fee', 'green', 'wallet'], `${money(fee.amt)} received`, `Joined the list`);
+    turnsOf(f.id).forEach((t) => { const [l, tone] = turnOut(t); E(t.on, ['Turn', tone, 'list-ordered'], `${t.lit}: ${l.toLowerCase()}`, t.reason ? `“${esc(t.reason)}”` : ''); });
+    msgsOf(f).filter((m) => m.kind !== 'email').forEach((m) => E(m.at, ['Message', 'blue', 'message-square-text'], m.kind === 'them' ? 'They wrote' : 'You wrote', esc(m.body)));
+    if (f.paused) E('2026-11-10', ['Paused', 'amber', 'clock'], `Until ${f.paused}`, 'Asked on their status page; you approved');
+  }
+  LEDGER.filter((e) => e.party === p.n && e.cat !== 'Waitlist fees').forEach((e) => E(e.d, [e.kind === 'in' ? 'Payment' : 'Paid them', e.kind === 'in' ? 'green' : 'gray', 'wallet'], `${money(e.amt)} · ${e.what}`, e.on.join(', ')));
+  evs.sort((a, b) => b.d.localeCompare(a.d) || b.i - a.i);
+  return { title: 'History', body: evs.length ? timeline(evs) : empty('history', `Nothing recorded with ${p.n} yet.`) };
+};
+
+/* add a family by hand (someone who phoned, a returning client): who first, and if
+   she already knows them, it's that person, never a second one */
+const PURPOSES = ['Pet', 'Performance', 'Show', 'Breeding', 'Co-own'];
+const READY = ['As soon as possible', 'Within a month', 'In 3 months', '6 months or more'];
+function knownMatch(fm) {
+  const q = (s) => String(s || '').trim().toLowerCase(), digits = (s) => String(s || '').replace(/\D/g, '');
+  const n = q(fm.name).replace(/ family$/, ''), em = q(fm.email), ph = digits(fm.phone);
+  return PEOPLE_OF().map((p) => ({ p, d: DETAILS[p.id] || {} })).find(({ p, d }) =>
+    (em && q(d.email) === em) || (ph.length >= 7 && digits(d.phone).endsWith(ph.slice(-7))) || (n.length >= 3 && q(p.n).replace(/ family$/, '') === n));
+}
+S.addfamily = () => {
+  const fm = formFor('addfamily', () => ({ who: '', wants: 'any', use: ['Pet'], ready: READY[0], listen: 'all', fee: 'paid', prog: '' }));
+  const m = fm.who === 'new' ? null : fm.pick ? { p: personOf(fm.pick), d: DETAILS[fm.pick] || {} } : knownMatch(fm);
+  const mf = m && fam(m.p.id), onList = mf && ['active', 'approved', 'applied'].includes(mf.st);
+  const prog = PROGRAMS.find((x) => x.id === fm.prog);
+  const at = fm.fee === 'paid' || (prog && prog.fee === 'Waived') ? (prog && prog.priority === 'Ahead of standard' ? Math.max(0, ...activeFams().filter((x) => x.program === prog.n).map((x) => x.pos)) + 1 : activeFams().length + 1) : null;
+  let body = '';
+  if (fm.pick) body += `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${esc(m.p.n)}</b>${pill([m.p.t, 'gray'])}</div>${m.d.email ? `<div class="hub-line">${icon('mail')}${esc(m.d.email)}</div>` : ''}${m.d.phone ? `<div class="hub-line">${icon('phone')}${esc(m.d.phone)}</div>` : ''}${mf && mf.pup ? `<div class="hub-line">Back for another puppy. ${esc(mf.pup)} stays on their page.</div>` : ''}<button type="button" class="set-link" data-fc="pick|">${icon('arrow-left-right')}Someone else</button></section>`;
+  else body += formCard('Who', `${fIn('name', 'Name', { ph: 'The Rivera family', req: 1 })}${fIn('email', 'Email', { type: 'email', ph: 'For offers and their status page' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Town or address')}`)
+    + (m ? `<div class="stub-note ${onList ? 'warn' : ''}">${icon(onList ? 'triangle-alert' : 'user-round')}<span>${onList ? `The ${esc(m.p.n.replace(/ family$/, ''))} family is already ${mf.st === 'active' ? `#${mf.pos} on your list` : 'waiting on you'}. <button type="button" class="link" data-open="person:${m.p.id}">Open their page</button>` : `Is this the ${esc(m.p.n)}? ${esc(m.p.s)}. <button type="button" class="link" data-fc="pick|${m.p.id}">Yes, it’s them</button> · <button type="button" class="link" data-fc="who|new">No, someone new</button>`}</span></div>` : '');
+  if (!onList) body += `<section class="card app-card">${fChips('wants', 'They want', [['female', 'A female'], ['male', 'A male'], ['any', 'Either']])}${fChips('use', 'For', PURPOSES, { multi: 1 })}${fChips('ready', 'Ready', READY)}</section>
+      <section class="card app-card">${fChips('listen', 'Which litters', [['all', 'Any litter'], ['some', 'Only some dams or sires']])}
+        ${fm.listen === 'some' ? `<p class="f-hint">Pick the dams and sires they’re waiting for, as many as they like.</p><div class="form-stack">${fSel('ldam', 'Dam', [['', 'Any dam'], ...ownDogs('f').filter((x) => x.status === 'active_breeding').map((x) => [x.id, x.name])])}${fSel('lsire', 'Sire', [['', 'Any sire'], ...ownDogs('m').map((x) => [x.id, x.name])])}</div>` : ''}</section>
+      <section class="card app-card">${fChips('prog', 'Program', [['', 'None'], ...PROGRAMS.map((x) => [x.id, x.n])])}
+        ${prog && prog.fee === 'Waived' ? `<p class="f-hint">${prog.n} waives the fee.</p>` : fChips('fee', `The ${SET.waitlist.fee} fee`, [['paid', 'They’ve paid it'], ['due', `Ask for it (due in ${SET.waitlist.feeDays})`]])}
+        <p class="f-hint">${at ? `They’ll be #${at} on the list${prog && prog.priority === 'Ahead of standard' ? `, ahead of standard families` : ', at the end'}.` : 'They join the list when the fee is in.'}</p></section>
+      ${formCard('', `${fIn('from', 'How they heard about you', { ph: 'A friend, Facebook, a show' })}${fText('notes', 'Your notes', 'Only you see these')}`)}
+      ${saveBar('data-famsave="1"', fm.pick && mf ? 'Add them back to the list' : 'Add to the list')}`;
+  return { bar: bar('Add family'), body };
+};
+
+/* a side sale (Side Sale spec): her pick for a family, outside the turn order, never a turn */
+S.sidesale = (fid) => {
+  const fm = formFor('sidesale:' + (fid || ''), () => ({ fam: fid || '', pup: '', reg: 'Limited', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), match: '' }));
+  const f = fm.fam && fam(fm.fam), pups = DOGS.filter((d) => d.litter === 'wa' && d.disp !== 'placed');
+  const p = fm.pup && DOGS.find((d) => d.id === fm.pup);
+  const notes = [];
+  if (f && p) {
+    if (p.disp !== 'available') notes.push(['info', `${p.name} is ${DISP[p.disp][0].toLowerCase()}. Recording this holds ${p.sex === 'm' ? 'him' : 'her'} for the ${f.n} until the deposit is in.`]);
+    if (f.wants !== 'any' && (f.wants === 'male') !== (p.sex === 'm')) notes.push(['info', `They asked for a ${f.wants}; ${p.name} is ${p.sex === 'm' ? 'male' : 'female'}.`, 'match']);
+    if (f.listen) notes.push(['info', `They’re waiting for ${f.listen} only.`]);
+    if (f.paused) notes.push(['info', `They’re paused until ${f.paused}.`]);
+    if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `The ${fam(OFFER.fam).n} has ${p.name} in their turn, answer by ${wday(OFFER.due)}. If both send a deposit, the first one in gets ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
+  }
+  const fullAdd = Number(String(SET.pricing.fullReg).replace(/\D/g, '')) || 0, base = Number(String(SET.pricing.pet).replace(/\D/g, ''));
+  return {
+    bar: bar('Side sale', { sub: 'Outside the turn order' }),
+    body: `<p class="lede">You pick a pup for a family on the list. It isn’t a turn: nobody’s turn moves, and it never counts as a pass. To them it looks like their pick.</p>
+      ${fid ? `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${f.n}</b>${pill([`#${f.pos}`, 'green'])}</div><div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}</div></section>`
+        : formCard('Family', fSel('fam', 'Family on the list', [['', 'Pick a family'], ...activeFams().map((x) => [x.id, `#${x.pos} ${x.n}${OFFER.open && OFFER.fam === x.id ? ' (holds the turn)' : ''}`])]))}
+      ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>They hold the turn now. Record their pick on <button type="button" class="link" data-open="wloffer">their turn</button> instead.</span></div>` : `
+      <section class="card app-card">${fChips('pup', 'Pup', pups.map((d) => [d.id, `${d.name} · ${d.sex === 'm' ? 'M' : 'F'}${d.disp !== 'available' ? ' · ' + DISP[d.disp][0].toLowerCase() : ''}`]))}</section>
+      ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
+      <section class="card app-card">${fChips('reg', 'Selling at', [['Limited', `Limited · ${money(base)}`], ['Full', `Full · ${money(base + fullAdd)}`]])}
+        <div class="form-stack"><div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}</div></div>
+        <p class="f-hint">They’re sent the usual deposit request and reminders. Nothing happens by itself if the date passes; you’ll see it on Home.</p></section>
+      ${saveBar('data-sidesave="1"', 'Record the side sale')}`}`,
+  };
+};
+
+/* programs: hers to define; only she puts families in one */
+const PROGRAMS = [
+  { id: 'military', n: 'Military', ic: 'award', tone: 'violet', fee: 'Waived', priority: 'Ahead of standard', respond: 'Same as everyone', passes: 'Yes', pause: 'No', desc: '' },
+  { id: 'cancer', n: 'Cancer support', ic: 'ribbon', tone: 'rose', fee: 'Waived', priority: 'Same as everyone', respond: '7 days', passes: 'No', pause: 'Yes', desc: 'For families going through cancer treatment. Pausing or passing during treatment never costs your place.' },
+];
+const PROG_Q = [
+  ['fee', 'Application fee', ['Same as everyone', 'Waived', '$100'], 1],
+  ['priority', 'Place in line', ['Same as everyone', 'Ahead of standard']],
+  ['respond', 'Time to answer an offer', ['Same as everyone', '5 days', '7 days'], 1],
+  ['passes', 'Do passes count toward removal?', ['Yes', 'No']],
+  ['pause', 'Can they pause without losing their place?', ['Yes', 'No']],
+];
+const progLine = (p) => [p.fee === 'Same as everyone' ? '' : p.fee === 'Waived' ? 'Fee waived' : `${p.fee} fee`, p.priority === 'Ahead of standard' ? 'ahead of standard' : '', p.respond === 'Same as everyone' ? '' : `${p.respond} to answer`, p.passes === 'No' ? 'passes don’t count' : ''].filter(Boolean).join(' · ') || 'Same rules as everyone';
+S.wlprogram = (id) => {
+  let p = PROGRAMS.find((x) => x.id === id);
+  if (!p) { p = { id: 'p' + (PROGRAMS.length + 1), n: '', ic: 'award', tone: 'violet', fee: 'Same as everyone', priority: 'Same as everyone', respond: 'Same as everyone', passes: 'Yes', pause: 'No', desc: '', fresh: 1 }; PROGRAMS.push(p); hist[hist.length - 1].p = p.id; }
+  const fams = WL.filter((f) => f.program === p.n && p.n);
+  const q = ([k, label, opts, own]) => {
+    const key = 'prog|' + k, open = ui.qOpen === key;
+    const choices = opts.includes(p[k]) ? opts : [...opts, p[k]];
+    return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${label}</span><span class="a">${esc(p[k])}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? `<div class="q-edit">${choices.map((o) => `<button type="button" class="chip" data-progset="${p.id}|${k}|${esc(o)}" aria-pressed="${p[k] === o}">${esc(o)}</button>`).join('')}${own ? `<button type="button" class="chip own" data-toast="Type your own, like ${k === 'fee' ? '$150' : '10 days'}" aria-label="Add your own">${icon('plus')}</button>` : ''}</div>` : ''}</div>`;
+  };
+  return {
+    bar: bar(p.n || 'New program', { sub: 'Program' }),
+    body: `${formCard('', `<label>Name<input data-progname="${p.id}" value="${esc(p.n)}" placeholder="Returning family, Veteran…" autocomplete="off"></label>`)}
+      <div class="group-label">What it changes</div><section class="card"><div class="rows">${PROG_Q.map(q).join('')}</div></section>
+      ${formCard('What families see', `<label>About this program<textarea data-progdesc="${p.id}" rows="2" placeholder="Leave empty to keep it private">${esc(p.desc)}</textarea></label><p class="f-hint">Shown on their status page only if you write something. Never on the application: only you put a family in a program.</p>`)}
+      <div class="group-label">Families in it</div>
+      <section class="card">${fams.length ? `<div class="rows">${fams.map((f) => row({ ic: 'user-round', t: f.n, s: famLine(f), go: `person:${f.id}` })).join('')}</div>` : `<p class="lede pad">None yet. Put a family in it from Add family, or their application.</p>`}</section>
+      ${p.fresh ? `<button type="button" class="primary-btn" data-progdone="${p.id}">${icon('check')}Save program</button>` : ''}`,
+  };
+};
+
 const STUBS = {
   sharing: ['Sharing', ['Companion messaging (prospective, current families, partners)', 'Furever', 'Assistant', 'Dog cards']],
   storage: ['Storage', ['Documents', 'Shows', 'Accounts moved to Business']],
@@ -3145,6 +3442,8 @@ const SCREENS = [
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
   ['Import / Export', 'arrow-down-up', 'CSV import, export', 'stub:import-export'],
   ['Danger zone', 'shield-alert', 'Reset or delete', 'stub:danger'],
+  ['Add family', 'user-round', 'Someone who called, or a past client back for another pup', 'addfamily'],
+  ['Side sale', 'arrow-left-right', 'Sell a pup outside the turn order', 'sidesale'],
   ['Add litter', 'plus', 'Expected or born, from a pairing or not', 'addlitter'],
   ['Add pairing', 'heart-handshake', 'Plan or record a breeding', 'addpairing'],
   ['Add dog', 'plus', 'A puppy, your breeding dog, an outside dog', 'adddog'],
@@ -3212,10 +3511,12 @@ function wlAct(act, id) {
   const f = fam(id);
   const p = DOGS.find((d) => d.id === OFFER.pup);
   if (act === 'took') {
+    (TURNS[f.id] ||= []).push({ lit: 'Willow × Ash', on: OFFER.sent, by: OFFER.due, out: 'took', pup: p.name });
     f.st = 'placed'; f.pup = p.name; delete f.pos; p.disp = 'placed'; OFFER.open = false;
     SALES.push({ pup: p.name, fam: f.id, price: 3200, paid: 0, date: TODAY, gohome: 'Not set' });
     renumber(); back(); toast(`${p.name} is reserved for the ${f.n}. Sale created, deposit pending.`);
   } else if (act === 'passed' || act === 'noanswer') {
+    (TURNS[f.id] ||= []).push({ lit: 'Willow × Ash', on: OFFER.sent, by: OFFER.due, out: act === 'passed' ? 'passed' : 'none', counts: 1 });
     f.passes = (f.passes || 0) + 1;
     const removed = f.passes >= Number(SET.waitlist.passes);
     if (removed) { f.st = 'removed'; f.note = 'Second pass'; delete f.pos; }
@@ -3231,7 +3532,7 @@ function wlAct(act, id) {
   } else if (act === 'decline') {
     f.st = 'declined'; render(); toast(`Declined the ${f.n}`);
   } else if (act === 'fee') {
-    f.st = 'active'; f.pos = activeFams().length + 1; f.passes = 0; render(); toast(`Fee received. The ${f.n} is #${f.pos} on the list.`);
+    f.pos = activeFams().length + 1; f.st = 'active'; f.passes = 0; render(); toast(`Fee received. The ${f.n} is #${f.pos} on the list.`);
   } else if (act === 'req-ok') {
     const r = REQUESTS.find((x) => x.id === id); r.open = false; GOHOME.find((g) => g.fam === r.fam).when = 'Sat Nov 21 · 2:00 PM'; render(); toast('Pickup moved to 2:00 PM. The Okafor family has been told.');
   } else if (act === 'req-other') {
@@ -3330,6 +3631,65 @@ function expenseSave(spec) {
   ui.formSpec = null; back(); toast(`${money(amt)} added to ${f.on.join(' and ')}`);
 }
 
+/* the Waitlist batch's actions */
+function personDo(spec) {
+  const [act, id] = spec.split('|'), f = fam(id);
+  if (act === 'move') {
+    const list = activeFams(), n = Math.max(1, Math.min(list.length, Number($('#pa-pos')?.value) || f.pos));
+    list.splice(list.indexOf(f), 1); list.splice(n - 1, 0, f); list.forEach((x, i) => { x.pos = i + 1; });
+    ui.pAct = null; render(); toast(`The ${f.n} is #${n} now`); return;
+  }
+  if (act === 'pause') { const v = $('#pa-until')?.value; if (!v) return toast('Pick the date'); f.paused = short(v); ui.pAct = null; render(); toast(`Paused until ${f.paused}. They keep #${f.pos}.`); return; }
+  if (act === 'unpause') { delete f.paused; ui.pAct = null; render(); toast('Pause ended. They can be offered turns again.'); return; }
+  if (act === 'withdrew' || act === 'removed') { f._pos = f.pos; f.st = act === 'withdrew' ? 'withdrawn' : 'removed'; delete f.pos; renumber(); ui.pAct = null; render(); toast(`The ${f.n} is off the list. Undo here within 7 days.`); return; }
+  if (act === 'restore') { f.st = 'active'; f.pos = (f._pos || activeFams().length + 1) - 0.5; renumber(); render(); toast(`The ${f.n} is back at #${f.pos}`); return; }
+  if (act === 'fee') { LEDGER.push({ d: ui.form.d || TODAY, kind: 'in', cat: 'Waitlist fees', amt: Number(String(SET.waitlist.fee).replace(/\D/g, '')), what: 'Application fee', on: ['Waitlist'], party: f.n }); ui.formSpec = null; wlAct('fee', id); return; }
+  if (act === 'send') {
+    const text = ($('textarea[data-fv="body"]')?.value || '').trim();
+    if (!text) return toast('Write your message first');
+    (MSGS[id] ||= msgsOf(f).slice()).push({ at: TODAY, kind: 'you', body: text });
+    ui.formSpec = null; render(); toast(`Emailed to ${DETAILS[id]?.email || 'them'}`);
+  }
+}
+function familySave() {
+  const fm = ui.form, prog = PROGRAMS.find((x) => x.id === fm.prog);
+  let id = fm.pick, f = id && fam(id);
+  if (!id) {
+    const name = (fm.name || '').trim();
+    if (!name) return toast('Add their name');
+    if (fm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fm.email.trim())) return toast('That email doesn’t look right');
+    const m = fm.who === 'new' ? null : knownMatch(fm);
+    if (m) return toast(`Check first: is this the ${m.p.n}?`);
+    id = name.toLowerCase().replace(/ family$/, '').replace(/[^a-z0-9]+/g, '-'); while (DETAILS[id] || fam(id)) id += '-2';
+    DETAILS[id] = { email: (fm.email || '').trim(), phone: (fm.phone || '').trim(), addr: (fm.addr || '').trim() };
+  }
+  const n = f ? f.n : fm.pick ? personOf(fm.pick).n : /family$/i.test(fm.name.trim()) ? fm.name.trim() : `${fm.name.trim()} family`;
+  const paid = fm.fee === 'paid' || (prog && prog.fee === 'Waived');
+  const entry = f || { id, n };
+  if (f && f.pup) entry.before = `Took ${f.pup}`;
+  Object.assign(entry, { st: paid ? 'active' : 'approved', joined: TODAY, wants: fm.wants, use: (fm.use || []).join(', ') || 'Pet', passes: 0, from: fm.from || '' });
+  delete entry.paused;
+  if (prog) entry.program = prog.n; else delete entry.program;
+  const ld = fm.listen === 'some' ? [fm.ldam && pedName(fm.ldam), fm.lsire && pedName(fm.lsire)].filter(Boolean).join(' or ') : '';
+  if (ld) entry.listen = ld; else delete entry.listen;
+  if (paid) entry.pos = prog && prog.priority === 'Ahead of standard' ? Math.max(0, ...activeFams().filter((x) => x.program === prog.n).map((x) => x.pos)) + 0.5 : 999;
+  else { entry.feeDue = addDays(TODAY, Number.parseInt(SET.waitlist.feeDays, 10) || 7); delete entry.pos; }
+  if (!f) WL.push(entry);
+  if (paid && fm.fee === 'paid' && !(prog && prog.fee === 'Waived')) LEDGER.push({ d: TODAY, kind: 'in', cat: 'Waitlist fees', amt: Number(String(SET.waitlist.fee).replace(/\D/g, '')), what: 'Application fee', on: ['Waitlist'], party: n });
+  renumber(); ui.formSpec = null; replaceWith(`person:${id}`);
+  toast(paid ? `The ${n} is #${entry.pos} on the list` : `Added. The ${n} is asked for the ${SET.waitlist.fee} fee.`);
+}
+function sideSave() {
+  const fm = ui.form, f = fam(fm.fam), p = DOGS.find((d) => d.id === fm.pup);
+  if (!f) return toast('Pick the family');
+  if (!p) return toast('Pick the pup');
+  if (!fm.due) return toast('Pick when the deposit is due');
+  const base = Number(String(SET.pricing.pet).replace(/\D/g, '')), full = Number(String(SET.pricing.fullReg).replace(/\D/g, '')) || 0;
+  SALES.push({ pup: p.name, fam: f.id, price: base + (fm.reg === 'Full' ? full : 0), paid: 0, date: TODAY, gohome: 'Not set', side: 1, due: fm.due });
+  if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
+  ui.formSpec = null; back(); toast(`Side sale recorded. The ${f.n} is asked for the ${SET.pricing.deposit} deposit on ${p.name} by ${wday(fm.due)}.`);
+}
+
 function testSave(id) {
   const f = ui.form, d = dogById(id);
   if (!f.name) return toast('Pick the test');
@@ -3384,7 +3744,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3406,6 +3766,12 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
+  if (d.pdo) { personDo(d.pdo); return; }
+  if (d.famsave) { familySave(); return; }
+  if (d.sidesave) { sideSave(); return; }
+  if (d.progset) { const [pid, k, v] = d.progset.split('|'); PROGRAMS.find((x) => x.id === pid)[k] = v; ui.qOpen = null; render(); toast('Saved'); return; }
+  if (d.progdone) { const pr = PROGRAMS.find((x) => x.id === d.progdone); if (!pr.n.trim()) return toast('Give the program a name'); delete pr.fresh; back(); toast(`${pr.n} added`); return; }
   if (d.dd) { ui.sheet.dd = ui.sheet.dd === d.dd ? null : d.dd; ui.sheet.ddq = ''; renderSheet(); if (ui.sheet.dd) $('#sheet .dd.open')?.scrollIntoView({ block: 'nearest' }); return; }
   if (d.ddclear) { ui.sheet.draft.sel[d.ddclear] = []; renderSheet(); return; }
   if (d.dsave) { dogSave(d.dsave); return; }
@@ -3519,7 +3885,10 @@ document.addEventListener('change', (e) => {
 });
 document.addEventListener('input', (e) => {
   if ('ddq' in e.target.dataset) { ui.sheet.ddq = e.target.value; const pos = e.target.selectionStart; renderSheet(); const n = $('#dd-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
+  if (e.target.dataset.progname) { PROGRAMS.find((x) => x.id === e.target.dataset.progname).n = e.target.value; return; }
+  if (e.target.dataset.progdesc) { PROGRAMS.find((x) => x.id === e.target.dataset.progdesc).desc = e.target.value; return; }
   const fk = e.target.dataset?.fv;
+  if (fk && ui.formSpec === 'addfamily' && ['name', 'email', 'phone'].includes(fk)) { ui.form[fk] = e.target.value; const pos = e.target.selectionStart; render(); const n = $(`[data-fv="${fk}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
   if (fk && e.target.tagName !== 'SELECT') { ui.form[fk] = e.target.value; if (fk === 'name' && ui.form._dup) { delete ui.form._dup; delete ui.form._dupOk; } if (fk === 'cost' || fk === 'remindOn') return; return; }
   if (e.target.id === 'b-wt') { ui.birth.wt = e.target.value; return; }
   if (e.target.id === 'b-time') { ui.birth.time = e.target.value; return; }
