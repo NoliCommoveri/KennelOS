@@ -698,6 +698,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 /* add-on groups and payment plans */
+.sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
 .quote-box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--p-green-bg); color: var(--ink); font-size: 13px; }
 .quote-box span { color: var(--muted); }
 .quote-box .off, .f-hint.off { color: var(--p-amber-fg); }
@@ -1116,7 +1117,7 @@ const SETUP = {
     ['waitlist', 'list-ordered', 'Waitlist', () => `${SET.waitlist.fee} fee · ${SET.waitlist.respond} to answer · ${SET.waitlist.passes} passes · 2 programs`, 'Kennel page › Waitlist settings, and the Waitlist programs page'],
     ['breeding', 'git-fork', 'Breeding program', () => `${TRAITS.length} traits · ${COLORS.filter((c) => c.kind === 'color').length} colors · warn at COI ${SET.lines.coi}`, 'Nowhere yet: new with the Line Management Plan. Colors replace the free-text color box on each dog'],
     ['payments', 'receipt', 'Invoices & receipts', () => 'Invoice footer set · receipt wording default', 'Invoice defaults. Add-ons moved to Business, next to Accounts'],
-    ['gohome', 'car', 'Go-home & transport', () => `Pickup at ${stdPlace()?.n || 'not set'} · transport ${money(tRate())} a mile · boarding $35/day`, "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
+    ['gohome', 'car', 'Go-home & transport', () => `Pickup at ${stdPlace()?.n || 'not set'} · transport ${tPrice()} · boarding $35/day`, "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
     ['care', 'stethoscope', 'Health & care', () => 'OFA hips, elbows, eyes · DNA · Labrador feeding schedule', 'Kennel page › Preferred tests, Feeding schedules, Puppy Record fields, Lifecycle nudges'],
     ['contracts', 'file-pen-line', 'Contracts & e-sign', () => 'Firma connected · 3 templates', 'The Contracts page and e-sign setup', 'contracts'],
     ['money', 'coins', 'Money & mileage', () => 'Mileage $0.70/mi · tax year Jan–Dec', 'Kennel page › Finances, and mileage defaults'],
@@ -2804,7 +2805,7 @@ const ADDONS = [
   { id: 'crate', n: 'Travel crate', ic: 'receipt', group: '', unit: 'flat', price: 120, on: 1 },
 ];
 const UNIT = { flat: '', day: ' a day', mile: ' a mile' };
-const addonPrice = (a) => `${money(a.price)}${UNIT[a.unit]}`;
+const addonPrice = (a) => (a.id === 'transport' && typeof TRANSPORT !== 'undefined' && TRANSPORT.mode === 'flat' ? money(TRANSPORT.flat) : `${money(a.price)}${UNIT[a.unit]}`);
 const grpOf = (a) => ADDON_GROUPS.find((g) => g.id === a.group);
 const ruleOf = (a, k) => (a[k] ?? grpOf(a)?.[k]);
 const planOf = (a) => (a.plan !== undefined ? a.plan : grpOf(a)?.plan || null);
@@ -2818,7 +2819,7 @@ const agesText = (from, until, cancel) => {
 };
 const payText = (plan, own) => `${planText(plan)}${own ? ' · own due dates' : ''}`;
 const groupLine = (g) => [FEAT.waitlistOnline ? agesText(g.from, g.until, g.cancel) : '', payText(g.plan, g.own), FEAT.waitlistOnline && g.url ? 'Details link' : ''].filter(Boolean).join(' · ');
-const addonLine = (a) => [a.id === 'transport' ? `${addonPrice(a)}, ${TRANSPORT.basis === 'one_way' ? 'one way' : 'round trip'}` : addonPrice(a), a.id === 'transport' ? (TRANSPORT.by === 'third' ? `Third party${partnerOf(TRANSPORT.partner) ? ': ' + esc(partnerOf(TRANSPORT.partner).n) : ''}` : 'Kennel') : a.built ? a.desc : '', !a.built && FEAT.waitlistOnline && a.ask ? 'Requestable' : '', !a.built && (a.plan !== undefined || typeof a.own === 'boolean' || !a.group) ? payText(planOf(a), ownOf(a)) : ''].filter(Boolean).join(' · ');
+const addonLine = (a) => [a.id === 'transport' ? tPrice() : addonPrice(a), a.id === 'transport' ? (TRANSPORT.by === 'third' ? `Third party${partnerOf(TRANSPORT.partner) ? ': ' + esc(partnerOf(TRANSPORT.partner).n) : ''}` : 'Kennel') : a.built ? a.desc : '', !a.built && FEAT.waitlistOnline && a.ask ? 'Requestable' : '', !a.built && (a.plan !== undefined || typeof a.own === 'boolean' || !a.group) ? payText(planOf(a), ownOf(a)) : ''].filter(Boolean).join(' · ');
 /* what each sale carries: [{ id, amount, qty?, days?, label? }] */
 const SALE_ADDONS = { Fern: [{ id: 'kit', amount: 85 }, { id: 'photo', amount: 150 }] };
 const saleAddons = (s) => (SALE_ADDONS[s.pup] ||= []);
@@ -2929,7 +2930,7 @@ S.addon = (id) => {
    (Get driving miles, never automatic) or Open in Maps. New: who handles it (the kennel, or a
    third party: one of her Transport accounts, or unknown) and the referral reward she
    expects from that partner. */
-const TRANSPORT = { basis: 'round_trip', freeUnder: 25, minHome: 100, far: 300, by: 'kennel', partner: '' };
+const TRANSPORT = { mode: 'mile', flat: 350, basis: 'round_trip', freeUnder: 25, minHome: 100, far: 300, by: 'kennel', partner: '' };
 const PLACES = [
   { id: 'p1', n: 'Maple Grove Library lot', addr: '8001 Main St N, Maple Grove, MN', notes: 'North entrance', std: 1, show: 1 },
   { id: 'p2', n: 'The kennel', addr: '4120 County Rd 30, Corcoran, MN', notes: 'Gate code sent the day before', std: 0, show: 0 },
@@ -2946,7 +2947,9 @@ SET.pickup = { change: '2 days before' };
 OWN_VALUE.pickup = ['change'];
 OWN_HINT.change = '5 days before';
 const tRate = () => ADDONS.find((a) => a.id === 'transport').price;
+const tPrice = () => (TRANSPORT.mode === 'flat' ? `${money(TRANSPORT.flat)} flat` : `${money(tRate())} a mile, ${TRANSPORT.basis === 'one_way' ? 'one way' : 'round trip'}`);
 const tQuote = (oneWay, c = { rate: tRate(), ...TRANSPORT }) => {
+  if (c.mode === 'flat') return { fee: Number(c.flat) || 0, text: `Flat fee ${money(Number(c.flat) || 0)}` };
   const m = Math.round(Math.max(0, Number(oneWay) || 0)), round = c.basis !== 'one_way', charged = round ? m * 2 : m;
   const rate = Number(c.rate), free = Number(c.freeUnder) || 0;
   const base = round ? `${m} miles one way × 2 = ${charged}` : `${m} miles one way`;
@@ -2966,14 +2969,14 @@ const rewardOf = (x) => {
 const transportsOf = () => SALES.map((s) => [s, saleAddons(s).find((x) => x.id === 'transport')]).filter(([, x]) => x);
 const transportSub = (x) => x.by === 'third'
   ? `${partnerOf(x.partner)?.n || 'Third party · partner unknown'}${rewardOf(x) != null ? ` · ${money(rewardOf(x))} reward ${x.got ? 'received' : 'expected'}` : ''}`
-  : x.qty ? `${x.qty} miles one way · kennel` : 'Kennel · fee not set';
+  : x.qty ? `${x.qty} miles one way · kennel` : x.amount ? 'Kennel' : 'Kennel · fee not set';
 SALE_ADDONS.Hazel = [{ id: 'transport', by: 'third', partner: 'skypaws', amount: 0, got: 0 }];
 const srow = (ic, t, s) => `<div class="row static"><span class="row-ic">${icon(ic)}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span></div>`;
 
 S.transport = () => {
   const a = ADDONS.find((x) => x.id === 'transport'), std = stdPlace();
-  const fm = formFor('transport', () => ({ rate: str(a.price), basis: TRANSPORT.basis, freeUnder: str(TRANSPORT.freeUnder || ''), minHome: str(TRANSPORT.minHome || ''), far: str(TRANSPORT.far), by: TRANSPORT.by, partner: TRANSPORT.partner, desc: a.desc || '', on: a.on ? 'on' : 'off', to: '' }));
-  const cfg = { rate: fm.rate, basis: fm.basis, freeUnder: fm.freeUnder };
+  const fm = formFor('transport', () => ({ mode: TRANSPORT.mode, flat: str(TRANSPORT.flat), rate: str(a.price), basis: TRANSPORT.basis, freeUnder: str(TRANSPORT.freeUnder || ''), minHome: str(TRANSPORT.minHome || ''), far: str(TRANSPORT.far), by: TRANSPORT.by, partner: TRANSPORT.partner, desc: a.desc || '', on: a.on ? 'on' : 'off', to: '' }));
+  const cfg = { mode: fm.mode, flat: fm.flat, rate: fm.rate, basis: fm.basis, freeUnder: fm.freeUnder };
   const q = fm._miles != null ? tQuote(fm._miles, cfg) : null;
   const famName = KENNEL;
   const shared = PARTNERS.filter((p) => p.share);
@@ -2985,12 +2988,13 @@ S.transport = () => {
   const unknown = third.filter(([, x]) => !partnerOf(x.partner)).length;
   return {
     bar: bar('Transport', { sub: 'Go-home add-on' }),
-    body: `${formCard('Fee', `<div class="dates">${fIn('rate', 'Fee per mile ($)', { type: 'number' })}${fIn('freeUnder', 'No charge under (miles)', { type: 'number', ph: '0' })}</div>
-        ${fChips('basis', 'Count miles', [['round_trip', 'Round trip'], ['one_way', 'One way']])}
+    body: `${formCard('Fee', `${fChips('mode', 'Charged', [['mile', 'Per mile'], ['flat', 'Flat fee']])}
+        ${fm.mode === 'flat' ? fIn('flat', 'Flat fee ($)', { type: 'number' }) : `<div class="dates">${fIn('rate', 'Fee per mile ($)', { type: 'number' })}${fIn('freeUnder', 'No charge under (miles)', { type: 'number', ph: '0' })}</div>
+        ${fChips('basis', 'Count miles', [['round_trip', 'Round trip'], ['one_way', 'One way']])}`}
         ${fIn('desc', 'Description', { hint: 'Shown to families' })}`)}
       <div class="group-label">Starts from</div>
       <section class="card"><div class="rows">${std ? row({ ic: 'map-pin', t: esc(std.n), extra: pill(['Standard place', 'green']), s: esc(std.addr), go: 'pickupplaces' }) : row({ ic: 'map-pin', tone: 'amber', t: 'No standard pickup place', s: 'Needed for driving miles', go: 'pickupplaces' })}</div></section>
-      ${formCard('Who it’s offered to', `<div class="dates">${fIn('minHome', 'Families living at least (miles)', { type: 'number', ph: 'Any', hint: 'City / state becomes required' })}${fIn('far', 'In touch past (miles)', { type: 'number', hint: 'Driving or flight nanny' })}</div>`)}
+      ${formCard('Who it’s offered to', `${fIn('minHome', 'Families living at least (miles away)', { type: 'number', ph: 'Any', hint: 'City / state becomes required' })}${fIn('far', 'In touch past (miles)', { type: 'number', hint: 'Driving or flight nanny' })}`)}
       ${formCard('Handled by', `${fChips('by', '', [['kennel', 'Kennel'], ['third', 'Third party']])}${fm.by === 'third' ? fChips('partner', 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']]) : ''}`, 'Default for new sales')}
       ${formCard('Check a distance', `${fIn('to', 'Address', { ph: 'Street, city, state' })}
         <div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip go" data-trmiles>Get driving miles</button><button type="button" class="chip" data-toast="Opens Google Maps directions from ${esc(std?.n || 'your standard place')}">Open in Maps</button></div>
@@ -3031,7 +3035,7 @@ S.pickupplaces = () => ({
   body: `<section class="card"><div class="rows">${PLACES.map((p) => row({ ic: 'map-pin', tone: p.std ? 'green' : '', t: esc(p.n), extra: (p.std ? pill(['Mileage starts here', 'green']) : '') + (p.show ? '' : pill(['Hidden', 'gray'])), s: esc(p.addr), go: `place:${p.id}` })).join('') || '<p class="lede" style="padding:12px 14px">No places yet.</p>'}</div></section>
     <div class="group-label">Changes</div>
     <section class="card"><div class="rows">${qRow('pickup', 'change', 'Families can change pickup until', ['1 day before', '2 days before', '3 days before'])}</div></section>
-    <section class="card"><div class="rows">${row({ ic: 'calendar-days', t: 'Pickup times', s: 'Set on each litter', go: 'littersec:wa|gohome' })}${row({ ic: 'truck', t: 'Transport', s: `${money(tRate())} a mile, ${TRANSPORT.basis === 'one_way' ? 'one way' : 'round trip'}`, go: 'addon:transport' })}</div></section>`,
+    <section class="card"><div class="rows">${row({ ic: 'calendar-days', t: 'Pickup times', s: 'Set on each litter', go: 'littersec:wa|gohome' })}${row({ ic: 'truck', t: 'Transport', s: tPrice(), go: 'addon:transport' })}</div></section>`,
 });
 S.place = (id) => {
   const p = PLACES.find((x) => x.id === id), fresh = !p;
@@ -3061,10 +3065,14 @@ S.saleaddons = (pup) => {
           ? `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}${fChips('partner', 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']])}
             <div class="dates">${pt && pt.rUnit === 'pct' ? fIn('vendor', 'Their price ($)', { type: 'number' }) : ''}${fIn('amount', 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>
             ${pt ? `<small class="f-hint">${rw != null ? `Reward: ${money(rw)} (${rewardText(pt)})` : `Reward: ${rewardText(pt)}`}</small>${fChips('got', 'Reward', [['no', 'Expected'], ['yes', 'Received']])}` : '<small class="f-hint">No reward tracked</small>'}`
+          : TRANSPORT.mode === 'flat'
+          ? `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}
+            <div class="dates">${fIn('amount', 'Fee ($)', { type: 'number', ph: str(TRANSPORT.flat) })}</div><small class="f-hint">Prefilled from your flat fee</small>`
           : `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}
             <div class="dates">${fIn('qty', 'Miles, one way', { type: 'number' })}${fIn('amount', 'Fee ($)', { type: 'number', ph: tq.qty ? str(tQuote(tq.qty).fee ?? '') : '' })}</div>
-            <small class="f-hint">${tq.qty ? `${tQuote(tq.qty).text} · prefilled from your rate` : `${money(tRate())} a mile, ${TRANSPORT.basis === 'one_way' ? 'one way' : 'round trip'}`}</small>
+            <small class="f-hint">${tq.qty ? `${tQuote(tq.qty).text} · prefilled from your rate` : tPrice()}</small>
             <div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-sado="miles|transport|${s.pup}">Get driving miles</button></div>`)
+          + `<div class="sa-links">${setLink('Transport settings', 'addon:transport')}${setLink('Pickup places', 'pickupplaces')}</div>`
         : a.unit === 'day' ? `<div class="dates">${fIn('days', 'Days', { type: 'number' })}${fIn('amount', `Rate ($${a.unit === 'day' ? ' a day' : ''})`, { type: 'number' })}</div>`
         : a.unit === 'mile' ? `<div class="dates">${fIn('qty', 'Miles', { type: 'number' })}${fIn('amount', 'Rate ($ a mile)', { type: 'number' })}</div>`
         : `<div class="dates">${fIn('amount', 'Price ($)', { type: 'number' })}</div>`;
@@ -4063,7 +4071,7 @@ function sideSave() {
   if (!(price > 0)) return toast('Price is required');
   if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
   SALES.push({ pup: p.name, fam: f.id, price, deposit: dep, paid: 0, date: TODAY, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', side: 1, due: fm.due, sched: fm.sched, notes: fm.notes || '' });
-  SALE_ADDONS[p.name] = (fm.adds || []).map((id) => { const a = ADDONS.find((x) => x.id === id); return id === 'transport' ? { id, by: TRANSPORT.by, partner: TRANSPORT.partner, amount: 0 } : a.unit === 'day' ? { id, days: Number(fm.bdays) || 1, amount: a.price * (Number(fm.bdays) || 1) } : { id, amount: a.price }; });
+  SALE_ADDONS[p.name] = (fm.adds || []).map((id) => { const a = ADDONS.find((x) => x.id === id); return id === 'transport' ? { id, by: TRANSPORT.by, partner: TRANSPORT.partner, amount: TRANSPORT.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0 } : a.unit === 'day' ? { id, days: Number(fm.bdays) || 1, amount: a.price * (Number(fm.bdays) || 1) } : { id, amount: a.price }; });
   if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
   ui.formSpec = null; back(); toast('Side sale recorded; deposit requested');
 }
@@ -4152,10 +4160,11 @@ document.addEventListener('click', (e) => {
   }
   if ('trsave' in d) {
     const fm = ui.form, a = ADDONS.find((x) => x.id === 'transport');
-    const nums = ['rate', 'freeUnder', 'minHome', 'far'].map((k) => fm[k]);
+    const nums = ['flat', 'rate', 'freeUnder', 'minHome', 'far'].map((k) => fm[k]);
+    if (fm.mode === 'flat' && fm.flat === '') return toast('Flat fee is required');
     if (nums.some((v) => v !== '' && !(Number(v) >= 0))) return toast('Numbers can’t be negative');
-    Object.assign(a, { price: Number(fm.rate) || 0, desc: (fm.desc || '').trim(), on: fm.on === 'on' ? 1 : 0 });
-    Object.assign(TRANSPORT, { basis: fm.basis, freeUnder: Number(fm.freeUnder) || 0, minHome: Number(fm.minHome) || 0, far: Number(fm.far) || 0, by: fm.by, partner: fm.by === 'third' ? fm.partner : '' });
+    Object.assign(a, { price: fm.rate === '' ? a.price : Number(fm.rate) || 0, desc: (fm.desc || '').trim(), on: fm.on === 'on' ? 1 : 0 });
+    Object.assign(TRANSPORT, { mode: fm.mode, flat: Number(fm.flat) || 0, basis: fm.basis, freeUnder: Number(fm.freeUnder) || 0, minHome: Number(fm.minHome) || 0, far: Number(fm.far) || 0, by: fm.by, partner: fm.by === 'third' ? fm.partner : '' });
     ui.formSpec = null; back(); toast('Saved'); return;
   }
   if (d.prtsave) {
@@ -4236,7 +4245,7 @@ document.addEventListener('click', (e) => {
         if (fm.amount !== '' && !(Number(fm.amount) >= 0)) return toast('Amount can’t be negative');
         x = { id: aid, by: 'third', partner: fm.partner || '', amount: Number(fm.amount) || 0, vendor: Number(fm.vendor) || undefined, got: fm.got === 'yes' ? 1 : 0 };
       } else {
-        const qty = Number(fm.qty), amt = fm.amount !== '' ? Number(fm.amount) : qty > 0 ? tQuote(qty).fee : null;
+        const qty = Number(fm.qty), amt = fm.amount !== '' ? Number(fm.amount) : TRANSPORT.mode === 'flat' ? TRANSPORT.flat : qty > 0 ? tQuote(qty).fee : null;
         if (amt == null || !(amt >= 0)) return toast('Fee is required');
         x = { id: aid, by: 'kennel', qty: qty > 0 ? qty : undefined, amount: amt };
       }

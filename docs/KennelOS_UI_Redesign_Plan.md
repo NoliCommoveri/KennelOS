@@ -334,6 +334,9 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   booking or a percent of their price), so the screen tracks rewards expected and received.
   A sale's Transport records the same per sale. Setup › Go-home › **Pickup places** is its
   own screen: places, the standard one, shown or hidden, and the pickup change cutoff.
+  **Same day:** transport is **Per mile** or a **Flat fee** (new: live has only per mile; a
+  flat fee fills each sale's fee, and miles still decide who's offered it), and a sale's
+  Transport links to Transport settings and Pickup places.
   In the prototype: `S.transport`, `S.partner`, `S.pickupplaces`, `S.place`.
   **Open:** the new fields (a sale's transport handled by, partner, their price, reward
   received; an Account's reward) need sync classes (`syncRegistry.js`) and a place in

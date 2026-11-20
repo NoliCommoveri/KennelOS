@@ -267,6 +267,14 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   shows pickup eligibility and Getting your pup home.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Transport flat fee
+
+- D16's same-day note. Prototype: Transport's Fee card chooses Per mile or Flat fee (flat
+  hides the mileage fields; a sale's kennel-handled transport then prefills the flat fee,
+  no miles needed). A sale's Transport row links to Transport settings and Pickup places.
+  Who it's offered to stacks its two fields (they misaligned at phone width).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
