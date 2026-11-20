@@ -12,6 +12,14 @@
 > owner changes the artifact, copy it in again and note the date here; the repo copy is what
 > builds are checked against.
 >
+> **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
+> `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
+> Notifications and Kennels; Add dog, Edit dog, Add
+> event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense; on a
+> person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
+> sale, Programs and a program. Each is the owner's to approve or change, like any
+> screen; until she has seen it, it's a proposal (§2.5).
+>
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
 
 ## 1. What changes
@@ -106,7 +114,7 @@ The full set is the prototype's `:root`; these are the ones most often lost.
 | Text | Font | Size / weight |
 |---|---|---|
 | Body | Inter | 14px / 400, line height 1.4 |
-| Header title (`.appbar h1`) | Figtree | 23px / 700, letter spacing −.01em |
+| Header title (`.appbar h1`) | Figtree | 21px / 700, letter spacing −.01em (the brand's size, D12) |
 | Brand | Figtree | 21px / 800 (19px in the rail) |
 | Home "Today" | Figtree | 24px / 800 |
 | Section heading (`.section-h h2`) | Figtree | 17px / 700, primary-colored icon |
@@ -132,6 +140,70 @@ The full set is the prototype's `:root`; these are the ones most often lost.
 Today's app (`shared/assets/app.css`) is a different design: `#f6f7f9` page, `#2f6f4f`
 accent, system font at 15px, 8px radius, no dark mode. None of its values carry over where
 the prototype has its own.
+
+## 3.1 Components: one piece for each job
+
+The goal is one unified, cohesive look across the whole app: the same kind of thing always
+looks and works the same way, on every screen. So the display components are tracked here,
+by the job each one does, and **nothing new is made until we've checked that an existing
+piece can't do the job** (D18).
+
+**For every new field, control or display** (in the prototype or the build):
+1. **Name the job.** What is she doing: picking one of a few fixed choices, flipping a
+   two-way switch next to a value, typing an amount, turning something on or off, opening
+   a record, reading a status?
+2. **Find it in the table below** and use that component's helper and class, as is. Vary it
+   only through the options it already has (a tone, a sub-note, multi-select), never with
+   new CSS on top.
+3. **If nothing fits**, don't make it yet. Say why each close match doesn't work and bring
+   the proposal to the owner. Once approved, it's drawn in the prototype and added to this
+   table in the same change, so the next screen can reuse it.
+4. **Each prototype batch is checked for duplicates** before it's committed: no class that
+   repeats an existing one, no second way of drawing the same job.
+
+| Job | Component (prototype helper · class) | Use it for | Not for |
+|---|---|---|---|
+| Open a record or screen | `row()` · `.row` in `.card .rows` | Any list of things to tap: icon, title, subline, end value | Read-only lines |
+| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row | Anything tappable |
+| Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
+| A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
+| A setting she answers | `qRow()` · `.q-row` | One question that saves at once: an amount, time or list she can name opens to chips and + (D10); fixed phrase answers open to a radio list | Form fields saved with Save |
+| Two options, one required (named) | `fChips()` with two options draws `fSeg()` · `.seg` | Kennel / Third party, Round trip / One way, + / −, $ / % | Yes / No; a choice that can be left blank |
+| Yes or no, one required | `fChips()` with Yes / No draws `fSwitch()` · `.f-switch` + `.switch` | Offered on new sales, Shown to families, Requestable | A choice with a "neither" or blank |
+| Three or more fixed choices | `fChips()` · `.chip` | Flat / Per day / Per mile, Same as group / … | Lists that grow with her records |
+| Several of a few choices | `fChips({ multi })` · `.chip` | Ticking any number (add-ons on a sale, what a due date covers) | Long lists |
+| On or off in a list, saved at once | `.switch-row` · `.switch` | Feature and trait switches | |
+| One of several, each needing a line (trial) | `fRadio()` · `.radios` / `.radio` | Options that are phrases or need a short explanation; an option that can't apply is disabled with why (a price rule's type, an add-on's When paid and Due dates) | Short choices: chips |
+| A list that grows with her records | `fSel()` · `select` (groups as `{ group, opts }`), filter dropdowns (D11) | Dogs, groups, partners, families, schedules. Dogs: Sires, then Dams, each alphabetical | Two or three fixed choices |
+| Text, number, date, time | `fIn()` · label above the input, hint as `<small>` | Every typed value | |
+| Longer text | `fText()` · `textarea` | Notes, messages | |
+| Fields side by side | `.dates` | Two or three short fields that belong together | Labels long enough to wrap at phone width (stack them) |
+| A section of a form | `formCard(title, inner, sub)` · `.card.app-card` | Each group of fields, with a short note on the right | |
+| Save and Cancel | `saveBar()` · `.actions-2` | The end of every form | |
+| The header's one action | `addBtn()` · `.bar-btn` | New, Edit (at most one, with search and back) | A second action: use a row or a link |
+| A link to another screen or action | `setLink()` · `.set-link` | "Edit default add-ons", "New schedule" | The main action |
+| A heading with an action | `.label-row` + `.group-label` + `.set-link` | A section heading that adds to it (Saved schedules, Price rules) | |
+| Section heading | `.group-label` (between cards), `.section-h` (inside a card, with a count) | | |
+| A status | `pill([label, tone])` · `.pill` | Status and kind tags, the fixed tones only | Sentences |
+| A short summary | `facts()` · `.facts` | Key and value pairs at the top of a record | Long lists |
+| Big numbers | `.kpis` / `.kpi` | Totals at the top of a money screen | |
+| A hint | `.f-hint` | One short line under a field or card (D14) | Warnings |
+| A note, result or warning | `.stub-note` (`.warn` for amber) | A worked result, a heads-up, a conflict | Hints |
+| Nothing yet | `empty()` · `.card.empty` | An empty list, with its one action | |
+| Delete or end | `delRow()` · `.big-rows.danger` | The destructive action, last on the screen | |
+| Repeating steps | `stepCards()` · one `.card.app-card` per step, Remove in its head, Add below with the total | A payment plan's payments, a schedule's due dates | |
+| Edit in place | `.rem` + `.q-edit` | A row that opens to edit one item (a sale's add-ons) | Whole records: open their screen |
+| A record's header | `.hub-head` | Its name, pills and one-line facts | |
+| Filters | `filterBar()` + the filter sheet | Every list that can be filtered (D11) | |
+| History | `timeline()` | Events by date | |
+| Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
+
+**The two-option rule (D19).** Whenever there are exactly two options and one is required,
+it's a toggle: Yes / No (or On / Off) is a switch, and two named options are a `.seg`. Chips
+are for three or more options, for choosing several, or for a choice that can be left blank
+or has a "neither". `fChips()` applies the rule itself, so a two-option field can't come out
+as chips by accident. A question row (`qRow`) whose answers are fixed phrases ("Same for both
+sexes" / "Different prices") opens to a radio list, since phrases don't fit a toggle.
 
 ## 4. What the prototype loads that the app can't
 
@@ -273,3 +345,135 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     while emails, codes and contracts read the contact's, so a corrected email changed
     nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
     show and edit the contact's details; the redesign removes the split.
+- **D11. Filters: dropdowns, and dam and sire (2026-11-20).** The owner: some filters are
+  better as dropdowns than buttons, and a litter filter is by **dam and sire independently**,
+  picking as few or as many of each as she likes. **Drawn as:** short, fixed choices (status,
+  sex, kind) stay chips; the date range is a one-pick dropdown; any list that grows with her
+  records (dams, sires, families, categories, event types, who was paid) is a dropdown where
+  she ticks any number, with a find box past eight and a count beside each. Dogs, Litters and
+  Sales filter by Dam and Sire; there is no Litter filter. Which groups are dropdowns is the
+  prototype's `FDEF[...].dd`. The chips-or-dropdown rule is a proposal for her to confirm.
+- **D12. Header title and back arrow (2026-11-20).** The owner: every screen's header title is
+  the same size as the KennelOS PRO brand (21px, was 23px), and the back arrow sits tighter to
+  the edge and the title (`.appbar .back-btn`, margin 0 −6px 0 −8px). A long title wraps
+  beside the header button instead of running under it.
+- **D13. What the app fills in, she can change (2026-11-20).** The owner: "I should be able to
+  modify basically anything I need to." Every amount, date or choice a screen fills in for
+  her (a price from the litter, a deposit from her usual, a due date from her rules) is a
+  starting point shown in a field she can change on that screen, with a line saying where it
+  came from; changing it there changes only this record, never the setting it came from.
+  First applied to Side sale (price, deposit, deposit due, go-home, payment schedule, notes);
+  every sale and money screen in the Business batch follows it.
+- **D14. Short copy (2026-11-20).** The owner: hints and notes are a few plain words, like
+  "Prefilled from the litter" and "Custom for this sale", not sentences that explain how
+  things work. A line earns its place only if she'd otherwise get it wrong.
+  **Tone (same day):** written for business owners, in the register of professional
+  software: labels and statuses ("Status", "Position: #8", "Fee waived (Military)",
+  "Next pass removes them from the list."), errors as "Name is required", confirmations as
+  "Saved". No addressing her as "you" to explain, no "they"/"them" chattiness, no reassurance
+  ("they're told kindly"), no describing how the app works inside.
+- **D15. Add-ons (2026-11-20).** The owner: "extras" are **Add-ons** on screen (stored
+  names stay as they are), and transport and boarding after go-home show as add-ons wherever
+  she adds them to a sale or sets defaults, though their data stays where it is. One screen
+  controls every cost outside the base price: Business › **Add-ons** for defaults (Setup's
+  transport and boarding rows open it), and a sale's **Add-ons** for that sale (each amount
+  editable per D13, boarding by days, one-time charges, the sale's total). The Business table
+  of §1 reads Business › Add-ons where it said Extra charges.
+  **Groups and rules (same day):** the owner: the add-on fields the live price list has stay
+  settable here, styled the new way. Business › Add-ons lists add-ons by **group**; each group
+  has its status-page link and link text, request and cancel ages, when it's paid (with the
+  balance or a payment plan) and own due dates or the sale's schedule, and each add-on can
+  follow its group or set its own, plus a description families see, requestable on the status
+  page, and boarding days. Transport and boarding sit in a fixed **Go-home** group that
+  can't be edited or take other add-ons. Pricing and schedules shows **Add-on payments**,
+  each opening the group or add-on (one place stores it). A sale's Add-ons lists them by
+  group. In the prototype: `S.addons`, `S.addongroup`, `S.addon`, `ADDON_GROUPS`.
+- **D16. Transport and pickup places (2026-11-20).** The owner: transport's live settings are
+  in the prototype, and a new choice is added. Business › Add-ons › **Transport** holds the
+  fee per mile, round trip or one way, no charge under, the families it's offered to (living
+  at least so many miles away), the "in touch" limit, where miles start (her standard pickup
+  place), a distance check (Mapbox's Get driving miles, or Open in Maps) and what families
+  see on the status page. **New:** **Handled by**, kennel or third party; for a third party,
+  one of her Transport accounts or unknown, and a **referral reward** per partner (per
+  booking or a percent of their price), so the screen tracks rewards expected and received.
+  A sale's Transport records the same per sale. Setup › Go-home › **Pickup places** is its
+  own screen: places, the standard one, shown or hidden, and the pickup change cutoff.
+  **Same day:** transport is **Per mile** or a **Flat fee** (new: live has only per mile; a
+  flat fee fills each sale's fee, and miles still decide who's offered it), and a sale's
+  Transport links to Transport settings and Pickup places.
+  In the prototype: `S.transport`, `S.partner`, `S.pickupplaces`, `S.place`.
+  **Open:** the new fields (a sale's transport handled by, partner, their price, reward
+  received; an Account's reward) need sync classes (`syncRegistry.js`) and a place in
+  the Income view before they're built.
+- **D17. Price rules (2026-11-20).** The owner: kennel-wide prices stay (D9) and grow into
+  **price rules** on Pricing and schedules. A litter's price starts from her usual price, or
+  a **breed** rule's own male and female prices (which replace the usual); every other rule
+  that fits adds an amount or a percent of that starting price: an **imported parent**
+  (either, the dam or the sire; live `Dog.imported`), or **parent scores** on her traits
+  (a quality trait or the overall average, by the parents' average, both at least, or either
+  at least). The litter's Pricing shows the working; a litter's own price, and every
+  existing sale, keeps its own. In the prototype: `PRICE_RULES`, `S.pricerule`,
+  `ruledPrice`. **For the build:** the rules fill the litter's `expected_price_male` /
+  `_female` (what every sale, the waitlist's turn prices and her website already read), so
+  nothing downstream changes; when they fill it (on creating the litter, and again while
+  she hasn't set her own) and the new kennel fields (`price_rules`, and the usual price
+  itself) need sync classes. Breed needs each litter's breed (from its parents). Other
+  rule kinds (health results) fit the same shape.
+  **Same day:** more rule kinds: **a parent** (a specific dog as the dam or sire), **parent
+  title** (any title or one, `Dog.titles`, held by either, the dam, the sire or both), and
+  **registry** (`Dog.registry`, AKC, CKC, UKC or not registered, for either, the dam, the
+  sire or both); imported parent also takes Both. Any rule but a breed can **add or
+  subtract**. Color is left out for now: the owner is looking into standard and
+  non-standard colored parents (as Boston Terrier pricing does) before deciding it.
+- **Field coverage: Pricing and sales (2026-11-20).** Traced against live so nothing
+  automation reads is lost; now in the prototype:
+  - Saved schedules (`S.schedule`, live `Kennel.payment_schedules`): due (`at_weeks`,
+    `on_date`, `before_pickup`, `at_pickup`), `n` / `due_date`, `covers`, percent of total or
+    remaining (`basis`) or an amount that earlier money can or can't cover (`prior_funds`);
+    the last step is always 100% of all.
+  - Pricing and schedules: payment instructions (`waitlist_config.payment_instructions`) and
+    the final payment (`Kennel.final_payment_methods`).
+  - A litter's Pricing: deposit and full registration by sex (`expected_deposit_*`,
+    `full_reg_surcharge_*`), and its dates (`accept_deposits_date`, `picks_open_time`,
+    `estimated_ready_date`), which the offers, countdowns, pickup times and boarding read.
+  - Sale details (`S.saleedit`): `status`, `sale_date`, `registration_type` (all four),
+    `price`, deposit (`deposit_amount`, `deposit_date`, `deposit_paid_via_account_id`),
+    `payment_schedule` or `balance_due_date`, `balance_paid_date`,
+    `balance_paid_via_account_id`, `sales_channel_account_id`, `processing_fee_amount`,
+    `fee_passed_to_buyer`, `lead_source`, `referred_by_contact_id`, `end_reason`, `end_note`,
+    `refund_amount`, `refund_date`, `notes`. Payments (`payments[]`) are a row still to draw.
+  - Side sale: Co-own and None registrations, and "Also set the pup's registration"
+    (live `updateRegistration`).
+  - Boarding on a sale: per Day / Week / Month and a duration note
+    (`deferred_boarding_frequency`, `deferred_boarding_duration_days`).
+  **Open for the owner:** (1) "Used on new sales" puts a saved schedule on every new sale;
+  live decided a sale never starts with one (Payment Schedule plan D23). (2) Pricing's
+  Deposit due is live's turn length (`respond_days`, the waitlist's "Time to answer an
+  offer"): one setting shown in two places, or two settings. (3) Her usual price, deposit,
+  ready age, deposits-open and balance-due rules are new kennel fields (live keeps these per
+  litter or per sale), each needing a sync class.
+- **D18. Share components (2026-11-20).** The owner: share and reuse where able, for one
+  unified, cohesive look across the whole app. The display components are tracked by job in
+  §3.1; every new field or piece is checked against that list first, reuses the one that
+  fits, and a new piece is made only once we've verified none does (and the owner agrees).
+  The build follows the same rule in `shared/assets/app.css`.
+- **D19. Two options are a toggle; one step component (2026-11-20).** The owner: anytime
+  there are two options and one is required, it's a switch or toggle; a choice with a
+  "neither", or one that can be left blank, is different. Yes / No is a switch, two named
+  options are a `.seg`, built into `fChips()` (§3.1). Repeating payment steps (an add-on's
+  payment plan and a saved schedule's due dates) share `stepCards()`: one card per step.
+- **D20. Price rules look at the parent or the pup; radio lists on trial (2026-11-20).**
+  The owner: a rule first picks **Parent** or **Pup**, then what to look at: **Name** (a
+  specific dog; was "A parent"), **Breed**, **Registry**, **Title**, **Imported**, **Scores**.
+  For a pup, Name, Title and Imported are greyed out (parents only). A pup breed rule sets
+  the base price (as D17's breed rule did); a parent breed rule adds or subtracts by which
+  parent (a Poodle sire, say); pup registry and pup scores (her puppy evaluations) adjust
+  each pup's own price. **For the build:** parent rules fill the litter's expected prices as
+  in D17; pup rules are applied on top when a sale's price is prefilled (`saleDefaults`'s
+  `expectedPricing`), so the litter keeps one stored price per sex. The rule type is a
+  **radio list**, tried here and on an add-on's Payment card (When paid, Due dates) for the
+  owner to compare with chips; §3.1 lists it as a trial component until she decides.
+  **Same day:** question rows with fixed phrase answers (Setup, Pricing and schedules, a
+  litter's Pricing split) open to a radio list; questions she can answer with her own value
+  keep chips and +. A list of dogs is grouped **Sires, then Dams**, alphabetical in each.
+

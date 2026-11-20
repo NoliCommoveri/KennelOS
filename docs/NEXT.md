@@ -11,7 +11,9 @@ release"). The copy of this file on `origin/next` is the one that counts:
 
 Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
-- Nothing yet: `next` is the same as `main`.
+- Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
+  `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
+  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters and Waitlist so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -76,6 +78,277 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the + on Setup's and Pricing and schedules' questions; **New schedule** moved onto the Saved
   schedules heading; the 126 Lucide 0.460.0 icons it uses built into the page (they didn't
   draw in the phone app when loaded from unpkg).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws Home's screens
+
+- `docs/design/forest-look-prototype.html` draws five screens that were `stub:` placeholders,
+  in its own components and tokens: **Reminders** (Overdue / Next 7 days / Later, a row opens
+  to Done and Snooze, a Done tab, the filter sheet), **Coming up** (from today on, by week,
+  filterable), **Calendar** (month grid with dots on a phone and names on desktop, a day's
+  list, Add to Google Calendar, the planned calendar feed), **Notifications** (the bell: new,
+  then earlier; the dot clears once seen) and **Kennels** (hers, the switch when More than one
+  kennel is on, outside kennels). One agenda feeds the first three. Search finds them; a
+  Design notes section explains them. Not yet seen by the owner.
+- `docs/KennelOS_UI_Redesign_Plan.md` notes that the repo copy now draws screens beyond the
+  artifact, each a proposal until she approves it.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Dogs screens
+
+- `docs/design/forest-look-prototype.html` draws six more `stub:` placeholders in its own
+  components and tokens, sharing one set of form parts (titled cards over the `.form-stack`
+  look, chips with D10's + where she'd name her own): **Add dog** (what kind of dog first; a
+  puppy starts from its litter; papers and ownership on request; a duplicate name warns),
+  **Edit dog** (every question open, status, the puppy's plan, ownership, online, Archive),
+  **Add event** (the types she uses most, then by kind, only the ones that fit the dog or
+  litter; each type's own questions from today's event types; cost becomes an expense; Remind
+  me feeds Reminders), **Log a test** (still-to-do tests first, filed by name, result chips,
+  Overall, certificate, what families see), **Pedigree** (3–5 generations, tap to re-center,
+  + adds a missing parent) and **Dog card** (who it went to, what travels and what never does,
+  send again as a link, code or file; live updates still planned). Saving updates the
+  prototype's sample data. A Design notes section explains them. Not yet seen by the owner.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Litters screens
+
+- `docs/design/forest-look-prototype.html` draws three more `stub:` placeholders with the
+  Dogs batch's form parts: **Add litter** (from a pairing without a litter, or not planned
+  here with a pair check; expected with bred or due date, or born with counts and delivery;
+  usual prices or this litter's own; offered to the waitlist or not; opens the new litter,
+  whose hub, Pregnancy and Pricing screens work for it), **Add pairing** (on Litters ›
+  Pairings, where the header button becomes Add pairing, and from a pair check's "Plan this
+  pairing"; warnings as soon as both dogs are picked; planned with her next heat offered, or
+  bred with dates, method and the due date) and **Add expense** (from a litter's or dog's
+  Expenses; amount, what for, category and who was paid with D10's +, shared across what it
+  counts toward). Amounts with cents now show them. A Design notes section explains them.
+  Not yet seen by the owner.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D11, filters as dropdowns; dam and sire
+
+- The owner's D11 in `docs/KennelOS_UI_Redesign_Plan.md` §8: some filters as dropdowns, and
+  litters filtered by dam and sire independently, any number of each.
+- The prototype's one filter sheet (`docs/design/forest-look-prototype.html`): the date range
+  is a dropdown; dams, sires, families, categories, event types and who was paid are
+  multi-pick dropdowns (find box on long lists, a count per choice); short fixed choices stay
+  chips. Dogs and Sales lose their Litter filter for Dam and Sire; Litters' Dam and Sire become
+  dropdowns. Design notes' Filters section says so.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D12, smaller header titles, tighter back arrow
+
+- The owner's D12 in `docs/KennelOS_UI_Redesign_Plan.md` §8 (and §3's table): header titles at
+  the brand's 21px instead of 23px, and less space around the back arrow, on every screen of
+  the prototype (`docs/design/forest-look-prototype.html`).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Waitlist screens
+
+- `docs/design/forest-look-prototype.html` draws the Waitlist batch, held to D8 (one person,
+  one page; no screen shows or asks for a second set of details, and none explains how
+  records are kept):
+  - On a person's page, the tiles that were placeholders: **Offers & passes** (their place
+    overall and for what they want, passes used, every turn with outcome and reason, and
+    offer a turn, side sale, move place, pause, take off the list with 7-day undo), **Fee**
+    (waived, due, or paid and counted toward the price; mark received with how they paid),
+    **Messages** (one thread: theirs from the status page, hers, and each email sent, with
+    Send again; write by email or copy for a text; their email shown with Change),
+    **Status page** (what they see now, last opened, where codes go with Change, what they can
+    do, copy link, see it as they do, new link) and **History** (everything, newest first;
+    for care-team and network people, money paid to or by them).
+  - **Add family**: who first, checked as she types against everyone she has (email, phone,
+    name); "Is this the Okafor family?" adds that person back rather than a second one. Then
+    wants, purposes, readiness, which dams and sires, program, fee, and the place they'll get.
+  - **Side sale** (Side Sale spec): family and pup, each mismatch said plainly, the two-claims
+    warning when another family holds the pup in their turn, Limited or Full, deposit due.
+  - **Programs** list and a **program** screen: name, what it changes as question rows,
+    what families see, families in it; New program in the header.
+- Turns are recorded per family, so passes counted, the turn order and History agree; the
+  turn order reads who took each pup from sales. A fee marked received now gives the right
+  place (it counted the family twice).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype: a litter's own prices
+
+- The owner asked where to change a litter's expected price; the prototype had nowhere once
+  the litter existed. A litter's **Pricing** screen (`docs/design/forest-look-prototype.html`)
+  now has question rows for this litter only: male price, female price, deposit and full
+  registration, each starting as her usual (marked "your usual"), with typical amounts and
+  D10's + for her own; picking "Your usual" goes back. Sales already made keep their price.
+  Born litters still selling (Willow × Ash) gain the Pricing tile they lacked, and the tile
+  sums up this litter's prices. Add litter's "Different for this litter" fills the same rows.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D13, what the app fills in she can change; Side sale's price
+
+- The owner's D13 in `docs/KennelOS_UI_Redesign_Plan.md` §8: every amount, date or choice a
+  screen fills in is a starting point she can change there, for that record only.
+- The prototype's **Side sale** (`docs/design/forest-look-prototype.html`): price and deposit
+  are fields, filled from the pup's litter prices for its sex (plus full registration when
+  picked) or her usual, with a line saying so; she can change either. Go-home date, which
+  saved payment schedule follows the deposit, and notes join the deposit due date. Changing
+  the registration refills the price only if she hasn't typed her own.
+- At the owner's request the choice is labelled **Registration type**, its chips just
+  **Limited** and **Full (+$1,000)**, so they sit side by side on a phone.
+- Fields never run past their column (phones drew date boxes wider than the card), across
+  every form. When she types her own price or deposit, the line under them says so, gives
+  the litter's figure, and offers **Use the litter's**.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D14, short copy
+
+- The owner's D14 in `docs/KennelOS_UI_Redesign_Plan.md` §8: hints are a few plain words.
+- Side sale (`docs/design/forest-look-prototype.html`): under price and deposit, "Prefilled
+  from the litter", or "Custom for this sale · Reset"; its intro, warnings and closing hint
+  cut to a line each.
+- The owner's first edits to the rest of the hint copy: Notifications' link reads **Change
+  notification settings**; Add event drops its line about costs going into Financials; Log a
+  test's "Overall" becomes **Normal or abnormal?** without its explaining line, and the line
+  under who sees the results reads **Visible to others: normal only.** with **Change setting**.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype's copy, rewritten for a professional tone
+
+- The owner: copy should read like it's for business owners. Every hint, label, button,
+  empty state and confirmation drawn this session (`docs/design/forest-look-prototype.html`)
+  is rewritten short and plain: field labels ("Date of birth", "Disposition", "Referral
+  source", "Registration type"), statuses ("Position: #8", "Credited toward Poppy",
+  "Requested Nov 14. Position begins on receipt."), errors ("Name is required"),
+  confirmations ("Saved", "Pairing added"). Explanations of how things work are gone
+  (pedigree tips, where costs go, what a program is). Log a test's category is a chip choice.
+  D14 in the plan gains the tone rule.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D15, Add-ons
+
+- The owner's D15 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only (the live app
+  keeps "extras" for now).
+- `docs/design/forest-look-prototype.html`: "Extra charges" is **Add-ons** everywhere.
+  Business › Add-ons lists transport, boarding after go-home and her own add-ons with
+  default price, flat / per day / per mile, note and offered on new sales; New add-on in the
+  header; Setup › Go-home's Transport and Boarding rows open it. A sale gains **Add-ons**
+  (from its Sale screen): each add-on to add, change or remove for that sale, boarding by
+  days, one-time charges, and puppy / add-ons / total / paid. Side sale offers add-ons as
+  it's recorded. Balances everywhere include add-ons (Fern's sample sale carries a starter
+  kit and a photo session).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Add-on groups and rules
+
+- The owner: the add-on fields D15 left out are back, in the new style (D15 note in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8). Prototype only.
+- `docs/design/forest-look-prototype.html`: Business › Add-ons lists add-ons by group. A
+  group's screen (`S.addongroup`, New group under the list) holds its name, status-page
+  details link and link text, request-from / until / cancel-by ages, when it's paid (with the
+  balance or a payment plan of percent steps: at age, on approval, before pickup, with the
+  balance; must total 100%) and due dates (sale schedule or own dates); deleting it leaves
+  its add-ons ungrouped with its rules. An add-on gains group, description shown to families,
+  requestable on the status page with its own ages, when it's paid and due dates (each "Same
+  as group" or its own), and boarding days for any flat add-on. Transport and boarding are in
+  a fixed Go-home group. Pricing and schedules gains Add-on payments; a sale's Add-ons is
+  grouped.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Transport and pickup places
+
+- The owner's D16 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only.
+- `docs/design/forest-look-prototype.html`: Transport (`S.transport`, from Add-ons'
+  Transport row and Setup › Go-home) is priced per mile like live (rate, round trip / one
+  way, no charge under, offered to families at least so far away, in touch past a limit),
+  starts from the standard pickup place, checks a distance (Get driving miles / Open in
+  Maps, with the working), and shows what the status page says. New: Handled by (kennel or
+  third party, partner or unknown) as the default for new sales; Referral partners
+  (`S.partner`, a Transport account with a reward per booking or percent) with expected and
+  received rewards. A sale's Transport is the kennel's (miles, Get driving miles, fee from
+  her rate) or a third party's (partner, charged on the sale, reward expected / received);
+  Hazel's sample sale uses Sky Paws. Pickup places (`S.pickupplaces`, `S.place`): places,
+  the standard one, shown or hidden, the change cutoff. A placed family's status preview
+  shows pickup eligibility and Getting your pup home.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Transport flat fee
+
+- D16's same-day note. Prototype: Transport's Fee card chooses Per mile or Flat fee (flat
+  hides the mileage fields; a sale's kennel-handled transport then prefills the flat fee,
+  no miles needed). A sale's Transport row links to Transport settings and Pickup places.
+  Who it's offered to stacks its two fields (they misaligned at phone width).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Price rules
+
+- The owner's D17 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only.
+- `docs/design/forest-look-prototype.html`: Pricing and schedules gains Price rules (New rule
+  on the heading); a rule (`S.pricerule`) is a breed with its own male and female prices,
+  an imported parent, or parent trait scores, adding an amount or a percent, on or off, with
+  the open litters it fits. A litter's Pricing shows the working from the rules, and Side
+  sale prefills from it. Sample: Golden Retriever prices, imported parent +$500 (Titan is
+  imported), Movement average 4.5+ +$300.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Pricing and sales field coverage
+
+- Traced Pricing and schedules, a litter's Pricing, Side sale and the Sale screen against
+  live (plan §8 "Field coverage: Pricing and sales"). Prototype gains the saved schedule
+  editor (`S.schedule`), payment instructions and final payment rows, deposit and full
+  registration by sex and the litter's dates, Sale details (`S.saleedit`, Edit on a sale),
+  Side sale's Co-own / None and set-registration option, and boarding per day, week or
+  month. Three questions for the owner are listed there.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: More price rules
+
+- D17's same-day note. Prototype: rule kinds A parent, Parent title (any or CH, GCH, CGC,
+  MH) and Registry (AKC, CKC, UKC, not registered), by either, dam, sire or both; imported
+  parent takes Both; rules add or subtract. Samples: Ash as a parent +$250, GCH either
+  parent +$400 (Titan), CKC both parents −$300. Color rules waiting on the owner.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Price rule change on one line
+
+- Owner: a rule's change is one line, no words: two segmented toggles, [+ | −] and
+  [$ | %], the selected side highlighted, then the amount.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D18, shared components
+
+- The owner's D18 in `docs/KennelOS_UI_Redesign_Plan.md` §8. Prototype: a price rule's
+  [+ | −] [$ | %] toggles use `.seg`; Transport's distance result uses `.stub-note`; a
+  duplicate `.f-hint` rule added this session (it overrode every hint's size and color) and
+  `.label-note` are removed in favor of `.f-hint`.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Component list (§3.1)
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §3.1: the display components by job (helper and
+  class, use it for, not for), the four-step check every new field or piece goes through,
+  and two duplicates found to resolve (payment steps drawn two ways; Yes / No chips vs the
+  switch). D18 points to it.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D19, two-option toggles and one step component
+
+- The owner's D19. Prototype: `fChips()` draws two required options as a `.seg`, and Yes / No
+  as a switch (`fSwitch`, `.f-switch`), everywhere it's used; the price rule's + / − and
+  $ / % use the same `fSeg()`. An add-on's payment plan and a saved schedule both use
+  `stepCards()` (one card per payment, Remove in the head, Add and the total below); the
+  old `.plan-steps` styles are gone. §3.1's table and its duplicates list are updated.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: D20, parent or pup rules; radio list trial
+
+- The owner's D20. Prototype: a price rule's When card is Looks at (Parent / Pup), then a
+  radio list of Name, Breed, Registry, Title, Imported, Scores (the parents-only ones
+  disabled for a pup), then that kind's fields. Pup rules adjust each pup's price: a
+  litter's Pricing lists each pup's adjustment and Side sale prefills with it (sample: Pup
+  temperament 5+ +$200, Cedar). New `fRadio()` component, also on an add-on's Payment card.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: Radio lists for phrase questions; dogs by Sires, then Dams
+
+- Prototype: `qRow()` with fixed answers (no + of her own) opens to `radioList()`; so does a
+  litter's "Deposit and full registration". `fSel()` takes option groups; a price rule's
+  Name lists Sires, then Dams, alphabetical.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
