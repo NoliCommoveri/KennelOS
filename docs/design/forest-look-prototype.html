@@ -697,6 +697,14 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .form-stack input, .form-stack select, .form-stack textarea, .dates input { width: 100%; min-width: 0; box-sizing: border-box; }
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
+/* add-on groups and payment plans */
+.label-note { font-size: 12px; color: var(--muted); font-weight: 500; }
+.f-hint { font-size: 12px; color: var(--faint); margin-top: -4px; }
+.plan-steps { display: flex; flex-direction: column; gap: 10px; }
+.plan-step { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.plan-step .link { align-self: flex-end; }
+.plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.plan-foot .off { color: var(--p-amber-fg); }
 /* a sale's add-ons */
 .sa-edit { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
 .sa-edit .form-stack { width: 100%; }
@@ -759,6 +767,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Add-ons</h3>
     <p>Everything a family pays for beyond the puppy is an add-on: transport and boarding after go-home sit in the same list as her own (photo session, training package, starter kit), though they're kept apart behind the scenes. <b>Business › Add-ons</b> holds the defaults: price, how it's charged (flat, per day, per mile), a note, and whether it's offered on new sales; Setup's transport and boarding rows open the same screen. On a sale, <b>Add-ons</b> is the one screen for every cost outside the puppy's price: each add-on with its default price to change for this sale, days for boarding, a one-time charge, and the puppy, add-ons, total and paid at the top. Side sale offers them as it's recorded.</p>
+    <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1253,7 +1262,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1855,7 +1864,9 @@ S.pricing = () => {
       <div class="group-label">Ways families pay</div>
       <section class="card"><div class="rows">${pay('methods')}${pay('card')}</div></section>
       <div class="label-row"><div class="group-label">Saved schedules</div><button type="button" class="set-link" data-open="stub:new-schedule">${icon('plus')}New schedule</button></div>
-      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: 'stub:payment-schedule' })).join('')}</div></section>`,
+      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: 'stub:payment-schedule' })).join('')}</div></section>
+      ${FEAT.invoicing ? `<div class="group-label">Add-on payments</div>
+      <section class="card"><div class="rows">${ADDON_GROUPS.filter((g) => !g.fixed).map((g) => row({ ic: 'sliders-horizontal', t: esc(g.n), s: payText(g.plan, g.own), go: `addongroup:${g.id}` })).join('')}${ADDONS.filter((a) => !a.built && (!a.group || a.plan !== undefined || typeof a.own === 'boolean')).map((a) => row({ ic: a.ic, t: esc(a.n), s: payText(planOf(a), ownOf(a)), go: `addon:${a.id}` })).join('')}</div></section>` : ''}`,
   };
 };
 
@@ -2765,17 +2776,44 @@ S.wlprogram = (id) => {
 /* ================= Add-ons: everything a family pays for beyond the puppy ================= */
 /* Transport and boarding after go-home are kept apart from her own add-ons behind the
    scenes, but she sees and sets them all in one place: Business › Add-ons for her
-   defaults, and a sale's Add-ons for that sale. */
+   defaults, and a sale's Add-ons for that sale. They sit in a fixed Go-home group so they
+   read as add-ons; that group can't be renamed, given rules, or take other add-ons.
+   Her own groups (Photo packages, Training) carry the rules their add-ons follow unless an
+   add-on sets its own: the ages families can request and cancel them, when they're paid,
+   whether they're paid on their own dates, and a details link on the family's status page.
+   Live data: Kennel.extra_charge_groups and extra_charge_list (shared/data/extraCharges.js). */
+const ADDON_GROUPS = [
+  { id: 'gohome', n: 'Go-home', fixed: 1 },
+  { id: 'photos', n: 'Photo packages', url: 'https://thornfieldkennels.com/photos', link: '', from: 5, until: 7, cancel: 7, plan: null, own: 1 },
+  { id: 'training', n: 'Training', url: 'https://thornfieldkennels.com/training', link: 'Training details and pricing', from: 7, until: 10, cancel: 9, plan: [{ pct: 50, due: 'on_approval' }, { pct: 50, due: 'before_pickup', n: 7 }], own: 0 },
+];
+/* per add-on: group ('' = none), desc (shown to families), ask (requestable on the status
+   page), from / until / cancel (weeks old; unset = the group's), plan (unset = the
+   group's; [] = with the balance), own (unset = the group's), days (boarding included) */
 const ADDONS = [
-  { id: 'transport', n: 'Transport', ic: 'truck', built: 1, unit: 'flat', price: 350, note: 'Within 300 miles', on: 1 },
-  { id: 'boarding', n: 'Boarding after go-home', ic: 'house', built: 1, unit: 'day', price: 35, note: 'From the day after go-home', on: 1 },
-  { id: 'photo', n: 'Photo session', ic: 'sparkles', unit: 'flat', price: 150, on: 1 },
-  { id: 'training', n: 'Training package', ic: 'award', unit: 'flat', price: 1200, days: 14, note: 'Boards 14 days; replaces boarding', on: 1 },
-  { id: 'kit', n: 'Starter kit', ic: 'clipboard-list', unit: 'flat', price: 85, on: 1 },
-  { id: 'crate', n: 'Travel crate', ic: 'receipt', unit: 'flat', price: 120, on: 1 },
+  { id: 'transport', n: 'Transport', ic: 'truck', built: 1, group: 'gohome', unit: 'flat', price: 350, desc: 'Within 300 miles', on: 1 },
+  { id: 'boarding', n: 'Boarding after go-home', ic: 'house', built: 1, group: 'gohome', unit: 'day', price: 35, desc: 'From the day after go-home', on: 1 },
+  { id: 'photo', n: 'Photo session', ic: 'sparkles', group: 'photos', unit: 'flat', price: 150, desc: 'One hour at 8 weeks · 20 edited photos', ask: 1, on: 1 },
+  { id: 'training', n: 'Training package', ic: 'award', group: 'training', unit: 'flat', price: 1200, days: 14, desc: 'Two weeks of crate and potty training', ask: 1, on: 1 },
+  { id: 'kit', n: 'Starter kit', ic: 'clipboard-list', group: '', unit: 'flat', price: 85, desc: 'Food, toys, blanket with litter scent', ask: 1, until: 7, on: 1 },
+  { id: 'crate', n: 'Travel crate', ic: 'receipt', group: '', unit: 'flat', price: 120, on: 1 },
 ];
 const UNIT = { flat: '', day: ' a day', mile: ' a mile' };
 const addonPrice = (a) => `${money(a.price)}${UNIT[a.unit]}`;
+const grpOf = (a) => ADDON_GROUPS.find((g) => g.id === a.group);
+const ruleOf = (a, k) => (a[k] ?? grpOf(a)?.[k]);
+const planOf = (a) => (a.plan !== undefined ? a.plan : grpOf(a)?.plan || null);
+const ownOf = (a) => (typeof a.own === 'boolean' ? a.own : !!grpOf(a)?.own);
+const wks = (n) => `${n} week${n === 1 ? '' : 's'}`;
+const PLAN_DUE = [['at_weeks', 'At age', 'Weeks old'], ['on_approval', 'On approval', 'Days after (optional)'], ['before_pickup', 'Before pickup', 'Days before'], ['with_balance', 'With the balance', '']];
+const planText = (p) => !p || !p.length ? 'With the balance' : p.map((st) => st.due === 'at_weeks' ? `${st.pct}% at ${wks(st.n)}` : st.due === 'on_approval' ? (st.n ? `${st.pct}% ${st.n} days after approval` : `${st.pct}% on approval`) : st.due === 'before_pickup' ? `${st.pct}% ${st.n} days before pickup` : `${st.pct}% with the balance`).join(', ');
+const agesText = (from, until, cancel) => {
+  const span = from != null && until != null ? `${from}–${until} weeks` : from != null ? `from ${wks(from)}` : until != null ? `until ${wks(until)}` : 'any age';
+  return `Requests ${span}${cancel != null ? ` · cancel by ${wks(cancel)}` : ''}`;
+};
+const payText = (plan, own) => `${planText(plan)}${own ? ' · own due dates' : ''}`;
+const groupLine = (g) => [FEAT.waitlistOnline ? agesText(g.from, g.until, g.cancel) : '', payText(g.plan, g.own), FEAT.waitlistOnline && g.url ? 'Details link' : ''].filter(Boolean).join(' · ');
+const addonLine = (a) => [addonPrice(a), a.built ? a.desc : '', !a.built && FEAT.waitlistOnline && a.ask ? 'Requestable' : '', !a.built && (a.plan !== undefined || typeof a.own === 'boolean' || !a.group) ? payText(planOf(a), ownOf(a)) : ''].filter(Boolean).join(' · ');
 /* what each sale carries: [{ id, amount, qty?, days?, label? }] */
 const SALE_ADDONS = { Fern: [{ id: 'kit', amount: 85 }, { id: 'photo', amount: 150 }] };
 const saleAddons = (s) => (SALE_ADDONS[s.pup] ||= []);
@@ -2783,25 +2821,97 @@ const addonsTotal = (s) => sum(saleAddons(s).map((x) => x.amount));
 const saleTotal = (s) => s.price + addonsTotal(s);
 const addonName = (x) => x.label || ADDONS.find((a) => a.id === x.id)?.n || 'Add-on';
 
-/* her defaults */
-S.addons = () => ({
-  bar: bar('Add-ons', { action: addBtn('New add-on', 'addon:new') }),
-  body: `<section class="card"><div class="rows">${ADDONS.map((a) => row({ ic: a.ic, t: a.n, extra: a.on ? '' : pill(['Off', 'gray']), s: [addonPrice(a), a.note].filter(Boolean).join(' · '), go: `addon:${a.id}` })).join('')}</div></section>`,
-});
-S.addon = (id) => {
-  let a = ADDONS.find((x) => x.id === id);
-  const fresh = !a;
-  const fm = formFor('addon:' + id, () => (a ? { n: a.n, price: String(a.price), unit: a.unit, note: a.note || '', days: a.days ? String(a.days) : '', on: a.on ? 'on' : 'off' } : { n: '', price: '', unit: 'flat', note: '', days: '', on: 'on' }));
+/* a payment plan in a form: steps s0pct / s0due / s0n …, ns of them */
+const str = (v) => (v == null ? '' : String(v));
+const planFill = (fm, plan) => { (plan || []).forEach((st, i) => { fm[`s${i}pct`] = str(st.pct); fm[`s${i}due`] = st.due; fm[`s${i}n`] = str(st.n); }); fm.ns = (plan || []).length; return fm; };
+const planSteps = (fm) => Array.from({ length: fm.ns || 0 }, (_, i) => ({ pct: fm[`s${i}pct`] ?? '', due: fm[`s${i}due`] || 'at_weeks', n: fm[`s${i}n`] ?? '' }));
+const planEditor = () => {
+  const steps = planSteps(ui.form), total = sum(steps.map((st) => Number(st.pct) || 0));
+  return `<div class="plan-steps">${steps.map((st, i) => { const due = PLAN_DUE.find((x) => x[0] === st.due); return `<div class="plan-step"><div class="dates">${fIn(`s${i}pct`, 'Percent', { type: 'number' })}${fSel(`s${i}due`, 'Due', PLAN_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`s${i}n`, due[2], { type: 'number' }) : ''}</div><button type="button" class="link" data-planstep="rm|${i}">Remove</button></div>`; }).join('')}
+    <div class="plan-foot"><button type="button" class="set-link" data-planstep="add">${icon('plus')}Add payment</button>${steps.length ? `<span${Math.abs(total - 100) > 0.01 ? ' class="off"' : ''}>Total ${total}%</span>` : ''}</div></div>`;
+};
+function readPlan(fm) {
+  const steps = planSteps(fm);
+  if (!steps.length) return { error: 'Add a payment' };
+  for (const st of steps) {
+    if (!(Number(st.pct) > 0)) return { error: 'Percent is required' };
+    const due = PLAN_DUE.find((x) => x[0] === st.due);
+    if (['at_weeks', 'before_pickup'].includes(st.due) && st.n === '') return { error: `${due[2]} is required` };
+  }
+  const total = sum(steps.map((st) => Number(st.pct)));
+  if (Math.abs(total - 100) > 0.01) return { error: `Payments total ${total}%; must total 100%` };
+  return { plan: steps.map((st) => ({ pct: Number(st.pct), due: st.due, ...(st.due !== 'with_balance' && st.n !== '' ? { n: Number(st.n) } : {}) })) };
+}
+const weeksOrNull = (v) => (v === '' || v == null ? undefined : Math.max(0, Math.round(Number(v))));
+function readAges(fm) {
+  const from = weeksOrNull(fm.from), until = weeksOrNull(fm.until), cancel = weeksOrNull(fm.cancel);
+  if (from != null && until != null && until < from) return { error: 'Until must be after From' };
+  return { from, until, cancel };
+}
+const agesFields = (g) => `<div class="dates">${fIn('from', 'From (weeks old)', { type: 'number', ph: str(g?.from) })}${fIn('until', 'Until (weeks old)', { type: 'number', ph: str(g?.until) })}${fIn('cancel', 'Cancel by (weeks old)', { type: 'number', ph: str(g?.cancel) })}</div>`;
+const delRow = (attr, t, s) => `<section class="card big-rows danger"><div class="rows"><button type="button" class="row" ${attr}><span class="row-ic">${icon('trash-2')}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><span class="row-end">${chev}</span></button></div></section>`;
+
+/* her defaults, by group */
+S.addons = () => {
+  const sect = (g) => {
+    const list = ADDONS.filter((a) => (a.group || '') === (g ? g.id : ''));
+    if (!g && !list.length) return '';
+    const head = g ? `<div class="label-row"><div class="group-label">${esc(g.n)}</div>${g.fixed ? '<span class="label-note">Set in Go-home & transport</span>' : ''}</div>` : '<div class="group-label">Not in a group</div>';
+    const rules = g && !g.fixed ? row({ ic: 'sliders-horizontal', t: 'Group settings', s: groupLine(g), go: `addongroup:${g.id}` }) : '';
+    return `${head}<section class="card"><div class="rows">${rules}${list.map((a) => row({ ic: a.ic, t: a.n, extra: a.on ? '' : pill(['Off', 'gray']), s: addonLine(a), go: `addon:${a.id}` })).join('') || '<p class="lede" style="padding:12px 14px">No add-ons in this group.</p>'}</div></section>`;
+  };
   return {
-    bar: bar(fresh ? 'New add-on' : a.n, { sub: 'Add-on' }),
-    body: `${formCard('', `${a && a.built ? '' : fIn('n', 'Name', { req: 1 })}
-        <div class="dates">${fIn('price', 'Default price ($)', { type: 'number' })}</div>
-        ${a && a.built ? '' : fChips('unit', 'Charged', [['flat', 'Flat'], ['day', 'Per day'], ['mile', 'Per mile']])}
-        ${(a && a.id === 'training') || (!a || !a.built) && fm.unit === 'flat' ? fIn('days', 'Boarding days included', { type: 'number' }) : ''}
-        ${fIn('note', 'Note', { ph: a && a.id === 'transport' ? 'Within 300 miles' : '' })}`)}
+    bar: bar('Add-ons', { action: addBtn('New add-on', 'addon:new') }),
+    body: `${ADDON_GROUPS.map(sect).join('')}${sect(null)}
+      <div class="label-row"><span></span><button type="button" class="set-link" data-open="addongroup:new">${icon('plus')}New group</button></div>`,
+  };
+};
+
+/* one group: its name, status-page link, request ages and payment rules */
+S.addongroup = (id) => {
+  const g = ADDON_GROUPS.find((x) => x.id === id && !x.fixed), fresh = !g;
+  const fm = formFor('addongroup:' + id, () => planFill({ n: g?.n || '', url: g?.url || '', link: g?.link || '', from: str(g?.from), until: str(g?.until), cancel: str(g?.cancel), pm: g?.plan?.length ? 'plan' : 'balance', own: g?.own ? 'yes' : 'no' }, g?.plan));
+  const inGroup = g ? ADDONS.filter((a) => a.group === g.id) : [];
+  return {
+    bar: bar(fresh ? 'New group' : g.n, { sub: 'Add-on group' }),
+    body: `${formCard('', fIn('n', 'Name', { req: 1, ph: 'Training' }))}
+      ${FEAT.waitlistOnline ? formCard('Status page', `${fIn('url', 'Details link', { type: 'url', ph: 'https://' })}${fIn('link', 'Link text', { ph: 'See details and pricing' })}`, 'Shown under this group') : ''}
+      ${FEAT.waitlistOnline ? formCard('Requests', agesFields(null), 'Blank: no limit') : ''}
+      ${formCard('Payment', `${fChips('pm', 'When paid', [['balance', 'With the balance'], ['plan', 'Payment plan']])}${fm.pm === 'plan' ? planEditor() : ''}
+        ${fChips('own', 'Due dates', [['no', 'Sale schedule'], ['yes', 'Own dates']])}`, 'Add-ons can set their own')}
+      ${inGroup.length ? `<div class="group-label">In this group</div><section class="card"><div class="rows">${inGroup.map((a) => row({ ic: a.ic, t: a.n, s: addonPrice(a), go: `addon:${a.id}` })).join('')}</div></section>` : ''}
+      ${saveBar(`data-grpsave="${esc(id)}"`)}
+      ${g ? delRow(`data-grpdel="${g.id}"`, 'Delete group', 'Add-ons keep these rules') : ''}`,
+  };
+};
+
+/* one add-on */
+S.addon = (id) => {
+  const a = ADDONS.find((x) => x.id === id), fresh = !a, built = a && a.built;
+  const fm = formFor('addon:' + id, () => planFill({
+    n: a?.n || '', group: a?.group || '', price: str(a?.price), unit: a?.unit || 'flat', desc: a?.desc || '', days: str(a?.days),
+    ask: a?.ask ? 'yes' : 'no', from: str(a?.from), until: str(a?.until), cancel: str(a?.cancel),
+    pm: a?.plan === undefined ? (a?.group ? 'group' : 'balance') : a.plan.length ? 'plan' : 'balance',
+    own: typeof a?.own === 'boolean' ? (a.own ? 'yes' : 'no') : a?.group ? 'group' : 'no', on: !a || a.on ? 'on' : 'off',
+  }, a?.plan));
+  const g = ADDON_GROUPS.find((x) => x.id === fm.group && !x.fixed);
+  if (!g && fm.pm === 'group') fm.pm = 'balance';
+  if (!g && fm.own === 'group') fm.own = 'no';
+  const groupOpts = [['', 'Not in a group'], ...ADDON_GROUPS.filter((x) => !x.fixed).map((x) => [x.id, x.n])];
+  return {
+    bar: bar(fresh ? 'New add-on' : a.n, { sub: built ? 'Go-home add-on' : 'Add-on' }),
+    body: `${formCard('', `${built ? '' : fIn('n', 'Name', { req: 1 })}
+        ${built ? '' : fSel('group', 'Group', groupOpts)}
+        <div class="dates">${fIn('price', 'Default price ($)', { type: 'number' })}${!built && fm.unit === 'flat' ? fIn('days', 'Boarding days included', { type: 'number' }) : ''}</div>
+        ${built ? '' : fChips('unit', 'Charged', [['flat', 'Flat'], ['day', 'Per day'], ['mile', 'Per mile']])}
+        ${fIn('desc', 'Description', { hint: 'Shown to families' })}`)}
+      ${!built && FEAT.waitlistOnline ? formCard('Requests', `${fChips('ask', 'Requestable on status page', [['yes', 'Yes'], ['no', 'No']])}${fm.ask === 'yes' ? `${agesFields(g)}<small class="f-hint">${g ? `Blank: ${esc(g.n)} ages` : 'Blank: no limit'}</small>` : ''}`) : ''}
+      ${built ? '' : formCard('Payment', `${fChips('pm', 'When paid', [...(g ? [['group', 'Same as group']] : []), ['balance', 'With the balance'], ['plan', 'Payment plan']])}
+        ${fm.pm === 'group' ? `<small class="f-hint">${esc(g.n)}: ${planText(g.plan)}</small>` : fm.pm === 'plan' ? planEditor() : ''}
+        ${fChips('own', 'Due dates', [...(g ? [['group', `Same as group (${g.own ? 'own dates' : 'sale schedule'})`]] : []), ['no', 'Sale schedule'], ['yes', 'Own dates']])}`)}
       <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
       ${saveBar(`data-addonsave="${esc(id)}"`)}
-      ${a && !a.built ? `<section class="card big-rows danger"><div class="rows"><button type="button" class="row" data-addondel="${a.id}"><span class="row-ic">${icon('trash-2')}</span><span class="row-main"><span class="row-t">Delete add-on</span><span class="row-s">Existing sales keep it</span></span><span class="row-end">${chev}</span></button></div></section>` : ''}`,
+      ${a && !built ? delRow(`data-addondel="${a.id}"`, 'Delete add-on', 'Existing sales keep it') : ''}`,
   };
 };
 
@@ -2827,7 +2937,8 @@ S.saleaddons = (pup) => {
   return {
     bar: bar('Add-ons', { sub: `${s.pup} · ${fam(s.fam).n}` }),
     body: `<section class="card">${facts([['Puppy', money(s.price)], ['Add-ons', money(addonsTotal(s))], ['Total', `<b>${money(saleTotal(s))}</b>`], ['Paid', money(s.paid)]])}</section>
-      <section class="card"><div class="rows">${ADDONS.filter((a) => a.on || has(a.id)).map(line).join('')}
+      ${[...ADDON_GROUPS, { id: '', n: 'Other add-ons' }].map((g) => [g, ADDONS.filter((a) => (a.on || has(a.id)) && (a.group || '') === g.id)]).filter(([, l]) => l.length).map(([g, l]) => `<div class="group-label">${esc(g.n)}</div><section class="card"><div class="rows">${l.map(line).join('')}</div></section>`).join('')}
+      <div class="group-label">One-time charges</div><section class="card"><div class="rows">
         ${custom.map((x, i) => `<div class="row static"><span class="row-ic green">${icon('receipt')}</span><span class="row-main"><span class="row-t">${esc(x.label)}</span><span class="row-s">One-time charge</span></span><span class="row-end"><span class="amt">${money(x.amount)}</span><button type="button" class="link" data-sado="removec|${i}|${s.pup}">Remove</button></span></div>`).join('')}
         <div class="rem${cOpen ? ' open' : ''}"><button type="button" class="row" data-pact="sa|custom" aria-expanded="${cOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">One-time charge</span><span class="row-s">Not on your add-on list</span></span><span class="row-end"><span class="chev">${icon(cOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>
           ${cOpen ? `<div class="q-edit sa-edit"><div class="form-stack"><div class="dates">${fIn('label', 'Description')}${fIn('amount', 'Amount ($)', { type: 'number' })}</div></div><div class="sa-btns"><button type="button" class="chip go" data-sado="custom|x|${s.pup}">Add</button></div></div>` : ''}</div>
@@ -3870,7 +3981,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3892,16 +4003,50 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if (d.planstep) {
+    const [act, i] = d.planstep.split('|'), fm = ui.form, steps = planSteps(fm);
+    if (act === 'add') steps.push({ pct: steps.length ? '' : '100', due: steps.length ? 'before_pickup' : 'with_balance', n: '' });
+    else steps.splice(Number(i), 1);
+    for (let k = 0; k < (fm.ns || 0) + 1; k++) { delete fm[`s${k}pct`]; delete fm[`s${k}due`]; delete fm[`s${k}n`]; }
+    planFill(fm, steps); render(); return;
+  }
   if (d.addonsave) {
     const fm = ui.form, price = Number(fm.price); let a = ADDONS.find((x) => x.id === d.addonsave);
     if (!a && !(fm.n || '').trim()) return toast('Name is required');
     if (!(price >= 0) || fm.price === '') return toast('Price is required');
+    const fresh = !a, next = {};
+    if (!a || !a.built) {
+      if (fm.ask === 'yes') { const ages = readAges(fm); if (ages.error) return toast(ages.error); Object.assign(next, ages); }
+      else Object.assign(next, { from: undefined, until: undefined, cancel: undefined });
+      if (fm.pm === 'plan') { const p = readPlan(fm); if (p.error) return toast(p.error); next.plan = p.plan; }
+      else next.plan = fm.pm === 'balance' ? [] : undefined;
+      next.own = fm.own === 'group' ? undefined : fm.own === 'yes';
+      Object.assign(next, { n: fm.n.trim(), group: fm.group || '', unit: fm.unit, ask: fm.ask === 'yes' ? 1 : 0, days: fm.unit === 'flat' ? Number(fm.days) || undefined : undefined });
+    }
     if (!a) { a = { id: 'a' + (ADDONS.length + 1), ic: 'receipt' }; ADDONS.push(a); }
-    if (!a.built) { a.n = fm.n.trim(); a.unit = fm.unit; }
-    Object.assign(a, { price, note: fm.note || '', on: fm.on === 'on' ? 1 : 0, days: Number(fm.days) || undefined });
-    ui.formSpec = null; back(); toast('Saved'); return;
+    Object.assign(a, next, { price, desc: (fm.desc || '').trim(), on: fm.on === 'on' ? 1 : 0 });
+    if (!a.group && a.plan === undefined) a.plan = [];
+    ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
   if (d.addondel) { ADDONS.splice(ADDONS.findIndex((x) => x.id === d.addondel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.grpsave) {
+    const fm = ui.form, n = (fm.n || '').trim(); let g = ADDON_GROUPS.find((x) => x.id === d.grpsave);
+    if (!n) return toast('Name is required');
+    if (ADDON_GROUPS.some((x) => x !== g && x.n.toLowerCase() === n.toLowerCase())) return toast('A group with this name exists');
+    const url = (fm.url || '').trim();
+    if (url && !/^https:\/\/\S+$/i.test(url)) return toast('Link must start with https://');
+    const ages = readAges(fm); if (ages.error) return toast(ages.error);
+    let plan = null; if (fm.pm === 'plan') { const p = readPlan(fm); if (p.error) return toast(p.error); plan = p.plan; }
+    const fresh = !g;
+    if (!g) { g = { id: 'g' + (ADDON_GROUPS.length + 1) }; ADDON_GROUPS.push(g); }
+    Object.assign(g, { n, url, link: (fm.link || '').trim(), ...ages, plan, own: fm.own === 'yes' ? 1 : 0 });
+    ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
+  }
+  if (d.grpdel) {
+    const g = ADDON_GROUPS.find((x) => x.id === d.grpdel);
+    ADDONS.filter((a) => a.group === g.id).forEach((a) => { a.group = ''; a.plan ??= g.plan || []; a.own ??= !!g.own; ['from', 'until', 'cancel'].forEach((k) => { a[k] ??= g[k]; }); });
+    ADDON_GROUPS.splice(ADDON_GROUPS.indexOf(g), 1); ui.formSpec = null; back(); toast('Deleted'); return;
+  }
   if (d.sado) {
     const [act, aid, pup] = d.sado.split('|'), s = SALES.find((x) => x.pup === pup), list = saleAddons(s), fm = ui.form;
     if (act === 'remove') { list.splice(list.findIndex((x) => x.id === aid), 1); ui.pAct = null; ui.formSpec = null; render(); toast('Removed'); return; }
@@ -4044,6 +4189,7 @@ document.addEventListener('input', (e) => {
   if (e.target.dataset.progdesc) { PROGRAMS.find((x) => x.id === e.target.dataset.progdesc).desc = e.target.value; return; }
   const fk = e.target.dataset?.fv;
   if (fk && ui.formSpec === 'addfamily' && ['name', 'email', 'phone'].includes(fk)) { ui.form[fk] = e.target.value; const pos = e.target.selectionStart; render(); const n = $(`[data-fv="${fk}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
+  if (fk && /^s\d+pct$/.test(fk)) { ui.form[fk] = e.target.value; const t = $('.plan-foot span'); if (t) { const tot = sum(planSteps(ui.form).map((st) => Number(st.pct) || 0)); t.textContent = `Total ${tot}%`; t.classList.toggle('off', Math.abs(tot - 100) > 0.01); } return; }
   if (fk && e.target.tagName !== 'SELECT') { ui.form[fk] = e.target.value; if (fk === 'name' && ui.form._dup) { delete ui.form._dup; delete ui.form._dupOk; } if (fk === 'cost' || fk === 'remindOn') return; return; }
   if (e.target.id === 'b-wt') { ui.birth.wt = e.target.value; return; }
   if (e.target.id === 'b-time') { ui.birth.time = e.target.value; return; }

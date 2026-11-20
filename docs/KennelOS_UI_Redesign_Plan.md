@@ -315,3 +315,12 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   transport and boarding rows open it), and a sale's **Add-ons** for that sale (each amount
   editable per D13, boarding by days, one-time charges, the sale's total). The Business table
   of §1 reads Business › Add-ons where it said Extra charges.
+  **Groups and rules (same day):** the owner: the add-on fields the live price list has stay
+  settable here, styled the new way. Business › Add-ons lists add-ons by **group**; each group
+  has its status-page link and link text, request and cancel ages, when it's paid (with the
+  balance or a payment plan) and own due dates or the sale's schedule, and each add-on can
+  follow its group or set its own, plus a description families see, requestable on the status
+  page, and boarding days. Transport and boarding sit in a fixed **Go-home** group that
+  can't be edited or take other add-ons. Pricing and schedules shows **Add-on payments**,
+  each opening the group or add-on (one place stores it). A sale's Add-ons lists them by
+  group. In the prototype: `S.addons`, `S.addongroup`, `S.addon`, `ADDON_GROUPS`.

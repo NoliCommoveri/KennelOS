@@ -234,6 +234,22 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   kit and a photo session).
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Add-on groups and rules
+
+- The owner: the add-on fields D15 left out are back, in the new style (D15 note in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8). Prototype only.
+- `docs/design/forest-look-prototype.html`: Business › Add-ons lists add-ons by group. A
+  group's screen (`S.addongroup`, New group under the list) holds its name, status-page
+  details link and link text, request-from / until / cancel-by ages, when it's paid (with the
+  balance or a payment plan of percent steps: at age, on approval, before pickup, with the
+  balance; must total 100%) and due dates (sale schedule or own dates); deleting it leaves
+  its add-ons ungrouped with its rules. An add-on gains group, description shown to families,
+  requestable on the status page with its own ages, when it's paid and due dates (each "Same
+  as group" or its own), and boarding days for any flat add-on. Transport and boarding are in
+  a fixed Go-home group. Pricing and schedules gains Add-on payments; a sale's Add-ons is
+  grouped.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
