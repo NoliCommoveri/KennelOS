@@ -86,7 +86,7 @@ test('the events Kels writes', () => {
   });
   assert.deepEqual(H.boardingEvent(pup, today, at(13)), {
     subject_type: 'dog', subject_id: 'p', event_type: 'boarding', event_date: today, event_end_date: at(13),
-    title: 'Deferred pickup boarding', details: { boarding_reason: 'Deferred pickup' }
+    title: 'Deferred pickup boarding', details: { stay_at: 'with_us', boarding_reason: 'Deferred pickup' }
   });
   assert.equal(H.defaultStart(at(3), today), at(3));
   assert.equal(H.defaultStart(at(-3), today), today);

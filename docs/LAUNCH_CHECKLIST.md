@@ -379,8 +379,8 @@ plan steps 6 (email) and 7 (server deadlines and automatic offers). Steps 6 and 
   from a template and check its placed fields still fill. Then the preview check (plan §8.2
   step 2, D38): after Preview, **On your template** should list every detail field you placed,
   by the label you know from the editor, with the value sent; check each against the contract.
-- [ ] **The template library (Integrations plan §2.3b), first run:** *Verified (owner,
-  2026-11-17) except the copy down: a breeder's From KennelOS → Add and what follows it.* deploy the Worker and apply
+- [x] **The template library (Integrations plan §2.3b), first run:** *Verified (owner,
+  2026-11-17; the copy down, a breeder's From KennelOS → Add and what follows it, 2026-11-20).* deploy the Worker and apply
   migration `0027` in `/ops`. In the manager app (`/manager/`) → Templates, link your test
   account (it needs Set up e-signing done). On that account, upload a contract and Place
   fields with a few details (Buyer · Full name, Sale · Price) and a signature. Back in

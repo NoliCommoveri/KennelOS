@@ -290,7 +290,7 @@ test('a training stay: a linked boarding event its days long; one whose extra is
   const sale = { id: 's1', extra_charges: [{ id: 'c1', label: 'Puppy training', amount: 600, boarding_days: 14 }] };
   const stay = trainingStayEvent({ id: 'd1' }, sale, sale.extra_charges[0], '2026-11-01');
   assert.deepEqual(stay, { subject_type: 'dog', subject_id: 'd1', event_type: 'boarding', event_date: '2026-11-01', event_end_date: '2026-11-14',
-    title: 'Puppy training', details: { boarding_reason: 'Training', sale_id: 's1', extra_charge_id: 'c1' } });
+    title: 'Puppy training', details: { stay_at: 'with_us', boarding_reason: 'Extended stay', sale_id: 's1', extra_charge_id: 'c1' } });
   const ev = { ...stay, id: 'e1' };
   assert.equal(trainingStaysFor(sale, sale.extra_charges[0], [ev, { ...ev, id: 'e2', is_archived: true }]).length, 1);
   const salesById = new Map([['s1', sale]]);
@@ -310,7 +310,7 @@ test('Today offers to log a training stay, logs it linked in one tap, and a sale
   assert.equal(stays.length, 1);
   assert.equal(stays[0].details.sale_id, s.id);
   assert.equal((await computeNudges()).some((n) => n.key === `training-stay:${s.id}:tr`), false, 'logged: gone');
-  await assert.rejects(saleRepo.hardDelete(s.id), /training stay/);
+  await assert.rejects(saleRepo.hardDelete(s.id), /extended stay/);
   await saleRepo.update(s.id, { extra_charges: [] });
   const orphan = (await computeNudges()).find((n) => n.key === `training-stay-orphan:${stays[0].id}`);
   if (stays[0].event_end_date >= new Date().toISOString().slice(0, 10)) {

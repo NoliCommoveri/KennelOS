@@ -77,11 +77,7 @@ backup, carries a program from Lite to Pro.
   checklist is done. The Worker stays on Workers Free until a limit is hit
   (`docs/LAUNCH_CHECKLIST.md` §2).
 - **In progress:**
-  - Template library (Integrations plan §2.3b): proven on production except the copy down
-    (a breeder's From KennelOS → Add, and Place fields / Preview on the copy).
-  - Waitlist fixes (`docs/KennelOS_Waitlist_Fixes_Plan.md`): all ten steps built. Open: one
-    live Mapbox try of the address checks.
-    The review's other open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
+  - The review's open findings are planned in `docs/KennelOS_Review_Remainder_Plan.md`
     (nine batches, owner decisions R1–R7 all made): all nine built. Left from the review:
     K15 (the UI redo, with group J) and K16 (the summary).
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) built; its open
