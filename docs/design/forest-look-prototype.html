@@ -119,13 +119,15 @@ i[data-lucide], svg.lucide { width: 18px; height: 18px; flex: none; }
 
 /* header band */
 .appbar { background: var(--forest); color: var(--forest-ink); padding: 14px 16px 14px; display: flex; align-items: center; gap: 12px; min-height: 64px; }
-.appbar h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 23px; letter-spacing: -.01em; flex: 1; min-width: 0; text-wrap: balance; display: flex; align-items: center; gap: 10px; }
+.appbar h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 21px; letter-spacing: -.01em; flex: 1; min-width: 0; text-wrap: balance; display: flex; align-items: center; gap: 10px; }
 .appbar h1 i[data-lucide], .appbar h1 svg.lucide { width: 24px; height: 24px; }
 .appbar .sub { display: block; font-family: var(--font-body); font-size: 12.5px; font-weight: 500; color: var(--forest-muted); margin-top: 2px; }
 .bar-btn { border: 1px solid rgba(255,255,255,.55); background: transparent; color: var(--forest-ink); border-radius: 9px; padding: 7px 11px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
 .bar-btn:hover { background: rgba(255,255,255,.1); }
 .icon-btn { border: 0; background: transparent; color: var(--forest-ink); padding: 6px; border-radius: 8px; cursor: pointer; display: inline-flex; }
 .icon-btn:hover { background: rgba(255,255,255,.1); }
+/* the back arrow sits close to the edge and to the title (owner, 2026-11-20) */
+.appbar .back-btn { margin: 0 -6px 0 -8px; }
 .icon-btn i[data-lucide], .icon-btn svg.lucide { width: 22px; height: 22px; }
 .brand { flex: 1; min-width: 0; }
 .brand-name { font-family: var(--font-display); font-weight: 800; font-size: 21px; display: flex; align-items: center; gap: 8px; }
@@ -1217,7 +1219,7 @@ function back() { if (hist.length > 1) { hist.pop(); render(); $('#screen').scro
 function currentTab() { for (let i = hist.length - 1; i >= 0; i--) { const t = TAB_OF[hist[i].s]; if (t) return t; } return 'home'; }
 
 /* header: back arrow on every screen after the first */
-const backBtn = () => (hist.length > 1 ? `<button type="button" class="icon-btn" aria-label="Back" data-back>${icon('arrow-left')}</button>` : '');
+const backBtn = () => (hist.length > 1 ? `<button type="button" class="icon-btn back-btn" aria-label="Back" data-back>${icon('arrow-left')}</button>` : '');
 function bar(title, { ic, action = '', sub = '' } = {}) {
   return `${backBtn()}<h1>${ic && hist.length <= 1 ? icon(ic) : ''}<span>${title}${sub ? `<span class="sub">${sub}</span>` : ''}</span></h1>${action}`;
 }

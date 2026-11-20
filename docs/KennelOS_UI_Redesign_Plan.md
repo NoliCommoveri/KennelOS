@@ -112,7 +112,7 @@ The full set is the prototype's `:root`; these are the ones most often lost.
 | Text | Font | Size / weight |
 |---|---|---|
 | Body | Inter | 14px / 400, line height 1.4 |
-| Header title (`.appbar h1`) | Figtree | 23px / 700, letter spacing −.01em |
+| Header title (`.appbar h1`) | Figtree | 21px / 700, letter spacing −.01em (the brand's size, D12) |
 | Brand | Figtree | 21px / 800 (19px in the rail) |
 | Home "Today" | Figtree | 24px / 800 |
 | Section heading (`.section-h h2`) | Figtree | 17px / 700, primary-colored icon |
@@ -287,3 +287,7 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   she ticks any number, with a find box past eight and a count beside each. Dogs, Litters and
   Sales filter by Dam and Sire; there is no Litter filter. Which groups are dropdowns is the
   prototype's `FDEF[...].dd`. The chips-or-dropdown rule is a proposal for her to confirm.
+- **D12. Header title and back arrow (2026-11-20).** The owner: every screen's header title is
+  the same size as the KennelOS PRO brand (21px, was 23px), and the back arrow sits tighter to
+  the edge and the title (`.appbar .back-btn`, margin 0 −6px 0 −8px). A long title wraps
+  beside the header button instead of running under it.

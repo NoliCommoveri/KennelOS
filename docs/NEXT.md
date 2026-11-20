@@ -136,6 +136,13 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   dropdowns. Design notes' Filters section says so.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D12, smaller header titles, tighter back arrow
+
+- The owner's D12 in `docs/KennelOS_UI_Redesign_Plan.md` §8 (and §3's table): header titles at
+  the brand's 21px instead of 23px, and less space around the back arrow, on every screen of
+  the prototype (`docs/design/forest-look-prototype.html`).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
