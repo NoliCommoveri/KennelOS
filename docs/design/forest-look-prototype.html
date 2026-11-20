@@ -706,11 +706,8 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
 .rule-work b { color: var(--ink); }
 .sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
-.plan-steps { display: flex; flex-direction: column; gap: 10px; }
-.plan-step { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.plan-step .link { align-self: flex-end; }
-.plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
-.plan-foot .off { color: var(--p-amber-fg); }
+.f-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ink); }
+.f-group .seg { align-self: flex-start; max-width: 100%; }
 /* a sale's add-ons */
 .sa-edit { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
 .sa-edit .form-stack { width: 100%; }
@@ -1823,7 +1820,7 @@ S.pricerule = (id) => {
        <div class="dates">${fIn('min', 'Score at least (1–5)', { type: 'number' })}</div>`;
   const effect = fm.kind === 'breed'
     ? `<div class="dates">${fIn('male', 'Male price ($)', { type: 'number' })}${fIn('female', 'Female price ($)', { type: 'number' })}</div><small class="f-hint">Replaces the usual price</small>`
-    : `<label>Change<span class="adj-line">${[['sign', [['add', '+', 'Add'], ['sub', '−', 'Subtract']]], ['unit', [['flat', '$', 'Dollars'], ['pct', '%', 'Percent']]]].map(([k, opts]) => `<span class="seg" role="group">${opts.map(([v, t, n]) => `<button type="button" data-fc="${k}|${v}" aria-pressed="${fm[k] === v}" aria-label="${n}">${t}</button>`).join('')}</span>`).join('')}<input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
+    : `<label>Change<span class="adj-line">${fSeg('sign', [['add', '+', 'Add'], ['sub', '−', 'Subtract']])}${fSeg('unit', [['flat', '$', 'Dollars'], ['pct', '%', 'Percent']])}<input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
   return {
     bar: bar(fresh ? 'New price rule' : ruleName(r), { sub: 'Price rule' }),
     body: `${formCard('When', `${fChips('kind', 'Rule', [['breed', 'Breed'], ['parent', 'A parent'], ['title', 'Parent title'], ['registry', 'Registry'], ['imported', 'Imported parent'], ['score', 'Parent scores']])}${when}`)}
@@ -2299,7 +2296,17 @@ const fIn = (k, label, { type = 'text', ph = '', hint = '', req } = {}) => `<lab
 const fText = (k, label, ph = '') => `<label>${label}<textarea data-fv="${k}" rows="2"${ph ? ` placeholder="${esc(ph)}"` : ''}>${fv(k)}</textarea></label>`;
 const fSel = (k, label, opts, { add } = {}) => `<label>${label}<select data-fv="${k}">${opts.map((o) => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${String(ui.form[k] ?? '') === String(v) ? ' selected' : ''}>${esc(t)}</option>`; }).join('')}${add ? `<option value="__add">+ ${add}</option>` : ''}</select></label>`;
 const OWN_OPTS = {};
+/* two options, one required (D19): yes / no is a switch, two named options are a .seg;
+   chips are for three or more, several at once, or a choice that can be left blank */
+const fSeg = (k, opts, aria = '') => `<span class="seg" role="group"${aria ? ` aria-label="${esc(aria)}"` : ''}>${opts.map(([v, t, n]) => `<button type="button" data-fc="${k}|${esc(v)}" aria-pressed="${String(ui.form[k] ?? '') === String(v)}"${n ? ` aria-label="${esc(n)}"` : ''}>${esc(t)}</button>`).join('')}</span>`;
+const fSwitch = (k, label, onV, offV) => { const on = ui.form[k] === onV; return `<div class="f-switch"><span>${label}</span><button type="button" class="switch" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-fc="${k}|${esc(on ? offV : onV)}"></button></div>`; };
 const fChips = (k, label, opts, { own, multi, toggle } = {}) => {
+  if (opts.length === 2 && !own && !multi && !toggle && !(OWN_OPTS[k] || []).length) {
+    const two = opts.map((o) => (Array.isArray(o) ? o : [o, o]));
+    const yes = two.find(([, t]) => /^(yes|on)$/i.test(t)), no = two.find(([, t]) => /^(no|off)$/i.test(t));
+    if (yes && no && label) return fSwitch(k, label, yes[0], no[0]);
+    return `<div class="f-group">${label ? `<div class="group-label">${label}</div>` : ''}${fSeg(k, two, label)}</div>`;
+  }
   opts = [...opts, ...(OWN_OPTS[k] || []).filter((v) => !opts.some((o) => (Array.isArray(o) ? o[0] : o) === v))];
   const on = (v) => (multi ? (ui.form[k] || []).includes(v) : ui.form[k] === v);
   const list = own && ui.form[k] && !multi && !opts.some((o) => (Array.isArray(o) ? o[0] : o) === ui.form[k]) ? [...opts, ui.form[k]] : opts;
@@ -2933,10 +2940,14 @@ const addonName = (x) => x.label || ADDONS.find((a) => a.id === x.id)?.n || 'Add
 const str = (v) => (v == null ? '' : String(v));
 const planFill = (fm, plan) => { (plan || []).forEach((st, i) => { fm[`s${i}pct`] = str(st.pct); fm[`s${i}due`] = st.due; fm[`s${i}n`] = str(st.n); }); fm.ns = (plan || []).length; return fm; };
 const planSteps = (fm) => Array.from({ length: fm.ns || 0 }, (_, i) => ({ pct: fm[`s${i}pct`] ?? '', due: fm[`s${i}due`] || 'at_weeks', n: fm[`s${i}n`] ?? '' }));
+/* repeating payment steps (D19): one card per step, the same for a payment plan and a
+   saved schedule; Remove in the card's head; Add below with what they total */
+const stepCards = (cards, add, foot = '') => `${cards.map((c) => `<section class="card app-card"><div class="f-head"><h2>${c.title}</h2>${c.rm ? `<button type="button" class="link" ${c.rm}>Remove</button>` : c.sub ? `<span>${c.sub}</span>` : ''}</div><div class="form-stack">${c.body}</div></section>`).join('')}
+  <div class="label-row">${add}${foot}</div>`;
 const planEditor = () => {
   const steps = planSteps(ui.form), total = sum(steps.map((st) => Number(st.pct) || 0));
-  return `<div class="plan-steps">${steps.map((st, i) => { const due = PLAN_DUE.find((x) => x[0] === st.due); return `<div class="plan-step"><div class="dates">${fIn(`s${i}pct`, 'Percent', { type: 'number' })}${fSel(`s${i}due`, 'Due', PLAN_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`s${i}n`, due[2], { type: 'number' }) : ''}</div><button type="button" class="link" data-planstep="rm|${i}">Remove</button></div>`; }).join('')}
-    <div class="plan-foot"><button type="button" class="set-link" data-planstep="add">${icon('plus')}Add payment</button>${steps.length ? `<span${Math.abs(total - 100) > 0.01 ? ' class="off"' : ''}>Total ${total}%</span>` : ''}</div></div>`;
+  return stepCards(steps.map((st, i) => { const due = PLAN_DUE.find((x) => x[0] === st.due); return { title: `Payment ${i + 1}`, rm: `data-planstep="rm|${i}"`, body: `<div class="dates">${fIn(`s${i}pct`, 'Percent', { type: 'number' })}${fSel(`s${i}due`, 'Due', PLAN_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`s${i}n`, due[2], { type: 'number' }) : ''}</div>` }; }),
+    `<button type="button" class="set-link" data-planstep="add">${icon('plus')}Add payment</button>`, steps.length ? `<span class="f-hint" data-plantotal>Total ${total}%</span>` : '');
 };
 function readPlan(fm) {
   const steps = planSteps(fm);
@@ -2985,8 +2996,9 @@ S.addongroup = (id) => {
     body: `${formCard('', fIn('n', 'Name', { req: 1, ph: 'Training' }))}
       ${FEAT.waitlistOnline ? formCard('Status page', `${fIn('url', 'Details link', { type: 'url', ph: 'https://' })}${fIn('link', 'Link text', { ph: 'See details and pricing' })}`, 'Shown under this group') : ''}
       ${FEAT.waitlistOnline ? formCard('Requests', agesFields(null), 'Blank: no limit') : ''}
-      ${formCard('Payment', `${fChips('pm', 'When paid', [['balance', 'With the balance'], ['plan', 'Payment plan']])}${fm.pm === 'plan' ? planEditor() : ''}
+      ${formCard('Payment', `${fChips('pm', 'When paid', [['balance', 'With the balance'], ['plan', 'Payment plan']])}
         ${fChips('own', 'Due dates', [['no', 'Sale schedule'], ['yes', 'Own dates']])}`, 'Add-ons can set their own')}
+      ${fm.pm === 'plan' ? planEditor() : ''}
       ${inGroup.length ? `<div class="group-label">In this group</div><section class="card"><div class="rows">${inGroup.map((a) => row({ ic: a.ic, t: a.n, s: addonPrice(a), go: `addon:${a.id}` })).join('')}</div></section>` : ''}
       ${saveBar(`data-grpsave="${esc(id)}"`)}
       ${g ? delRow(`data-grpdel="${g.id}"`, 'Delete group', 'Add-ons keep these rules') : ''}`,
@@ -3016,8 +3028,9 @@ S.addon = (id) => {
         ${fIn('desc', 'Description', { hint: 'Shown to families' })}`)}
       ${!built && FEAT.waitlistOnline ? formCard('Requests', `${fChips('ask', 'Requestable on status page', [['yes', 'Yes'], ['no', 'No']])}${fm.ask === 'yes' ? `${agesFields(g)}<small class="f-hint">${g ? `Blank: ${esc(g.n)} ages` : 'Blank: no limit'}</small>` : ''}`) : ''}
       ${built ? '' : formCard('Payment', `${fChips('pm', 'When paid', [...(g ? [['group', 'Same as group']] : []), ['balance', 'With the balance'], ['plan', 'Payment plan']])}
-        ${fm.pm === 'group' ? `<small class="f-hint">${esc(g.n)}: ${planText(g.plan)}</small>` : fm.pm === 'plan' ? planEditor() : ''}
+        ${fm.pm === 'group' ? `<small class="f-hint">${esc(g.n)}: ${planText(g.plan)}</small>` : ''}
         ${fChips('own', 'Due dates', [...(g ? [['group', `Same as group (${g.own ? 'own dates' : 'sale schedule'})`]] : []), ['no', 'Sale schedule'], ['yes', 'Own dates']])}`)}
+      ${!built && fm.pm === 'plan' ? planEditor() : ''}
       <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
       ${saveBar(`data-addonsave="${esc(id)}"`)}
       ${a && !built ? delRow(`data-addondel="${a.id}"`, 'Delete add-on', 'Existing sales keep it') : ''}`,
@@ -3173,17 +3186,14 @@ S.schedule = (id) => {
   const steps = schSteps(fm);
   const stepCard = (st, i) => {
     const last = i === steps.length - 1, due = SCH_DUE.find((d) => d[0] === st.due);
-    return `<section class="card app-card"><div class="f-head"><h2>${last ? 'Final payment' : `Payment ${i + 1}`}</h2><span>${last ? 'The rest of everything' : ''}</span></div><div class="form-stack">
-      <div class="dates">${fSel(`d${i}due`, 'When', SCH_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`d${i}n`, due[2], { type: 'number' }) : st.due === 'on_date' ? fIn(`d${i}date`, 'Date', { type: 'date' }) : ''}</div>
-      ${last ? '' : `${fChips(`d${i}cov`, 'Covers', SCH_COVERS, { multi: 1 })}<div class="dates">${fSel(`d${i}kind`, 'How much', SCH_KIND)}${fIn(`d${i}val`, st.kind.startsWith('pct') ? 'Percent' : 'Amount ($)', { type: 'number' })}</div>
-      <div class="sa-btns" style="justify-content:flex-end"><button type="button" class="link" data-schstep="rm|${i}">Remove</button></div>`}
-    </div></section>`;
+    const when = `<div class="dates">${fSel(`d${i}due`, 'When', SCH_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`d${i}n`, due[2], { type: 'number' }) : st.due === 'on_date' ? fIn(`d${i}date`, 'Date', { type: 'date' }) : ''}</div>`;
+    return last ? { title: 'Final payment', sub: 'The rest of everything', body: when }
+      : { title: `Payment ${i + 1}`, rm: `data-schstep="rm|${i}"`, body: `${when}${fChips(`d${i}cov`, 'Covers', SCH_COVERS, { multi: 1 })}<div class="dates">${fSel(`d${i}kind`, 'How much', SCH_KIND)}${fIn(`d${i}val`, st.kind.startsWith('pct') ? 'Percent' : 'Amount ($)', { type: 'number' })}</div>` };
   };
   return {
     bar: bar(fresh ? 'New schedule' : x.n, { sub: 'Saved schedule' }),
     body: `${formCard('', fIn('n', 'Name', { req: 1, ph: 'Transported pup' }))}
-      ${steps.map(stepCard).join('')}
-      <button type="button" class="set-link" data-schstep="add">${icon('plus')}Add a due date</button>
+      ${stepCards(steps.map(stepCard), `<button type="button" class="set-link" data-schstep="add">${icon('plus')}Add a due date</button>`)}
       <p class="f-hint">${esc(schedText(steps.map((st) => ({ ...st, n: Number(st.n) || 0, val: Number(st.val) || 0 }))))}</p>
       <section class="card app-card">${fChips('usual', 'Used on new sales', [['yes', 'Yes'], ['no', 'No']])}</section>
       ${saveBar(`data-schsave="${esc(id)}"`)}
@@ -4619,7 +4629,7 @@ document.addEventListener('input', (e) => {
   if (e.target.dataset.progdesc) { PROGRAMS.find((x) => x.id === e.target.dataset.progdesc).desc = e.target.value; return; }
   const fk = e.target.dataset?.fv;
   if (fk && ui.formSpec === 'addfamily' && ['name', 'email', 'phone'].includes(fk)) { ui.form[fk] = e.target.value; const pos = e.target.selectionStart; render(); const n = $(`[data-fv="${fk}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
-  if (fk && /^s\d+pct$/.test(fk)) { ui.form[fk] = e.target.value; const t = $('.plan-foot span'); if (t) { const tot = sum(planSteps(ui.form).map((st) => Number(st.pct) || 0)); t.textContent = `Total ${tot}%`; t.classList.toggle('off', Math.abs(tot - 100) > 0.01); } return; }
+  if (fk && /^s\d+pct$/.test(fk)) { ui.form[fk] = e.target.value; const t = $('[data-plantotal]'); if (t) t.textContent = `Total ${sum(planSteps(ui.form).map((st) => Number(st.pct) || 0))}%`; return; }
   if (fk && e.target.tagName !== 'SELECT') { ui.form[fk] = e.target.value; if (fk === 'name' && ui.form._dup) { delete ui.form._dup; delete ui.form._dupOk; } if (fk === 'cost' || fk === 'remindOn') return; return; }
   if (e.target.id === 'b-wt') { ui.birth.wt = e.target.value; return; }
   if (e.target.id === 'b-time') { ui.birth.time = e.target.value; return; }

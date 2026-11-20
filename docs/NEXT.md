@@ -326,6 +326,15 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   switch). D18 points to it.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D19, two-option toggles and one step component
+
+- The owner's D19. Prototype: `fChips()` draws two required options as a `.seg`, and Yes / No
+  as a switch (`fSwitch`, `.f-switch`), everywhere it's used; the price rule's + / − and
+  $ / % use the same `fSeg()`. An add-on's payment plan and a saved schedule both use
+  `stepCards()` (one card per payment, Remove in the head, Add and the total below); the
+  old `.plan-steps` styles are gone. §3.1's table and its duplicates list are updated.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
