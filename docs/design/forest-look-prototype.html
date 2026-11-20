@@ -2691,11 +2691,11 @@ S.sidesale = (fid) => {
   const p = fm.pup && DOGS.find((d) => d.id === fm.pup);
   const notes = [];
   if (f && p) {
-    if (p.disp !== 'available') notes.push(['info', `${p.name} is ${DISP[p.disp][0].toLowerCase()}. Recording this holds ${p.sex === 'm' ? 'him' : 'her'} for the ${f.n} until the deposit is in.`]);
+    if (p.disp !== 'available') notes.push(['info', `${p.name} is ${DISP[p.disp][0].toLowerCase()}. Held for the ${f.n} until the deposit is in.`]);
     if (f.wants !== 'any' && (f.wants === 'male') !== (p.sex === 'm')) notes.push(['info', `They asked for a ${f.wants}; ${p.name} is ${p.sex === 'm' ? 'male' : 'female'}.`, 'match']);
     if (f.listen) notes.push(['info', `They’re waiting for ${f.listen} only.`]);
     if (f.paused) notes.push(['info', `They’re paused until ${f.paused}.`]);
-    if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `The ${fam(OFFER.fam).n} has ${p.name} in their turn, answer by ${wday(OFFER.due)}. If both send a deposit, the first one in gets ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
+    if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `The ${fam(OFFER.fam).n} has ${p.name} in their turn, answer by ${wday(OFFER.due)}. First deposit in gets ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
   }
   /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
   const lit = p && LITTERS.find((l) => l.id === p.litter);
@@ -2709,7 +2709,7 @@ S.sidesale = (fid) => {
   fm.sched ||= SCHEDULES.find((x) => x.usual).id;
   return {
     bar: bar('Side sale', { sub: 'Outside the turn order' }),
-    body: `<p class="lede">You pick a pup for a family on the list. It isn’t a turn: nobody’s turn moves, and it never counts as a pass. To them it looks like their pick.</p>
+    body: `<p class="lede">Sell a pup outside the turn order. No one’s turn changes.</p>
       ${fid ? `<section class="card hub-head"><div class="hub-pills"><b class="ped-root">${f.n}</b>${pill([`#${f.pos}`, 'green'])}</div><div class="hub-line">Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}</div></section>`
         : formCard('Family', fSel('fam', 'Family on the list', [['', 'Pick a family'], ...activeFams().map((x) => [x.id, `#${x.pos} ${x.n}${OFFER.open && OFFER.fam === x.id ? ' (holds the turn)' : ''}`])]))}
       ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>They hold the turn now. Record their pick on <button type="button" class="link" data-open="wloffer">their turn</button> instead.</span></div>` : `
@@ -2717,15 +2717,11 @@ S.sidesale = (fid) => {
       ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
       <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
-        <p class="f-hint">${!p ? 'Pick the pup and these fill in from its litter.' : (() => {
-          const from = `${lit ? litterName(lit) + '’s' : 'your usual'} price for ${p.sex === 'm' ? 'males' : 'females'}${fm.reg === 'Full' && fullAdd ? ' plus full registration' : ''}`;
-          const mine = [fm.price !== auto && `price (${from} is ${money(Number(auto))})`, fm.dep !== autoDep && `deposit (usually ${money(Number(autoDep))})`].filter(Boolean);
-          return mine.length ? `Your own ${mine.join(' and ')}. For this sale only. <button type="button" class="link" data-sreset-price>Use the litter’s</button>` : `From ${from}. Change either for this sale; the litter’s prices stay.`;
-        })()}</p>
+        <p class="f-hint">${!p ? 'Prefilled from the litter' : fm.price !== auto || fm.dep !== autoDep ? 'Custom for this sale · <button type="button" class="link" data-sreset-price>Reset</button>' : 'Prefilled from the litter'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
         ${fChips('sched', 'Payments after the deposit', sched)}
         <div class="form-stack">${fText('notes', 'Notes', 'Only you see these')}</div>
-        <p class="f-hint">They’re sent the deposit request and reminders as for any pick. Nothing happens by itself if the date passes; you’ll see it on Home. Anything else (extras, transport, a different schedule) can be changed on the sale afterwards.</p></section>
+        <p class="f-hint">They get the usual deposit request and reminders.</p></section>
       ${saveBar('data-sidesave="1"', 'Record the side sale')}`}`,
   };
 };

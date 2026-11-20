@@ -196,6 +196,14 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the litter's figure, and offers **Use the litter's**.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D14, short copy
+
+- The owner's D14 in `docs/KennelOS_UI_Redesign_Plan.md` §8: hints are a few plain words.
+- Side sale (`docs/design/forest-look-prototype.html`): under price and deposit, "Prefilled
+  from the litter", or "Custom for this sale · Reset"; its intro, warnings and closing hint
+  cut to a line each.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

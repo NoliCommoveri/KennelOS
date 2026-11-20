@@ -300,3 +300,6 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   came from; changing it there changes only this record, never the setting it came from.
   First applied to Side sale (price, deposit, deposit due, go-home, payment schedule, notes);
   every sale and money screen in the Business batch follows it.
+- **D14. Short copy (2026-11-20).** The owner: hints and notes are a few plain words, like
+  "Prefilled from the litter" and "Custom for this sale", not sentences that explain how
+  things work. A line earns its place only if she'd otherwise get it wrong.
