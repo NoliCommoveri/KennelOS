@@ -286,6 +286,16 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   imported), Movement average 4.5+ +$300.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Pricing and sales field coverage
+
+- Traced Pricing and schedules, a litter's Pricing, Side sale and the Sale screen against
+  live (plan §8 "Field coverage: Pricing and sales"). Prototype gains the saved schedule
+  editor (`S.schedule`), payment instructions and final payment rows, deposit and full
+  registration by sex and the litter's dates, Sale details (`S.saleedit`, Edit on a sale),
+  Side sale's Co-own / None and set-registration option, and boarding per day, week or
+  month. Three questions for the owner are listed there.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

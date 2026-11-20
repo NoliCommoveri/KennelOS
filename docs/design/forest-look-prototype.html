@@ -698,6 +698,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 /* add-on groups and payment plans */
+.form-stack input[type="time"] { min-height: 38px; }
 .rule-work { margin: 6px 0 0; font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
 .rule-work b { color: var(--ink); }
@@ -777,6 +778,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
     <p><b>Transport</b> is priced per mile from her standard pickup place: fee per mile, round trip or one way, no charge under a distance, offered only to families living at least so far away (City / state becomes required on applications), and "in touch" past a limit. <b>Check a distance</b> gets driving miles through Mapbox (cloud backup) or Open in Maps and shows the working. <b>Handled by</b> sets the default for new sales: the kennel, or a third party, one of her transport partners or unknown. Each partner (a Transport account) carries a referral reward, per booking or a percent of their price; the Transport screen totals expected and received rewards by partner. On a sale, transport is either the kennel's (miles, Get driving miles, a fee prefilled from her rate) or a third party's (partner, anything charged on the sale, the reward expected or received). <b>Pickup places</b> (Setup › Go-home) holds her places, which one mileage starts from, which families see, and how late families can change a pickup.</p>
     <p><b>Price rules</b> (Pricing and schedules) set litter prices from what the litter is: a breed's own prices replace the usual price, and each other rule that fits adds an amount or a percent, for an imported parent or for how the parents score on her traits. A litter's Pricing shows the working; its own price, and every sale already made, keep theirs.</p>
+    <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time, ready to go home). A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the balance (a schedule or one due date) and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1055,7 +1057,7 @@ const FEATURES = [
 const SET = {
   waitlist: { approve: 'Yes, I approve every family', fee: '$250', feeCredit: 'Counts toward the price', feeDays: '7 days', respond: '3 days', passes: '2', offers: 'One family at a time', openPicks: 'By hand', ready: 'Keep them paused', tests: 'Normal results only' },
   pricing: { pet: '$3,200', male: '$3,400', female: '$3,200', deposit: '$500', fullReg: '+$1,000', readyAt: '8 weeks', depositsOpen: 'When picks open', priceBy: 'Same for both sexes', depositDue: 'Within 3 days of their pick', balanceDue: 'At pickup' },
-  payments: { methods: 'Venmo, Zelle, cash', card: 'Not taken' },
+  payments: { methods: 'Venmo, Zelle, cash', card: 'Not taken', instructions: 'Zelle to 555-0100 or Venmo @thornfield', final: 'Cash or Zelle only' },
 };
 const QS = {
   waitlist: [
@@ -1089,6 +1091,8 @@ const PRICE_Q = {
   balanceDue: ['Balance due', ['At pickup', '1 week before pickup', '2 weeks before pickup']],
   methods: ['They can pay by', ['Venmo, Zelle, cash', 'Venmo, Zelle, cash, check', 'Zelle and cash only', 'Cash only']],
   card: ['Card payments online', ['Not taken', 'Taken, family pays the fee', 'Taken, I pay the fee']],
+  instructions: ['Payment instructions', ['None', 'Zelle to 555-0100 or Venmo @thornfield']],
+  final: ['Final payment', ['Same as other payments', 'Cash or Zelle only', 'Cash only']],
 };
 const SCHEDULES = [
   { id: 'std', n: 'Usual', usual: true, used: 3, s: () => `${SET.pricing.deposit} deposit ${SET.pricing.depositDue.toLowerCase()} · balance ${SET.pricing.balanceDue.toLowerCase()}` },
@@ -1098,7 +1102,7 @@ const SCHEDULES = [
 /* answers she can type herself (D10): amounts, times and lists she names end in a +.
    What she types becomes one of her choices. Fixed questions (yes or no, same or
    different) keep their choices. */
-const OWN_VALUE = { waitlist: ['fee', 'feeDays', 'respond', 'passes', 'openPicks'], pricing: ['pet', 'male', 'female', 'deposit', 'fullReg', 'readyAt', 'depositsOpen', 'depositDue', 'balanceDue'], payments: ['methods'] };
+const OWN_VALUE = { waitlist: ['fee', 'feeDays', 'respond', 'passes', 'openPicks'], pricing: ['pet', 'male', 'female', 'deposit', 'fullReg', 'readyAt', 'depositsOpen', 'depositDue', 'balanceDue'], payments: ['methods', 'instructions', 'final'] };
 const MONEY_Q = ['fee', 'pet', 'male', 'female', 'deposit', 'fullReg'];
 const OWN_HINT = { fee: '$175', pet: '$3,600', male: '$3,800', female: '$3,600', deposit: '$400', fullReg: '+$750', readyAt: '12 weeks', feeDays: '10 days', respond: '4 days', passes: '4', openPicks: 'At 4 weeks', depositsOpen: 'At 4 weeks', depositDue: 'Within 5 days of their pick', balanceDue: '3 days before pickup', methods: 'Venmo, PayPal, check' };
 const qOpts = (k, qk) => (QS[k] || []).find((x) => x[0] === qk)?.[2] || PRICE_Q[qk]?.[1] || [];
@@ -1271,7 +1275,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1657,6 +1661,7 @@ S.dogsec = (p) => {
       : empty('shield-check', `No health tests for ${d.name} yet.`, 'Log a test', `logtest:${d.id}`);
   } else if (k === 'sale') {
     const s = SALES.find((v) => v.pup === d.name);
+    if (s) action = `<button type="button" class="bar-btn" data-open="saleedit:${d.name.toLowerCase()}">${icon('pencil')}Edit</button>`;
     body = s
       ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Add-ons', addonsTotal(s) ? money(addonsTotal(s)) : 'None'], ['Paid', money(s.paid)], ['Balance', money(saleTotal(s) - s.paid)], ['Go-home', s.gohome], ['Contract', d.name === 'Fern' ? 'Sent, not signed' : s.paid ? 'Signed' : 'Not sent']])}</section>
          <section class="card"><div class="rows">${row({ ic: 'receipt', t: 'Add-ons', s: saleAddons(s).length ? saleAddons(s).map(addonName).join(', ') : 'Transport, boarding, photo sessions, training', end: addonsTotal(s) ? `<span class="amt">${money(addonsTotal(s))}</span>` : '', go: `saleaddons:${d.name.toLowerCase()}` })}${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: d.name === 'Fern' ? 'Sent Nov 9 · remind the Marsh family' : 'Signed through e-sign', go: 'stub:contracts' }) : ''}</div></section>`
@@ -1738,6 +1743,7 @@ function litterSectionsBase(l) {
   return out;
 }
 /* a litter's own prices: each answer is her usual until she picks another (D10's + too) */
+const LP_SPLIT = [['maleDep', 'Male deposit', ['$300', '$500', '$750']], ['femaleDep', 'Female deposit', ['$300', '$500', '$750']], ['fullRegM', 'Full registration, male', ['Not offered', '+$500', '+$1,000', '+$1,500']], ['fullRegF', 'Full registration, female', ['Not offered', '+$500', '+$1,000', '+$1,500']]];
 const LP_Q = [
   ['male', 'Male price', ['$3,000', '$3,200', '$3,400', '$3,600']],
   ['female', 'Female price', ['$3,000', '$3,200', '$3,400', '$3,600']],
@@ -1783,7 +1789,8 @@ const ruledPrice = (l, sex) => {
   fits.filter((r) => r.kind !== 'breed').forEach((r) => { const a = r.unit === 'pct' ? Math.round((base * r.add) / 100) : r.add; total += a; steps.push([ruleName(r), a]); });
   return { total, steps };
 };
-const usualFor = (k, l) => (l && (k === 'male' || k === 'female') ? money(ruledPrice(l, k).total) : usualOf(k));
+const LP_ALIAS = { maleDep: 'deposit', femaleDep: 'deposit', fullRegM: 'fullReg', fullRegF: 'fullReg' };
+const usualFor = (k, l) => (l && (k === 'male' || k === 'female') ? money(ruledPrice(l, k).total) : k === 'split' ? 'Same for both sexes' : usualOf(LP_ALIAS[k] || k));
 const workingLine = (w) => w.steps.map(([n, a], i) => (i ? `${esc(n)} +${money(a)}` : `${esc(n)} ${money(a)}`)).join(' · ') + (w.steps.length > 1 ? ` = <b>${money(w.total)}</b>` : '');
 const rulesFor = (r) => LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(r, l));
 
@@ -1892,7 +1899,8 @@ S.littersec = (p) => {
     const sold = SALES.filter((x) => DOGS.find((d) => d.name === x.pup)?.litter === l.id).length;
     const wk = ['male', 'female'].filter((x) => !l.prices?.[x]).map((x) => [x, ruledPrice(l, x)]).filter(([, w]) => w.steps.length > 1 || w.steps[0][0] !== 'Usual');
     body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}</section>` : ''}
-      <section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
+      <section class="card"><div class="rows">${[...LP_Q.slice(0, 2), ['split', 'Deposit and full registration', ['Same for both sexes', 'Different by sex']], ...(l.prices?.split === 'Different by sex' ? LP_SPLIT : LP_Q.slice(2))].map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
+      ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div><small class="f-hint">Prefilled from your timing</small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
       ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
       <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button>`;
   } else {
@@ -1943,9 +1951,9 @@ S.pricing = () => {
       <div class="group-label">Deposit and timing</div>
       <section class="card"><div class="rows">${pq('deposit')}${pq('depositsOpen')}${pq('depositDue')}${pq('balanceDue')}${pq('readyAt')}</div></section>
       <div class="group-label">Ways families pay</div>
-      <section class="card"><div class="rows">${pay('methods')}${pay('card')}</div></section>
-      <div class="label-row"><div class="group-label">Saved schedules</div><button type="button" class="set-link" data-open="stub:new-schedule">${icon('plus')}New schedule</button></div>
-      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: 'stub:payment-schedule' })).join('')}</div></section>
+      <section class="card"><div class="rows">${pay('methods')}${pay('instructions')}${pay('final')}${pay('card')}</div></section>
+      <div class="label-row"><div class="group-label">Saved schedules</div><button type="button" class="set-link" data-open="schedule:new">${icon('plus')}New schedule</button></div>
+      <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: `schedule:${x.id}` })).join('')}</div></section>
       ${FEAT.invoicing ? `<div class="group-label">Add-on payments</div>
       <section class="card"><div class="rows">${ADDON_GROUPS.filter((g) => !g.fixed).map((g) => row({ ic: 'sliders-horizontal', t: esc(g.n), s: payText(g.plan, g.own), go: `addongroup:${g.id}` })).join('')}${ADDONS.filter((a) => !a.built && (!a.group || a.plan !== undefined || typeof a.own === 'boolean')).map((a) => row({ ic: a.ic, t: esc(a.n), s: payText(planOf(a), ownOf(a)), go: `addon:${a.id}` })).join('')}</div></section>` : ''}`,
   };
@@ -2809,7 +2817,8 @@ S.sidesale = (fid) => {
       ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>Holds the current turn. <button type="button" class="link" data-open="wloffer">Record via their offer</button></span></div>` : `
       <section class="card app-card">${fChips('pup', 'Pup', pups.map((d) => [d.id, `${d.name} · ${d.sex === 'm' ? 'M' : 'F'}${d.disp !== 'available' ? ' · ' + DISP[d.disp][0].toLowerCase() : ''}`]))}</section>
       ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Preferences will be updated' : 'Update preferences to match'}</button>` : ''}</span></div>`).join('')}
-      <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
+      <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`], ['Co-own', 'Co-own'], ['None', 'None']])}
+        ${p && fm.reg !== 'Limited' ? fChips('setreg', '', [['1', `Also set ${p.name}’s registration to ${fm.reg}`]], { toggle: 1 }) : ''}
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
         <p class="f-hint">${!p ? 'Prefilled from the litter' : fm.price !== auto || fm.dep !== autoDep ? 'Custom for this sale · <button type="button" class="link" data-sreset-price>Reset</button>' : 'Prefilled from the litter'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
@@ -3126,6 +3135,73 @@ S.place = (id) => {
   };
 };
 
+
+/* ================= Saved payment schedules (live: Kennel.payment_schedules) ================= */
+/* each due date: when (at an age, on a date, before pickup, at pickup), what it covers,
+   and how much: a percent of the total or of what remains, or an amount that earlier money
+   can or can't cover. The last is always the rest of everything (paymentSchedule.js). */
+const SCH_DUE = [['at_weeks', 'At an age', 'Weeks old'], ['on_date', 'On a date', ''], ['before_pickup', 'Before pickup', 'Days before'], ['at_pickup', 'At pickup', '']];
+const SCH_COVERS = [['all', 'Everything'], ['price', 'Purchase price'], ['boarding', 'Boarding'], ['extras', 'Add-ons'], ['transport', 'Transport']];
+const SCH_KIND = [['pct_total', '% of total'], ['pct_remaining', '% of the rest'], ['amt', '$, any money'], ['amt_fresh', '$, new payments']];
+SCHEDULES[0].steps = [{ due: 'at_pickup' }];
+SCHEDULES[1].steps = [{ due: 'at_weeks', n: 5, covers: ['price'], kind: 'pct_remaining', val: 50 }, { due: 'at_pickup' }];
+SCHEDULES[2].steps = [{ due: 'at_weeks', n: 4, covers: ['all'], kind: 'amt_fresh', val: 500 }, { due: 'at_weeks', n: 6, covers: ['all'], kind: 'amt_fresh', val: 500 }, { due: 'at_pickup' }];
+const stepWhen = (st) => st.due === 'at_weeks' ? `at ${st.n} weeks` : st.due === 'before_pickup' ? `${st.n} days before pickup` : st.due === 'on_date' ? `on ${short(st.date)}` : 'at pickup';
+const schedText = (steps) => [...steps.slice(0, -1).map((st) => `${st.kind.startsWith('pct') ? `${st.val}%${st.kind === 'pct_remaining' ? ' of the rest' : ''}` : money(st.val)} ${stepWhen(st)}`), `the rest ${stepWhen(steps.at(-1))}`].join(' · ');
+const schFill = (fm, steps) => { steps.forEach((st, i) => { fm[`d${i}due`] = st.due; fm[`d${i}n`] = str(st.n); fm[`d${i}date`] = st.date || ''; fm[`d${i}cov`] = [...(st.covers || ['all'])]; fm[`d${i}kind`] = st.kind || 'pct_total'; fm[`d${i}val`] = str(st.val); }); fm.nd = steps.length; return fm; };
+const schSteps = (fm) => Array.from({ length: fm.nd }, (_, i) => ({ due: fm[`d${i}due`], n: fm[`d${i}n`], date: fm[`d${i}date`], covers: fm[`d${i}cov`] || ['all'], kind: fm[`d${i}kind`] || 'pct_total', val: fm[`d${i}val`] }));
+S.schedule = (id) => {
+  const x = SCHEDULES.find((y) => y.id === id), fresh = !x;
+  const fm = formFor('schedule:' + id, () => schFill({ n: x?.n || '', usual: x?.usual ? 'yes' : 'no' }, x?.steps || [{ due: 'at_weeks', n: 6, covers: ['all'], kind: 'pct_total', val: 50 }, { due: 'at_pickup' }]));
+  const steps = schSteps(fm);
+  const stepCard = (st, i) => {
+    const last = i === steps.length - 1, due = SCH_DUE.find((d) => d[0] === st.due);
+    return `<section class="card app-card"><div class="f-head"><h2>${last ? 'Final payment' : `Payment ${i + 1}`}</h2><span>${last ? 'The rest of everything' : ''}</span></div><div class="form-stack">
+      <div class="dates">${fSel(`d${i}due`, 'When', SCH_DUE.map(([v, t]) => [v, t]))}${due[2] ? fIn(`d${i}n`, due[2], { type: 'number' }) : st.due === 'on_date' ? fIn(`d${i}date`, 'Date', { type: 'date' }) : ''}</div>
+      ${last ? '' : `${fChips(`d${i}cov`, 'Covers', SCH_COVERS, { multi: 1 })}<div class="dates">${fSel(`d${i}kind`, 'How much', SCH_KIND)}${fIn(`d${i}val`, st.kind.startsWith('pct') ? 'Percent' : 'Amount ($)', { type: 'number' })}</div>
+      <div class="sa-btns" style="justify-content:flex-end"><button type="button" class="link" data-schstep="rm|${i}">Remove</button></div>`}
+    </div></section>`;
+  };
+  return {
+    bar: bar(fresh ? 'New schedule' : x.n, { sub: 'Saved schedule' }),
+    body: `${formCard('', fIn('n', 'Name', { req: 1, ph: 'Transported pup' }))}
+      ${steps.map(stepCard).join('')}
+      <button type="button" class="set-link" data-schstep="add">${icon('plus')}Add a due date</button>
+      <p class="f-hint">${esc(schedText(steps.map((st) => ({ ...st, n: Number(st.n) || 0, val: Number(st.val) || 0 }))))}</p>
+      <section class="card app-card">${fChips('usual', 'Used on new sales', [['yes', 'Yes'], ['no', 'No']])}</section>
+      ${saveBar(`data-schsave="${esc(id)}"`)}
+      ${x && !x.usual ? delRow(`data-schdel="${x.id}"`, 'Delete schedule', 'Sales that use it keep their dates') : ''}`,
+  };
+};
+
+/* ================= Sale details: every field a sale carries (live: Sale) ================= */
+const SALE_ST = [['deposit_pending', 'Deposit pending'], ['deposit_paid', 'Deposit paid'], ['paid_in_full', 'Paid in full'], ['delivered', 'Delivered'], ['returned', 'Returned'], ['cancelled', 'Cancelled'], ['voided', 'Voided']];
+const END_REASONS = { voided: [['pup_died', 'Pup died'], ['failed_health_check', 'Failed a health check'], ['buyer_backed_out', 'Buyer backed out, refunded'], ['other', 'Other']], returned: [['health_problem', 'Health problem (guarantee)'], ['buyer_choice', 'Buyer’s choice'], ['other', 'Other']], cancelled: [] };
+const PAY_ACCTS = [['', 'Not recorded'], ['venmo', 'Venmo'], ['zelle', 'Zelle'], ['stripe', 'Stripe'], ['cash', 'Cash']];
+const CHANNELS = [['', 'Direct'], ['gooddog', 'Good Dog'], ['puppyfind', 'PuppyFind']];
+const REGS = [['Limited', 'Limited'], ['Full', 'Full'], ['Co-own', 'Co-own'], ['None', 'None']];
+S.saleedit = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0];
+  const st0 = s.status || (s.paid >= saleTotal(s) ? 'paid_in_full' : s.paid > 0 ? 'deposit_paid' : 'deposit_pending');
+  const fm = formFor('saleedit:' + s.pup, () => ({ status: st0, date: s.date, reg: s.reg || 'Limited', price: str(s.price), dep: str(s.deposit ?? 500), depDate: s.depDate || s.date, depVia: s.depVia || 'zelle', sched: s.sched || '', balDue: s.balDue || '', balPaid: s.balPaid || '', balVia: s.balVia || '', channel: s.channel || '', fee: str(s.fee || ''), feeBuyer: s.feeBuyer ? 'yes' : 'no', lead: s.lead || 'Waitlist', ref: s.ref || '', end: s.end || '', endNote: s.endNote || '', refund: str(s.refund || ''), refundDate: s.refundDate || '', notes: s.notes || '' }));
+  const ended = ['returned', 'cancelled', 'voided'].includes(fm.status);
+  return {
+    bar: bar('Sale details', { sub: `${s.pup} · ${fam(s.fam).n}` }),
+    body: `${formCard('Sale', `${fSel('status', 'Status', SALE_ST)}<div class="dates">${fIn('date', 'Sale date', { type: 'date' })}</div>${fChips('reg', 'Registration', REGS)}
+        <div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}</div>`)}
+      ${formCard('Deposit', `<div class="dates">${fIn('dep', 'Amount ($)', { type: 'number' })}${fIn('depDate', 'Received', { type: 'date' })}</div>${fSel('depVia', 'Paid via', PAY_ACCTS)}`)}
+      ${formCard('Balance', `${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}
+        ${fm.sched ? `<small class="f-hint">${esc(schedText(SCHEDULES.find((x) => x.id === fm.sched).steps))}</small>` : `<div class="dates">${fIn('balDue', 'Due', { type: 'date' })}</div>`}
+        <div class="dates">${fIn('balPaid', 'Paid in full on', { type: 'date' })}</div>${fSel('balVia', 'Paid via', PAY_ACCTS)}
+        <button type="button" class="set-link" data-open="stub:payments">${icon('wallet')}Payments · ${money(s.paid)} received</button>`)}
+      ${formCard('Sold through', `${fSel('channel', 'Channel', CHANNELS)}${fm.channel ? `<div class="dates">${fIn('fee', 'Processing fee ($)', { type: 'number' })}</div>${fChips('feeBuyer', 'Fee paid by', [['no', 'Kennel'], ['yes', 'Buyer']])}` : ''}`)}
+      ${formCard('Source', `${fIn('lead', 'Lead source')}${fSel('ref', 'Referred by', [['', 'Nobody'], ...PEOPLE_OF().slice(0, 6).map((p) => [p.id, p.n])])}`)}
+      ${ended ? formCard('Ended', `${END_REASONS[fm.status].length ? fChips('end', 'Reason', END_REASONS[fm.status]) : ''}${fIn('endNote', 'Note')}<div class="dates">${fIn('refund', 'Refund ($)', { type: 'number' })}${fIn('refundDate', 'Refunded on', { type: 'date' })}</div>`) : ''}
+      ${formCard('', fText('notes', 'Notes'))}
+      ${saveBar(`data-salesave="${esc(s.pup)}"`)}`,
+  };
+};
+
 /* one sale's add-ons: every cost outside the puppy's price */
 S.saleaddons = (pup) => {
   const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], list = saleAddons(s);
@@ -3134,10 +3210,12 @@ S.saleaddons = (pup) => {
     const cur = has(a.id), key = 'sa|' + a.id, open = ui.pAct === key;
     let edit = '';
     if (open) {
-      if (a.id !== 'transport') formFor(`sa:${s.pup}:${a.id}`, () => ({ amount: String(cur ? cur.amount : a.price), days: String(cur?.days || 3), qty: String(cur?.qty || 1) }));
+      if (a.id !== 'transport' && a.id !== 'boarding') formFor(`sa:${s.pup}:${a.id}`, () => ({ amount: String(cur ? cur.amount : a.price), days: String(cur?.days || 3), qty: String(cur?.qty || 1) }));
       const tq = a.id === 'transport' ? formFor(`sa:${s.pup}:transport`, () => ({ by: cur?.by || TRANSPORT.by, partner: cur ? cur.partner || '' : TRANSPORT.partner, qty: str(cur?.qty || ''), amount: cur && cur.by !== 'third' && cur.qty ? str(cur.amount) : cur?.by === 'third' ? str(cur.amount || '') : '', vendor: str(cur?.vendor), got: cur?.got ? 'yes' : 'no' })) : null;
       const pt = tq && partnerOf(tq.partner), rw = tq && rewardOf({ by: tq.by, partner: tq.partner, vendor: Number(tq.vendor) });
-      const fields = tq ? (tq.by === 'third'
+      const bq = a.id === 'boarding' ? formFor(`sa:${s.pup}:boarding`, () => ({ freq: cur?.freq || 'Day', days: str(cur?.days || 3), amount: str(cur ? cur.rate ?? cur.amount / (cur.days || 1) : a.price), dur: cur?.dur || '' })) : null;
+      const fields = bq ? `${fChips('freq', 'Charged per', [['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month']])}<div class="dates">${fIn('amount', `Rate ($ a ${bq.freq.toLowerCase()})`, { type: 'number' })}${fIn('days', `${bq.freq}s`, { type: 'number' })}</div>${fIn('dur', 'Duration note', { ph: '10–14 days' })}`
+        : tq ? (tq.by === 'third'
           ? `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}${fChips('partner', 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']])}
             <div class="dates">${pt && pt.rUnit === 'pct' ? fIn('vendor', 'Their price ($)', { type: 'number' }) : ''}${fIn('amount', 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>
             ${pt ? `<small class="f-hint">${rw != null ? `Reward: ${money(rw)} (${rewardText(pt)})` : `Reward: ${rewardText(pt)}`}</small>${fChips('got', 'Reward', [['no', 'Expected'], ['yes', 'Received']])}` : '<small class="f-hint">No reward tracked</small>'}`
@@ -3155,7 +3233,7 @@ S.saleaddons = (pup) => {
       edit = `<div class="q-edit sa-edit"><div class="form-stack">${fields}</div>
         <div class="sa-btns">${cur ? `<button type="button" class="chip" data-sado="remove|${a.id}|${s.pup}">Remove</button>` : ''}<button type="button" class="chip go" data-sado="save|${a.id}|${s.pup}">${cur ? 'Update' : 'Add'}</button></div></div>`;
     }
-    return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic${cur ? ' green' : ''}">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${a.n}</span><span class="row-s">${cur && a.id === 'transport' ? transportSub(cur) : cur ? (cur.days ? `${cur.days} days × ${money(cur.amount / cur.days)}` : cur.qty > 1 ? `${cur.qty} × ${money(cur.amount / cur.qty)}` : 'Added') : addonPrice(a)}</span></span><span class="row-end">${cur ? (cur.amount || a.id !== 'transport' ? `<span class="amt">${money(cur.amount)}</span>` : '') : '<span class="link">Add</span>'}<span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>${edit}</div>`;
+    return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic${cur ? ' green' : ''}">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${a.n}</span><span class="row-s">${cur && a.id === 'transport' ? transportSub(cur) : cur && a.id === 'boarding' ? `${cur.days} ${(cur.freq || 'Day').toLowerCase()}${cur.days === 1 ? '' : 's'} × ${money(cur.rate ?? cur.amount / (cur.days || 1))}${cur.dur ? ` · ${esc(cur.dur)}` : ''}` : cur ? (cur.days ? `${cur.days} days × ${money(cur.amount / cur.days)}` : cur.qty > 1 ? `${cur.qty} × ${money(cur.amount / cur.qty)}` : 'Added') : addonPrice(a)}</span></span><span class="row-end">${cur ? (cur.amount || a.id !== 'transport' ? `<span class="amt">${money(cur.amount)}</span>` : '') : '<span class="link">Add</span>'}<span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>${edit}</div>`;
   };
   const custom = list.filter((x) => x.id === 'custom');
   const cOpen = ui.pAct === 'sa|custom', cfm = cOpen ? formFor(`sa:${s.pup}:custom`, () => ({ label: '', amount: '' })) : null;
@@ -4206,7 +4284,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -4265,6 +4343,7 @@ document.addEventListener('click', (e) => {
     ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
   if (d.pldel) { PLACES.splice(PLACES.findIndex((x) => x.id === d.pldel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.ldsave) { const l = LITTERS.find((x) => x.id === d.ldsave), fm = ui.form; if (fm.open && fm.ready && fm.ready < fm.open) return toast('Ready date is before deposits open'); Object.assign(l, { depOpen: fm.open, openTime: fm.time, ready: fm.ready || l.ready }); toast('Saved'); return; }
   if (d.prsave) {
     const fm = ui.form; let r = PRICE_RULES.find((x) => x.id === d.prsave);
     const next = { kind: fm.kind, on: fm.on === 'on' ? 1 : 0 };
@@ -4284,6 +4363,41 @@ document.addEventListener('click', (e) => {
     Object.assign(r, next); ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
   if (d.prdel) { PRICE_RULES.splice(PRICE_RULES.findIndex((x) => x.id === d.prdel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.schstep) {
+    const [act, i] = d.schstep.split('|'), fm = ui.form, steps = schSteps(fm);
+    if (act === 'add') steps.splice(steps.length - 1, 0, { due: 'at_weeks', n: '', covers: ['all'], kind: 'pct_total', val: '' });
+    else steps.splice(Number(i), 1);
+    for (let k = 0; k <= fm.nd; k++) ['due', 'n', 'date', 'cov', 'kind', 'val'].forEach((x) => delete fm[`d${k}${x}`]);
+    schFill(fm, steps); render(); return;
+  }
+  if (d.schsave) {
+    const fm = ui.form; let x = SCHEDULES.find((y) => y.id === d.schsave);
+    if (!(fm.n || '').trim()) return toast('Name is required');
+    const steps = schSteps(fm);
+    for (const st of steps) {
+      if (['at_weeks', 'before_pickup'].includes(st.due) && st.n === '') return toast(`${SCH_DUE.find((q) => q[0] === st.due)[2]} is required`);
+      if (st.due === 'on_date' && !st.date) return toast('Date is required');
+    }
+    for (const st of steps.slice(0, -1)) { if (!(Number(st.val) > 0)) return toast(st.kind.startsWith('pct') ? 'Percent is required' : 'Amount is required'); if (!st.covers.length) return toast('Choose what it covers'); }
+    const fresh = !x;
+    if (!x) { x = { id: 's' + (SCHEDULES.length + 1), used: 0 }; SCHEDULES.push(x); }
+    if (fm.usual === 'yes') SCHEDULES.forEach((y) => { y.usual = false; });
+    x.n = fm.n.trim(); x.usual = fm.usual === 'yes';
+    x.steps = steps.map((st, i) => (i === steps.length - 1 ? { due: st.due, n: Number(st.n) || undefined, date: st.date || undefined } : { due: st.due, n: Number(st.n) || undefined, date: st.date || undefined, covers: st.covers, kind: st.kind, val: Number(st.val) }));
+    x.s = () => schedText(x.steps);
+    if (!SCHEDULES.some((y) => y.usual)) SCHEDULES[0].usual = true;
+    ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
+  }
+  if (d.schdel) { SCHEDULES.splice(SCHEDULES.findIndex((y) => y.id === d.schdel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.salesave) {
+    const fm = ui.form, s = SALES.find((x) => x.pup === d.salesave), price = Number(fm.price), dep = Number(fm.dep);
+    if (!(price > 0)) return toast('Price is required');
+    if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
+    if (['returned', 'voided'].includes(fm.status) && !fm.end) return toast('Reason is required');
+    if (fm.refund !== '' && !(Number(fm.refund) >= 0)) return toast('Refund can’t be negative');
+    Object.assign(s, { status: fm.status, date: fm.date, reg: fm.reg, price, deposit: dep, depDate: fm.depDate, depVia: fm.depVia, sched: fm.sched, balDue: fm.balDue, balPaid: fm.balPaid, balVia: fm.balVia, channel: fm.channel, fee: Number(fm.fee) || 0, feeBuyer: fm.feeBuyer === 'yes', lead: fm.lead, ref: fm.ref, end: fm.end, endNote: fm.endNote, refund: Number(fm.refund) || 0, refundDate: fm.refundDate, notes: fm.notes });
+    ui.formSpec = null; back(); toast('Saved'); return;
+  }
   if (d.planstep) {
     const [act, i] = d.planstep.split('|'), fm = ui.form, steps = planSteps(fm);
     if (act === 'add') steps.push({ pct: steps.length ? '' : '100', due: steps.length ? 'before_pickup' : 'with_balance', n: '' });
@@ -4349,7 +4463,7 @@ document.addEventListener('click', (e) => {
     }
     const a = ADDONS.find((x) => x.id === aid), rate = Number(fm.amount);
     if (!(rate >= 0) || fm.amount === '') return toast('Price is required');
-    const x = a.unit === 'day' ? { id: aid, days: Number(fm.days) || 1, amount: rate * (Number(fm.days) || 1) } : a.unit === 'mile' ? { id: aid, qty: Number(fm.qty) || 1, amount: rate * (Number(fm.qty) || 1) } : { id: aid, amount: rate };
+    const x = a.unit === 'day' ? { id: aid, freq: fm.freq || 'Day', rate, dur: (fm.dur || '').trim() || undefined, days: Number(fm.days) || 1, amount: rate * (Number(fm.days) || 1) } : a.unit === 'mile' ? { id: aid, qty: Number(fm.qty) || 1, amount: rate * (Number(fm.qty) || 1) } : { id: aid, amount: rate };
     const i = list.findIndex((y) => y.id === aid); if (i < 0) list.push(x); else list[i] = x;
     ui.pAct = null; ui.formSpec = null; render(); toast(i < 0 ? 'Added' : 'Updated'); return;
   }

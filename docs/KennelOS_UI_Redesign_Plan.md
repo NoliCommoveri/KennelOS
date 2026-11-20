@@ -355,4 +355,31 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   she hasn't set her own) and the new kennel fields (`price_rules`, and the usual price
   itself) need sync classes. Breed needs each litter's breed (from its parents). Other
   rule kinds (titles, color, health results) fit the same shape.
+- **Field coverage: Pricing and sales (2026-11-20).** Traced against live so nothing
+  automation reads is lost; now in the prototype:
+  - Saved schedules (`S.schedule`, live `Kennel.payment_schedules`): due (`at_weeks`,
+    `on_date`, `before_pickup`, `at_pickup`), `n` / `due_date`, `covers`, percent of total or
+    remaining (`basis`) or an amount that earlier money can or can't cover (`prior_funds`);
+    the last step is always 100% of all.
+  - Pricing and schedules: payment instructions (`waitlist_config.payment_instructions`) and
+    the final payment (`Kennel.final_payment_methods`).
+  - A litter's Pricing: deposit and full registration by sex (`expected_deposit_*`,
+    `full_reg_surcharge_*`), and its dates (`accept_deposits_date`, `picks_open_time`,
+    `estimated_ready_date`), which the offers, countdowns, pickup times and boarding read.
+  - Sale details (`S.saleedit`): `status`, `sale_date`, `registration_type` (all four),
+    `price`, deposit (`deposit_amount`, `deposit_date`, `deposit_paid_via_account_id`),
+    `payment_schedule` or `balance_due_date`, `balance_paid_date`,
+    `balance_paid_via_account_id`, `sales_channel_account_id`, `processing_fee_amount`,
+    `fee_passed_to_buyer`, `lead_source`, `referred_by_contact_id`, `end_reason`, `end_note`,
+    `refund_amount`, `refund_date`, `notes`. Payments (`payments[]`) are a row still to draw.
+  - Side sale: Co-own and None registrations, and "Also set the pup's registration"
+    (live `updateRegistration`).
+  - Boarding on a sale: per Day / Week / Month and a duration note
+    (`deferred_boarding_frequency`, `deferred_boarding_duration_days`).
+  **Open for the owner:** (1) "Used on new sales" puts a saved schedule on every new sale;
+  live decided a sale never starts with one (Payment Schedule plan D23). (2) Pricing's
+  Deposit due is live's turn length (`respond_days`, the waitlist's "Time to answer an
+  offer"): one setting shown in two places, or two settings. (3) Her usual price, deposit,
+  ready age, deposits-open and balance-due rules are new kennel fields (live keeps these per
+  litter or per sale), each needing a sync class.
 
