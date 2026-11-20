@@ -2086,7 +2086,7 @@ omitted. Read-only, through the repos.
   the same models with the vendored jsPDF (`assets/puppyRecordPdf.js`, Helvetica, US Letter,
   each record on a new page, health columns flowing onto the next page) and hands the file
   to the share sheet (`navigator.share` with files), or downloads it where files can't be
-  shared. It's the way out when the print dialog won't open (an iPhone home-screen app).
+  shared (`assets/pdfShare.js`, shared with the Invoice page, §24). It's the way out when the print dialog won't open (an iPhone home-screen app).
   The file is made as soon as the page is drawn, so the tap reaches the share sheet at once;
   if a share is refused for want of a tap, the page says to tap again.
   `tests/puppyRecordPdf.test.js` fails when the page builds a section kind the PDF doesn't
@@ -2122,6 +2122,13 @@ rebuilt on each view.
   Latin-1). The middle column is `colLabel`: Due by (invoices), Received (a family's
   receipts: date and method), none (a stud receipt). A family's documents end with an
   **Account summary** (`summary`).
+- **The page's PDF button** is **Share PDF** where the device can hand files to the share
+  sheet (an iPhone, where Print can't open from the home-screen app) and **Download PDF**
+  elsewhere (`assets/pdfShare.js`, shared with the Puppy Record, §23). The file is made as
+  soon as the page is drawn, so the tap reaches the share sheet at once; a share refused for
+  want of a tap says to tap again. **Print** is the browser's own print.
+  The waitlist family page's **Documents** list (each invoice and receipt) uses the same
+  Share PDF / Download PDF step, making each file on its first tap and keeping it.
 - **A family's money** (`data/familyMoney.js`, Pro-only, pure but its loaders):
   `familyAccount({ entry, statement, sale })` → `charges` (the entry's application fee, and
   the sale's pieces, §21.3: each charge by due date, with the money on it and what's owed),

@@ -6834,3 +6834,24 @@ it goes on `main`.
 - Docs: End-State guide §23.
 - **Service worker:** `assets/puppyRecordPdf.js` added to `PRECACHE_URLS` and `proPages.js`
   (Lite drops it); `CACHE_NAME` v166 → v167 so installed devices get Share as PDF.
+
+## 2026-11-20: Invoice page — Share PDF on iPhone
+
+- The Invoice page's **Download PDF** (opened from Financials, a sale or a waitlist family)
+  downloads a file, which an iPhone home-screen app can't do usefully. It now reads
+  **Share PDF** where the device can hand files to the share sheet and opens it, and stays
+  **Download PDF** elsewhere. The file is made as soon as the page is drawn, as on the
+  Puppy Record, so the tap reaches the share sheet at once.
+- The share-or-download step is now one module, `assets/pdfShare.js`, used by the Invoice
+  page and the Puppy Record's Share as PDF.
+- `node --test`: 2384 pass. Checked in Chromium on a computer (both PDFs download) and at
+  iPhone size with a stand-in share sheet (both PDFs reach it), no errors.
+- The waitlist family page's Documents list (an invoice and a receipt per charge) had its
+  own Download PDF buttons; they now share the same way (Share PDF on iPhone), each file
+  made on its first tap and kept, with the PDF library loaded when the list draws.
+- Checked in Chromium: Financials → Invoice / Receipt → Generate, for an invoice and a
+  receipt, at iPhone size (Share PDF, both reach a stand-in share sheet); the waitlist
+  family page's receipt (shares on iPhone size, downloads on a computer). No errors.
+- Docs: End-State guide §23, §24.
+- **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`;
+  `CACHE_NAME` v167 → v168 so installed devices get it.
