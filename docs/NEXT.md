@@ -296,6 +296,14 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   month. Three questions for the owner are listed there.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: More price rules
+
+- D17's same-day note. Prototype: rule kinds A parent, Parent title (any or CH, GCH, CGC,
+  MH) and Registry (AKC, CKC, UKC, not registered), by either, dam, sire or both; imported
+  parent takes Both; rules add or subtract. Samples: Ash as a parent +$250, GCH either
+  parent +$400 (Titan), CKC both parents −$300. Color rules waiting on the owner.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

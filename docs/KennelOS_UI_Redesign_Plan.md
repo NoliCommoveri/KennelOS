@@ -354,7 +354,13 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   nothing downstream changes; when they fill it (on creating the litter, and again while
   she hasn't set her own) and the new kennel fields (`price_rules`, and the usual price
   itself) need sync classes. Breed needs each litter's breed (from its parents). Other
-  rule kinds (titles, color, health results) fit the same shape.
+  rule kinds (health results) fit the same shape.
+  **Same day:** more rule kinds: **a parent** (a specific dog as the dam or sire), **parent
+  title** (any title or one, `Dog.titles`, held by either, the dam, the sire or both), and
+  **registry** (`Dog.registry`, AKC, CKC, UKC or not registered, for either, the dam, the
+  sire or both); imported parent also takes Both. Any rule but a breed can **add or
+  subtract**. Color is left out for now: the owner is looking into standard and
+  non-standard colored parents (as Boston Terrier pricing does) before deciding it.
 - **Field coverage: Pricing and sales (2026-11-20).** Traced against live so nothing
   automation reads is lost; now in the prototype:
   - Saved schedules (`S.schedule`, live `Kennel.payment_schedules`): due (`at_weeks`,
