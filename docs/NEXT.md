@@ -465,6 +465,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   for a button's own redraw, and keep her in the box she moved to.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D23, a sale's Add-ons and one-off add-ons
+
+- The owner's D23 in `docs/KennelOS_UI_Redesign_Plan.md` §8. Prototype
+  (`docs/design/forest-look-prototype.html`, published): a saved sale's **Add-ons** uses Add
+  sale's picker (only its add-ons, + Add, Edit amounts; transport keeps partner, their price,
+  reward, Get driving miles and the settings links; boarding its duration note). A list add-on
+  at another price makes a **one-off add-on** (prefilled, never offered), or uses the one-off
+  that already has those values. Business › Add-ons › One-off add-ons lists them, with the
+  sales using each.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

@@ -492,3 +492,22 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   haven't applied). Live sorts only by table column headers, which card lists don't have, so
   Sort joins the shared filter sheet as its first dropdown (§3.1). People and the person picker
   have it; other lists gain their sorts as they're converted (phase 8).
+- **D23. Add-ons on a sale; one-off add-ons (2026-11-20).** The owner: a sale's add-ons, on Add
+  sale and on a saved sale's Add-ons screen, show only the ones on that sale, with **+ Add**
+  (her add-ons by name, and a one-time charge) and **Edit amounts** on each. Transport and
+  boarding are the sale's own and just change. An add-on from her list at another price asks
+  to **make a one-off add-on**, prefilled with everything else the same, because contracts
+  (an Extra agreement's `extra_list_id`) and the statement read the list row live: a one-time
+  charge would lose that. Before making one, a one-off from the same add-on with the same values
+  is used instead, so two sales at $120 share "Photo session ($120)". One-offs are never offered
+  (status pages, her website, new sales, the + list, Pricing's Add-on payments); Business ›
+  Add-ons › **One-off add-ons** lists them with the sales using each. In the prototype:
+  `addonPicker`, `adDo`, `S.saleaddons`, `S.oneoffs`, `oneOffs`, `sameOneOff`.
+  **For the build:** a row of `Kennel.extra_charge_list` gains `one_off` (boolean) and
+  `base_list_id` (the row it came from); both private like the list (`syncRegistry`), optional
+  in backups. Every place that offers extras skips `one_off` rows: the status page's requestable
+  extras, the website feed, new-sale presets and pickers; contracts' form-kind pick
+  (`extraChoices`) lists them under their base. The match is on name, group, unit, price,
+  description, days and payment rules. A one-off is written when the sale is saved, so a sale
+  she abandons leaves none (the prototype makes it at once).
+

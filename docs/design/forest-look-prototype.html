@@ -1311,7 +1311,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -2046,7 +2046,7 @@ S.pricing = () => {
       <div class="label-row"><div class="group-label">Saved schedules</div><button type="button" class="set-link" data-open="schedule:new">${icon('plus')}New schedule</button></div>
       <section class="card"><div class="rows">${SCHEDULES.map((x) => row({ ic: 'calendar-clock', tone: x.usual ? 'green' : '', t: x.n, extra: x.usual ? pill(['Used on new sales', 'green']) : '', s: `${x.s()} · ${x.used ? `on ${x.used} sale${x.used === 1 ? '' : 's'}` : 'not used yet'}`, go: `schedule:${x.id}` })).join('')}</div></section>
       ${FEAT.invoicing ? `<div class="group-label">Add-on payments</div>
-      <section class="card"><div class="rows">${ADDON_GROUPS.filter((g) => !g.fixed).map((g) => row({ ic: 'sliders-horizontal', t: esc(g.n), s: payText(g.plan, g.own), go: `addongroup:${g.id}` })).join('')}${ADDONS.filter((a) => !a.built && (!a.group || a.plan !== undefined || typeof a.own === 'boolean')).map((a) => row({ ic: a.ic, t: esc(a.n), s: payText(planOf(a), ownOf(a)), go: `addon:${a.id}` })).join('')}</div></section>` : ''}`,
+      <section class="card"><div class="rows">${ADDON_GROUPS.filter((g) => !g.fixed).map((g) => row({ ic: 'sliders-horizontal', t: esc(g.n), s: payText(g.plan, g.own), go: `addongroup:${g.id}` })).join('')}${ADDONS.filter((a) => !a.built && !a.oneoff && (!a.group || a.plan !== undefined || typeof a.own === 'boolean')).map((a) => row({ ic: a.ic, t: esc(a.n), s: payText(planOf(a), ownOf(a)), go: `addon:${a.id}` })).join('')}</div></section>` : ''}`,
   };
 };
 
@@ -3013,7 +3013,7 @@ const delRow = (attr, t, s) => `<section class="card big-rows danger"><div class
 /* her defaults, by group */
 S.addons = () => {
   const sect = (g) => {
-    const list = ADDONS.filter((a) => (a.group || '') === (g ? g.id : ''));
+    const list = ADDONS.filter((a) => !a.oneoff && (a.group || '') === (g ? g.id : ''));
     if (!g && !list.length) return '';
     const head = g ? `<div class="label-row"><div class="group-label">${esc(g.n)}</div>${g.fixed ? '<span class="f-hint">Set in Go-home & transport</span>' : ''}</div>` : '<div class="group-label">Not in a group</div>';
     const rules = g && !g.fixed ? row({ ic: 'sliders-horizontal', t: 'Group settings', s: groupLine(g), go: `addongroup:${g.id}` }) : '';
@@ -3022,9 +3022,15 @@ S.addons = () => {
   return {
     bar: bar('Add-ons', { action: addBtn('New add-on', 'addon:new') }),
     body: `${ADDON_GROUPS.map(sect).join('')}${sect(null)}
-      <div class="label-row"><span></span><button type="button" class="set-link" data-open="addongroup:new">${icon('plus')}New group</button></div>`,
+      <div class="label-row"><span></span><button type="button" class="set-link" data-open="addongroup:new">${icon('plus')}New group</button></div>
+      ${oneOffs().length ? `<section class="card"><div class="rows">${row({ ic: 'receipt', t: 'One-off add-ons', s: `${oneOffs().length} made for sales · not offered`, go: 'oneoffs' })}</div></section>` : ''}`,
   };
 };
+
+S.oneoffs = () => ({
+  bar: bar('One-off add-ons', { sub: 'Add-ons' }),
+  body: `<section class="card"><div class="rows">${oneOffs().map((a) => { const u = oneOffUses(a); return row({ ic: a.ic, t: esc(a.n), s: `${addonPrice(a)} · ${u.length ? `on ${u.join(', ')}` : 'on no sales'}`, go: `addon:${a.id}` }); }).join('') || '<p class="lede" style="padding:12px 14px">None.</p>'}</div></section>`,
+});
 
 /* one group: its name, status-page link, request ages and payment rules */
 S.addongroup = (id) => {
@@ -3048,7 +3054,9 @@ S.addongroup = (id) => {
 /* one add-on */
 S.addon = (id) => {
   if (id === 'transport') return S.transport();
-  const a = ADDONS.find((x) => x.id === id), fresh = !a, built = a && a.built;
+  const o = id === 'oneoff' && ui.oneOff, base = o && ADDONS.find((x) => x.id === o.base);
+  const a = ADDONS.find((x) => x.id === id) || (base ? { ...base, n: `${base.n} (${money(o.price)})`, price: o.price, oneoff: 1, on: 0, ask: 0 } : null), fresh = !a || !!o, built = a && a.built;
+  const one = a && a.oneoff;
   const fm = formFor('addon:' + id, () => planFill({
     n: a?.n || '', group: a?.group || '', price: str(a?.price), unit: a?.unit || 'flat', desc: a?.desc || '', days: str(a?.days),
     ask: a?.ask ? 'yes' : 'no', from: str(a?.from), until: str(a?.until), cancel: str(a?.cancel),
@@ -3060,18 +3068,19 @@ S.addon = (id) => {
   if (!g && fm.own === 'group') fm.own = 'no';
   const groupOpts = [['', 'Not in a group'], ...ADDON_GROUPS.filter((x) => !x.fixed).map((x) => [x.id, x.n])];
   return {
-    bar: bar(fresh ? 'New add-on' : a.n, { sub: built ? 'Go-home add-on' : 'Add-on' }),
-    body: `${formCard('', `${built ? '' : fIn('n', 'Name', { req: 1 })}
+    bar: bar(o ? 'One-off add-on' : fresh ? 'New add-on' : a.n, { sub: built ? 'Go-home add-on' : one ? `From ${esc((ADDONS.find((x) => x.id === a.base) || {}).n || '')}` : 'Add-on' }),
+    body: `${one ? `<div class="stub-note">${icon('info')}<span>${o ? 'Prefilled from your add-on. ' : ''}Not offered on status pages, your website or new sales.${!o && oneOffUses(a).length ? ` On ${oneOffUses(a).join(', ')}.` : ''}</span></div>` : ''}
+      ${formCard('', `${built ? '' : fIn('n', 'Name', { req: 1 })}
         ${built ? '' : fSel('group', 'Group', groupOpts)}
         <div class="dates">${fIn('price', 'Default price ($)', { type: 'number' })}${!built && fm.unit === 'flat' ? fIn('days', 'Boarding days included', { type: 'number' }) : ''}</div>
         ${built ? '' : fChips('unit', 'Charged', [['flat', 'Flat'], ['day', 'Per day'], ['mile', 'Per mile']])}
         ${fIn('desc', 'Description', { hint: 'Shown to families' })}`)}
-      ${!built && FEAT.waitlistOnline ? formCard('Requests', `${fChips('ask', 'Requestable on status page', [['yes', 'Yes'], ['no', 'No']])}${fm.ask === 'yes' ? `${agesFields(g)}<small class="f-hint">${g ? `Blank: ${esc(g.n)} ages` : 'Blank: no limit'}</small>` : ''}`) : ''}
+      ${!built && !one && FEAT.waitlistOnline ? formCard('Requests', `${fChips('ask', 'Requestable on status page', [['yes', 'Yes'], ['no', 'No']])}${fm.ask === 'yes' ? `${agesFields(g)}<small class="f-hint">${g ? `Blank: ${esc(g.n)} ages` : 'Blank: no limit'}</small>` : ''}`) : ''}
       ${built ? '' : formCard('Payment', `${fRadio('pm', 'When paid', [...(g ? [['group', 'Same as group', esc(planText(g.plan))]] : []), ['balance', 'With the balance', 'All of it with the sale’s balance'], ['plan', 'Payment plan', 'Payments set below']])}
         ${fRadio('own', 'Due dates', [...(g ? [['group', 'Same as group', g.own ? 'Own dates' : 'The sale’s schedule']] : []), ['no', 'Sale schedule', 'Paid on the sale’s due dates'], ['yes', 'Own dates', 'Paid apart from the sale']])}`)}
       ${!built && fm.pm === 'plan' ? planEditor() : ''}
-      <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
-      ${saveBar(`data-addonsave="${esc(id)}"`)}
+      ${one ? '' : `<section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>`}
+      ${saveBar(`data-addonsave="${esc(id)}"`, o ? 'Make one-off' : 'Save')}
       ${a && !built ? delRow(`data-addondel="${a.id}"`, 'Delete add-on', 'Existing sales keep it') : ''}`,
   };
 };
@@ -3268,50 +3277,16 @@ S.saleedit = (pup) => {
   };
 };
 
-/* one sale's add-ons: every cost outside the puppy's price */
+/* one sale's add-ons: the ones on this sale, + to add one, Edit amounts on each (the same
+   picker as Add sale, working on the saved sale) */
 S.saleaddons = (pup) => {
-  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], list = saleAddons(s);
-  const has = (id) => list.find((x) => x.id === id);
-  const line = (a) => {
-    const cur = has(a.id), key = 'sa|' + a.id, open = ui.pAct === key;
-    let edit = '';
-    if (open) {
-      if (a.id !== 'transport' && a.id !== 'boarding') formFor(`sa:${s.pup}:${a.id}`, () => ({ amount: String(cur ? cur.amount : a.price), days: String(cur?.days || 3), qty: String(cur?.qty || 1) }));
-      const tq = a.id === 'transport' ? formFor(`sa:${s.pup}:transport`, () => ({ by: cur?.by || TRANSPORT.by, partner: cur ? cur.partner || '' : TRANSPORT.partner, qty: str(cur?.qty || ''), amount: cur && cur.by !== 'third' && cur.qty ? str(cur.amount) : cur?.by === 'third' ? str(cur.amount || '') : '', vendor: str(cur?.vendor), got: cur?.got ? 'yes' : 'no' })) : null;
-      const pt = tq && partnerOf(tq.partner), rw = tq && rewardOf({ by: tq.by, partner: tq.partner, vendor: Number(tq.vendor) });
-      const bq = a.id === 'boarding' ? formFor(`sa:${s.pup}:boarding`, () => ({ freq: cur?.freq || 'Day', days: str(cur?.days || 3), amount: str(cur ? cur.rate ?? cur.amount / (cur.days || 1) : a.price), dur: cur?.dur || '' })) : null;
-      const fields = bq ? `${fChips('freq', 'Charged per', [['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month']])}<div class="dates">${fIn('amount', `Rate ($ a ${bq.freq.toLowerCase()})`, { type: 'number' })}${fIn('days', `${bq.freq}s`, { type: 'number' })}</div>${fIn('dur', 'Duration note', { ph: '10–14 days' })}`
-        : tq ? (tq.by === 'third'
-          ? `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}${fChips('partner', 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']])}
-            <div class="dates">${pt && pt.rUnit === 'pct' ? fIn('vendor', 'Their price ($)', { type: 'number' }) : ''}${fIn('amount', 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>
-            ${pt ? `<small class="f-hint">${rw != null ? `Reward: ${money(rw)} (${rewardText(pt)})` : `Reward: ${rewardText(pt)}`}</small>${fChips('got', 'Reward', [['no', 'Expected'], ['yes', 'Received']])}` : '<small class="f-hint">No reward tracked</small>'}`
-          : TRANSPORT.mode === 'flat'
-          ? `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}
-            <div class="dates">${fIn('amount', 'Fee ($)', { type: 'number', ph: str(TRANSPORT.flat) })}</div><small class="f-hint">Prefilled from your flat fee</small>`
-          : `${fChips('by', 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}
-            <div class="dates">${fIn('qty', 'Miles, one way', { type: 'number' })}${fIn('amount', 'Fee ($)', { type: 'number', ph: tq.qty ? str(tQuote(tq.qty).fee ?? '') : '' })}</div>
-            <small class="f-hint">${tq.qty ? `${tQuote(tq.qty).text} · prefilled from your rate` : tPrice()}</small>
-            <div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-sado="miles|transport|${s.pup}">Get driving miles</button></div>`)
-          + `<div class="sa-links">${setLink('Transport settings', 'addon:transport')}${setLink('Pickup places', 'pickupplaces')}</div>`
-        : a.unit === 'day' ? `<div class="dates">${fIn('days', 'Days', { type: 'number' })}${fIn('amount', `Rate ($${a.unit === 'day' ? ' a day' : ''})`, { type: 'number' })}</div>`
-        : a.unit === 'mile' ? `<div class="dates">${fIn('qty', 'Miles', { type: 'number' })}${fIn('amount', 'Rate ($ a mile)', { type: 'number' })}</div>`
-        : `<div class="dates">${fIn('amount', 'Price ($)', { type: 'number' })}</div>`;
-      edit = `<div class="q-edit sa-edit"><div class="form-stack">${fields}</div>
-        <div class="sa-btns">${cur ? `<button type="button" class="chip" data-sado="remove|${a.id}|${s.pup}">Remove</button>` : ''}<button type="button" class="chip go" data-sado="save|${a.id}|${s.pup}">${cur ? 'Update' : 'Add'}</button></div></div>`;
-    }
-    return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic${cur ? ' green' : ''}">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${a.n}</span><span class="row-s">${cur && a.id === 'transport' ? transportSub(cur) : cur && a.id === 'boarding' ? `${cur.days} ${(cur.freq || 'Day').toLowerCase()}${cur.days === 1 ? '' : 's'} × ${money(cur.rate ?? cur.amount / (cur.days || 1))}${cur.dur ? ` · ${esc(cur.dur)}` : ''}` : cur ? (cur.days ? `${cur.days} days × ${money(cur.amount / cur.days)}` : cur.qty > 1 ? `${cur.qty} × ${money(cur.amount / cur.qty)}` : 'Added') : addonPrice(a)}</span></span><span class="row-end">${cur ? (cur.amount || a.id !== 'transport' ? `<span class="amt">${money(cur.amount)}</span>` : '') : '<span class="link">Add</span>'}<span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>${edit}</div>`;
-  };
-  const custom = list.filter((x) => x.id === 'custom');
-  const cOpen = ui.pAct === 'sa|custom', cfm = cOpen ? formFor(`sa:${s.pup}:custom`, () => ({ label: '', amount: '' })) : null;
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0];
+  const fm = formFor('saleaddons:' + s.pup, () => ({}));
+  ui.adSale = s.pup;
   return {
     bar: bar('Add-ons', { sub: `${s.pup} · ${fam(s.fam).n}` }),
     body: `<section class="card">${facts([['Puppy', money(s.price)], ['Add-ons', money(addonsTotal(s))], ['Total', `<b>${money(saleTotal(s))}</b>`], ['Paid', money(s.paid)]])}</section>
-      ${[...ADDON_GROUPS, { id: '', n: 'Other add-ons' }].map((g) => [g, ADDONS.filter((a) => (a.on || has(a.id)) && (a.group || '') === g.id)]).filter(([, l]) => l.length).map(([g, l]) => `<div class="group-label">${esc(g.n)}</div><section class="card"><div class="rows">${l.map(line).join('')}</div></section>`).join('')}
-      <div class="group-label">One-time charges</div><section class="card"><div class="rows">
-        ${custom.map((x, i) => `<div class="row static"><span class="row-ic green">${icon('receipt')}</span><span class="row-main"><span class="row-t">${esc(x.label)}</span><span class="row-s">One-time charge</span></span><span class="row-end"><span class="amt">${money(x.amount)}</span><button type="button" class="link" data-sado="removec|${i}|${s.pup}">Remove</button></span></div>`).join('')}
-        <div class="rem${cOpen ? ' open' : ''}"><button type="button" class="row" data-pact="sa|custom" aria-expanded="${cOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">One-time charge</span><span class="row-s">Not on your add-on list</span></span><span class="row-end"><span class="chev">${icon(cOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>
-          ${cOpen ? `<div class="q-edit sa-edit"><div class="form-stack"><div class="dates">${fIn('label', 'Description')}${fIn('amount', 'Amount ($)', { type: 'number' })}</div></div><div class="sa-btns"><button type="button" class="chip go" data-sado="custom|x|${s.pup}">Add</button></div></div>` : ''}</div>
-      </div></section>
+      ${addonPicker(fm)}
       ${setLink('Edit default add-ons', 'addons')}`,
   };
 };
@@ -3388,27 +3363,38 @@ function prefillPrice(fm, p) {
    add-on from her list at another price is confirmed as a one-time charge for this sale. */
 const draftAdd = (a) => (a.id === 'transport' ? { id: 'transport', by: TRANSPORT.by, partner: TRANSPORT.partner, qty: '', amount: TRANSPORT.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0 }
   : a.id === 'boarding' ? { id: 'boarding', freq: 'Day', days: 3, rate: a.price, amount: a.price * 3 } : { id: a.id, amount: a.price });
-const draftSub = (x) => (x.id === 'transport' ? transportSub(x) : x.id === 'boarding' ? `${x.days} ${x.freq.toLowerCase()}${x.days === 1 ? '' : 's'} × ${money(x.rate)}` : x.id === 'custom' ? 'One-time charge' : 'Your usual price');
+const draftSub = (x) => (x.id === 'transport' ? transportSub(x) : x.id === 'boarding' ? `${x.days} ${(x.freq || 'Day').toLowerCase()}${x.days === 1 ? '' : 's'} × ${money(x.rate ?? x.amount / (x.days || 1))}${x.dur ? ` · ${esc(x.dur)}` : ''}` : x.id === 'custom' ? 'One-time charge' : ADDONS.find((a) => a.id === x.id)?.oneoff ? 'One-off' : 'Your usual price');
+const adList = () => (ui.adSale ? saleAddons(SALES.find((x) => x.pup === ui.adSale)) : (ui.form.adds ||= []));
+const adFam = () => (ui.adSale ? SALES.find((x) => x.pup === ui.adSale).fam : ui.form.pick);
+/* one-offs: an add-on from her list at this sale's own values, kept on her list so contracts
+   and the statement read it like any other, but never offered (status page, website, new
+   sales, this + list). Two sales with the same values share one. */
+const oneOffs = () => ADDONS.filter((a) => a.oneoff);
+const sameOneOff = (base, price) => oneOffs().find((o) => o.base === base && o.price === price);
+const oneOffUses = (o) => SALES.filter((s) => saleAddons(s).some((x) => x.id === o.id)).map((s) => s.pup);
 function addonPicker(fm) {
-  const list = (fm.adds ||= []);
-  const left = ADDONS.filter((a) => a.on && !list.some((x) => x.id === a.id));
+  const list = adList();
+  const left = ADDONS.filter((a) => a.on && !a.oneoff && !list.some((x) => x.id === a.id));
   const pick = ui.pAct === 'ad|pick';
   const rows = list.map((x, i) => {
     const key = 'ad|' + i, open = ui.pAct === key, a = ADDONS.find((y) => y.id === x.id), g = (k) => `ad${i}${k}`;
     let edit = '';
     if (open) {
-      if (fm._adEdit !== key) { fm._adEdit = key; fm._confirm = null; Object.assign(fm, { [g('amount')]: str(x.amount || ''), [g('qty')]: str(x.qty), [g('days')]: str(x.days), [g('rate')]: str(x.rate), [g('freq')]: x.freq || 'Day', [g('by')]: x.by || 'kennel', [g('partner')]: x.partner || '', [g('label')]: x.label || '' }); }
+      if (fm._adEdit !== key) { fm._adEdit = key; fm._confirm = null; Object.assign(fm, { [g('amount')]: str(x.amount || ''), [g('qty')]: str(x.qty), [g('days')]: str(x.days), [g('rate')]: str(x.rate), [g('freq')]: x.freq || 'Day', [g('by')]: x.by || 'kennel', [g('partner')]: x.partner || '', [g('label')]: x.label || '', [g('vendor')]: str(x.vendor), [g('got')]: x.got ? 'yes' : 'no', [g('dur')]: x.dur || '' }); }
+      const pt = x.id === 'transport' && partnerOf(fm[g('partner')]);
       const fields = x.id === 'transport'
         ? `${fChips(g('by'), 'Handled by', [['kennel', 'Kennel'], ['third', 'Third party']])}${fm[g('by')] === 'third'
-          ? `${fChips(g('partner'), 'Partner', [...PARTNERS.map((pt) => [pt.id, pt.n]), ['', 'Unknown']])}<div class="dates">${fIn(g('amount'), 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>`
-          : TRANSPORT.mode === 'flat' ? `<div class="dates">${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div>`
-          : `<div class="dates">${fIn(g('qty'), 'Miles, one way', { type: 'number' })}${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div><small class="f-hint">${tPrice()}</small>`}`
-        : x.id === 'boarding' ? `${fChips(g('freq'), 'Charged per', [['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month']])}<div class="dates">${fIn(g('rate'), `Rate ($ a ${fm[g('freq')].toLowerCase()})`, { type: 'number' })}${fIn(g('days'), `${fm[g('freq')]}s`, { type: 'number' })}</div>`
+          ? `${fChips(g('partner'), 'Partner', [...PARTNERS.map((p) => [p.id, p.n]), ['', 'Unknown']])}<div class="dates">${pt && pt.rUnit === 'pct' ? fIn(g('vendor'), 'Their price ($)', { type: 'number' }) : ''}${fIn(g('amount'), 'Charged on this sale ($)', { type: 'number', ph: '0' })}</div>
+            ${pt ? `<small class="f-hint">Reward: ${rewardText(pt)}</small>${fChips(g('got'), 'Reward', [['no', 'Expected'], ['yes', 'Received']])}` : ''}`
+          : TRANSPORT.mode === 'flat' ? `<div class="dates">${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div><small class="f-hint">Prefilled from your flat fee</small>`
+          : `<div class="dates">${fIn(g('qty'), 'Miles, one way', { type: 'number' })}${fIn(g('amount'), 'Fee ($)', { type: 'number' })}</div><small class="f-hint">${fm[g('qty')] ? tQuote(fm[g('qty')]).text : tPrice()}</small>${adFam() ? `<div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-addo="miles|${i}">Get driving miles</button></div>` : ''}`}
+          <div class="sa-links">${setLink('Transport settings', 'addon:transport')}${setLink('Pickup places', 'pickupplaces')}</div>`
+        : x.id === 'boarding' ? `${fChips(g('freq'), 'Charged per', [['Day', 'Day'], ['Week', 'Week'], ['Month', 'Month']])}<div class="dates">${fIn(g('rate'), `Rate ($ a ${fm[g('freq')].toLowerCase()})`, { type: 'number' })}${fIn(g('days'), `${fm[g('freq')]}s`, { type: 'number' })}</div>${fIn(g('dur'), 'Duration note', { ph: '10–14 days' })}`
         : x.id === 'custom' ? `<div class="dates">${fIn(g('label'), 'Description')}${fIn(g('amount'), 'Amount ($)', { type: 'number' })}</div>`
         : `<div class="dates">${fIn(g('amount'), 'Price ($)', { type: 'number' })}</div>`;
       edit = `<div class="q-edit sa-edit"><div class="form-stack">${fields}</div>
-        ${fm._confirm === i ? `<div class="stub-note warn">${icon('info')}<span>Your usual is ${money(a.price)}. Add ${money(Number(fm[g('amount')]) || 0)} as a one-time charge?</span></div>
-          <div class="sa-btns"><button type="button" class="chip" data-addo="keep|${i}">Keep ${money(a.price)}</button><button type="button" class="chip go" data-addo="custom|${i}">Add one-time charge</button></div>`
+        ${fm._confirm === i ? (() => { const b0 = a.oneoff ? ADDONS.find((y) => y.id === a.base) : a, amt = Number(fm[g('amount')]) || 0, same = sameOneOff(b0.id, amt); return `<div class="stub-note warn">${icon('info')}<span>${same ? `Matches your one-off ${esc(same.n)}.` : `Your usual is ${money(b0.price)}. Make a one-off ${esc(b0.n)} at ${money(amt)}?`}</span></div>
+          <div class="sa-btns"><button type="button" class="chip" data-addo="keep|${i}">Keep ${money(a.price)}</button><button type="button" class="chip go" data-addo="oneoff|${i}">${same ? 'Use it' : 'Make one-off'}</button></div>`; })()
         : `<div class="sa-btns"><button type="button" class="chip" data-addo="rm|${i}">Remove</button><button type="button" class="chip go" data-addo="save|${i}">Update</button></div>`}</div>`;
     }
     return `<div class="rem${open ? ' open' : ''}"><div class="row static"><span class="row-ic green">${icon(a ? a.ic : 'receipt')}</span><span class="row-main"><span class="row-t">${esc(addonName(x) || 'One-time charge')}</span><span class="row-s">${draftSub(x)}</span></span><span class="row-end">${x.amount ? `<span class="amt">${money(x.amount)}</span>` : ''}${open ? `<button type="button" class="link" data-addo="keep|${i}">Done</button>` : `<button type="button" class="link" data-pact="${key}">Edit amounts</button>`}</span></div>${edit}</div>`;
@@ -3418,7 +3404,15 @@ function addonPicker(fm) {
     ${list.length ? `<section class="card"><div class="rows">${rows}</div></section>` : pick ? '' : '<p class="f-hint">None</p>'}`;
 }
 function adDo(spec) {
-  const [act, v] = spec.split('|'), fm = ui.form, list = (fm.adds ||= []), i = Number(v), x = list[i], g = (k) => fm[`ad${i}${k}`];
+  const [act, v] = spec.split('|'), fm = ui.form, list = adList(), i = Number(v), x = list[i], g = (k) => fm[`ad${i}${k}`];
+  if (act === 'miles') { const f = fam(adFam()), q = FAM_MILES[f?.id] ?? fakeMiles(f?.n || ''); fm[`ad${i}qty`] = String(q); fm[`ad${i}amount`] = str(tQuote(q).fee ?? ''); render(); toast(`${q} miles one way`); return; }
+  if (act === 'oneoff') {
+    const a0 = ADDONS.find((y) => y.id === x.id), a = a0.oneoff ? ADDONS.find((y) => y.id === a0.base) : a0, amt = Number(g('amount')) || 0, same = sameOneOff(a.id, amt);
+    if (same) { list[i] = { id: same.id, amount: same.price }; ui.pAct = null; fm._adEdit = null; fm._confirm = null; render(); toast(`Using ${same.n}`); return; }
+    ui.oneOff = { base: a.id, price: amt, i, sale: ui.adSale || null };
+    if (!ui.adSale) ui.stash = { spec: ui.formSpec, form: fm };
+    ui.pAct = null; fm._adEdit = null; fm._confirm = null; ui.formSpec = null; open('addon:oneoff'); return;
+  }
   const close = () => { ui.pAct = null; fm._adEdit = null; fm._confirm = null; render(); };
   if (act === 'add') {
     if (v === 'custom') { list.push({ id: 'custom', label: '', amount: 0 }); ui.pAct = 'ad|' + (list.length - 1); fm._adEdit = null; render(); return; }
@@ -3429,11 +3423,12 @@ function adDo(spec) {
   if (act === 'custom') { list[i] = { id: 'custom', label: ADDONS.find((a) => a.id === x.id).n, amount: Number(g('amount')) || 0 }; close(); return; }
   if (x.id === 'transport') {
     x.by = g('by'); x.partner = x.by === 'third' ? g('partner') : ''; x.qty = Number(g('qty')) || '';
-    x.amount = Number(g('amount')) || (x.by === 'kennel' && x.qty ? tQuote(x.qty).fee || 0 : 0);
+    x.amount = Number(g('amount')) || (x.by === 'kennel' && x.qty ? tQuote(x.qty).fee || 0 : x.by === 'kennel' && TRANSPORT.mode === 'flat' ? TRANSPORT.flat : 0);
+    x.vendor = x.by === 'third' ? Number(g('vendor')) || undefined : undefined; x.got = x.by === 'third' && g('got') === 'yes' ? 1 : 0;
   } else if (x.id === 'boarding') {
     const rate = Number(g('rate')), n = Number(g('days'));
     if (!(rate >= 0) || !(n > 0)) return toast('Rate and length are required');
-    Object.assign(x, { freq: g('freq'), rate, days: n, amount: rate * n });
+    Object.assign(x, { freq: g('freq'), rate, days: n, amount: rate * n, dur: (g('dur') || '').trim() || undefined });
   } else if (x.id === 'custom') {
     const label = (g('label') || '').trim(), amt = Number(g('amount'));
     if (!label) return toast('Description is required');
@@ -3442,6 +3437,7 @@ function adDo(spec) {
   } else {
     const amt = Number(g('amount')), a = ADDONS.find((y) => y.id === x.id);
     if (!(amt >= 0)) return toast('Price is required');
+    if (a.oneoff) { x.amount = amt; if (amt !== a.price) { const same = sameOneOff(a.base, amt); if (same) x.id = same.id; else { fm._confirm = i; render(); return; } } close(); return; }
     if (amt !== a.price) { fm._confirm = i; render(); return; }
     x.amount = amt;
   }
@@ -3517,6 +3513,8 @@ function personPicker(fm, { title = 'Buyer', all = 'more' } = {}) {
    their turn when they hold it (Side Sale spec, never named). */
 S.addsale = (spec) => {
   const [pid = '', fid = ''] = (spec || '').split('|');
+  ui.adSale = null;
+  if (ui.stash && ui.stash.spec === 'addsale:' + (spec || '')) { ui.formSpec = ui.stash.spec; ui.form = ui.stash.form; ui.stash = null; }
   const fm = formFor('addsale:' + (spec || ''), () => ({ pup: pid, pick: fid, reg: 'Limited', depIn: 'no', depDate: TODAY, depVia: '', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), gohome: '', sched: SCHEDULES.find((x) => x.usual).id, channel: '', lead: '', ref: '', adds: [] }));
   const sold = (d) => SALES.some((s) => s.pup === d.name);
   const pups = DOGS.filter((d) => d.status === 'puppy' && d.disp !== 'placed' && !sold(d));
@@ -5075,8 +5073,20 @@ document.addEventListener('click', (e) => {
       next.own = fm.own === 'group' ? undefined : fm.own === 'yes';
       Object.assign(next, { n: fm.n.trim(), group: fm.group || '', unit: fm.unit, ask: fm.ask === 'yes' ? 1 : 0, days: fm.unit === 'flat' ? Number(fm.days) || undefined : undefined });
     }
+    const o = d.addonsave === 'oneoff' && ui.oneOff;
+    if (o) {
+      /* a one-off: the same values as one she already has → that one; else a new one-off row */
+      const base = ADDONS.find((x) => x.id === o.base), draft = { ...next, price, desc: (fm.desc || '').trim() };
+      const keys = ['n', 'group', 'unit', 'days', 'price', 'desc', 'own'];
+      let made = oneOffs().find((x) => x.base === base.id && keys.every((k) => (x[k] ?? '') === (draft[k] ?? '')) && JSON.stringify(x.plan || []) === JSON.stringify(draft.plan || []));
+      const reused = !!made;
+      if (!made) { made = { ...draft, id: `${base.id}-1o${oneOffs().length + 1}`, ic: base.ic, base: base.id, oneoff: 1, on: 0, ask: 0 }; ADDONS.push(made); }
+      const list = o.sale ? saleAddons(SALES.find((x) => x.pup === o.sale)) : ui.stash?.form.adds;
+      if (list && list[o.i]) list[o.i] = { id: made.id, amount: made.price };
+      ui.oneOff = null; ui.formSpec = null; back(); toast(reused ? `Matches ${made.n}; using it` : `${made.n} added`); return;
+    }
     if (!a) { a = { id: 'a' + (ADDONS.length + 1), ic: 'receipt' }; ADDONS.push(a); }
-    Object.assign(a, next, { price, desc: (fm.desc || '').trim(), on: fm.on === 'on' ? 1 : 0 });
+    Object.assign(a, next, { price, desc: (fm.desc || '').trim(), on: a.oneoff ? 0 : fm.on === 'on' ? 1 : 0 });
     if (!a.group && a.plan === undefined) a.plan = [];
     ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
