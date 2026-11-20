@@ -693,6 +693,10 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .sp-body b { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
 .sp-body span { font-size: 13px; color: var(--muted); }
 .q-head .a small.usual { font-weight: 500; color: var(--muted); font-size: 12px; }
+/* fields fill their column and never push past it (phones draw date boxes wide) */
+.form-stack input, .form-stack select, .form-stack textarea, .dates input { width: 100%; min-width: 0; box-sizing: border-box; }
+.dates label { min-width: 0; flex: 1 1 130px; }
+.form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
 </style>
 
 <div class="proto">
@@ -2713,7 +2717,11 @@ S.sidesale = (fid) => {
       ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
       <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
-        <p class="f-hint">${p ? `From ${lit ? litterName(lit) + '’s' : 'your usual'} price for ${p.sex === 'm' ? 'males' : 'females'}${fm.reg === 'Full' && fullAdd ? ' plus full registration' : ''}. Change either for this sale; the litter’s prices stay.` : 'Pick the pup and these fill in from its litter.'}</p>
+        <p class="f-hint">${!p ? 'Pick the pup and these fill in from its litter.' : (() => {
+          const from = `${lit ? litterName(lit) + '’s' : 'your usual'} price for ${p.sex === 'm' ? 'males' : 'females'}${fm.reg === 'Full' && fullAdd ? ' plus full registration' : ''}`;
+          const mine = [fm.price !== auto && `price (${from} is ${money(Number(auto))})`, fm.dep !== autoDep && `deposit (usually ${money(Number(autoDep))})`].filter(Boolean);
+          return mine.length ? `Your own ${mine.join(' and ')}. For this sale only. <button type="button" class="link" data-sreset-price>Use the litter’s</button>` : `From ${from}. Change either for this sale; the litter’s prices stay.`;
+        })()}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
         ${fChips('sched', 'Payments after the deposit', sched)}
         <div class="form-stack">${fText('notes', 'Notes', 'Only you see these')}</div>
@@ -3788,7 +3796,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3810,6 +3818,7 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if ('sresetPrice' in d) { ui.form.price = ''; ui.form.dep = ''; render(); return; }
   if (d.lpset != null) { const [, lid, k, v] = d.lpset.split('|'), l = LITTERS.find((x) => x.id === lid); l.prices ||= {}; if (v) l.prices[k] = v; else delete l.prices[k]; ui.qOpen = null; render(); toast(v ? `${litterName(l)}: ${v}` : 'Back to your usual'); return; }
   if (d.lpown) {
     const [, lid, k] = d.lpown.split('|'), l = LITTERS.find((x) => x.id === lid); let v = ($('#qo-input')?.value || '').trim();

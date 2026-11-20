@@ -191,6 +191,9 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the registration refills the price only if she hasn't typed her own.
 - At the owner's request the choice is labelled **Registration type**, its chips just
   **Limited** and **Full (+$1,000)**, so they sit side by side on a phone.
+- Fields never run past their column (phones drew date boxes wider than the card), across
+  every form. When she types her own price or deposit, the line under them says so, gives
+  the litter's figure, and offers **Use the litter's**.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
