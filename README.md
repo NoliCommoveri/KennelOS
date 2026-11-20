@@ -37,6 +37,7 @@ backup, carries a program from Lite to Pro.
 | Vault, license link, integrations | `docs/KennelOS_Private_Vault_Plan.md`, `docs/KennelOS_License_Link_Plan.md`, `docs/KennelOS_Integrations_Plan.md` |
 | Her policies on the waitlist pages (plan) | `docs/KennelOS_Waitlist_Policies_Plan.md` |
 | What opening picks will do (the picks preview), and selling a pup outside the turn order (side sales) | `docs/KennelOS_Picks_Preview_Spec.md`, `docs/KennelOS_Side_Sale_Spec.md` |
+| One sale form for every buyer: the side sale's checks, deposit due date and waitlist link on every sale (plan) | `docs/KennelOS_Unified_Sale_Plan.md` |
 | Waitlist, shows, reports, multi-kennel | `docs/KennelOS_Waitlist_Spec.md` (+ `_W2_Plan`), `docs/KennelOS_Show_Tracking_Spec.md`, `docs/KennelOS_Reports_Plan.md`, `docs/KennelOS_Multi_Kennel_Scope_Spec.md` |
 | App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Staying inside the email provider's daily limit on heavy weeks, loud failures, notifications on family pages, tap to text (plan) | `docs/KennelOS_Mail_Budget_Plan.md` |

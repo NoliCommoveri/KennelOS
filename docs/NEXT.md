@@ -430,6 +430,16 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   the box.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Plan: one sale, whoever's buying
+
+- `docs/KennelOS_Unified_Sale_Plan.md` (new): the owner wants every sale to do what a side
+  sale does, since live's Sale page predates the waitlist. One sale form from every entry
+  point; the buyer from one list; the checks (another claim at recording time, what doesn't
+  match, a held pup), registration defaults and a deposit due date (new `Sale.deposit_due_date`)
+  on every sale; saving decides turn pick, side-sale shape or ordinary sale from the buyer.
+  Owner questions U1–U7; three phases. README's doc map gains its row.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
