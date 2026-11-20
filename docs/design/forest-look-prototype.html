@@ -822,7 +822,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Sales, contracts and money</h3>
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
-    <p><b>A sale is one screen</b> (a pup's <b>Sale</b>, Sales &amp; Placements, the family's one Sale tile): the family at the top (opening their page) and when the pup goes home, with Change for the date, time and place right there. That date looks like the sale's own but is the pickup on the calendar (live: the placement event), so changing one changes the other. <b>Money</b> lists the puppy, each add-on (Change add-ons), the total, paid and balance; then the due dates (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up, and Change for the schedule or due date in place; then the money received, where <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note, and a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. Send invoice (Send receipt once paid) and Payment link sit under it, with what she nets after a processing fee. Then the contract, and that pup's go-home checklist. <b>Edit</b> holds the rest. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
+    <p><b>A sale</b> (a pup's <b>Sale</b>, Sales &amp; Placements, the family's one Sale tile) is a hub: its status and registration, the family (opening their page) and when the pup goes home, with Change for the date, time and place right there. That date looks like the sale's own but is the pickup on the calendar (live: the placement event), so changing one changes the other. Then one tile per thing, none repeated: <b>Payments</b> (what's due and when), <b>Add-ons</b>, <b>Contract</b> and <b>Go-home</b> (that pup's checklist). <b>Payments</b> holds all the money: the puppy, each add-on, total, paid and balance; the due dates (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up, and Change for the schedule or due date in place; the money received, where <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note, and a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. Send invoice (Send receipt once paid) and Payment link sit under it, with what she nets after a processing fee. <b>Edit</b> holds the rest. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
     <p>In <b>Financials</b> the year opens a list of her years, and Overview, Income, Expenses and Entries follow it. <b>Add entry</b> on Entries is an expense, or money received: that lists the sales with a balance, stud fees and waitlist fees still owed, and each opens where it's recorded, since income is worked out from them. <b>Accounts</b> (Business) are grouped by type, transport partners among them. An account holds its name, type and website; her login (private); a payment service's or marketplace's processing fee and whether the buyer pays it; a payment service's link and instructions; a referral link, code and instructions, shared with families or on her website; a form service's contract forms; whether she signs new e-sign templates; and this year's expenses paid to it, opening Entries filtered to them.</p>
 
     <h3>Go-home</h3>
@@ -1360,7 +1360,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -3849,11 +3849,17 @@ const pickupLine = (s, { place = 1 } = {}) => {
   return p.date ? `${wday(p.date)}${p.time ? ` · ${hm12(p.time)}` : ''}${pl ? ` · ${esc(pl.n)}` : ''}` : 'No go-home date yet';
 };
 
-/* the old Payments address opens the sale, its Record a payment open when asked */
+/* a sale's Payments: the money, all of it, on one screen */
 S.payments = (spec) => {
   const [pup, auto] = (spec || '').split('|');
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0];
   if (auto === 'new' && !top().autoDone) { top().autoDone = 1; ui.pAct = 'pay|new'; }
-  return S.dogsec(`${pup}|sale`);
+  return { bar: bar('Payments', { sub: `${s.pup} · ${fam(s.fam).n}` }), body: saleMoney(s, s.pup.toLowerCase()) };
+};
+/* one pup's go-home checklist */
+S.salegh = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], d = saleDog(s);
+  return { bar: bar('Go-home', { sub: `${s.pup} · ${fam(s.fam).n}` }), body: ghCard(s, d) };
 };
 
 function saleMoney(s, pup) {
@@ -3908,11 +3914,17 @@ function saleScreen(s, d) {
       ${l?.ready ? `<small class="f-hint">${esc(litterName(l))} is ready ${wday(l.ready)}.</small>` : ''}</div>
       <div class="sa-btns"><button type="button" class="chip" data-pact="pickup">Cancel</button><button type="button" class="chip go" data-sx="pickup|${esc(s.pup)}">Save</button></div></div>`;
   }
-  return `<section class="card hub-head"><div><button type="button" class="link sale-who" data-open="person:${s.fam}">${esc(f.n)}${icon('chevron-right')}</button></div>
+  const st = saleStatement(s), adds = saleAddons(s), gh = ghState(s, d), ghDone = gh.filter((x) => x.done).length;
+  const tl = [
+    [`payments:${pup}`, 'wallet', 'Payments', st.remaining > 0 ? `${money(st.remaining)} due${st.next?.date ? ` ${short(st.next.date)}` : ''}` : 'Paid in full'],
+    [`saleaddons:${pup}`, 'receipt', 'Add-ons', adds.length ? adds.map((x) => esc(addonName(x))).join(', ') : 'None'],
+    ...(FEAT.contracts ? [[c ? `contract:${c.id}` : 'contractedit:new', 'file-pen-line', 'Contract', ctLine(c)]] : []),
+    [`salegh:${pup}`, 'list-checks', 'Go-home', `${ghDone} of ${gh.length} done`],
+  ];
+  return `<section class="card hub-head"><div class="hub-pills">${pill(saleState(s))}${pill([`${s.reg || 'Limited'} registration`, 'gray'])}</div>
+      <div><button type="button" class="link sale-who" data-open="person:${s.fam}">${esc(f.n)}${icon('chevron-right')}</button></div>
       <div class="hub-line">${icon('car')}${s.gohomeIso ? `Goes home ${pickupLine(s)}` : 'No go-home date yet'}${pOpen ? '' : ` <button type="button" class="link" data-pact="pickup">${s.gohomeIso ? 'Change' : 'Set'}</button>`}</div>${pForm}</section>
-    ${saleMoney(s, pup)}
-    ${FEAT.contracts ? `<section class="card"><div class="rows">${row({ ic: 'file-pen-line', t: 'Contract', s: ctLine(c), go: c ? `contract:${c.id}` : 'contractedit:new' })}</div></section>` : ''}
-    ${ghCard(s, d)}`;
+    ${tiles(tl)}`;
 }
 
 /* ================= the go-home checklist: hers, each item linked to what checks it off =================
@@ -3993,11 +4005,7 @@ function ghDo(v) {
     if (GH_EV[it.link]) return open(`addevent:dog|${d.id}|${GH_EV[it.link][1]}`);
     if (it.link === 'microchip') return open(`editdog:${d.id}`);
     if (it.link === 'contract') { const c = ctFor(a); return open(c ? `contract:${c.id}` : 'contractedit:new'); }
-    if (it.link === 'balance') {
-      ui.pAct = 'pay|new';
-      if (top().s === 'dogsec' && top().p === `${d.id}|sale`) { render(); $('#screen [data-pact="pay|new"]')?.scrollIntoView({ block: 'center' }); return; }
-      return open(`dogsec:${d.id}|sale`);
-    }
+    if (it.link === 'balance') return open(`payments:${d.id}|new`);
     return;
   }
   if (k === 'ready') {

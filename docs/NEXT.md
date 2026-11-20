@@ -592,6 +592,10 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - Live check (owner asked): live already has everything the sale's money needs (schedule,
   payments, extras, refunds, payment links, net). Not in live: third-party transport partners,
   a microchip-registered or go-home-pack field, and the checklist (a new table when built).
+- Then (owner): tiles were never the problem, tiles repeating each other were. The Sale is a
+  hub again: status, registration, the family and go-home (Change in place) at the top, then
+  one tile per thing: **Payments** (all the money, the screen above), **Add-ons**, **Contract**,
+  **Go-home** (that pup's checklist, `S.salegh`). Payments follows the tab it's opened from.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
