@@ -167,14 +167,14 @@ piece can't do the job** (D18).
 | Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row | Anything tappable |
 | Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
 | A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
-| A setting she answers | `qRow()` · `.q-row` | One question, common answers as chips, + for her own (D10); saves at once | Form fields saved with Save |
+| A setting she answers | `qRow()` · `.q-row` | One question that saves at once: an amount, time or list she can name opens to chips and + (D10); fixed phrase answers open to a radio list | Form fields saved with Save |
 | Two options, one required (named) | `fChips()` with two options draws `fSeg()` · `.seg` | Kennel / Third party, Round trip / One way, + / −, $ / % | Yes / No; a choice that can be left blank |
 | Yes or no, one required | `fChips()` with Yes / No draws `fSwitch()` · `.f-switch` + `.switch` | Offered on new sales, Shown to families, Requestable | A choice with a "neither" or blank |
 | Three or more fixed choices | `fChips()` · `.chip` | Flat / Per day / Per mile, Same as group / … | Lists that grow with her records |
 | Several of a few choices | `fChips({ multi })` · `.chip` | Ticking any number (add-ons on a sale, what a due date covers) | Long lists |
 | On or off in a list, saved at once | `.switch-row` · `.switch` | Feature and trait switches | |
 | One of several, each needing a line (trial) | `fRadio()` · `.radios` / `.radio` | Options that are phrases or need a short explanation; an option that can't apply is disabled with why (a price rule's type, an add-on's When paid and Due dates) | Short choices: chips |
-| A list that grows with her records | `fSel()` · `select`; filter dropdowns (D11) | Dogs, groups, partners, families, schedules | Two or three fixed choices |
+| A list that grows with her records | `fSel()` · `select` (groups as `{ group, opts }`), filter dropdowns (D11) | Dogs, groups, partners, families, schedules. Dogs: Sires, then Dams, each alphabetical | Two or three fixed choices |
 | Text, number, date, time | `fIn()` · label above the input, hint as `<small>` | Every typed value | |
 | Longer text | `fText()` · `textarea` | Notes, messages | |
 | Fields side by side | `.dates` | Two or three short fields that belong together | Labels long enough to wrap at phone width (stack them) |
@@ -202,8 +202,8 @@ piece can't do the job** (D18).
 it's a toggle: Yes / No (or On / Off) is a switch, and two named options are a `.seg`. Chips
 are for three or more options, for choosing several, or for a choice that can be left blank
 or has a "neither". `fChips()` applies the rule itself, so a two-option field can't come out
-as chips by accident. A question row (`qRow`) whose two answers are phrases ("Same for both
-sexes" / "Different prices") stays a question row, since phrases don't fit a toggle.
+as chips by accident. A question row (`qRow`) whose answers are fixed phrases ("Same for both
+sexes" / "Different prices") opens to a radio list, since phrases don't fit a toggle.
 
 ## 4. What the prototype loads that the app can't
 
@@ -473,4 +473,7 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   `expectedPricing`), so the litter keeps one stored price per sex. The rule type is a
   **radio list**, tried here and on an add-on's Payment card (When paid, Due dates) for the
   owner to compare with chips; §3.1 lists it as a trial component until she decides.
+  **Same day:** question rows with fixed phrase answers (Setup, Pricing and schedules, a
+  litter's Pricing split) open to a radio list; questions she can answer with her own value
+  keep chips and +. A list of dogs is grouped **Sires, then Dams**, alphabetical in each.
 

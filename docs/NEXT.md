@@ -344,6 +344,13 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   temperament 5+ +$200, Cedar). New `fRadio()` component, also on an add-on's Payment card.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Radio lists for phrase questions; dogs by Sires, then Dams
+
+- Prototype: `qRow()` with fixed answers (no + of her own) opens to `radioList()`; so does a
+  litter's "Deposit and full registration". `fSel()` takes option groups; a price rule's
+  Name lists Sires, then Dams, alphabetical.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

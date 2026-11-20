@@ -706,7 +706,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
 .rule-work b { color: var(--ink); }
 .sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
-.radios { display: flex; flex-direction: column; }
+.radios { display: flex; flex-direction: column; flex: 1 1 100%; }
 .radio { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border: 0; background: none; text-align: left; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
 .radio + .radio { border-top: 1px solid var(--line); }
 .radio-dot { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--line-strong); box-sizing: border-box; }
@@ -1115,7 +1115,7 @@ const qRow = (k, qk, qq, opts) => {
   const add = !own ? '' : ui.qOther === key
     ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${esc(OWN_HINT[qk] || '')}" autocomplete="off" aria-label="${esc(qq)}: add your own"></label><button type="button" class="fbtn" data-qown="${key}">Add</button></div>`
     : `<button type="button" class="chip own" data-qother="${key}" aria-label="Add your own" title="Add your own">${icon('plus')}</button>`;
-  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? `<div class="q-edit">${chips}${add}</div>` : ''}</div>`;
+  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${qq}</span><span class="a">${SET[k][qk]}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? (own ? `<div class="q-edit">${chips}${add}</div>` : `<div class="q-edit" role="radiogroup" aria-label="${esc(qq)}">${radioList(choices.map((o) => ({ t: o, on: SET[k][qk] === o, attr: `data-qset="${k}|${qk}|${esc(o)}"` })))}</div>`) : ''}</div>`;
 };
 /* settings that today are scattered; each area names where they live now */
 const SETUP = {
@@ -1772,6 +1772,8 @@ const POS = [['either', 'Either'], ['dam', 'Dam'], ['sire', 'Sire'], ['both', 'B
 const posText = (p) => ({ either: 'either parent', dam: 'dam', sire: 'sire', both: 'both parents' }[p]);
 const byPos = (l, p, test) => { const d = test(l.dam.toLowerCase()), s = test(l.sire.toLowerCase()); return p === 'dam' ? d : p === 'sire' ? s : p === 'both' ? d && s : d || s; };
 const ruleParents = () => [...new Map([...LITTERS.flatMap((l) => [l.dam, l.sire]), ...DOGS.filter((d) => d.status !== 'puppy').map((d) => d.name)].map((n) => [n.toLowerCase(), n])).entries()];
+const parentSex = (id) => DOGS.find((d) => d.id === id)?.sex || (LITTERS.some((l) => l.sire.toLowerCase() === id) ? 'm' : 'f');
+const parentGroups = () => { const all = ruleParents().sort((a, b) => a[1].localeCompare(b[1])); return [{ group: 'Sires', opts: all.filter(([id]) => parentSex(id) === 'm') }, { group: 'Dams', opts: all.filter(([id]) => parentSex(id) !== 'm') }]; };
 const litBreed = () => 'Labrador Retriever';
 const BREED_LIST = ['Labrador Retriever', 'Golden Retriever', 'Goldendoodle', 'Poodle'];
 /* the rule kinds, in order; the last flag: parents only */
@@ -1844,7 +1846,7 @@ S.pricerule = (id) => {
   const draft = { of: fm.of, kind: fm.kind, breed: fm.breed, parent: fm.parent, dog: fm.dog, title: fm.title, registry: fm.registry, trait: fm.trait, how: fm.how, min: Number(fm.min) || 0 };
   const which = pup ? '' : fChips('parent', 'Which parent', POS);
   const traits = TRAITS.filter((t) => t.kind === 'q' && (!pup || t.pup));
-  const when = fm.kind === 'name' ? fSel('dog', 'Dog', ruleParents())
+  const when = fm.kind === 'name' ? fSel('dog', 'Dog', parentGroups())
     : fm.kind === 'breed' ? `${fSel('breed', 'Breed', BREED_LIST)}${which}`
     : fm.kind === 'registry' ? `${fSel('registry', 'Registry', REG_LIST)}${which}`
     : fm.kind === 'title' ? `${fSel('title', 'Title', TITLE_LIST)}${which}`
@@ -1882,7 +1884,8 @@ function lpRow(l, k, label, opts) {
     ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${k === 'fullReg' ? '+$750' : k === 'deposit' ? '$400' : '$3,800'}" autocomplete="off" aria-label="${label}: add your own"></label><button type="button" class="fbtn" data-lpown="${key}">Add</button></div>`
     : `<button type="button" class="chip own" data-qother="${key}" aria-label="Add your own" title="Add your own">${icon('plus')}</button>`;
   return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${label}</span><span class="a">${cur ? esc(cur) : `${esc(u)}<small class="usual"> default</small>`}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>
-    ${open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Default · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
+    ${open && k === 'split' ? `<div class="q-edit" role="radiogroup" aria-label="${esc(label)}">${radioList([{ t: `Default · ${u}`, on: !cur, attr: `data-lpset="${key}|"` }, ...list.map((o) => ({ t: o, on: cur === o, attr: `data-lpset="${key}|${esc(o)}"` }))])}</div>`
+      : open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Default · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
 }
 
 const LITTER_ATTN = { wa: [['car', '', 'Go-home weekend · Nov 21–22', 'littersec:wa|gohome'], ['stethoscope', 'red', 'Wren · vet recheck overdue', 'dog:wren']], ct: [['scan-line', 'blue', 'X-ray for puppy count · Mon Nov 23', 'littersec:ct|pregnancy']] };
@@ -2333,7 +2336,8 @@ function formFor(spec, init) { if (ui.formSpec !== spec) { ui.formSpec = spec; u
 const fv = (k) => esc(ui.form[k] ?? '');
 const fIn = (k, label, { type = 'text', ph = '', hint = '', req } = {}) => `<label>${req ? `<span>${label} <span class="req" aria-label="required">*</span></span>` : label}<input data-fv="${k}" type="${type}" value="${fv(k)}"${ph ? ` placeholder="${esc(ph)}"` : ''} autocomplete="off"${type === 'number' ? ' inputmode="decimal" step="any"' : ''}>${hint ? `<small>${hint}</small>` : ''}</label>`;
 const fText = (k, label, ph = '') => `<label>${label}<textarea data-fv="${k}" rows="2"${ph ? ` placeholder="${esc(ph)}"` : ''}>${fv(k)}</textarea></label>`;
-const fSel = (k, label, opts, { add } = {}) => `<label>${label}<select data-fv="${k}">${opts.map((o) => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${String(ui.form[k] ?? '') === String(v) ? ' selected' : ''}>${esc(t)}</option>`; }).join('')}${add ? `<option value="__add">+ ${add}</option>` : ''}</select></label>`;
+const fSelOpt = (k, o) => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${String(ui.form[k] ?? '') === String(v) ? ' selected' : ''}>${esc(t)}</option>`; };
+const fSel = (k, label, opts, { add } = {}) => `<label>${label}<select data-fv="${k}">${opts.map((o) => (o && o.group ? `<optgroup label="${esc(o.group)}">${o.opts.map((x) => fSelOpt(k, x)).join('')}</optgroup>` : fSelOpt(k, o))).join('')}${add ? `<option value="__add">+ ${add}</option>` : ''}</select></label>`;
 const OWN_OPTS = {};
 /* two options, one required (D19): yes / no is a switch, two named options are a .seg;
    chips are for three or more, several at once, or a choice that can be left blank */
@@ -2341,7 +2345,8 @@ const fSeg = (k, opts, aria = '') => `<span class="seg" role="group"${aria ? ` a
 const fSwitch = (k, label, onV, offV) => { const on = ui.form[k] === onV; return `<div class="f-switch"><span>${label}</span><button type="button" class="switch" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-fc="${k}|${esc(on ? offV : onV)}"></button></div>`; };
 /* one of several, as a radio list (trial, D20): options with a short line each; a
    disabled option shows why in its line */
-const fRadio = (k, label, opts) => `<div class="f-group" role="radiogroup"${label ? ` aria-label="${esc(label)}"` : ''}>${label ? `<div class="group-label">${label}</div>` : ''}<div class="radios">${opts.map(([v, t, sub, off]) => `<button type="button" class="radio" role="radio" aria-checked="${String(ui.form[k]) === String(v)}"${off ? ' disabled' : ''} data-fc="${k}|${esc(v)}"><span class="radio-dot"></span><span class="radio-t">${esc(t)}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div></div>`;
+const radioList = (items) => `<div class="radios">${items.map(({ t, sub, on, attr, off }) => `<button type="button" class="radio" role="radio" aria-checked="${!!on}"${off ? ' disabled' : ''} ${attr}><span class="radio-dot"></span><span class="radio-t">${esc(t)}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div>`;
+const fRadio = (k, label, opts) => `<div class="f-group" role="radiogroup"${label ? ` aria-label="${esc(label)}"` : ''}>${label ? `<div class="group-label">${label}</div>` : ''}${radioList(opts.map(([v, t, sub, off]) => ({ t, sub, off, on: String(ui.form[k]) === String(v), attr: `data-fc="${k}|${esc(v)}"` })))}</div>`;
 const fChips = (k, label, opts, { own, multi, toggle } = {}) => {
   if (opts.length === 2 && !own && !multi && !toggle && !(OWN_OPTS[k] || []).length) {
     const two = opts.map((o) => (Array.isArray(o) ? o : [o, o]));
