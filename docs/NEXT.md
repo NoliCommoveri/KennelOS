@@ -250,6 +250,23 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   grouped.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Transport and pickup places
+
+- The owner's D16 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only.
+- `docs/design/forest-look-prototype.html`: Transport (`S.transport`, from Add-ons'
+  Transport row and Setup › Go-home) is priced per mile like live (rate, round trip / one
+  way, no charge under, offered to families at least so far away, in touch past a limit),
+  starts from the standard pickup place, checks a distance (Get driving miles / Open in
+  Maps, with the working), and shows what the status page says. New: Handled by (kennel or
+  third party, partner or unknown) as the default for new sales; Referral partners
+  (`S.partner`, a Transport account with a reward per booking or percent) with expected and
+  received rewards. A sale's Transport is the kennel's (miles, Get driving miles, fee from
+  her rate) or a third party's (partner, charged on the sale, reward expected / received);
+  Hazel's sample sale uses Sky Paws. Pickup places (`S.pickupplaces`, `S.place`): places,
+  the standard one, shown or hidden, the change cutoff. A placed family's status preview
+  shows pickup eligibility and Getting your pup home.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

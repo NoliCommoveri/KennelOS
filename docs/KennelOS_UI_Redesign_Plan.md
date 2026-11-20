@@ -324,3 +324,17 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   can't be edited or take other add-ons. Pricing and schedules shows **Add-on payments**,
   each opening the group or add-on (one place stores it). A sale's Add-ons lists them by
   group. In the prototype: `S.addons`, `S.addongroup`, `S.addon`, `ADDON_GROUPS`.
+- **D16. Transport and pickup places (2026-11-20).** The owner: transport's live settings are
+  in the prototype, and a new choice is added. Business › Add-ons › **Transport** holds the
+  fee per mile, round trip or one way, no charge under, the families it's offered to (living
+  at least so many miles away), the "in touch" limit, where miles start (her standard pickup
+  place), a distance check (Mapbox's Get driving miles, or Open in Maps) and what families
+  see on the status page. **New:** **Handled by**, kennel or third party; for a third party,
+  one of her Transport accounts or unknown, and a **referral reward** per partner (per
+  booking or a percent of their price), so the screen tracks rewards expected and received.
+  A sale's Transport records the same per sale. Setup › Go-home › **Pickup places** is its
+  own screen: places, the standard one, shown or hidden, and the pickup change cutoff.
+  In the prototype: `S.transport`, `S.partner`, `S.pickupplaces`, `S.place`.
+  **Open:** the new fields (a sale's transport handled by, partner, their price, reward
+  received; an Account's reward) need sync classes (`syncRegistry.js`) and a place in
+  the Income view before they're built.
