@@ -3499,7 +3499,7 @@ S.addsale = (spec) => {
   const holds = listed && OFFER.open && OFFER.fam === f.id;
   const { fullAdd, auto, autoDep } = prefillPrice(fm, p);
   const notes = [];
-  if (p && p.disp && !['available', 'placed'].includes(p.disp)) notes.push(['info', `${p.name}: ${DISP[p.disp][0].toLowerCase()}.${listed ? ` Held for the ${f.n} until the deposit is in.` : ''}`]);
+  if (p && p.disp && !['available', 'placed'].includes(p.disp)) notes.push(['info', `${p.name}: ${DISP[p.disp][0].toLowerCase()}.${fm.pick || (fm.name || '').trim() ? ` Held for ${esc(fm.pick ? personOf(fm.pick).n : fm.name.trim())} until the deposit is in.` : ''}`]);
   if (listed && p) {
     if (f.wants !== 'any' && p.sex && (f.wants === 'male') !== (p.sex === 'm')) notes.push(['info', `They asked for a ${f.wants}.`, 'match']);
     if (f.listen) notes.push(['info', `Waiting on ${f.listen} only.`]);
