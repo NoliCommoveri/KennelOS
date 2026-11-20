@@ -437,7 +437,9 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   point; the buyer from one list; the checks (another claim at recording time, what doesn't
   match, a held pup), registration defaults and a deposit due date (new `Sale.deposit_due_date`)
   on every sale; saving decides turn pick, side-sale shape or ordinary sale from the buyer.
-  Owner questions U1–U7; three phases. README's doc map gains its row.
+  Owner questions U1–U8; three phases. README's doc map gains its row. Same day, the owner:
+  the buyer needn't be on the waitlist; the pup and deposit rules (another family holds it, a
+  held pup, deposit due, settling two claims) apply to every sale, the plan's §2.2.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

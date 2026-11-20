@@ -2,11 +2,13 @@
 
 > Status: **plan only, nothing built** (2026-11-20). An enhancement to live's sales, drawn in the
 > UI redesign's prototype (`docs/design/forest-look-prototype.html`, Add sale) and built with
-> or after it. Owner questions U1–U7 (§6) are open.
+> or after it. Owner questions U1–U8 (§6) are open.
 >
 > The owner (2026-11-20): a sale shouldn't go a different way, or look different, because the
-> buyer is on the waitlist. Everything the side sale does should happen on every sale. Live's
-> regular sales were built before the waitlist existed.
+> buyer is on the waitlist. What the side sale does with the pup and the deposit (warn that
+> another family holds the pup, hold a pulled pup, a deposit due date, settle two claims)
+> happens on **every** sale, whether the buyer was ever on the waitlist or not. Live's regular
+> sales were built before the waitlist existed.
 
 ## 1. Why
 
@@ -19,15 +21,18 @@ There are two ways to sell a pup today, and which one she uses changes what the 
   doesn't fit, warns about a second claim, holds a pulled pup, sets a deposit due date, and
   keeps the family's place right.
 
-So a sale made on the Sale page to a family on the list:
-- isn't linked to their place: their entry stays `active` (`placed_sale_id` is only set by the
-  waitlist's own actions), so they can still be offered turns and picks;
-- isn't on their status page;
-- says nothing about a pup another family holds in their turn; Today's "two sales on one pup"
-  (`nudges.js`, `pupClaims`) finds it only afterwards;
+So any sale made on the Sale page, to anyone:
+- says nothing about a pup a waitlist family has in their turn, or another sale on it; Today's
+  "two sales on one pup" (`nudges.js`, `pupClaims`) finds it only afterwards;
 - has no deposit due date (only a side sale has `side_deposit_due`), so no reminders and no
   overdue flag;
-- doesn't hold a pup she pulled from Keeping, Undecided or Health hold.
+- doesn't hold a pup she pulled from Keeping, Undecided or Health hold, or put it back if the
+  sale is cancelled;
+
+and one to a family on the list also:
+- isn't linked to their place: their entry stays `active` (`placed_sale_id` is only set by the
+  waitlist's own actions), so they can still be offered turns and picks;
+- isn't on their status page.
 
 She shouldn't have to know any of that. One sale form, whose behavior follows from who is
 buying and which pup, never from which button she pressed.
@@ -42,47 +47,52 @@ in the pup or the buyer.
    searched by name, email or phone, each with a badge for where they stand (#2 on the list, Fee
    due, Applied, Client), families on the list first, with no headings by kind of record. A name
    nobody has is someone new, checked against everyone and her Do not sell list.
-2. **Checks, each said plainly, none blocking** (the side sale's `sideSaleIssues`, for every
-   sale):
-   - her Do not sell list (as today);
-   - the pup: its disposition ("Wren is on a health hold"), and a pup already placed or gone
-     home refused as today (`sideSaleBlocker`);
-   - **another claim on the pup at the time of recording**: another live sale, or a family with it
-     in their turn ("Also offered to the Reyes family, due Nov 20. First deposit received takes
-     him."), not only Today's alert afterwards;
-   - for a buyer with a place on the list: what doesn't match their answers (sex, breed,
-     purposes, colors) with **Update their answers to match** (`answersToFit`), listening for
-     other litters only, paused.
-3. **Registration** defaults the way the side sale's does: the pup's intended registration, else
-   the first the family's purposes fit, else Limited; priced by `expectedPricing`, a typed
-   price moving with the registration (prototype `prefillPrice`); **Also set the pup's
-   registration** when they differ.
-4. **Deposit**: received now (date, paid via), or due by a date: **a deposit due date on every
-   sale** whose deposit isn't in. For a family on the list it defaults to her answer window
-   (`respondByDate`, the program's own); for anyone else, to Pricing's deposit due rule (U3).
-   Reminders and Today's overdue flag work for every sale.
-5. **What saving does** follows from the buyer:
-   - **holds the current turn** → the sale is their turn pick, as if recorded on their turn
-     (`confirmDeposit` / the turn's pick), whatever pup she chose (U2);
-   - **on the list, not holding the turn** → recorded as a side sale is today (`side_entry_id`,
-     `side_deposit_due`, the pup held when it wasn't Available), shown to them as a turn pick
-     on their status page; their place and passes unchanged;
-   - **applied or fee due, not on the list yet** → U1;
-   - **never on the list** → an ordinary sale; Give this family a status page (E3) stays on the
-     sale.
-6. **Deposit received**, on any sale linked to a family: the family is placed (`placed_sale_id`),
-   the pup is placed, and a second claim is settled as the Side Sale spec's §5 says.
-7. **Cancelled**: a linked family's sale is their back-out, as the Sale page already does for
-   an open sale (`backOutEntryFor`); a pending side-sale-shaped one keeps their place and
-   restores a held pup's disposition.
+2. **For every sale, whoever's buying** (what the side sale does with the pup and the deposit):
+   - **checks, each said plainly, none blocking**: her Do not sell list (as today); the pup's
+     disposition ("Wren is on a health hold"), a pup already placed or gone home refused as
+     today (`sideSaleBlocker`); and **another claim on the pup at the time of recording**: a
+     waitlist family with it in their turn, or another live sale ("Also offered to the Reyes
+     family, due Nov 20. First deposit received takes him."), not only Today's alert afterwards;
+   - **a pulled pup is held**: one that was Undecided, Keeping or on a Health hold is set
+     Available-and-held for this buyer, off every family's turns and online lists until the
+     deposit is in, and goes back to what it was if the sale is cancelled
+     (`side_holds_pup`, `side_prior_disposition`);
+   - **an Available pup with the deposit not in yet** stays offered to waitlist turns, as a side
+     sale's does: the first deposit received takes it (U8);
+   - **registration** defaults the way the side sale's does: the pup's intended registration,
+     else the first the family's purposes fit (a family on the list), else Limited; priced by
+     `expectedPricing`, a typed price moving with the registration (prototype `prefillPrice`);
+     **Also set the pup's registration** when they differ;
+   - **deposit**: received now (date, paid via), or due by a date: **a deposit due date on every
+     sale** whose deposit isn't in, with the deposit-request message, reminders and Today's
+     overdue flag (Cancel the sale / Give more time). For a family on the list it defaults to
+     her answer window (`respondByDate`, the program's own); for anyone else, to Pricing's
+     deposit due rule (U3);
+   - **deposit received**: the pup is placed and a second claim is settled as the Side Sale
+     spec's §5 says, whoever holds the other claim (a turn pick is let go, another pending sale
+     cancelled);
+   - **cancelled**: a held pup goes back to what it was.
+3. **Only for a buyer with a place on the list** (it's about their answers and their place):
+   - what doesn't match their answers (sex, breed, purposes, colors) with **Update their answers
+     to match** (`answersToFit`); listening for other litters only; paused;
+   - saving: **holds the current turn** → the sale is their turn pick, as if recorded on their
+     turn, whatever pup she chose (U2); **on the list, not holding the turn** → linked to their
+     entry (`side_entry_id`), shown to them as a turn pick on their status page, their place and
+     passes unchanged; **applied or fee due** → U1;
+   - deposit received: the family is placed (`placed_sale_id`);
+   - cancelled: their back-out, as the Sale page already does for an open sale
+     (`backOutEntryFor`); a pending one keeps their place.
+4. **A buyer never on the list**: everything in 2, an ordinary sale otherwise; Give this family
+   a status page (E3) stays on the sale.
 
 None of the screen's words name a path: no "side sale", "turn pick" or "off the list" in
 labels, buttons or hints (redesign plan D14, D8).
 
 ## 3. Editions
 
-- **Lite** (no waitlist): one buyer list (contacts), the pup checks, another live sale on the
-  pup, registration defaults, the deposit due date and its reminders. Nothing waitlist-shaped.
+- **Lite** (no waitlist): one buyer list (contacts) and §2.2 without waitlist turns: the pup
+  checks, another live sale on the pup, the held pup, registration defaults, the deposit due
+  date and its reminders, settling two sales on one pup.
 - **Pro**: all of §2. Do not sell stays Pro with the waitlist.
 - Shared core stays edition-agnostic: the waitlist parts load behind `editionFlags.waitlist`, as
   the Sale page's family-page button does today.
@@ -94,6 +104,9 @@ labels, buttons or hints (redesign plan D14, D8).
   dropped: backups and older builds read it); readers take `deposit_due_date ?? side_deposit_due`.
   Sync class: `cloud` like the other `side_*` fields (owner approved those 2026-11-08); a
   privacy decision to confirm (U3). Regenerate `cloud/src/lib/cloudFields.js`.
+- The hold fields `side_holds_pup` and `side_prior_disposition` are written on **any** sale that
+  pulls a pup, not only one with `side_entry_id`; `isPupAvailable`'s rule becomes: a sale still
+  at `deposit_pending` doesn't take an Available pup unless it holds it (U8), whoever the buyer.
 - **No new tables.** The link to a family stays `side_entry_id` (pending) and the entry's
   `placed_sale_id` (once placed). The field names keep "side" in the data only.
 - `referenceRegistry`, `syncRegistry`, tests for `cloudDirty`: as for any new field.
@@ -124,13 +137,15 @@ labels, buttons or hints (redesign plan D14, D8).
 | U4 | A status page for a buyer never on the list | Unchanged: Give this family a status page stays on the sale (E3). |
 | U5 | Two claims at recording time | A warning on the form for every sale; settled on the first deposit as Side Sale §5, for any two claims. |
 | U6 | Lite | §3: everything without a waitlist. |
+| U8 | A sale to anyone, deposit not in yet, on an Available pup | Stays offered to waitlist turns, first deposit takes it, as a side sale today. Today a pending sale made on the Sale page takes the pup off every list at once; this changes that for every edition with the waitlist. The other way: every pending sale holds its pup. |
 | U7 | Sales already made on the Sale page to families still on the list | Today raises each once ("The Haddad family bought Fern and is still on the list"), with **Link them** (places the family with that sale) or **Not the same family**. No automatic change to her data. |
 
 ## 7. Phases
 
-1. **Every sale's checks** (all editions): the claims warning at recording time, registration
-   defaults, `deposit_due_date` with reminders and the overdue flag.
-2. **One form for every buyer** (Pro): the buyer list, the family checks, saving through
+1. **Every sale, any buyer** (all editions): §2.2: the claims warning at recording time, the held
+   pup and its restore, U8's rule, registration defaults, `deposit_due_date` with reminders and
+   the overdue flag, and settling two claims on the first deposit.
+2. **A buyer on the list** (Pro): §2.3: the buyer list, the family checks, saving through
    `recordSale`; the side-sale dialog retired; every entry point opens the Sale page.
 3. **Old sales** (Pro): U7's Today item.
 
