@@ -692,6 +692,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .sp-body { padding: 14px; display: flex; flex-direction: column; gap: 4px; }
 .sp-body b { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
 .sp-body span { font-size: 13px; color: var(--muted); }
+.q-head .a small.usual { font-weight: 500; color: var(--muted); font-size: 12px; }
 </style>
 
 <div class="proto">
@@ -741,7 +742,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p><b>Add dog</b> asks first what kind of dog it is (a puppy she bred, her breeding dog, an outside dog, a pet or retired dog), which puts the right questions first: a puppy starts from its litter, which fills in the sire, dam and birth date. Papers and ownership open on request. A call name she already uses gets a warning with a way to that dog, never a block. <b>Edit</b> (on Profile) is the same questions, all open, plus status, the puppy's plan, ownership, what shows online, and Archive at the bottom. <b>Add event</b> starts with what it is: the four she adds most, then the rest by kind; types that don't fit the dog are left out (no heat cycle for a male). Each type asks its own questions, a cost becomes an expense, and Remind me puts it in Reminders (a vaccination offers "when it's due again"). Health tests go through <b>Log a test</b>: what's still to do first, then her usual tests; the name says how it's filed, the result is chips plus her own, and Overall (Normal or Abnormal) decides what families see. The <b>Pedigree</b> shows 3, 4 or 5 generations; tapping a dog shows its own, and + on a gap adds the missing parent. A <b>Dog card</b> shows who it went to, exactly what travels and what never does, and sends it again.</p>
 
     <h3>Adding litters, pairings and expenses</h3>
-    <p><b>Add litter</b> starts from the pairings that don't have a litter yet (or "Not planned here", with the parents and a quick pair check). Not born yet asks for the breeding date or the due date, each worked out from the other (63 days); born asks for the whelping date, how many were born alive and lost, and the delivery, with each pup recorded in Births afterwards. Her usual prices apply unless she sets this litter's own, and it's offered to her waitlist unless she says not this one. Saving opens the new litter, with its pairing moved along. <b>Add pairing</b> (on Litters › Pairings, and "Plan this pairing" on a pair check) shows the pair check's warnings as soon as both dogs are picked, then where it is: planned (her next heat offered as the date), bred (the dates, how, and the due date it gives) or confirmed. <b>Add expense</b> (from a litter's or dog's Expenses) takes the amount, what it was for, a category and who was paid, each with a + for her own, and what it counts toward; picking more than one shares it.</p>
+    <p><b>Add litter</b> starts from the pairings that don't have a litter yet (or "Not planned here", with the parents and a quick pair check). Not born yet asks for the breeding date or the due date, each worked out from the other (63 days); born asks for the whelping date, how many were born alive and lost, and the delivery, with each pup recorded in Births afterwards. Her usual prices apply unless she sets this litter's own (now or later, on the litter's Pricing: male, female, deposit and full registration, each "your usual" until she picks another), and it's offered to her waitlist unless she says not this one. Saving opens the new litter, with its pairing moved along. <b>Add pairing</b> (on Litters › Pairings, and "Plan this pairing" on a pair check) shows the pair check's warnings as soon as both dogs are picked, then where it is: planned (her next heat offered as the date), bred (the dates, how, and the due date it gives) or confirmed. <b>Add expense</b> (from a litter's or dog's Expenses) takes the amount, what it was for, a category and who was paid, each with a + for her own, and what it counts toward; picking more than one shares it.</p>
 
     <h3>A family on the waitlist</h3>
     <p>Everything about a family hangs off their one page (One person, one page). Its tiles open one job each, and none of them asks for or repeats their name, email or phone: where a screen uses one (sign-in codes, an email she sends), it shows it with <b>Change</b>, which opens Their details. <b>Offers &amp; passes</b> opens on their place (overall, and among families who want what they want) and passes used, then every turn they've had with its outcome and reason, then what she can do: offer a turn out of order, sell them a pup outside the turn order, move their place, pause it, or take them off the list (they withdrew, or she's removing them; 7 days to undo). <b>Fee</b> says what it is and where it stands (waived by a program, due, paid and counted toward the price) and marks it received, with how they paid. <b>Messages</b> is one thread: what they wrote on their status page, what she wrote, and each email sent, with Send again on one that failed; she writes from a starting point or her own words, by email or copied for a text. <b>Status page</b> shows what they see right now, when they last looked, where their sign-in codes go, what they can do there, their link, and a new link if it was shared by mistake. <b>History</b> is all of it, newest first.</p>
@@ -1680,7 +1681,7 @@ function litterSectionsBase(l) {
   const b = `littersec:${l.id}|`;
   if (l.fresh) return [
     ...(l.whelp ? [[b + 'puppies', 'paw-print', 'Puppies', `${l.m} M · ${l.f} F · not named yet`]] : [[b + 'pregnancy', 'baby', 'Pregnancy', `Day ${Math.max(0, days(l.bred, TODAY))} of 63 · due ${short(l.due)}`]]),
-    [b + 'pricing', 'tag', 'Pricing', l.price || `${SET.pricing.pet} pet · ${SET.pricing.deposit} deposit`],
+    [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
     [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
     [b + 'profile', 'id-card', 'Profile', l.note],
   ];
@@ -1688,7 +1689,7 @@ function litterSectionsBase(l) {
     [b + 'pregnancy', 'baby', 'Pregnancy', 'Day 43 of 63 · due Dec 8'],
     [b + 'prep', 'list-checks', 'Whelping prep', '2 of 6 done'],
     ...(FEAT.waitlist ? [['wlpreview:ct', 'list-ordered', 'Waitlist', `${activeFams().length} families · preview picks`]] : []),
-    [b + 'pricing', 'tag', 'Pricing', `${SET.pricing.pet} pet · ${SET.pricing.deposit} deposit`],
+    [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
     [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
     [b + 'profile', 'id-card', 'Profile', 'Bred Oct 6 and 8 · outside sire'],
   ];
@@ -1702,9 +1703,33 @@ function litterSectionsBase(l) {
     [b + 'history', 'history', 'History', '5 events'],
   );
   const recd = sum(litterLedger(l, 'in').map((e) => e.amt));
+  if (l.status[0] !== 'Closed') out.push([b + 'pricing', 'tag', 'Pricing', litPriceLine(l)]);
   out.push([b + 'income', 'badge-dollar-sign', 'Income', l.id === 'wa' ? `${money(recd)} of ${money(sum(SALES.map((s) => s.price)))} in` : '$16,000 · closed'], [b + 'expenses', 'receipt', 'Expenses', l.id === 'wa' ? money(sum(litterLedger(l, 'out').map((e) => e.amt))) : '$2,180'], [b + 'profile', 'id-card', 'Profile', l.id === 'wa' ? 'Natural · on website' : 'Natural · hidden']);
   return out;
 }
+/* a litter's own prices: each answer is her usual until she picks another (D10's + too) */
+const LP_Q = [
+  ['male', 'Male price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  ['female', 'Female price', ['$3,000', '$3,200', '$3,400', '$3,600']],
+  ['deposit', 'Deposit', ['$300', '$500', '$750']],
+  ['fullReg', 'Full registration', ['Not offered', '+$500', '+$1,000', '+$1,500']],
+];
+const usualOf = (k) => (k === 'male' || k === 'female') ? (SET.pricing.priceBy === 'Different prices' ? SET.pricing[k] : SET.pricing.pet) : SET.pricing[k];
+function litPriceLine(l) {
+  const v = (k) => l.prices?.[k] || usualOf(k);
+  const own = Object.keys(l.prices || {}).length;
+  return `${v('male') === v('female') ? v('male') : `${v('male')} M · ${v('female')} F`} · ${v('deposit')} deposit${own ? '' : ' · your usual'}`;
+}
+function lpRow(l, k, label, opts) {
+  const key = `lp|${l.id}|${k}`, open = ui.qOpen === key, cur = l.prices?.[k], u = usualOf(k);
+  const list = uniq([...opts, ...(cur && !opts.includes(cur) ? [cur] : [])]).filter((o) => o !== u);
+  const add = ui.qOther === key
+    ? `<div class="fbar-top"><label><input id="qo-input" data-qokey="${key}" placeholder="For example ${k === 'fullReg' ? '+$750' : k === 'deposit' ? '$400' : '$3,800'}" autocomplete="off" aria-label="${label}: add your own"></label><button type="button" class="fbtn" data-lpown="${key}">Add</button></div>`
+    : `<button type="button" class="chip own" data-qother="${key}" aria-label="Add your own" title="Add your own">${icon('plus')}</button>`;
+  return `<div class="q-row"><button type="button" class="q-head" data-qopen="${key}" aria-expanded="${open}"><span class="q">${label}</span><span class="a">${cur ? esc(cur) : `${esc(u)}<small class="usual"> your usual</small>`}</span>${icon(open ? 'chevron-up' : 'chevron-down')}</button>
+    ${open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Your usual · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
+}
+
 const LITTER_ATTN = { wa: [['car', '', 'Go-home weekend · Nov 21–22', 'littersec:wa|gohome'], ['stethoscope', 'red', 'Wren · vet recheck overdue', 'dog:wren']], ct: [['scan-line', 'blue', 'X-ray for puppy count · Mon Nov 23', 'littersec:ct|pregnancy']] };
 S.litter = (id) => {
   const l = LITTERS.find((x) => x.id === id) || LITTERS[0];
@@ -1767,7 +1792,11 @@ S.littersec = (p) => {
   } else if (k === 'prep') {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
-    body = `${l.price ? `<section class="card"><div class="section-h"><h2>This litter</h2></div>${facts([['Prices', l.price]])}</section><div class="group-label">Your usual</div>` : ''}<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section><button type="button" class="set-link" data-open="pricing">${icon('pencil')}Change your usual prices</button>`;
+    const sold = SALES.filter((x) => DOGS.find((d) => d.name === x.pup)?.litter === l.id).length;
+    body = `<p class="lede">What this litter’s pups sell for. Each answer starts as your usual; pick another or add your own for this litter only.</p>
+      <section class="card"><div class="rows">${LP_Q.map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
+      ${sold ? `<p class="f-hint">${sold} pup${sold === 1 ? ' is' : 's are'} already sold; ${sold === 1 ? 'that sale keeps its' : 'those sales keep their'} price. Change one on its sale.</p>` : ''}
+      <button type="button" class="set-link" data-open="pricing">${icon('settings')}Change your usual prices, for every litter</button>`;
   } else {
     body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
   }
@@ -3614,7 +3643,7 @@ function litterSave() {
   const id = 'l' + (LITTERS.length + 1);
   const l = { id, dam, sire, fresh: 1, nick: f.nick || '', status: born ? ['Whelped', 'green'] : ['Expected', 'blue'],
     ...(born ? { whelp: f.d, ready: addDays(f.d, 56), m, f: fe } : { due, bred }),
-    price: f.prices === 'own' && (f.pm || f.pf) ? `${f.pm ? money(Number(f.pm)) + ' male' : ''}${f.pm && f.pf ? ' · ' : ''}${f.pf ? money(Number(f.pf)) + ' female' : ''}${f.dep ? ` · ${money(Number(f.dep))} deposit` : ''}` : '',
+    prices: f.prices === 'own' ? Object.fromEntries([['male', f.pm], ['female', f.pf], ['deposit', f.dep]].filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, money(Number(v))])) : {},
     note: born ? `${m + fe} born alive${Number(f.lost) ? ` · ${f.lost} lost` : ''} · ${f.delivery.toLowerCase()}` : `Due ${short(due)}${f.wl === 'no' ? ' · not offered to the waitlist' : ''}` };
   LITTERS.push(l);
   const q = PAIRINGS.find((x) => x.dam === dam && x.sire === sire && !['Whelped'].includes(x.status[0]));
@@ -3744,7 +3773,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3766,6 +3795,13 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if (d.lpset != null) { const [, lid, k, v] = d.lpset.split('|'), l = LITTERS.find((x) => x.id === lid); l.prices ||= {}; if (v) l.prices[k] = v; else delete l.prices[k]; ui.qOpen = null; render(); toast(v ? `${litterName(l)}: ${v}` : 'Back to your usual'); return; }
+  if (d.lpown) {
+    const [, lid, k] = d.lpown.split('|'), l = LITTERS.find((x) => x.id === lid); let v = ($('#qo-input')?.value || '').trim();
+    if (!/[0-9]/.test(v)) return toast('Type an amount, like $3,800');
+    v = (k === 'fullReg' ? '+' : '') + '$' + Number(v.replace(/[^0-9.]/g, '')).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    (l.prices ||= {})[k] = v; ui.qOther = null; ui.qOpen = null; render(); toast(`${litterName(l)}: ${v}`); return;
+  }
   if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }
@@ -3900,7 +3936,7 @@ document.addEventListener('input', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.sheet) { ui.sheet = null; renderSheet(); return; }
   if (e.key === 'Enter' && e.target.id?.startsWith('own-')) { e.preventDefault(); document.querySelector(`[data-fown="${e.target.id.slice(4)}"]`)?.click(); return; }
-  if (e.key === 'Enter' && e.target.id === 'qo-input') { e.preventDefault(); document.querySelector(`[data-qown="${e.target.dataset.qokey}"]`)?.click(); return; }
+  if (e.key === 'Enter' && e.target.id === 'qo-input') { e.preventDefault(); document.querySelector(`[data-qown="${e.target.dataset.qokey}"],[data-lpown="${e.target.dataset.qokey}"]`)?.click(); return; }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
   if ((e.key === '/' && !typing) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
     if ($('#map-dialog').open) return;

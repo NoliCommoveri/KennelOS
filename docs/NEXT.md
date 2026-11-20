@@ -169,6 +169,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   place (it counted the family twice).
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: The prototype: a litter's own prices
+
+- The owner asked where to change a litter's expected price; the prototype had nowhere once
+  the litter existed. A litter's **Pricing** screen (`docs/design/forest-look-prototype.html`)
+  now has question rows for this litter only: male price, female price, deposit and full
+  registration, each starting as her usual (marked "your usual"), with typical amounts and
+  D10's + for her own; picking "Your usual" goes back. Sales already made keep their price.
+  Born litters still selling (Willow × Ash) gain the Pricing tile they lacked, and the tile
+  sums up this litter's prices. Add litter's "Different for this litter" fills the same rows.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
