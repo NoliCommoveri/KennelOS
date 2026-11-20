@@ -746,7 +746,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>A family on the waitlist</h3>
     <p>Everything about a family hangs off their one page (One person, one page). Its tiles open one job each, and none of them asks for or repeats their name, email or phone: where a screen uses one (sign-in codes, an email she sends), it shows it with <b>Change</b>, which opens Their details. <b>Offers &amp; passes</b> opens on their place (overall, and among families who want what they want) and passes used, then every turn they've had with its outcome and reason, then what she can do: offer a turn out of order, sell them a pup outside the turn order, move their place, pause it, or take them off the list (they withdrew, or she's removing them; 7 days to undo). <b>Fee</b> says what it is and where it stands (waived by a program, due, paid and counted toward the price) and marks it received, with how they paid. <b>Messages</b> is one thread: what they wrote on their status page, what she wrote, and each email sent, with Send again on one that failed; she writes from a starting point or her own words, by email or copied for a text. <b>Status page</b> shows what they see right now, when they last looked, where their sign-in codes go, what they can do there, their link, and a new link if it was shared by mistake. <b>History</b> is all of it, newest first.</p>
-    <p><b>Add family</b> asks who first and checks as she types: an email, phone or name she already has brings up "Is this the Okafor family?", and Yes adds that person back to the list (their earlier puppy stays on their page), so nobody is ever entered twice. Then what they want, which litters (any, or only some dams and sires), a program, and whether the fee is in, with the place they'll get. A <b>Side sale</b> (from the turn order or a family's Offers &amp; passes) is her pick for a family, outside the turn order: each mismatch is said plainly (a pup on hold, a different sex, another family holding that pup in their turn) and none blocks it. <b>Programs</b> are hers to name; each is the same question rows as Setup (fee, place in line, time to answer, whether passes count, pausing), what families see if she writes it, and the families in it.</p>
+    <p><b>Add family</b> asks who first and checks as she types: an email, phone or name she already has brings up "Is this the Okafor family?", and Yes adds that person back to the list (their earlier puppy stays on their page), so nobody is ever entered twice. Then what they want, which litters (any, or only some dams and sires), a program, and whether the fee is in, with the place they'll get. A <b>Side sale</b> (from the turn order or a family's Offers &amp; passes) is her pick for a family, outside the turn order: each mismatch is said plainly (a pup on hold, a different sex, another family holding that pup in their turn) and none blocks it. The price and deposit fill in from the pup's litter (or her usual) and she can change either, with the deposit due date, go-home, which payment schedule follows and notes: what the app fills in is always a starting point. <b>Programs</b> are hers to name; each is the same question rows as Setup (fee, place in line, time to answer, whether passes count, pausing), what families see if she writes it, and the families in it.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -2693,7 +2693,16 @@ S.sidesale = (fid) => {
     if (f.paused) notes.push(['info', `They’re paused until ${f.paused}.`]);
     if (OFFER.open && OFFER.pup === p.id) notes.push(['triangle-alert', `The ${fam(OFFER.fam).n} has ${p.name} in their turn, answer by ${wday(OFFER.due)}. If both send a deposit, the first one in gets ${p.sex === 'm' ? 'him' : 'her'}.`, 'warn']);
   }
-  const fullAdd = Number(String(SET.pricing.fullReg).replace(/\D/g, '')) || 0, base = Number(String(SET.pricing.pet).replace(/\D/g, ''));
+  /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
+  const lit = p && LITTERS.find((l) => l.id === p.litter);
+  const amt = (v) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
+  const base = amt(p ? (lit?.prices?.[p.sex === 'm' ? 'male' : 'female'] || usualOf(p.sex === 'm' ? 'male' : 'female')) : SET.pricing.pet);
+  const fullAdd = amt(lit?.prices?.fullReg || SET.pricing.fullReg);
+  const auto = String(base + (fm.reg === 'Full' ? fullAdd : 0)), autoDep = String(amt(lit?.prices?.deposit || SET.pricing.deposit));
+  if (!fm.price || fm.price === fm._auto) fm.price = auto; fm._auto = auto;
+  if (!fm.dep || fm.dep === fm._autoDep) fm.dep = autoDep; fm._autoDep = autoDep;
+  const sched = SCHEDULES.map((x) => [x.id, x.n]);
+  fm.sched ||= SCHEDULES.find((x) => x.usual).id;
   return {
     bar: bar('Side sale', { sub: 'Outside the turn order' }),
     body: `<p class="lede">You pick a pup for a family on the list. It isn’t a turn: nobody’s turn moves, and it never counts as a pass. To them it looks like their pick.</p>
@@ -2702,9 +2711,13 @@ S.sidesale = (fid) => {
       ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>They hold the turn now. Record their pick on <button type="button" class="link" data-open="wloffer">their turn</button> instead.</span></div>` : `
       <section class="card app-card">${fChips('pup', 'Pup', pups.map((d) => [d.id, `${d.name} · ${d.sex === 'm' ? 'M' : 'F'}${d.disp !== 'available' ? ' · ' + DISP[d.disp][0].toLowerCase() : ''}`]))}</section>
       ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
-      <section class="card app-card">${fChips('reg', 'Selling at', [['Limited', `Limited · ${money(base)}`], ['Full', `Full · ${money(base + fullAdd)}`]])}
-        <div class="form-stack"><div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}</div></div>
-        <p class="f-hint">They’re sent the usual deposit request and reminders. Nothing happens by itself if the date passes; you’ll see it on Home.</p></section>
+      <section class="card app-card">${fChips('reg', 'Selling at', [['Limited', 'Limited registration'], ['Full', `Full registration${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
+        <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
+        <p class="f-hint">${p ? `From ${lit ? litterName(lit) + '’s' : 'your usual'} price for ${p.sex === 'm' ? 'males' : 'females'}${fm.reg === 'Full' && fullAdd ? ' plus full registration' : ''}. Change either for this sale; the litter’s prices stay.` : 'Pick the pup and these fill in from its litter.'}</p>
+        <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
+        ${fChips('sched', 'Payments after the deposit', sched)}
+        <div class="form-stack">${fText('notes', 'Notes', 'Only you see these')}</div>
+        <p class="f-hint">They’re sent the deposit request and reminders as for any pick. Nothing happens by itself if the date passes; you’ll see it on Home. Anything else (extras, transport, a different schedule) can be changed on the sale afterwards.</p></section>
       ${saveBar('data-sidesave="1"', 'Record the side sale')}`}`,
   };
 };
@@ -3713,10 +3726,12 @@ function sideSave() {
   if (!f) return toast('Pick the family');
   if (!p) return toast('Pick the pup');
   if (!fm.due) return toast('Pick when the deposit is due');
-  const base = Number(String(SET.pricing.pet).replace(/\D/g, '')), full = Number(String(SET.pricing.fullReg).replace(/\D/g, '')) || 0;
-  SALES.push({ pup: p.name, fam: f.id, price: base + (fm.reg === 'Full' ? full : 0), paid: 0, date: TODAY, gohome: 'Not set', side: 1, due: fm.due });
+  const price = Number(fm.price), dep = Number(fm.dep);
+  if (!(price > 0)) return toast('Type the price');
+  if (!(dep >= 0) || dep > price) return toast('The deposit can’t be more than the price');
+  SALES.push({ pup: p.name, fam: f.id, price, deposit: dep, paid: 0, date: TODAY, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', side: 1, due: fm.due, sched: fm.sched, notes: fm.notes || '' });
   if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
-  ui.formSpec = null; back(); toast(`Side sale recorded. The ${f.n} is asked for the ${SET.pricing.deposit} deposit on ${p.name} by ${wday(fm.due)}.`);
+  ui.formSpec = null; back(); toast(`Side sale recorded: ${p.name} at ${money(price)}. The ${f.n} is asked for the ${money(dep)} deposit by ${wday(fm.due)}.`);
 }
 
 function testSave(id) {

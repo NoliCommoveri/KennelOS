@@ -293,3 +293,10 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   the same size as the KennelOS PRO brand (21px, was 23px), and the back arrow sits tighter to
   the edge and the title (`.appbar .back-btn`, margin 0 −6px 0 −8px). A long title wraps
   beside the header button instead of running under it.
+- **D13. What the app fills in, she can change (2026-11-20).** The owner: "I should be able to
+  modify basically anything I need to." Every amount, date or choice a screen fills in for
+  her (a price from the litter, a deposit from her usual, a due date from her rules) is a
+  starting point shown in a field she can change on that screen, with a line saying where it
+  came from; changing it there changes only this record, never the setting it came from.
+  First applied to Side sale (price, deposit, deposit due, go-home, payment schedule, notes);
+  every sale and money screen in the Business batch follows it.

@@ -180,6 +180,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   sums up this litter's prices. Add litter's "Different for this litter" fills the same rows.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D13, what the app fills in she can change; Side sale's price
+
+- The owner's D13 in `docs/KennelOS_UI_Redesign_Plan.md` §8: every amount, date or choice a
+  screen fills in is a starting point she can change there, for that record only.
+- The prototype's **Side sale** (`docs/design/forest-look-prototype.html`): price and deposit
+  are fields, filled from the pup's litter prices for its sex (plus full registration when
+  picked) or her usual, with a line saying so; she can change either. Go-home date, which
+  saved payment schedule follows the deposit, and notes join the deposit due date. Changing
+  the registration refills the price only if she hasn't typed her own.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
