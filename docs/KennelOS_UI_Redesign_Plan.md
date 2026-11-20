@@ -19,8 +19,8 @@
 > person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
 > sale, Programs and a program; Add sale, Add person, Do not sell, a sale's Payments, Contracts
 > (the list, a contract, Send for signature, its details), Add entry, the Financials year,
-> Accounts and an account; Backup & Restore, Import / Export, Danger zone, Sharing, Storage
-> and Kels. Each is the owner's to approve or change, like any
+> Accounts and an account; Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
+> Documents and Kels. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).

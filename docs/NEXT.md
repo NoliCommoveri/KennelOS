@@ -14,8 +14,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
   drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
-  Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage
-  and Kels so far).
+  Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
+  Documents and Kels so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -524,6 +524,15 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   compare call-name-only dogs, by position first, in review; fill blanks on a match; offer the
   registered name and number when adding an outside parent; and raise already-split pairs in
   Possible duplicates.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws Documents
+
+- Prototype (`docs/design/forest-look-prototype.html`): More › Storage › **Documents**, from the
+  live page: every document under its dog (newest first), type chips with counts (pedigree,
+  health test, vet summary, registration, contract, other), search over titles, labs and
+  results, the shared filter for date and dog; each dog's name opens the dog. Storage's line
+  for it now names what it holds. Design notes and the plan's status updated.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

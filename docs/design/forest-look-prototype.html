@@ -809,7 +809,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <h3>More: backups, import, sharing and Kels</h3>
     <p><b>Backup &amp; Restore</b> has two tabs, Back up and Restore, then where to: Cloud, This device or Dropbox. Cloud shows when it last backed up (it backs up by itself after changes) and Back up now. This device downloads a backup file and warns when the last one is over two weeks old. Restore lists the cloud backups (kept 30 days) or opens a file, then shows what's in it before anything changes: <b>Merge</b> adds what's new, and <b>Replace all</b> asks once more before it deletes. Dropbox asks to connect first.</p>
     <p><b>Import / Export</b> imports a spreadsheet by type (kennels first) or several files at once, each previewed before saving. It also has blank templates, a duplicates check across dogs, people and kennels, and Export everything, which is the backup file. <b>Danger zone</b> shows what's on this device, then Reset KennelOS: type RESET, optionally sign out of cloud backup, and Delete everything.</p>
-    <p><b>Sharing</b> groups who it's for: families (Companion messages, Furever), your helper, and other breeders (dog cards sent, Send a dog, Add dogs from a card). <b>Storage</b> holds Documents and Shows; Accounts are in Business. <b>Kels</b> offers to finish an unfinished task, then Finding something, Understanding something, and Doing something: every task with a search box, starred ones first.</p>
+    <p><b>Sharing</b> groups who it's for: families (Companion messages, Furever), your helper, and other breeders (dog cards sent, Send a dog, Add dogs from a card). <b>Storage</b> holds Documents and Shows; Accounts are in Business. <b>Documents</b> lists every document under its dog, newest first, with a chip per type (pedigree, health test, vet summary, registration, contract, other), search over titles, labs and results, and the shared filter for date and dog. <b>Kels</b> offers to finish an unfinished task, then Finding something, Understanding something, and Doing something: every task with a search box, starred ones first.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1335,7 +1335,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -4019,6 +4019,38 @@ function dupAct(v) {
   render();
 }
 
+/* ================= Documents (More › Storage): each belongs to one dog, grouped by dog ================= */
+const DOC_T = { pedigree: ['Pedigree', 'git-fork', 'green'], health_test: ['Health test', 'test-tube', 'blue'], vet_summary: ['Vet summary', 'stethoscope', 'blue'], registration: ['Registration', 'id-card', ''], contract: ['Contract', 'file-pen-line', 'violet'], other: ['Other', 'file-text', 'gray'] };
+const DOCS = [
+  { id: 'dc1', dog: 'willow', type: 'health_test', t: 'OFA hips and elbows', d: '2026-02-10', by: 'OFA', res: 'Good / Normal' },
+  { id: 'dc2', dog: 'willow', type: 'health_test', t: 'Embark breed panel', d: '2026-03-04', by: 'Embark', res: 'Clear' },
+  { id: 'dc3', dog: 'willow', type: 'registration', t: 'AKC registration certificate', d: '2021-08-02', by: 'AKC' },
+  { id: 'dc4', dog: 'willow', type: 'pedigree', t: 'Four-generation pedigree', d: '2021-08-02', by: 'AKC' },
+  { id: 'dc5', dog: 'ash', type: 'health_test', t: 'OFA hips', d: '2022-04-18', by: 'OFA', res: 'Excellent' },
+  { id: 'dc6', dog: 'ash', type: 'vet_summary', t: 'Rabies certificate (3 yr)', d: '2025-12-02', by: 'Hartland Animal Hospital' },
+  { id: 'dc7', dog: 'titan', type: 'pedigree', t: 'Meadow Ridge Titan, pedigree', d: '2026-10-05', by: 'AKC' },
+  { id: 'dc8', dog: 'titan', type: 'health_test', t: 'EIC and CNM results', d: '2024-01-22', by: 'Paw Print Genetics', res: 'Clear' },
+  { id: 'dc9', dog: 'poppy', type: 'contract', t: 'Puppy sale contract, signed', d: '2026-11-12', by: 'Okafor family' },
+  { id: 'dc10', dog: 'fern', type: 'vet_summary', t: 'First vaccines and wellness exam', d: '2026-10-29', by: 'Hartland Animal Hospital' },
+  { id: 'dc11', dog: 'clover', type: 'vet_summary', t: 'Ultrasound, confirmed pregnant', d: '2026-11-03', by: 'Dr. Okonkwo' },
+];
+FDEF.docs = { date: 'Date', dd: ['Dog'], items: () => DOCS.filter((x) => (ui.docType || 'all') === 'all' || x.type === ui.docType), get: { date: (x) => x.d, Dog: (x) => dogById(x.dog).name }, text: (x) => `${x.t} ${x.by || ''} ${x.res || ''} ${dogById(x.dog).name}` };
+S.documents = () => {
+  const type = ui.docType || 'all', base = FDEF.docs.items(), list = applyF('docs', base);
+  const chips = [['all', 'All', DOCS.length], ...Object.entries(DOC_T).map(([k, [l]]) => [k, l, DOCS.filter((x) => x.type === k).length])].filter(([k, , n]) => k === 'all' || n)
+    .map(([k, l, n]) => `<button type="button" class="chip" data-mo="doctype|${k}" aria-pressed="${type === k}">${l}<span class="n">${n}</span></button>`).join('');
+  const dogs = uniq(list.map((x) => x.dog)).sort((a, b) => dogById(a).name.localeCompare(dogById(b).name));
+  return {
+    bar: bar('Documents', { action: addBtn('Add', 'stub:add-document') }),
+    body: `<div class="chips" role="group" aria-label="Type">${chips}</div>
+      ${filterBar('docs', { placeholder: 'Search titles, labs, results', shown: list.length, total: base.length })}
+      ${dogs.map((id) => { const g = list.filter((x) => x.dog === id).sort((a, b) => b.d.localeCompare(a.d)); return `<section class="card"><div class="section-h"><h2>${icon('dog')}<button type="button" class="link" data-open="dog:${id}">${esc(dogById(id).name)}</button></h2><span class="fcount">${g.length}</span></div><div class="rows">${g.map((x) => { const [l, ic, tone] = DOC_T[x.type]; return row({ ic, tone, t: esc(x.t), extra: type === 'all' ? pill([l, tone || 'gray']) : '', s: [fmt(x.d), x.by, x.res].filter(Boolean).map(esc).join(' · '), go: 'stub:document' }); }).join('')}</div></section>`; }).join('')
+        || (DOCS.length ? '<p class="lede">No documents match.</p>' : empty('file-text', 'No documents yet. Add registration papers, health results and contracts to a dog.', 'Add document'))}
+      <p class="f-hint">Each document belongs to one dog and is stored on this device${BACKUP.cloudOn ? ', and in your cloud backup' : ''}.</p>`,
+    filterItems: base,
+  };
+};
+
 /* ================= More's screens: backup and restore, import / export, danger zone, sharing, storage, Kels ================= */
 /* her backups: cloud copies kept 30 days, the last file she saved on this device, Dropbox not connected */
 const BACKUP = { cloudOn: 1, cloudLast: `${TODAY}T06:12`, fileLast: '2026-11-02', dropbox: 0 };
@@ -4118,7 +4150,7 @@ S.sharing = () => {
 S.storage = () => ({
   bar: bar('Storage', { ic: 'folder' }),
   body: `<section class="card big-rows"><div class="rows">
-      ${row({ ic: 'file-text', t: 'Documents', s: 'Registrations, health certificates, contracts and photos', go: 'stub:documents' })}
+      ${row({ ic: 'file-text', t: 'Documents', s: 'Registrations, health results, vet records and contracts', go: 'documents' })}
       ${FEAT.shows ? row({ ic: 'trophy', t: 'Shows', s: 'Entries, results and judges', go: 'stub:shows' }) : ''}</div></section>
     <section class="card"><div class="rows">${row({ ic: 'landmark', t: 'Accounts', s: 'Bank, payment and referral accounts are in Business', go: 'accounts' })}</div></section>`,
 });
@@ -4171,6 +4203,7 @@ function moAct(v) {
   else if (k === 'download') { BACKUP.fileLast = TODAY; render(); return toast('Downloaded kennelos-backup.json'); }
   else if (k === 'dropbox') return toast('Opens Dropbox to sign in');
   else if (k === 'scan') ui.dupScan = 1;
+  else if (k === 'doctype') ui.docType = a;
   else if (k === 'star') { const s = ui.kelsStar, i = s.indexOf(a); i < 0 ? s.push(a) : s.splice(i, 1); }
   else if (k === 'reset') { if ((ui.form.phrase || '').trim() !== 'RESET') return toast('Type RESET to confirm'); return toast('In the app, this deletes everything and opens setup'); }
   render();
