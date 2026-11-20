@@ -197,6 +197,8 @@ piece can't do the job** (D18).
 | Edit in place | `.rem` + `.q-edit` | A row that opens to edit one item (a sale's add-ons) | Whole records: open their screen |
 | A record's header | `.hub-head` | Its name, pills and one-line facts | |
 | Filters | `filterBar()` + the filter sheet | Every list that can be filtered (D11) | |
+| Sort | **Sort** at the top of the filter sheet: `ddBox` with `.dd-opt.one` (the date range's single pick), from the list's `FDEF[key].sorts`, the first its default; a sort she picks shows as a chip; the button reads **Sort & filter** (D22) | Any list she'd order more than one way (People, a person picker) | Column headers (tables only, live's `listView`) |
+| Choose a person | `personPicker()`: the filter bar, its box also the new person's name, then matching people as rows with `personBadge()` (#2 on the list, Fee due, Applied, Client, Care team), then New person's details | Every place a person is chosen: a sale's buyer, Do not sell (D21) | A `<select>` of people, or groups by kind of record |
 | History | `timeline()` | Events by date | |
 | Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
 
@@ -478,4 +480,15 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   **Same day:** question rows with fixed phrase answers (Setup, Pricing and schedules, a
   litter's Pricing split) open to a radio list; questions she can answer with her own value
   keep chips and +. A list of dogs is grouped **Sires, then Dams**, alphabetical in each.
-
+- **D21. One sale screen; people as one list (2026-11-20).** The owner: she never sees a
+  difference that comes from how records are kept. A sale to a waitlist family is drawn on the
+  same Add sale screen as any other, never named as a side sale; what's different shows only as
+  notes (what doesn't match, another claim, a held pup, their open turn). Choosing a person is
+  one list, not "Waitlist" and "People": waitlist families are people too; where they stand is a
+  badge, and the order and filters do the rest. The live-app change is
+  `docs/KennelOS_Unified_Sale_Plan.md`.
+- **D22. Sorts and filters on a person list (2026-11-20).** The owner: a list of people sorts
+  (Waitlist first, Name A–Z, Name Z–A) and filters (applied: on the list, fee due, applied,
+  haven't applied). Live sorts only by table column headers, which card lists don't have, so
+  Sort joins the shared filter sheet as its first dropdown (§3.1). People and the person picker
+  have it; other lists gain their sorts as they're converted (phase 8).

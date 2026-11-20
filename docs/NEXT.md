@@ -442,6 +442,18 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   held pup, deposit due, settling two claims) apply to every sale, the plan's §2.2.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D21 and D22: one sale screen, people as one list, sorts
+
+- `docs/KennelOS_UI_Redesign_Plan.md` §8 records D21 (one sale screen; people as one list,
+  drawn earlier today) and D22: Sort joins the shared filter sheet as its first dropdown
+  (single pick, like the date range), with a chip when changed and the button reading **Sort &
+  filter**. §3.1 lists Sort and Choose a person (`personPicker`, `personBadge`).
+- Prototype (`docs/design/forest-look-prototype.html`, published): the person picker uses the
+  shared filter bar (its box is also the new person's name), sorts Waitlist first / Name A–Z /
+  Name Z–A and filters by Application (On the list, Fee due, Applied, Haven't applied); People
+  gets the same sorts and the Application filter.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
