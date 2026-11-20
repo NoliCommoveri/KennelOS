@@ -279,3 +279,11 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     while emails, codes and contracts read the contact's, so a corrected email changed
     nothing and nothing said so. The live app's stopgap (on `main`, 2026-11-19) has that page
     show and edit the contact's details; the redesign removes the split.
+- **D11. Filters: dropdowns, and dam and sire (2026-11-20).** The owner: some filters are
+  better as dropdowns than buttons, and a litter filter is by **dam and sire independently**,
+  picking as few or as many of each as she likes. **Drawn as:** short, fixed choices (status,
+  sex, kind) stay chips; the date range is a one-pick dropdown; any list that grows with her
+  records (dams, sires, families, categories, event types, who was paid) is a dropdown where
+  she ticks any number, with a find box past eight and a count beside each. Dogs, Litters and
+  Sales filter by Dam and Sire; there is no Litter filter. Which groups are dropdowns is the
+  prototype's `FDEF[...].dd`. The chips-or-dropdown rule is a proposal for her to confirm.

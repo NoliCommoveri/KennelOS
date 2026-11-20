@@ -125,6 +125,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   Not yet seen by the owner.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D11, filters as dropdowns; dam and sire
+
+- The owner's D11 in `docs/KennelOS_UI_Redesign_Plan.md` §8: some filters as dropdowns, and
+  litters filtered by dam and sire independently, any number of each.
+- The prototype's one filter sheet (`docs/design/forest-look-prototype.html`): the date range
+  is a dropdown; dams, sires, families, categories, event types and who was paid are
+  multi-pick dropdowns (find box on long lists, a count per choice); short fixed choices stay
+  chips. Dogs and Sales lose their Litter filter for Dam and Sire; Litters' Dam and Sire become
+  dropdowns. Design notes' Filters section says so.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

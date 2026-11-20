@@ -640,6 +640,28 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .amt-in span { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); padding: 0 10px; }
 .amt-in b { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--muted); }
 .form-stack .amt-in input { border: 0; background: none; padding: 8px 0; font-family: var(--font-display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; outline: none; flex: 1; min-width: 0; color: var(--ink); }
+/* the filter sheet's dropdowns */
+.dd h3 { margin: 0 0 8px; }
+.dd-btn { width: 100%; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-align: left; }
+.dd-btn > svg.lucide, .dd-btn > i[data-lucide] { margin-left: auto; width: 18px; height: 18px; flex: none; color: var(--muted); }
+.dd-btn.on { color: var(--ink); font-weight: 600; border-color: var(--primary); background: var(--primary-soft); }
+.dd.open .dd-btn { border-radius: 10px 10px 0 0; }
+.dd-list { border: 1px solid var(--line-strong); border-top: 0; border-radius: 0 0 10px 10px; background: var(--surface); padding: 4px 0; display: flex; flex-direction: column; }
+.dd-find { display: flex; align-items: center; gap: 8px; margin: 4px 10px 6px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 10px; color: var(--muted); background: var(--bg); }
+.dd-find svg.lucide, .dd-find i[data-lucide] { width: 16px; height: 16px; }
+.dd-find input { border: 0; background: none; outline: none; padding: 8px 0; flex: 1; min-width: 0; font: inherit; color: var(--ink); }
+.dd-opt { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 9px 12px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; text-align: left; }
+.dd-opt:hover { background: var(--surface-2); }
+.dd-box { width: 20px; height: 20px; border: 1.5px solid var(--line-strong); border-radius: 5px; display: grid; place-items: center; flex: none; color: transparent; }
+.dd-opt.one .dd-box { border-radius: 50%; }
+.dd-box svg.lucide, .dd-box i[data-lucide] { width: 14px; height: 14px; stroke-width: 3; }
+.dd-opt[aria-selected="true"] .dd-box { background: var(--chip-on); border-color: var(--chip-on); color: var(--chip-on-ink); }
+.dd-opt[aria-selected="true"] .dd-t { font-weight: 600; }
+.dd-t { flex: 1; min-width: 0; }
+.dd-opt .n { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.dd-foot { display: flex; justify-content: space-between; padding: 6px 12px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+.dd-foot .link:disabled { color: var(--faint); cursor: default; }
+.dd-none { padding: 6px 12px; }
 </style>
 
 <div class="proto">
@@ -718,7 +740,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>The Waitlist tab answers "what do I do next?" first. <b>Needs you</b> lists the open offer, new applications, fees waiting and family requests, and the tab shows that count as a badge. <b>Selling now</b> shows the litter with picks open, its turn order, and which pups are still open. Each item opens a screen that does that one thing: record an offer's answer, approve an application, mark a fee received, answer a request. Recording an answer moves the turn along the way the list rules already do (a pass offers the next eligible family).</p>
 
     <h3>Filters</h3>
-    <p>Every list of records has the same filter button: a date range (presets and custom), then the fields that list has, such as status, type, category, dog, litter or family. Active filters show as chips you can remove one at a time, with a count of what's shown. Built here on Dogs, a dog's History, Litters, the Waitlist list, Sales, People and Financials › Entries.</p>
+    <p>Every list of records has the same filter button: a date range (presets and custom), then the fields that list has, such as status, type, category, dog, litter or family. Active filters show as chips you can remove one at a time, with a count of what's shown. Short, fixed choices (status, sex, kind) are chips; the date range is a dropdown, and so is any list that grows with her records (dams, sires, families, categories, event types, who was paid), where she ticks as many as she likes, with a find box on long lists and a count beside each. Litters are filtered by <b>Dam</b> and <b>Sire</b> separately, never by litter name: on Dogs, Litters and Sales. Built here on Dogs, a dog's History, Litters, the Waitlist list, Sales, People and Financials › Entries.</p>
 
     <h3>Setup (settings)</h3>
     <p>Settings get one home, More › Setup, also linked from the Home header, the desktop rail, and a "Settings for this" link on the hubs they affect (the Waitlist hub links to Waitlist settings). It opens on anything left to finish, then one row per area with a plain summary of the current answers, so she can check them without opening anything. Each area is a short list of questions with the answer beside it; tapping one shows the choices. The only switches are in <b>What you use</b>, which turns whole features on or off and hides their tabs, tiles and rows everywhere. Each area names where its settings live today. The same questions, in order, can be the first-run setup.</p>
@@ -1098,13 +1120,13 @@ const setLink = (label, spec) => `<button type="button" class="set-link" data-op
 const RANGES = [['all', 'Any time'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['year', 'This year'], ['last', 'Last year'], ['custom', 'Custom']];
 const blankF = () => ({ range: 'all', from: '', to: '', sel: {} });
 const FDEF = {
-  dogs: { date: 'Born', items: () => DOGS, get: { date: (d) => d.born, Status: (d) => STATUS[d.status][0], Sex: (d) => (d.sex === 'm' ? 'Male' : 'Female'), Disposition: (d) => (d.disp ? DISP[d.disp][0] : 'None'), Litter: (d) => (d.litter ? 'Willow × Ash' : 'None') }, text: (d) => d.name + ' ' + (d.reg || '') },
-  history: { date: 'Date', get: { date: (e) => e.d, Category: (e) => e.cat, Type: (e) => e.type[0] }, text: (e) => e.t + ' ' + e.body + ' ' + e.type[0] },
-  litters: { date: 'Whelped or due', items: () => LITTERS, get: { date: (l) => l.whelp || l.due, Status: (l) => l.status[0], Dam: (l) => l.dam, Sire: (l) => l.sire }, text: litterName },
+  dogs: { date: 'Born', dd: ['Dam', 'Sire'], items: () => DOGS, get: { date: (d) => d.born, Status: (d) => STATUS[d.status][0], Sex: (d) => (d.sex === 'm' ? 'Male' : 'Female'), Disposition: (d) => (d.disp ? DISP[d.disp][0] : 'None'), Dam: (d) => (damOf(d.id) ? pedName(damOf(d.id)) : 'Not entered'), Sire: (d) => (sireOf(d.id) ? pedName(sireOf(d.id)) : 'Not entered') }, text: (d) => d.name + ' ' + (d.reg || '') },
+  history: { date: 'Date', dd: ['Type'], get: { date: (e) => e.d, Category: (e) => e.cat, Type: (e) => e.type[0] }, text: (e) => e.t + ' ' + e.body + ' ' + e.type[0] },
+  litters: { date: 'Whelped or due', dd: ['Dam', 'Sire'], items: () => LITTERS, get: { date: (l) => l.whelp || l.due, Status: (l) => l.status[0], Dam: (l) => l.dam, Sire: (l) => l.sire }, text: litterName },
   wl: { date: 'Joined', items: () => WL, get: { date: (f) => f.joined, Status: (f) => WL_ST[f.st][0], Wants: (f) => WANTS[f.wants], Use: (f) => f.use, Flags: (f) => [f.paused && 'Paused', f.listen && 'Listening only', f.passes && 'Has a pass', f.program && 'In a program'].filter(Boolean) }, text: (f) => f.n },
-  sales: { date: 'Sold', items: () => SALES, get: { date: (s) => s.date, Status: (s) => saleState(s)[0], Litter: () => 'Willow × Ash', Family: (s) => fam(s.fam).n }, text: (s) => s.pup + ' ' + fam(s.fam).n },
+  sales: { date: 'Sold', dd: ['Dam', 'Sire', 'Family'], items: () => SALES, get: { date: (s) => s.date, Status: (s) => saleState(s)[0], Dam: (s) => pedName(damOf(s.pup.toLowerCase()) || '') || 'Not entered', Sire: (s) => pedName(sireOf(s.pup.toLowerCase()) || '') || 'Not entered', Family: (s) => fam(s.fam).n }, text: (s) => s.pup + ' ' + fam(s.fam).n },
   people: { date: null, items: () => PEOPLE_OF(), get: { Type: (p) => p.t }, text: (p) => `${p.n} ${p.s} ${DETAILS[p.id]?.email || ''} ${DETAILS[p.id]?.phone || ''}` },
-  ledger: { date: 'Date', items: () => LEDGER, get: { date: (e) => e.d, Kind: (e) => (e.kind === 'in' ? 'Income' : 'Expense'), Category: (e) => e.cat, 'Dog or litter': (e) => e.on, Paid: (e) => e.party }, text: (e) => e.what + ' ' + e.party + ' ' + e.on.join(' ') },
+  ledger: { date: 'Date', dd: ['Category', 'Dog or litter', 'Paid'], items: () => LEDGER, get: { date: (e) => e.d, Kind: (e) => (e.kind === 'in' ? 'Income' : 'Expense'), Category: (e) => e.cat, 'Dog or litter': (e) => e.on, Paid: (e) => e.party }, text: (e) => e.what + ' ' + e.party + ' ' + e.on.join(' ') },
 };
 const ui = { tOpen: null, birth: { sex: 'f', color: 'Black', alive: 1, wt: '', time: '', abn: [], adding: false }, cnew: { name: '', kind: 'color', link: '' }, recent: [], searchMore: {}, dogTab: 'puppies', litTab: 'litters', finTab: 'overview', peopleTab: 'All', chartTable: false, f: {}, q: {}, sheet: null, qOpen: null };
 const F = (k) => (ui.f[k] ||= blankF());
@@ -1144,19 +1166,38 @@ function filterBar(key, { placeholder = 'Search', shown, total, items } = {}) {
 }
 let sheetItems = null;
 function openSheet(key, items) { ui.sheet = { key, draft: JSON.parse(JSON.stringify(F(key))) }; sheetItems = items || FDEF[key].items(); renderSheet(); }
+/* Short, fixed choices are chips. The date range, and any list that grows with her
+   records (dams, sires, families, categories, types), is a dropdown: one pick for the
+   range, as many as she likes for a list. */
+function ddBox(g, label, value, open, inner) {
+  return `<div class="dd${open ? ' open' : ''}"><h3 id="dd-h-${esc(g)}">${label}</h3>
+    <button type="button" class="dd-btn${value.on ? ' on' : ''}" data-dd="${esc(g)}" aria-expanded="${open}" aria-labelledby="dd-h-${esc(g)}">${value.text}${icon(open ? 'chevron-up' : 'chevron-down')}</button>
+    ${open ? `<div class="dd-list">${inner}</div>` : ''}</div>`;
+}
 function renderSheet() {
   const host = $('#sheet');
   if (!ui.sheet) { host.innerHTML = ''; return; }
-  const { key, draft } = ui.sheet, def = FDEF[key];
+  const { key, draft, dd, ddq = '' } = ui.sheet, def = FDEF[key];
+  const count = (g, o) => sheetItems.filter((it) => { const v = def.get[g](it); return Array.isArray(v) ? v.includes(o) : v === o; }).length;
   const groups = Object.keys(def.get).filter((g) => g !== 'date').map((g) => {
-    const opts = uniq(sheetItems.flatMap((it) => { const v = def.get[g](it); return Array.isArray(v) ? v : [v]; })).filter(Boolean).sort();
+    const opts = uniq(sheetItems.flatMap((it) => { const v = def.get[g](it); return Array.isArray(v) ? v : [v]; })).filter(Boolean).sort((a, b) => (/^(Not entered|None)$/.test(a) ? 1 : /^(Not entered|None)$/.test(b) ? -1 : a.localeCompare(b)));
     const sel = draft.sel[g] || [];
-    return `<div><h3>${g}</h3><div class="chips">${opts.map((o) => `<button type="button" class="chip" data-sg="${esc(g)}|${esc(o)}" aria-pressed="${sel.includes(o)}">${esc(o)}</button>`).join('')}</div></div>`;
+    if (!(def.dd || []).includes(g)) return `<div><h3>${g}</h3><div class="chips">${opts.map((o) => `<button type="button" class="chip" data-sg="${esc(g)}|${esc(o)}" aria-pressed="${sel.includes(o)}">${esc(o)}</button>`).join('')}</div></div>`;
+    const open = dd === g, q = ddq.trim().toLowerCase();
+    const shown = open && q ? opts.filter((o) => o.toLowerCase().includes(q)) : opts;
+    const any = ({ Paid: 'Anyone' })[g] || `Any ${g.toLowerCase()}`;
+    const text = !sel.length ? any : sel.length <= 2 ? sel.map(esc).join(', ') : `${esc(sel[0])} and ${sel.length - 1} more`;
+    const inner = `${opts.length > 8 ? `<label class="dd-find">${icon('search')}<input id="dd-q" data-ddq type="search" placeholder="Find" value="${esc(ddq)}" autocomplete="off" aria-label="Find in ${esc(g.toLowerCase())}"></label>` : ''}
+      <div role="listbox" aria-multiselectable="true" aria-label="${esc(g)}">${shown.map((o) => `<button type="button" class="dd-opt" role="option" data-sg="${esc(g)}|${esc(o)}" aria-selected="${sel.includes(o)}"><span class="dd-box">${icon('check')}</span><span class="dd-t">${esc(o)}</span><span class="n">${count(g, o)}</span></button>`).join('') || '<p class="lede dd-none">None match.</p>'}</div>
+      <div class="dd-foot"><button type="button" class="link" data-ddclear="${esc(g)}"${sel.length ? '' : ' disabled'}>${any}</button><button type="button" class="link" data-dd="${esc(g)}">Done</button></div>`;
+    return ddBox(g, g, { text, on: sel.length }, open, inner);
   }).join('');
+  const rangeText = draft.range === 'custom' ? `${draft.from ? short(draft.from) : '…'} to ${draft.to ? short(draft.to) : '…'}` : RANGES.find((r) => r[0] === draft.range)[1];
+  const dateBox = def.date ? `${ddBox('date', def.date, { text: rangeText, on: draft.range !== 'all' }, dd === 'date', `<div role="listbox" aria-label="${esc(def.date)}">${RANGES.map(([v, l]) => `<button type="button" class="dd-opt one" role="option" data-sr="${v}" aria-selected="${draft.range === v}"><span class="dd-box">${icon('check')}</span><span class="dd-t">${l}</span></button>`).join('')}</div>`)}
+      ${draft.range === 'custom' ? `<div class="dates"><label>From<input type="date" id="sf-from" value="${draft.from}"></label><label>To<input type="date" id="sf-to" value="${draft.to}"></label></div>` : ''}` : '';
   host.innerHTML = `<div class="sheet-back" data-sclose><div class="sheet" role="dialog" aria-label="Filters">
     <div class="sheet-h"><h2>Filter</h2><button type="button" class="ghost" data-sclose>${icon('x')}Close</button></div>
-    ${def.date ? `<div><h3>${def.date}</h3><div class="chips">${RANGES.map(([v, l]) => `<button type="button" class="chip" data-sr="${v}" aria-pressed="${draft.range === v}">${l}</button>`).join('')}</div>
-      ${draft.range === 'custom' ? `<div class="dates"><label>From<input type="date" id="sf-from" value="${draft.from}"></label><label>To<input type="date" id="sf-to" value="${draft.to}"></label></div>` : ''}</div>` : ''}
+    ${dateBox ? `<div>${dateBox}</div>` : ''}
     ${groups}
     <div class="sheet-foot"><button type="button" class="btn-2" data-sreset>Clear all</button><button type="button" class="primary-btn" data-sapply>${icon('check')}Show results</button></div>
   </div></div>`;
@@ -1933,8 +1974,8 @@ const whenText = (a) => {
   if (n === 1) return 'Tomorrow';
   return wday(a.due);
 };
-FDEF.reminders = { date: 'Due', items: () => agenda().filter((a) => a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
-FDEF.upcoming = { date: 'Date', items: () => agenda().filter((a) => a.sched || a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
+FDEF.reminders = { date: 'Due', dd: ['Type'], items: () => agenda().filter((a) => a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
+FDEF.upcoming = { date: 'Date', dd: ['Type'], items: () => agenda().filter((a) => a.sched || a.rem), get: { date: (a) => a.due, Type: (a) => a.kind }, text: (a) => a.t + ' ' + a.s + ' ' + a.kind };
 
 /* a reminder: the row opens it; Done and Snooze sit under it when it's open */
 function remRow(a) {
@@ -3341,7 +3382,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3363,6 +3404,8 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if (d.dd) { ui.sheet.dd = ui.sheet.dd === d.dd ? null : d.dd; ui.sheet.ddq = ''; renderSheet(); if (ui.sheet.dd) $('#sheet .dd.open')?.scrollIntoView({ block: 'nearest' }); return; }
+  if (d.ddclear) { ui.sheet.draft.sel[d.ddclear] = []; renderSheet(); return; }
   if (d.dsave) { dogSave(d.dsave); return; }
   if (d.pairsave) { pairSave(); return; }
   if (d.litsave) { litterSave(); return; }
@@ -3453,7 +3496,7 @@ document.addEventListener('click', (e) => {
   else if (d.peopletab) { ui.peopleTab = d.peopletab; render(); }
   else if (d.filter) openSheet(d.filter, lastScreen.filterItems);
   else if (d.unf) { const [k, g, v] = d.unf.split('|'); const f = F(k); if (g === 'date') f.range = 'all'; else f.sel[g] = (f.sel[g] || []).filter((x) => x !== v); render(); }
-  else if (d.sr) { ui.sheet.draft.range = d.sr; renderSheet(); }
+  else if (d.sr) { const dr = ui.sheet.draft; if (dr.range === 'custom') { dr.from = $('#sf-from')?.value || ''; dr.to = $('#sf-to')?.value || ''; } dr.range = d.sr; ui.sheet.dd = null; renderSheet(); }
   else if (d.sg) { const [g, v] = d.sg.split('|'); const s = (ui.sheet.draft.sel[g] ||= []); const i = s.indexOf(v); i < 0 ? s.push(v) : s.splice(i, 1); renderSheet(); }
   else if ('sreset' in d) { ui.sheet.draft = blankF(); renderSheet(); }
   else if ('sapply' in d) { const dr = ui.sheet.draft; if (dr.range === 'custom') { dr.from = $('#sf-from')?.value || ''; dr.to = $('#sf-to')?.value || ''; } ui.f[ui.sheet.key] = dr; ui.sheet = null; render(); }
@@ -3473,6 +3516,7 @@ document.addEventListener('change', (e) => {
   if (e.target.id === 'b-color') { if (e.target.value === '__add') { ui.birth.adding = true; } else { ui.birth.color = e.target.value; ui.birth.adding = false; } render(); }
 });
 document.addEventListener('input', (e) => {
+  if ('ddq' in e.target.dataset) { ui.sheet.ddq = e.target.value; const pos = e.target.selectionStart; renderSheet(); const n = $('#dd-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
   const fk = e.target.dataset?.fv;
   if (fk && e.target.tagName !== 'SELECT') { ui.form[fk] = e.target.value; if (fk === 'name' && ui.form._dup) { delete ui.form._dup; delete ui.form._dupOk; } if (fk === 'cost' || fk === 'remindOn') return; return; }
   if (e.target.id === 'b-wt') { ui.birth.wt = e.target.value; return; }
