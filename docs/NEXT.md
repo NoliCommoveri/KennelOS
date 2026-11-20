@@ -13,7 +13,8 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
-  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters and Waitlist so far).
+  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
+  Sales and Financials so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -349,6 +350,42 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - Prototype: `qRow()` with fixed answers (no + of her own) opens to `radioList()`; so does a
   litter's "Deposit and full registration". `fSel()` takes option groups; a price rule's
   Name lists Sires, then Dams, alphabetical.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Sales and Financials screens
+
+- `docs/design/forest-look-prototype.html` draws the Sales and Financials placeholders, traced
+  against live's Sale, Contact, DoNotSell, Contract, Account and payments fields, in the
+  existing components (D18):
+  - **Add sale** (Sales & Placements, a pup's empty Sale): the dog (puppies, then adults), the
+    buyer (someone she has, or new, checked as she types against People and Do not sell),
+    registration, price and deposit prefilled as on Side sale (one shared `salePrices`),
+    deposit received or due, go-home, schedule, add-ons, sold through, lead source, referred
+    by, notes. A buyer outside the waitlist is a client (in People, never on the list).
+  - **Add person** (People › Add): details with the same checks, contact types, kennel, first
+    contact source, notes. **Do not sell**: the list, each row opens to Take off the list;
+    Add from People or someone new, with a reason. Add family now warns on the list too.
+  - A sale's **Payments**: total, paid, remaining, next; the deposit and each due date (her
+    schedule's, or one balance) with Paid / Due soon / Overdue / Coming up; money received,
+    each opening to change or remove; Record a payment (amount, date, method, paid via,
+    reference, note); Mark paid in full. Linked from the Sale, Sale details and the person.
+  - **Contracts**: Open / Signed / All, grouped waiting, drafts, signed, ended; a **contract**
+    (signers, then send, remind, copy link, mark signed, or the signed copy; reservation
+    facts); **Send for signature** (forms by kind, fitting ones first; the buyer's email with
+    Change; you sign too; message); **Contract details** by type (sale, reservation's litter,
+    sex, color and deposit, who it's with, lease dates).
+  - **Financials**: the year opens a list of her years, and Overview, Income, Expenses and
+    Entries follow it (2025 sample entries added). **Add entry**: an expense, or money
+    received, which lists what's owed (sales, stud fees, waitlist fees) and opens each where
+    it's recorded, since live works income out from them.
+  - **Accounts** by type (transport partners among them) and an **account**: name, type,
+    website, login (private), processing fee, payment link and instructions, referral
+    (shared with families, on her website), contract forms, e-sign signer, this year's
+    expenses (opening Entries filtered), Archive.
+- `srow()` takes an optional tone and end value (plan §3.1). Design notes gain "Sales,
+  contracts and money". Not yet seen by the owner. Proposals for her: a waitlist family
+  picked on Add sale goes to Side sale; Add sale starts on the usual schedule like Side sale
+  (§8's open question 1); Add entry records no income directly.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

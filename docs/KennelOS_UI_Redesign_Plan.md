@@ -17,7 +17,9 @@
 > Notifications and Kennels; Add dog, Edit dog, Add
 > event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense; on a
 > person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
-> sale, Programs and a program. Each is the owner's to approve or change, like any
+> sale, Programs and a program; Add sale, Add person, Do not sell, a sale's Payments, Contracts
+> (the list, a contract, Send for signature, its details), Add entry, the Financials year,
+> Accounts and an account. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
@@ -164,7 +166,7 @@ piece can't do the job** (D18).
 | Job | Component (prototype helper · class) | Use it for | Not for |
 |---|---|---|---|
 | Open a record or screen | `row()` · `.row` in `.card .rows` | Any list of things to tap: icon, title, subline, end value | Read-only lines |
-| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row | Anything tappable |
+| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row; optional tone and end value (a due date and its amount, a signer) | Anything tappable |
 | Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
 | A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
 | A setting she answers | `qRow()` · `.q-row` | One question that saves at once: an amount, time or list she can name opens to chips and + (D10); fixed phrase answers open to a radio list | Form fields saved with Save |
