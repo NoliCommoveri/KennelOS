@@ -56,6 +56,7 @@ backup, carries a program from Lite to Pro.
 | Several due dates on a sale (payment schedules, payments received), and the invoices, receipts, contracts and family pages that use them (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
 | A dog's titles as a field (bought champions, ancestors), with show tracking still working them out (plan) | `docs/KennelOS_Dog_Titles_Field_Plan.md` |
+| The UI redesign to the forest look: what moves where, phases, and checking every screen against the approved prototype (plan) | `docs/KennelOS_UI_Redesign_Plan.md` (prototype: `docs/design/forest-look-prototype.html`) |
 | Line management: how every dog relates to every other (COI, shared ancestors, pairing warnings), traits, her own colors, birth records, what dogs carry, the pairing finder (plan) | `docs/KennelOS_Line_Management_Plan.md` |
 | Program types: the kind of program she runs (show, family pet, doodle, working, stud, large kennel) sets her tabs, Home and features; each type's top priorities (plan) | `docs/KennelOS_Program_Types_Plan.md` |
 | Registry codes by country (FCI and others), how AKC records imports and foreign sires, AKC titles before and after the name (fact check) | `docs/KennelOS_Registry_Title_Facts.md` |
