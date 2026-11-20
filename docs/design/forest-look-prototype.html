@@ -636,6 +636,10 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 @container app (min-width: 760px) {
   .type-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+/* an amount typed big */
+.amt-in span { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); padding: 0 10px; }
+.amt-in b { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--muted); }
+.form-stack .amt-in input { border: 0; background: none; padding: 8px 0; font-family: var(--font-display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; outline: none; flex: 1; min-width: 0; color: var(--ink); }
 </style>
 
 <div class="proto">
@@ -683,6 +687,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Adding and changing a dog</h3>
     <p><b>Add dog</b> asks first what kind of dog it is (a puppy she bred, her breeding dog, an outside dog, a pet or retired dog), which puts the right questions first: a puppy starts from its litter, which fills in the sire, dam and birth date. Papers and ownership open on request. A call name she already uses gets a warning with a way to that dog, never a block. <b>Edit</b> (on Profile) is the same questions, all open, plus status, the puppy's plan, ownership, what shows online, and Archive at the bottom. <b>Add event</b> starts with what it is: the four she adds most, then the rest by kind; types that don't fit the dog are left out (no heat cycle for a male). Each type asks its own questions, a cost becomes an expense, and Remind me puts it in Reminders (a vaccination offers "when it's due again"). Health tests go through <b>Log a test</b>: what's still to do first, then her usual tests; the name says how it's filed, the result is chips plus her own, and Overall (Normal or Abnormal) decides what families see. The <b>Pedigree</b> shows 3, 4 or 5 generations; tapping a dog shows its own, and + on a gap adds the missing parent. A <b>Dog card</b> shows who it went to, exactly what travels and what never does, and sends it again.</p>
+
+    <h3>Adding litters, pairings and expenses</h3>
+    <p><b>Add litter</b> starts from the pairings that don't have a litter yet (or "Not planned here", with the parents and a quick pair check). Not born yet asks for the breeding date or the due date, each worked out from the other (63 days); born asks for the whelping date, how many were born alive and lost, and the delivery, with each pup recorded in Births afterwards. Her usual prices apply unless she sets this litter's own, and it's offered to her waitlist unless she says not this one. Saving opens the new litter, with its pairing moved along. <b>Add pairing</b> (on Litters › Pairings, and "Plan this pairing" on a pair check) shows the pair check's warnings as soon as both dogs are picked, then where it is: planned (her next heat offered as the date), bred (the dates, how, and the due date it gives) or confirmed. <b>Add expense</b> (from a litter's or dog's Expenses) takes the amount, what it was for, a category and who was paid, each with a + for her own, and what it counts toward; picking more than one shares it.</p>
 
     <h3>Where things moved</h3>
     <table class="map">
@@ -1068,7 +1075,7 @@ const icon = (n) => `<i data-lucide="${n}"></i>`;
 const chev = `<span class="chev">${icon('chevron-right')}</span>`;
 const pill = ([label, tone], ic) => `<span class="pill ${tone}">${ic ? icon(ic) : ''}${label}</span>`;
 const sex = (s) => `<span class="sex ${s}" aria-label="${s === 'm' ? 'Male' : 'Female'}">${s === 'm' ? 'M' : 'F'}</span>`;
-const money = (n, signed) => (signed && n > 0 ? '+' : n < 0 ? '−' : '') + '$' + Math.abs(n).toLocaleString('en-US');
+const money = (n, signed) => (signed && n > 0 ? '+' : n < 0 ? '−' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
 const fmt = (iso, opt = { month: 'short', day: 'numeric', year: 'numeric' }) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', opt);
 const short = (iso) => fmt(iso, { month: 'short', day: 'numeric' });
 const wday = (iso) => fmt(iso, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -1158,7 +1165,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addlitter: 'litters', addpairing: 'litters', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1552,8 +1559,8 @@ S.dogsec = (p) => {
   } else if (k === 'expenses') {
     const ex = dogLedger(d);
     body = ex.length ? `<div class="card kpi">${icon('receipt')}<span>Spent on ${d.name} in 2026</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div>
-      <section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: `${fmt(e.d)} · ${e.party}`, end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${setLink('See these in Financials › Entries', 'ledger')}`
-      : empty('receipt', 'No expenses logged for this dog.', 'Add expense');
+      <section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: `${fmt(e.d)} · ${e.party}`, end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${primary('Add expense', `addexpense:dog|${d.id}`)}${setLink('See these in Financials › Entries', 'ledger')}`
+      : empty('receipt', 'No expenses logged for this dog.', 'Add expense', `addexpense:dog|${d.id}`);
   } else if (k === 'pedigree') {
     const node = (n, r) => `<div class="node">${n}<small>${r}</small></div>`;
     body = `<section class="card"><div class="tree"><div class="col">${node(x.sire, 'Sire')}${node(x.dam, 'Dam')}</div><div class="col">${[[sireOf(d.id), 0, "Sire's sire"], [sireOf(d.id), 1, "Sire's dam"], [damOf(d.id), 0, "Dam's sire"], [damOf(d.id), 1, "Dam's dam"]].map(([p, i, l]) => node(PARENTS[p]?.[i] ? pedName(PARENTS[p][i]) : 'Not entered', l)).join('')}</div></div></section>${primary('Open full pedigree', `pedigree:${d.id}`, 'git-fork')}`;
@@ -1583,12 +1590,18 @@ S.litters = () => {
       { ic: 'moon', tone: 'blue', t: 'Willow', s: 'Nursing until about Nov 20 · next heat ~Jan', extra: pill(['Resting', 'blue']), go: 'dog:willow' },
     ].map(row).join('')}</div></section>`;
   }
-  return { bar: bar('Litters', { ic: 'paw-print', action: addBtn('Add litter', 'stub:add-litter') }), body: `<div class="chips">${chips}</div>${body}` };
+  return { bar: bar('Litters', { ic: 'paw-print', action: ui.litTab === 'pairings' ? addBtn('Add pairing', 'addpairing') : addBtn('Add litter', 'addlitter') }), body: `<div class="chips">${chips}</div>${body}` };
 };
 
 const litterLedger = (l, kind) => LEDGER.filter((e) => e.kind === kind && e.on.includes(litterName(l)));
 function litterSectionsBase(l) {
   const b = `littersec:${l.id}|`;
+  if (l.fresh) return [
+    ...(l.whelp ? [[b + 'puppies', 'paw-print', 'Puppies', `${l.m} M · ${l.f} F · not named yet`]] : [[b + 'pregnancy', 'baby', 'Pregnancy', `Day ${Math.max(0, days(l.bred, TODAY))} of 63 · due ${short(l.due)}`]]),
+    [b + 'pricing', 'tag', 'Pricing', l.price || `${SET.pricing.pet} pet · ${SET.pricing.deposit} deposit`],
+    [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
+    [b + 'profile', 'id-card', 'Profile', l.note],
+  ];
   if (l.id === 'ct') return [
     [b + 'pregnancy', 'baby', 'Pregnancy', 'Day 43 of 63 · due Dec 8'],
     [b + 'prep', 'list-checks', 'Whelping prep', '2 of 6 done'],
@@ -1615,7 +1628,7 @@ S.litter = (id) => {
   const l = LITTERS.find((x) => x.id === id) || LITTERS[0];
   return {
     bar: bar(litterName(l), { action: l.id === 'wa' ? addBtn('Add event', `addevent:litter|${l.id}`) : '' }),
-    body: `<section class="card hub-head"><div class="hub-pills">${pill(l.status)}${l.whelp ? `<span class="hub-line">${l.m} M · ${l.f} F</span>` : ''}</div><div class="hub-line">${l.whelp ? `Whelped ${fmt(l.whelp)} · ready ${short(l.ready)}` : `Bred ${short(l.bred)} · due ${fmt(l.due)}`}</div></section>
+    body: `<section class="card hub-head"><div class="hub-pills">${pill(l.status)}${l.whelp ? `<span class="hub-line">${l.m} M · ${l.f} F</span>` : ''}</div><div class="hub-line">${l.whelp ? `Whelped ${fmt(l.whelp)} · ready ${short(l.ready)}` : `Bred ${short(l.bred)} · due ${fmt(l.due)}`}</div>${l.nick ? `<div class="hub-reg">${esc(l.nick)}</div>` : ''}</section>
       ${attnCard(LITTER_ATTN[l.id] || [])}${tiles(litterSections(l))}`,
   };
 };
@@ -1661,14 +1674,18 @@ S.littersec = (p) => {
       ${l.id === 'wa' ? `<section class="card"><div class="rows">${SALES.map((s) => row({ t: s.pup, extra: pill(saleState(s)), s: fam(s.fam).n, end: `<span class="amt">${money(s.price)}</span>`, go: `dogsec:${s.pup.toLowerCase()}|sale` })).join('')}</div></section>` : ''}`;
   } else if (k === 'expenses') {
     const ex = litterLedger(l, 'out');
-    body = `<div class="card kpi">${icon('receipt')}<span>Spent on this litter</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div><section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: fmt(e.d), end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${primary('Add expense', 'stub:add-expense')}`;
+    body = `<div class="card kpi">${icon('receipt')}<span>Spent on this litter</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div><section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: fmt(e.d), end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${primary('Add expense', `addexpense:litter|${l.id}`)}`;
+  } else if (k === 'pregnancy' && l.fresh) {
+    const day = Math.max(0, days(l.bred, TODAY));
+    body = `<section class="card">${facts([['Day', `${day} of 63`], ['Bred', fmt(l.bred)], ['Confirmed', 'Not yet'], ['Due', fmt(l.due)]])}<div style="padding:0 14px 14px"><div class="progress"><span style="width:${Math.min(100, Math.round(day / 63 * 100))}%"></span></div></div></section>
+      <section class="card"><div class="section-h"><h2>Next</h2></div><div class="rows">${row({ ic: 'activity', tone: 'violet', t: 'Ultrasound to confirm', s: `From ${wday(addDays(l.bred, 28))} · day 28`, go: `addevent:dog|${idOf(l.dam)}` })}${row({ ic: 'scan-line', tone: 'blue', t: 'X-ray for puppy count', s: `From ${wday(addDays(l.bred, 55))} · day 55`, go: `addevent:dog|${idOf(l.dam)}` })}</div></section>`;
   } else if (k === 'pregnancy') {
     body = `<section class="card">${facts([['Day', '43 of 63'], ['Bred', 'Oct 6 and 8'], ['Confirmed', 'Ultrasound Nov 3'], ['Due', fmt(l.due)]])}<div style="padding:0 14px 14px"><div class="progress"><span style="width:68%"></span></div></div></section>
       <section class="card"><div class="section-h"><h2>Next</h2></div><div class="rows">${row({ ic: 'scan-line', tone: 'blue', t: 'X-ray for puppy count', s: 'Mon Nov 23 · day 48' })}${row({ ic: 'thermometer', tone: 'amber', t: 'Start temperature checks', s: 'From Fri Dec 4 · twice a day' })}</div></section>`;
   } else if (k === 'prep') {
     body = `<section class="card"><ul class="checks" style="padding-top:12px">${[['Whelping box set up', 1], ['Vet on call confirmed', 1], ['Heat lamp and thermometer', 0], ['Scale and ID collars', 0], ['Puppy formula and bottles', 0], ['Emergency C-section plan', 0]].map(([t, ok]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span></li>`).join('')}</ul></section>`;
   } else if (k === 'pricing') {
-    body = `<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section><button type="button" class="set-link" data-open="pricing">${icon('pencil')}Change your usual prices</button>`;
+    body = `${l.price ? `<section class="card"><div class="section-h"><h2>This litter</h2></div>${facts([['Prices', l.price]])}</section><div class="group-label">Your usual</div>` : ''}<section class="card">${facts([['Pet', SET.pricing.pet], ['Deposit', SET.pricing.deposit], ['Full registration', SET.pricing.fullReg], ['Deposits open', SET.pricing.depositsOpen]])}</section><button type="button" class="set-link" data-open="pricing">${icon('pencil')}Change your usual prices</button>`;
   } else {
     body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
   }
@@ -2268,6 +2285,94 @@ S.dogcard = (id) => {
   };
 };
 
+/* ================= Litters' screens: add a litter, add a pairing, add an expense ================= */
+const ownDogs = (sex) => DOGS.filter((d) => d.sex === sex && d.status !== 'puppy');
+const dogOpts = (sex, ph) => [['', ph], ...ownDogs(sex).map((d) => [d.id, d.status === 'external_reference' ? `${d.name} · outside` : d.name])];
+const idOf = (name) => DOGS.find((x) => x.name === name)?.id || '';
+const nextHeat = (dam) => AGENDA.find((a) => a.go === `dog:${dam}` && a.kind === 'Heat' && !a.done);
+const hasLitter = (p) => LITTERS.some((l) => l.dam === p.dam && l.sire === p.sire);
+const METHODS = ['Natural', 'AI, fresh', 'AI, chilled', 'AI, frozen', 'Surgical AI'];
+
+/* a quick read of the pair, the same warnings the pair check gives */
+function pairPeek(s, d) {
+  if (!s || !d) return '';
+  const w = pairWarnings(s, d), r = relation(s, d);
+  return `<section class="card"><div class="rows">${row({ ic: w.length ? 'triangle-alert' : 'circle-check', tone: w.length ? 'red' : 'green', t: w.length ? w.map((x) => x[1]).join(' · ') : `No warnings · COI ${pct(kin(s, d))}`, s: `${r.role || 'Not related'} · see the full pair check`, go: `pair:${s}|${d}` })}</div></section>`;
+}
+
+S.addpairing = (p) => {
+  const [s0, d0] = (p || '').split('|');
+  const f = formFor('addpairing:' + (p || ''), () => ({ sire: s0 || '', dam: d0 || '', status: 'Planned', d: '', d2: '', method: 'Natural', web: 'no' }));
+  const heat = f.dam && nextHeat(f.dam);
+  const due = f.status !== 'Planned' && f.d ? addDays(f.d, 63) : '';
+  return {
+    bar: bar('Add pairing'),
+    body: `${formCard('Who', `${fSel('dam', 'Dam', dogOpts('f', 'Pick her'))}${fSel('sire', 'Sire', dogOpts('m', 'Pick him'))}`)}
+      ${pairPeek(f.sire, f.dam)}
+      <section class="card app-card">${fChips('status', 'Where it is', ['Planned', 'Bred', 'Confirmed pregnant'])}</section>
+      ${f.status === 'Planned'
+        ? formCard('When', `${heat ? fChips('d', '', [[heat.due, `Her next heat, about ${wday(heat.due)}`]], { toggle: 1 }) : ''}<div class="dates">${fIn('d', 'Planned for', { type: 'date' })}</div>
+            ${fChips('method', 'How', METHODS)}`)
+        : formCard('Breeding', `<div class="dates">${fIn('d', 'First breeding', { type: 'date' })}${fIn('d2', 'Again on', { type: 'date' })}</div>
+            ${fChips('method', 'How', METHODS)}
+            ${due ? `<p class="f-note">${icon('baby')}<span>Due about <b>${wday(due)}</b>, 63 days from the first breeding.</span></p>` : '<p class="f-hint">The due date follows from the first breeding.</p>'}`)}
+      ${FEAT.waitlistOnline ? `<section class="card app-card">${fChips('web', 'Show on your website as an upcoming litter', [['yes', 'Yes'], ['no', 'Not yet']])}</section>` : ''}
+      ${formCard('', fText('notes', 'Notes', 'Why this pair, what you hope for'))}
+      ${saveBar('data-pairsave="1"')}`,
+  };
+};
+
+S.addlitter = () => {
+  const open = PAIRINGS.filter((q) => !hasLitter(q) && !['Failed', 'Cancelled'].includes(q.status[0]));
+  const f = formFor('addlitter', () => ({ from: open[0] ? `${open[0].dam}~${open[0].sire}` : 'none', born: 'expected', delivery: 'Natural', prices: 'usual', wl: 'yes', d: '' }));
+  const [pd, ps] = f.from === 'none' ? [] : f.from.split('~');
+  const pairing = open.find((q) => q.dam === pd && q.sire === ps);
+  const usual = `${SET.pricing.priceBy === 'Same for both sexes' ? SET.pricing.pet : `${SET.pricing.male} male · ${SET.pricing.female} female`} · ${SET.pricing.deposit} deposit`;
+  return {
+    bar: bar('Add litter'),
+    body: `<section class="card app-card">${fChips('from', 'From which pairing?', [...open.map((q) => [`${q.dam}~${q.sire}`, `${q.dam} × ${q.sire}`]), ['none', 'Not planned here']])}
+        ${pairing ? `<p class="f-hint">${pairing.status[0]} · ${pairing.s}</p>` : ''}</section>
+      ${f.from === 'none' ? formCard('Parents', `${fSel('dam', 'Dam', dogOpts('f', 'Pick her'))}${fSel('sire', 'Sire', dogOpts('m', 'Pick him'))}`) + pairPeek(f.sire, f.dam) : ''}
+      <section class="card app-card">${fChips('born', 'Born yet?', [['expected', 'Not yet'], ['born', 'Yes, they’re here']])}</section>
+      ${f.born === 'expected'
+        ? formCard('Expected', `<div class="dates">${fIn('bred', 'Bred on', { type: 'date' })}${fIn('d', 'Due', { type: 'date' })}</div><p class="f-hint">Leave Due empty and it’s 63 days from Bred on.</p>`)
+        : formCard('Born', `<div class="dates">${fIn('d', 'Whelped', { type: 'date' })}</div>
+            <div class="dates">${fIn('m', 'Males born alive', { type: 'number' })}${fIn('fem', 'Females born alive', { type: 'number' })}${fIn('lost', 'Born not alive', { type: 'number' })}</div>
+            ${fChips('delivery', 'Delivery', ['Natural', 'C-section, planned', 'C-section, emergency'])}
+            <p class="f-hint">Record each pup (time, weight, color) in Births afterwards; the counts follow.</p>`)}
+      <section class="card app-card"><div class="f-head"><h2>Prices</h2></div>
+        ${fChips('prices', '', [['usual', `Your usual: ${usual}`], ['own', 'Different for this litter']])}
+        ${f.prices === 'own' ? `<div class="dates">${fIn('pm', 'Male price ($)', { type: 'number' })}${fIn('pf', 'Female price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>` : ''}
+        <button type="button" class="set-link" data-open="pricing">${icon('settings')}Change your usual prices</button></section>
+      ${FEAT.waitlist ? `<section class="card app-card">${fChips('wl', 'Offer it to your waitlist', [['yes', 'Yes'], ['no', 'Not this one']])}<p class="f-hint">Picks open ${SET.waitlist.openPicks.toLowerCase()} (Setup › Waitlist).</p></section>` : ''}
+      ${FEAT.foster ? `<section class="card app-card">${fChips('foster', 'Whelped under a foster arrangement?', [['no', 'No'], ['yes', 'Yes']])}</section>` : ''}
+      ${formCard('', `${fIn('nick', 'Nickname', { ph: 'The Autumn litter' })}${fText('notes', 'Notes')}`)}
+      ${saveBar('data-litsave="1"', 'Save litter')}`,
+  };
+};
+
+/* an expense: what, how much, to whom, and what it was for */
+const EXP_CATS = ['Food & supplies', 'Vet & reproduction', 'Health testing', 'Registration', 'Marketing', 'Other'];
+S.addexpense = (p) => {
+  const [kind, id] = (p || '').split('|');
+  const subj = kind === 'litter' ? litterName(LITTERS.find((l) => l.id === id)) : kind === 'dog' ? dogById(id).name : '';
+  const lit = kind === 'litter' ? LITTERS.find((l) => l.id === id) : null;
+  const f = formFor('addexpense:' + (p || ''), () => ({ d: TODAY, on: subj ? [subj] : ['Kennel'] }));
+  const vendors = uniq(LEDGER.filter((e) => e.kind === 'out').map((e) => e.party)).slice(0, 5);
+  const forOpts = uniq([subj, lit ? lit.dam : '', 'Kennel', ...(lit ? [] : ['Willow × Ash'])].filter(Boolean));
+  return {
+    bar: bar('Add expense', { sub: subj || 'Kennel' }),
+    body: `${formCard('', `<label class="amt-in">Amount<span><b>$</b><input data-fv="amt" type="number" inputmode="decimal" step="0.01" value="${fv('amt')}" placeholder="0.00"></span></label>
+        ${fIn('what', 'What for', { ph: 'Puppy food, microchips, x-ray…', req: 1 })}
+        <div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>`)}
+      <section class="card app-card">${fChips('cat', 'Category', EXP_CATS, { own: 1 })}</section>
+      <section class="card app-card">${fChips('party', 'Paid to', vendors, { own: 1 })}</section>
+      <section class="card app-card">${fChips('on', 'Count it toward', forOpts, { multi: 1 })}<p class="f-hint">Pick more than one to share it; it shows on each one’s Expenses.</p></section>
+      ${formCard('Receipt', `${fIn('rcpt', 'Receipt number')}<button type="button" class="btn-2" data-toast="Opens your camera or files. The receipt is kept with this expense.">${icon('receipt')}Add a photo of the receipt</button>${fText('notes', 'Notes')}`)}
+      ${saveBar(`data-expsave="${esc(p || '')}"`)}`,
+  };
+};
+
 const STUBS = {
   sharing: ['Sharing', ['Companion messaging (prospective, current families, partners)', 'Furever', 'Assistant', 'Dog cards']],
   storage: ['Storage', ['Documents', 'Shows', 'Accounts moved to Business']],
@@ -2678,7 +2783,7 @@ S.pair = (p) => {
     body += (FEAT.lineTools ? `<section class="card"><div class="section-h"><h2>Traits</h2><span class="fcount">${pedName(d)} · ${pedName(s)}</span></div><div class="rows">${tc.map(([t, sv, dv, tone, txt]) => `<div class="row" style="cursor:default"><span class="row-main"><span class="row-t">${t.n}</span><span class="row-s">${txt}</span></span><span class="row-end">${trScale(t, dv)}${trScale(t, sv)}</span></div>`).join('')}</div></section>` : '') +
       `<section class="card"><div class="section-h"><h2>Possible colors</h2></div><div class="rows">${colors.map(([c, [mn, mx], conds]) => { const r = (v) => Math.round(v * 100); const txt = mx === 0 ? 'Not possible from these two' : mn === mx ? `About ${r(mn)}% of pups` : mn === 0 ? `Possible ${conds.join(' and ') || '(depends on untested genes)'}` : `${r(mn)}–${r(mx)}% of pups`; return `<div class="row" style="cursor:default"><span class="row-main"><span class="row-t">${c}</span><span class="row-s">${txt}</span></span><span class="row-end">${pill(mx === 0 ? ['No', 'gray'] : mn === 0 ? ['Maybe', 'amber'] : ['Yes', 'green'])}</span></div>`; }).join('')}</div>${colors.some((c) => c[1][0] !== c[1][1]) ? '<p class="fcount" style="padding:0 14px 12px;margin:0">A color DNA test would turn “maybe” into a number.</p>' : ''}</section>
       <section class="card"><div class="section-h"><h2>DNA</h2></div><div class="rows">${markers.map((k) => { const a = DNA[d]?.[k] || 'Not tested', b = DNA[s]?.[k] || 'Not tested'; const bad = a === 'Carrier' && b === 'Carrier'; return `<div class="row" style="cursor:default"><span class="row-main"><span class="row-t">${k}</span><span class="row-s">${pedName(d)}: ${a} · ${pedName(s)}: ${b}</span></span><span class="row-end">${pill(bad ? ['1 in 4 affected', 'red'] : a === 'Not tested' || b === 'Not tested' ? ['Unknown', 'amber'] : ['Safe', 'green'])}</span></div>`; }).join('') || '<p class="lede" style="padding:4px 14px 12px">No DNA results entered.</p>'}</div></section>
-      <div class="actions">${FEAT.lineTools ? primary(`Find a better match for ${pedName(d)}`, `finder:${d}`, 'search') : ''}${planned ? '' : `<button type="button" class="btn-2" data-open="stub:add-pairing">${icon('plus')}Plan this pairing</button>`}</div>`;
+      <div class="actions">${FEAT.lineTools ? primary(`Find a better match for ${pedName(d)}`, `finder:${d}`, 'search') : ''}${planned ? '' : `<button type="button" class="btn-2" data-open="addpairing:${s}|${d}">${icon('plus')}Plan this pairing</button>`}</div>`;
   }
   return { bar: bar(mf ? `${pedName(d)} × ${pedName(s)}` : `${pedName(s)} and ${pedName(d)}`, { sub: mf ? 'Pairing check' : 'How they’re related' }), body };
 };
@@ -2997,6 +3102,8 @@ const SCREENS = [
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
   ['Import / Export', 'arrow-down-up', 'CSV import, export', 'stub:import-export'],
   ['Danger zone', 'shield-alert', 'Reset or delete', 'stub:danger'],
+  ['Add litter', 'plus', 'Expected or born, from a pairing or not', 'addlitter'],
+  ['Add pairing', 'heart-handshake', 'Plan or record a breeding', 'addpairing'],
   ['Add dog', 'plus', 'A puppy, your breeding dog, an outside dog', 'adddog'],
   ['Pedigree', 'git-fork', 'Family trees, any number of generations', 'pedigree:willow'],
   ['Reminders', 'calendar-check', 'Overdue and due soon', 'reminders'],
@@ -3140,6 +3247,46 @@ function eventSave(spec) {
   if (rd) AGENDA.push({ id: 'a' + (AGENDA.length + 1), d: rd, due: rd, ic: t[2], tone: t[3], kind: t[1], t: `${subj} · ${f.type === 'vaccination' ? (f.vaccine || 'vaccine') + ' due' : t[1].toLowerCase()}`, s: 'Your reminder', go: kind === 'dog' ? `dog:${id}` : `litter:${id}`, rem: 1 });
   ui.formSpec = null; back(); toast(`Added to ${subj}’s history${rd ? ` · reminder ${rd.slice(0, 4) === TODAY.slice(0, 4) ? wday(rd) : fmt(rd)}` : ''}`);
 }
+function pairSave() {
+  const f = ui.form;
+  if (!f.dam || !f.sire) return toast('Pick the dam and the sire');
+  const dam = pedName(f.dam), sire = pedName(f.sire);
+  if (PAIRINGS.some((q) => q.dam === dam && q.sire === sire && !hasLitter(q))) return toast(`${dam} × ${sire} is already in your pairings`);
+  const due = f.status !== 'Planned' && f.d ? addDays(f.d, 63) : '';
+  const st = { Planned: ['Planned', 'blue'], Bred: ['Bred', 'violet'], 'Confirmed pregnant': ['Confirmed pregnant', 'green'] }[f.status];
+  const line = f.status === 'Planned' ? (f.d ? `Planned for about ${short(f.d)} · ${f.method.toLowerCase()}` : `Date not set · ${f.method.toLowerCase()}`) : `Bred ${f.d ? short(f.d) : '—'}${f.d2 ? ` and ${short(f.d2)}` : ''}${due ? ` · due ${short(due)}` : ''}`;
+  PAIRINGS.unshift({ dam, sire, status: st, s: line });
+  ui.formSpec = null; ui.litTab = 'pairings'; back(); toast(`${dam} × ${sire} added to your pairings`);
+}
+function litterSave() {
+  const f = ui.form, open = f.from && f.from !== 'none';
+  const [dam, sire] = open ? f.from.split('~') : [pedName(f.dam || ''), pedName(f.sire || '')];
+  if (!dam || !sire) return toast('Pick the dam and the sire');
+  const born = f.born === 'born';
+  if (born && !f.d) return toast('Add the whelping date');
+  if (!born && !f.d && !f.bred) return toast('Add when she was bred or when she’s due');
+  const due = born ? '' : f.d || addDays(f.bred, 63), bred = born ? '' : f.bred || addDays(due, -63);
+  const m = Number(f.m) || 0, fe = Number(f.fem) || 0;
+  const id = 'l' + (LITTERS.length + 1);
+  const l = { id, dam, sire, fresh: 1, nick: f.nick || '', status: born ? ['Whelped', 'green'] : ['Expected', 'blue'],
+    ...(born ? { whelp: f.d, ready: addDays(f.d, 56), m, f: fe } : { due, bred }),
+    price: f.prices === 'own' && (f.pm || f.pf) ? `${f.pm ? money(Number(f.pm)) + ' male' : ''}${f.pm && f.pf ? ' · ' : ''}${f.pf ? money(Number(f.pf)) + ' female' : ''}${f.dep ? ` · ${money(Number(f.dep))} deposit` : ''}` : '',
+    note: born ? `${m + fe} born alive${Number(f.lost) ? ` · ${f.lost} lost` : ''} · ${f.delivery.toLowerCase()}` : `Due ${short(due)}${f.wl === 'no' ? ' · not offered to the waitlist' : ''}` };
+  LITTERS.push(l);
+  const q = PAIRINGS.find((x) => x.dam === dam && x.sire === sire && !['Whelped'].includes(x.status[0]));
+  if (q) { q.status = born ? ['Whelped', 'green'] : q.status[0] === 'Planned' ? ['Bred', 'violet'] : q.status; q.s = born ? `Whelped ${short(f.d)} · ${m + fe} puppies` : `Bred ${short(bred)} · due ${short(due)}`; }
+  ui.formSpec = null; replaceWith(`litter:${id}`); toast(`${dam} × ${sire} added`);
+}
+function expenseSave(spec) {
+  const f = ui.form, amt = Number(f.amt);
+  if (!(amt > 0)) return toast('Type the amount');
+  if (!(f.what || '').trim()) return toast('Say what it was for');
+  if (!(f.on || []).length) return toast('Pick what it counts toward');
+  LEDGER.push({ d: f.d || TODAY, kind: 'out', cat: f.cat || 'Other', amt, what: f.what.trim(), on: f.on.slice(), party: f.party || '' });
+  LEDGER.sort((a, b) => a.d.localeCompare(b.d));
+  ui.formSpec = null; back(); toast(`${money(amt)} added to ${f.on.join(' and ')}`);
+}
+
 function testSave(id) {
   const f = ui.form, d = dogById(id);
   if (!f.name) return toast('Pick the test');
@@ -3194,7 +3341,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3217,6 +3364,9 @@ document.addEventListener('click', (e) => {
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
   if (d.dsave) { dogSave(d.dsave); return; }
+  if (d.pairsave) { pairSave(); return; }
+  if (d.litsave) { litterSave(); return; }
+  if (d.expsave != null) { expenseSave(d.expsave); return; }
   if (d.archive) {
     const dog = dogById(d.archive); DOGS.splice(DOGS.indexOf(dog), 1);
     while (hist.length > 1 && String(top().p || '').includes(dog.id)) hist.pop();

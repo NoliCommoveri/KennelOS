@@ -13,7 +13,7 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
 
 - Docs only so far: the UI redesign's plan and prototype (`docs/KennelOS_UI_Redesign_Plan.md`,
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
-  drawn in, a batch at a time, for the owner to approve (Home's screens and Dogs so far).
+  drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs and Litters so far).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -108,6 +108,21 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   + adds a missing parent) and **Dog card** (who it went to, what travels and what never does,
   send again as a link, code or file; live updates still planned). Saving updates the
   prototype's sample data. A Design notes section explains them. Not yet seen by the owner.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-20: The prototype draws the Litters screens
+
+- `docs/design/forest-look-prototype.html` draws three more `stub:` placeholders with the
+  Dogs batch's form parts: **Add litter** (from a pairing without a litter, or not planned
+  here with a pair check; expected with bred or due date, or born with counts and delivery;
+  usual prices or this litter's own; offered to the waitlist or not; opens the new litter,
+  whose hub, Pregnancy and Pricing screens work for it), **Add pairing** (on Litters ›
+  Pairings, where the header button becomes Add pairing, and from a pair check's "Plan this
+  pairing"; warnings as soon as both dogs are picked; planned with her next heat offered, or
+  bred with dates, method and the due date) and **Add expense** (from a litter's or dog's
+  Expenses; amount, what for, category and who was paid with D10's +, shared across what it
+  counts toward). Amounts with cents now show them. A Design notes section explains them.
+  Not yet seen by the owner.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
