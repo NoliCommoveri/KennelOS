@@ -45,14 +45,14 @@ const pageGraph = (page) => staticGraph(page ? [APP, join(shared, 'pages', `${pa
 // Today 100 / 1,723, Dogs 64 / 1,014, Dog 76 / 1,194, Litter 97 / 1,525, Sale
 // 84 / 1,353, Waitlist 102 / 1,721, Waitlist entry 114 / 2,034, Kels 129 / 2,129.
 const BUDGETS = {
-  'app.js': { modules: 59, kb: 945 }, // 940 → 945 (2026-11-19): review batch E (a document's file written with it, files nothing uses, the restore preview's age check) reached 943
-  today: { modules: 102, kb: 1775 }, // 1770 → 1775 (2026-11-19): review batch E (a document's file written with it, files nothing uses, the restore preview's age check) reached 1,771
+  'app.js': { modules: 59, kb: 950 }, // 945 → 950 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 947
+  today: { modules: 102, kb: 1780 }, // 1775 → 1780 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 1,778
   dogs: { modules: 66, kb: 1050 },
   dog: { modules: 78, kb: 1240 }, // 1220 → 1240 (2026-11-19): the waitlist timers' rules and review batch F together reached 1,221
   litter: { modules: 99, kb: 1580 }, // 1575 → 1580 (2026-11-19): review batch I (a refused Delete's note, assets/deleteBlockers.js) reached 1,576
   sale: { modules: 86, kb: 1395 }, // 1390 → 1395 (2026-11-19): review batch I (a refused Delete's note) reached 1,391
   waitlist: { modules: 104, kb: 1770 },
-  'waitlist-entry': { modules: 116, kb: 2090 }, // 2085 → 2090 (2026-11-19): review batch I (a refused Delete's note) reached 2,089
+  'waitlist-entry': { modules: 116, kb: 2095 }, // 2090 → 2095 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 2,091
   kels: { modules: 131, kb: 2180 }
 };
 
