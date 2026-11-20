@@ -569,6 +569,31 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   zone's "On this device" heading (now "Your records").
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: The prototype: one Sale screen, and her go-home checklist
+
+- The owner: a sale was spread over about six screens that repeated each other (the Sale's
+  summary card, its Payments, Add-ons, Go-home weekend and family rows, and the family page's
+  Sale, Payments, Go-home and Contract tiles, with a balance bar that led back to the sale).
+  The go-home date belongs on the sale screen but stays a pickup on the calendar. She wants a
+  go-home checklist of her own, each item linked to what checks it off; likely a new table.
+- `docs/design/forest-look-prototype.html`: a pup's **Sale** is one screen: the family (opens
+  their page) and when it goes home, with Change for date, time and place in place (saved as
+  the pickup: calendar and go-home lists follow); **Money** (puppy, each add-on, total, paid,
+  balance; due dates with Change for the schedule or due date in place; money received and
+  Record a payment; Send invoice / receipt and Payment link; what she nets after a fee); the
+  contract; and "Before <pup> goes home". The old Payments address opens the sale. Sale details
+  loses its Balance card. The family page has one Sale tile (pup, amount due, go-home) and no
+  balance bar; the dog's tile is **Sale**. A litter's **Go-home** opens with its ready date
+  (Change in place; Pricing's Dates points there) and each sold pup's checklist in go-home order.
+  **Go-home checklist** (Setup › Go-home): her items in her order, each ticked by hand or linked
+  to a vet visit, vaccination or dewormer on the pup, its microchip, the contract signed, the
+  balance paid, Print puppy records or Send Furever link; an item not done opens what does it
+  (Add event opens with the type picked). Design notes: Sales, contracts and money; new Go-home.
+- Live check (owner asked): live already has everything the sale's money needs (schedule,
+  payments, extras, refunds, payment links, net). Not in live: third-party transport partners,
+  a microchip-registered or go-home-pack field, and the checklist (a new table when built).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

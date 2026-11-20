@@ -734,6 +734,28 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .kels-star { border: 0; background: none; color: var(--faint); padding: 0 14px; align-self: stretch; cursor: pointer; }
 .kels-star[aria-pressed="true"] { color: var(--p-amber-fg); }
 .kels-star[aria-pressed="true"] svg { fill: currentColor; }
+/* one sale, one screen: the money lines, the go-home checklist */
+.sale-who { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 2px; }
+.sale-who i[data-lucide], .sale-who svg.lucide { width: 18px; height: 18px; color: var(--faint); }
+.hub-line .link { font-size: 13px; margin-left: 2px; }
+.mlines { padding: 2px 0 8px; }
+.mline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mline .m-sub { color: var(--muted); font-size: 12.5px; }
+.mline .link { font-size: 13px; }
+.mline.sum { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 9px; font-weight: 700; }
+.mline.bold { font-weight: 700; }
+.mline.owe > span:last-child { color: var(--p-amber-fg); }
+.btn-2:disabled { opacity: .45; cursor: default; }
+.gh-row[disabled] { cursor: default; color: inherit; }
+.gh-row[disabled]:hover { background: none; }
+.gh-row.done .row-t { color: var(--muted); }
+.gh-foot { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px 12px; border-top: 1px solid var(--line); }
+.gh-edit-row { display: flex; align-items: center; }
+.gh-edit-row .row { flex: 1; min-width: 0; }
+.gh-move { display: flex; gap: 2px; padding-right: 8px; }
+.gh-move button { border: 0; background: none; color: var(--muted); padding: 6px; border-radius: 8px; cursor: pointer; display: inline-flex; }
+.gh-move button:disabled { opacity: .3; cursor: default; }
+.section-h h2 .link { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
 .sa-btns { display: flex; gap: 6px; justify-content: flex-end; }
 .facts dd b { font-family: var(--font-display); font-weight: 800; }
 </style>
@@ -796,12 +818,15 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
     <p><b>Transport</b> is priced per mile from her standard pickup place: fee per mile, round trip or one way, no charge under a distance, offered only to families living at least so far away (City / state becomes required on applications), and "in touch" past a limit. <b>Check a distance</b> gets driving miles through Mapbox (cloud backup) or Open in Maps and shows the working. <b>Handled by</b> sets the default for new sales: the kennel, or a third party, one of her transport partners or unknown. Each partner (a Transport account) carries a referral reward, per booking or a percent of their price; the Transport screen totals expected and received rewards by partner. On a sale, transport is either the kennel's (miles, Get driving miles, a fee prefilled from her rate) or a third party's (partner, anything charged on the sale, the reward expected or received). <b>Pickup places</b> (Setup › Go-home) holds her places, which one mileage starts from, which families see, and how late families can change a pickup.</p>
     <p><b>Price rules</b> (Pricing and schedules) each look at the <b>parents</b> or the <b>pup</b>, then at a name, breed, registry, title, import or trait scores (name, title and import are parents only). A pup breed price replaces the usual price; parent rules add or subtract and set the litter's price; pup rules (its puppy scores, its registry) adjust each pup's own price when it's sold. A litter's Pricing shows the working and each pup's adjustment; its own price, and every sale already made, keep theirs.</p>
-    <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time, ready to go home). A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the balance (a schedule or one due date) and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
+    <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time); its ready date is on its Go-home screen. A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
 
     <h3>Sales, contracts and money</h3>
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
-    <p>A sale's <b>Payments</b> (from the Sale, Sale details or the person's page) shows the total, paid, remaining and next payment; each due date (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up; and the money received. <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note; a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
+    <p><b>A sale is one screen</b> (a pup's <b>Sale</b>, Sales &amp; Placements, the family's one Sale tile): the family at the top (opening their page) and when the pup goes home, with Change for the date, time and place right there. That date looks like the sale's own but is the pickup on the calendar (live: the placement event), so changing one changes the other. <b>Money</b> lists the puppy, each add-on (Change add-ons), the total, paid and balance; then the due dates (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up, and Change for the schedule or due date in place; then the money received, where <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note, and a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. Send invoice (Send receipt once paid) and Payment link sit under it, with what she nets after a processing fee. Then the contract, and that pup's go-home checklist. <b>Edit</b> holds the rest. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
     <p>In <b>Financials</b> the year opens a list of her years, and Overview, Income, Expenses and Entries follow it. <b>Add entry</b> on Entries is an expense, or money received: that lists the sales with a balance, stud fees and waitlist fees still owed, and each opens where it's recorded, since income is worked out from them. <b>Accounts</b> (Business) are grouped by type, transport partners among them. An account holds its name, type and website; her login (private); a payment service's or marketplace's processing fee and whether the buyer pays it; a payment service's link and instructions; a referral link, code and instructions, shared with families or on her website; a form service's contract forms; whether she signs new e-sign templates; and this year's expenses paid to it, opening Entries filtered to them.</p>
+
+    <h3>Go-home</h3>
+    <p>A litter's <b>Go-home</b> starts with its <b>ready date</b> (Change in place; contracts fill their ready date from it), then each sold pup's checklist, in go-home order. The <b>go-home checklist</b> is hers (Setup › Go-home › Go-home checklist): items in her order, each linked to what checks it off or ticked by hand. Linked items tick themselves from the records: a vet visit, vaccination or dewormer (Preventative) on the pup, its microchip number, the sale contract signed, the balance paid; Print puppy records and Send Furever link tick when she does them from the row. An item not done yet opens what does it (Add event with the type picked, the dog's details, the contract, Record a payment). In the build the list would be a new table (one row per item: name, link, order, kennel), with ticks for hand-ticked items per sale; linked items are worked out, never stored.</p>
 
     <h3>Possible duplicates</h3>
     <p>A hub with possible duplicates shows one row at the top ("2 dogs may be entered twice", "1 person and 1 kennel may be entered twice"): Dogs, People (people and kennels), Litters (litters and pairings), Sales and Financials (expenses). With none, there is no row. It opens <b>Possible duplicates</b> for just that kind, one card per pair: why they look the same (Very likely or Possible), the two side by side with differences highlighted, what's linked to each and where each came from. <b>Not the same</b> keeps both and stops asking. <b>Merge</b> asks which to keep (the one with more linked is suggested) and, where they disagree, which value wins; blanks fill from the other, everything linked moves over, and the other is deleted. Import / Export's Find duplicates lists every kind. On the add forms (Add dog, Add person, Add family, the person picker), a <b>certain</b> match, the same email or phone, or the same registered name, leads with <b>Use</b> that one (as sire or dam when adding a parent from a pedigree) beside <b>Create new</b>; a name alone is a quieter "Possible match" line. Neither stops her saving. The app works the counts out on this device after her data changes, never when a page opens and never sent anywhere, so the row is there from the first paint and costs the server nothing.</p>
@@ -1190,7 +1215,7 @@ const SETUP_TODO = [['clock', 'amber', 'Set your time zone. Offer deadlines use 
 const GROUP_Q = {
   kennel: [['Kennel name', 'Thornfield Kennels'], ['Prefix', 'THORN'], ['Location', 'Hartland, VT'], ['Time zone', 'Not set'], ['Breeds', 'Labrador Retriever'], ['Logo', 'Uploaded']],
   payments: [['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
-  gohome: [['Pickup places', 'Maple Grove Library lot', 0, 'pickupplaces'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport', '$1.50 a mile, round trip', 0, 'addon:transport'], ['Boarding after go-home', '$35 a day', 0, 'addon:boarding'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
+  gohome: [['Pickup places', 'Maple Grove Library lot', 0, 'pickupplaces'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport', '$1.50 a mile, round trip', 0, 'addon:transport'], ['Boarding after go-home', '$35 a day', 0, 'addon:boarding'], ['Go-home checklist', 'Vet visit, vaccines, deworming, contract, balance and more', 0, 'ghlist']],
   care: [['Preferred tests', 'OFA hips, elbows, eyes (CAER), DNA panel'], ['Feeding schedule', 'Labrador Retriever'], ['Puppy Record fields', '8 shown'], ['Lifecycle reminders', 'On']],
   contracts: [['E-sign', 'Firma connected'], ['Templates', 'Pet sale, Co-own, Stud service'], ['Send for e-sign', '10 a month included', 1]],
   money: [['Mileage rate', '$0.70 a mile'], ['Tax year', 'January–December'], ['Accounts', 'Checking, Venmo']],
@@ -1475,7 +1500,6 @@ S.person = (id) => {
   if (req) attn.push(['message-square-text', 'blue', `Asks: ${req.kind.toLowerCase()}`, 'wlrequests']);
   const side = f && SALES.find((x) => x.fam === f.id && x.side);
   if (side) attn.push(['wallet', 'blue', `${side.pup}: deposit due ${wday(side.due)}`, `personsec:${id}|offers`]);
-  if (sale && !sale.side && sale.paid < saleTotal(sale)) attn.push(['wallet', 'amber', `${money(saleTotal(sale) - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
   const t = [];
   if (f) {
     t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
@@ -1483,10 +1507,8 @@ S.person = (id) => {
     t.push([`personsec:${id}|fee`, 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested' : PROGRAMS.find((x) => x.n === f.program)?.fee === 'Waived' ? `Waived (${f.program})` : f.st === 'approved' ? `${SET.waitlist.fee} due` : `${SET.waitlist.fee} paid`]);
   }
   if (sale) {
-    t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${saleState(sale)[0]}`]);
-    t.push([`payments:${sale.pup.toLowerCase()}`, 'wallet', 'Payments', `${money(sale.paid)} of ${money(saleTotal(sale))} paid`]);
-    t.push(['littersec:wa|gohome', 'car', 'Go-home', GOHOME.find((g) => g.fam === id)?.when || sale.gohome]);
-    if (FEAT.contracts) { const c = ctFor(sale.pup); t.push([c ? `contract:${c.id}` : 'contractedit:new', 'file-pen-line', 'Contract', ctLine(c)]); }
+    const owed = saleTotal(sale) - sale.paid;
+    t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${owed > 0 ? `${money(owed)} due` : 'paid in full'}${sale.gohomeIso ? ` · home ${short(sale.gohomeIso)}` : ''}`]);
   }
   if (f) { const ms = msgsOf(f), last = ms[ms.length - 1], unread = ms.filter((m) => m.fresh).length; t.push([`personsec:${id}|messages`, 'message-square-text', 'Messages', unread ? `${unread} new · ${short(last.at)}` : `Last ${short(last.at)}`]); }
   if (f && FEAT.waitlistOnline) t.push([`personsec:${id}|status`, 'globe', 'Status page', `Last opened: ${SEEN[f.id] || 'never'}`]);
@@ -1678,7 +1700,7 @@ function dogSectionsBase(d) {
     [base + 'health', 'shield-check', 'Health tests', x.tests.length ? `${x.tests.length} done${x.planned.length ? ` · ${x.planned.length} planned` : ''}` : 'None yet'],
   ];
   out.push(...lineSections(d));
-  if (d.status === 'puppy') out.push([base + 'sale', 'tag', 'Sale & contract', sale ? `${fam(sale.fam).n.replace(' family', '')} · ${saleState(sale)[0]}` : DISP[d.disp][0]]);
+  if (d.status === 'puppy') out.push([base + 'sale', 'tag', 'Sale', sale ? `${fam(sale.fam).n.replace(' family', '')} · ${saleTotal(sale) > sale.paid ? `${money(saleTotal(sale) - sale.paid)} due` : 'paid in full'}` : DISP[d.disp][0]]);
   if (ls.length) out.push([base + 'litters', 'paw-print', 'Litters', `${ls.length} · ${ls.reduce((n, l) => n + (l.m || 0) + (l.f || 0), 0)} puppies so far`]);
   if (ps.length) out.push([base + 'pairings', 'heart-handshake', 'Pairings', ps.map((p) => p.status[0]).join(' · ')]);
   if (x.stud && FEAT.studServices) out.push([base + 'stud', 'concierge-bell', 'Stud services', `${x.stud.length} this year`]);
@@ -1731,9 +1753,7 @@ S.dogsec = (p) => {
   } else if (k === 'sale') {
     const s = SALES.find((v) => v.pup === d.name);
     if (s) action = `<button type="button" class="bar-btn" data-open="saleedit:${d.name.toLowerCase()}">${icon('pencil')}Edit</button>`;
-    body = s
-      ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Add-ons', addonsTotal(s) ? money(addonsTotal(s)) : 'None'], ['Paid', money(s.paid)], ['Balance', money(saleTotal(s) - s.paid)], ['Go-home', s.gohome], ['Contract', ctLine(ctFor(d.name))]])}</section>
-         <section class="card"><div class="rows">${row({ ic: 'receipt', t: 'Add-ons', s: saleAddons(s).length ? saleAddons(s).map(addonName).join(', ') : 'Transport, boarding, photo sessions, training', end: addonsTotal(s) ? `<span class="amt">${money(addonsTotal(s))}</span>` : '', go: `saleaddons:${d.name.toLowerCase()}` })}${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${row({ ic: 'wallet', t: 'Payments', s: `${money(s.paid)} of ${money(saleTotal(s))} paid`, go: `payments:${d.name.toLowerCase()}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: ctLine(ctFor(d.name)), go: ctFor(d.name) ? `contract:${ctFor(d.name).id}` : 'contractedit:new' }) : ''}</div></section>`
+    body = s ? saleScreen(s, d)
       : empty('tag', d.disp === 'keeping' ? `${d.name} is staying in your program.` : `${d.name} has no family yet.`, d.disp === 'keeping' ? '' : 'Add sale', `addsale:${d.id}`);
   } else if (k === 'litters') {
     body = `<section class="card"><div class="rows">${LITTERS.filter((l) => l.dam === d.name || l.sire === d.name).map((l) => row({ ic: 'paw-print', t: litterName(l), extra: pill(l.status), s: l.whelp ? `Whelped ${fmt(l.whelp)} · ${l.m + l.f} puppies` : `Due ${fmt(l.due)}`, go: `litter:${l.id}` })).join('')}</div></section>`;
@@ -1798,10 +1818,10 @@ function litterSectionsBase(l) {
     [b + 'profile', 'id-card', 'Profile', 'Bred Oct 6 and 8 · outside sire'],
   ];
   const pups = DOGS.filter((d) => d.litter === l.id);
-  const done = GOHOME.reduce((n, g) => n + g.checks.filter((c) => c[1]).length, 0);
+  const gh = SALES.filter((s) => saleDog(s)?.litter === l.id).flatMap((s) => ghState(s, saleDog(s))), done = gh.filter((x) => x.done).length;
   const out = [[b + 'puppies', 'paw-print', 'Puppies', l.id === 'wa' ? `${pups.length} · ${pups.filter((p) => p.disp === 'placed').length} placed` : `${l.m + l.f} · all placed`]];
   if (l.id === 'wa') out.push(
-    [b + 'gohome', 'car', 'Go-home', `Nov 21–22 · ${done} of 15 checks done`],
+    [b + 'gohome', 'car', 'Go-home', `Ready ${short(l.ready)} · ${done} of ${gh.length} done`],
     [b + 'weigh', 'scale', 'Weigh puppies', `Last weighed ${weighedOn}`],
     ...(FEAT.waitlist ? [['wlpicks:wa', 'list-ordered', 'Picks', OFFER.open ? `Turn ${WL.filter((f) => f.st === 'placed').length + 1} · ${fam(OFFER.fam).n.replace(' family', '')}` : 'Complete']] : []),
     [b + 'history', 'history', 'History', '5 events'],
@@ -1976,9 +1996,16 @@ S.littersec = (p) => {
     body = pups.length ? `<section class="card"><div class="rows">${pups.map((q) => { const s = SALES.find((v) => v.pup === q.name); return row({ t: q.name, extra: `${sex(q.sex)}${pill(DISP[q.disp])}`, s: s ? fam(s.fam).n : q.disp === 'health_hold' ? 'Umbilical hernia recheck' : q.disp === 'keeping' ? 'Staying in the program' : OFFER.open && OFFER.pup === q.id ? `Offered to the ${fam(OFFER.fam).n}` : 'No family yet', end: `${WEIGHT[q.id]} lb`, go: `dog:${q.id}` }); }).join('')}</div></section>`
       : empty('paw-print', 'All five puppies from this litter were placed and archived.', '');
   } else if (k === 'gohome') {
-    body = GOHOME.map((g) => `<section class="card"><div class="section-h"><h2>${g.pup}<span class="hub-line" style="font-family:var(--font-body);font-weight:500">${fam(g.fam).n}</span></h2></div>
-      <div class="hub-line" style="padding:0 14px 8px">${icon('clock')} ${g.when}</div>
-      <ul class="checks">${[...g.checks, ...(FEAT.lineTools ? [['Puppy scores', puppyScored(DOGS.find((x) => x.name === g.pup).id) ? 1 : 0]] : [])].map(([t, ok, note]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span>${note ? `<span class="note">${note}</span>` : ''}</li>`).join('')}</ul></section>`).join('');
+    const rOpen = ui.pAct === 'ready';
+    if (rOpen) formFor('litready:' + l.id, () => ({ ready: l.ready || '' }));
+    const when = (s) => (s.gohomeIso || '9') + (pickupOf(s).time || '');
+    const sold = SALES.filter((s) => saleDog(s)?.litter === l.id).sort((a, b) => when(a).localeCompare(when(b)));
+    body = `<section class="card hub-head"><div class="hub-reg">Ready to go home ${l.ready ? wday(l.ready) : 'not set'}</div>
+        <div class="hub-line">${l.whelp && l.ready ? `${Math.round(days(l.whelp, l.ready) / 7)} weeks old · ` : ''}contracts fill their ready date from this</div>
+        ${rOpen ? `<div class="q-edit sa-edit" style="padding:6px 0 0"><div class="form-stack"><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div></div><div class="sa-btns"><button type="button" class="chip" data-pact="ready">Cancel</button><button type="button" class="chip go" data-ghdo="ready|${l.id}">Save</button></div></div>`
+          : `<button type="button" class="set-link" data-pact="ready">${icon('calendar-clock')}Change ready date</button>`}</section>
+      ${sold.map((s) => ghCard(s, saleDog(s), { inLitter: 1 })).join('') || '<p class="lede">No puppies from this litter are sold yet.</p>'}
+      ${setLink('Edit checklist', 'ghlist')}`;
   } else if (k === 'weigh') {
     body = `<div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Cedar eleven point two”</span>${planTag(2)}</div>
       <p class="lede">Enter today's weights. Leave a box empty to skip a puppy.</p>
@@ -2023,7 +2050,7 @@ S.littersec = (p) => {
     if (pupAdj.length && !wk.length) wk.push(['both', ruledPrice(l, 'female')]);
     body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}${pupAdj.map(([d, st]) => `<p class="rule-work"><span>${esc(d.name)}</span>${st.map(([n, a]) => `${esc(n)} ${a < 0 ? money(a) : `+${money(a)}`}`).join(' · ')}</p>`).join('')}</section>` : ''}
       <section class="card"><div class="rows">${[...LP_Q.slice(0, 2), ['split', 'Deposit and full registration', ['Same for both sexes', 'Different by sex']], ...(l.prices?.split === 'Different by sex' ? LP_SPLIT : LP_Q.slice(2))].map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
-      ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div><small class="f-hint">Prefilled from your timing</small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
+      ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><small class="f-hint">Prefilled from your timing. Ready to go home: ${l.ready ? wday(l.ready) : 'not set'} · <button type="button" class="link" data-open="littersec:${l.id}|gohome">Change in Go-home</button></small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
       ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
       <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button>`;
   } else {
@@ -2544,10 +2571,10 @@ const evType = (k) => EV_TYPES.find((t) => t[0] === k);
 const REMIND = [['', 'No reminder'], ['14', 'In 2 weeks'], ['30', 'In a month'], ['90', 'In 3 months'], ['pick', 'Pick a date']];
 S.addevent = (p) => {
   /* p = "dog|<id>" or "litter|<id>" */
-  const [kind, id] = (p || 'dog|willow').split('|');
+  const [kind, id, pre] = (p || 'dog|willow').split('|');
   const subj = kind === 'litter' ? litterName(LITTERS.find((l) => l.id === id) || LITTERS[0]) : dogById(id).name;
   const d = kind === 'dog' ? dogById(id) : null;
-  const f = formFor('addevent:' + p, () => ({ type: '', d: TODAY, remind: '' }));
+  const f = formFor('addevent:' + p, () => ({ type: pre || '', d: TODAY, remind: '' }));
   const fits = (t) => (!t[6] || (d && d.sex === t[6])) && (!t[7] || FEAT[t[7]]) && (kind === 'dog' || ['vaccination', 'preventative', 'vet_visit', 'milestone', 'note', 'evaluation'].includes(t[0]));
   if (!f.type) {
     const cats = uniq(EV_TYPES.filter(fits).map((t) => t[4]));
@@ -3300,10 +3327,6 @@ S.saleedit = (pup) => {
     body: `${formCard('Sale', `${fSel('status', 'Status', SALE_ST)}<div class="dates">${fIn('date', 'Sale date', { type: 'date' })}</div>${fChips('reg', 'Registration', REGS)}
         <div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}</div>`)}
       ${formCard('Deposit', `<div class="dates">${fIn('dep', 'Amount ($)', { type: 'number' })}${fIn('depDate', 'Received', { type: 'date' })}</div>${fSel('depVia', 'Paid via', PAY_ACCTS)}`)}
-      ${formCard('Balance', `${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}
-        ${fm.sched ? `<small class="f-hint">${esc(schedText(SCHEDULES.find((x) => x.id === fm.sched).steps))}</small>` : `<div class="dates">${fIn('balDue', 'Due', { type: 'date' })}</div>`}
-        <div class="dates">${fIn('balPaid', 'Paid in full on', { type: 'date' })}</div>${fSel('balVia', 'Paid via', PAY_ACCTS)}
-        <button type="button" class="set-link" data-open="payments:${pup}">${icon('wallet')}Payments · ${money(s.paid)} received</button>`)}
       ${formCard('Sold through', `${fSel('channel', 'Channel', CHANNELS)}${fm.channel ? `<div class="dates">${fIn('fee', 'Processing fee ($)', { type: 'number' })}</div>${fChips('feeBuyer', 'Fee paid by', [['no', 'Kennel'], ['yes', 'Buyer']])}` : ''}`)}
       ${formCard('Source', `${fIn('lead', 'Lead source')}${fSel('ref', 'Referred by', [['', 'Nobody'], ...PEOPLE_OF().slice(0, 6).map((p) => [p.id, p.n])])}`)}
       ${ended ? formCard('Ended', `${END_REASONS[fm.status].length ? fChips('end', 'Reason', END_REASONS[fm.status]) : ''}${fIn('endNote', 'Note')}<div class="dates">${fIn('refund', 'Refund ($)', { type: 'number' })}${fIn('refundDate', 'Refunded on', { type: 'date' })}</div>`) : ''}
@@ -3813,10 +3836,28 @@ function ctSave(id) {
 }
 
 /* ---------- a sale's Payments (live: the Payments card and Record a payment) ---------- */
+/* ================= one sale, one screen: who and when, the money, the contract, the go-home checklist =================
+   The go-home date, time and place look like the sale's own, but they're the pickup on the
+   calendar (live: the placement event), so changing one changes the other. */
+const GH_TIME = { Hazel: '10:00', Poppy: '13:00', Fern: '11:00' };
+const hm12 = (t) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const saleDog = (s) => DOGS.find((d) => d.name === s.pup);
+const saleLitter = (s) => { const d = saleDog(s); return d && LITTERS.find((l) => l.id === d.litter); };
+const pickupOf = (s) => ({ date: s.gohomeIso || '', time: s.ghTime ?? GH_TIME[s.pup] ?? '', place: s.ghPlace ?? stdPlace()?.id ?? '' });
+const pickupLine = (s, { place = 1 } = {}) => {
+  const p = pickupOf(s), pl = place && PLACES.find((x) => x.id === p.place);
+  return p.date ? `${wday(p.date)}${p.time ? ` · ${hm12(p.time)}` : ''}${pl ? ` · ${esc(pl.n)}` : ''}` : 'No go-home date yet';
+};
+
+/* the old Payments address opens the sale, its Record a payment open when asked */
 S.payments = (spec) => {
   const [pup, auto] = (spec || '').split('|');
-  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], st = saleStatement(s);
   if (auto === 'new' && !top().autoDone) { top().autoDone = 1; ui.pAct = 'pay|new'; }
+  return S.dogsec(`${pup}|sale`);
+};
+
+function saleMoney(s, pup) {
+  const st = saleStatement(s), adds = saleAddons(s), owed = st.remaining > 0;
   const form = (pid) => {
     const p = s.payments.find((x) => x.id === pid);
     formFor(`pay:${s.pup}:${pid}`, () => (p ? { amount: str(p.amount), date: p.date, method: p.method || '', via: p.via || '', ref: p.ref || '', note: p.note || '' } : { amount: str(st.next ? st.next.owed : ''), date: TODAY, method: '', via: '', ref: '', note: '' }));
@@ -3828,23 +3869,192 @@ S.payments = (spec) => {
   const recRow = (r) => {
     const key = 'pay|' + r.id, open = ui.pAct === key;
     return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic green">${icon('wallet')}</span><span class="row-main"><span class="row-t">${r.t}</span><span class="row-s">${fmt(r.date)}${r.method ? ` · ${esc(r.method)}` : ''}${r.via ? ` · ${esc(acctName(r.via))}` : ''}${r.ref ? ` · ${esc(r.ref)}` : ''}</span></span><span class="row-end"><span class="amt">${money(r.amount)}</span><span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>
-      ${open ? (r.id === 'dep' ? `<div class="q-edit sa-edit"><div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-open="saleedit:${pup}">Change in Sale details</button></div></div>` : form(r.id)) : ''}</div>`;
+      ${open ? (r.id === 'dep' ? `<div class="q-edit sa-edit"><div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-open="saleedit:${pup}">Change in Edit</button></div></div>` : form(r.id)) : ''}</div>`;
   };
-  const nOpen = ui.pAct === 'pay|new';
+  const nOpen = ui.pAct === 'pay|new', sOpen = ui.pAct === 'sched';
+  let schForm = '';
+  if (sOpen) {
+    formFor('sched:' + s.pup, () => ({ sched: s.sched || '', balDue: s.balDue || '' }));
+    schForm = `<div class="q-edit sa-edit" style="padding-top:12px"><div class="form-stack">${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}
+      ${ui.form.sched ? `<small class="f-hint">${esc(schedText(SCHEDULES.find((x) => x.id === ui.form.sched).steps))}</small>` : `<div class="dates">${fIn('balDue', 'Balance due', { type: 'date' })}</div><small class="f-hint">Left blank, it's due at go-home.</small>`}</div>
+      <div class="sa-btns"><button type="button" class="chip" data-pact="sched">Cancel</button><button type="button" class="chip go" data-sx="sched|${esc(s.pup)}">Save</button></div></div>`;
+  }
   const allPaid = st.remaining <= 0 && !s.balPaid && !['returned', 'cancelled', 'voided'].includes(s.status);
+  const line = (t, v, cls = '', sub = '') => `<div class="mline${cls}"><span>${t}${sub ? ` <span class="m-sub">${sub}</span>` : ''}</span><span>${v}</span></div>`;
+  const net = s.channel && s.fee ? `You net ${money(st.total - (s.feeBuyer ? 0 : s.fee))} after the ${money(s.fee)} processing fee. ` : '';
+  return `<section class="card"><div class="section-h"><h2>${icon('wallet')}Money</h2>${pill(saleState(s))}</div>
+      <div class="mlines">${line('Puppy', money(s.price), '', `${esc(s.reg || 'Limited')} registration`)}
+        ${adds.map((x) => line(esc(addonName(x)), money(x.amount), '', x.partner && partnerOf(x.partner) ? `by ${esc(partnerOf(x.partner).n)}` : '')).join('')}
+        <div class="mline"><button type="button" class="link" data-open="saleaddons:${pup}">${adds.length ? 'Change add-ons' : '+ Add-on'}</button></div>
+        ${line('Total', money(st.total), ' sum')}${line('Paid', money(st.paid))}${line('Balance', money(st.remaining), owed ? ' bold owe' : ' bold')}</div></section>
+    ${allPaid ? `<div class="stub-note">${icon('circle-check')}<span>Everything is paid. <button type="button" class="link" data-paydo="full|${s.pup}|">Mark paid in full</button></span></div>` : ''}
+    <div class="label-row"><div class="group-label">Due dates</div>${sOpen ? '' : `<button type="button" class="set-link" data-pact="sched">${icon('calendar-clock')}${s.sched ? 'Change schedule' : 'Change'}</button>`}</div>
+    <section class="card"><div class="rows">${schForm}${st.due.map((x) => srow(x.owed <= 0 ? 'circle-check' : 'calendar-clock', x.t + pill(x.state), `${x.date ? fmt(x.date) : 'No date'}${x.paid && x.owed > 0 ? ` · ${money(x.paid)} paid` : ''}`, { tone: x.owed <= 0 ? 'green' : x.state[0] === 'Overdue' ? 'red' : x.state[0] === 'Due soon' ? 'amber' : '', end: `<span class="amt">${money(x.amt)}</span>` })).join('')}</div></section>
+    <div class="group-label">Received</div>
+    <section class="card"><div class="rows">${st.received.map(recRow).join('')}
+      <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="pay|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Record a payment</span><span class="row-s">${st.next ? `${money(st.next.owed)} next` : 'Nothing owed'}</span></span><span class="row-end"><span class="chev">${icon(nOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>${nOpen ? form('new') : ''}</div>
+    </div></section>
+    <div class="actions-2"><button type="button" class="btn-2" data-sx="invoice|${esc(s.pup)}">${icon('file-text')}${owed ? 'Send invoice' : 'Send receipt'}</button><button type="button" class="btn-2" data-sx="link|${esc(s.pup)}"${owed ? '' : ' disabled'}>${icon('link')}Payment link</button></div>
+    <p class="f-hint">${net}Final payment: ${esc(SET.payments.final)}</p>`;
+}
+
+function saleScreen(s, d) {
+  const pup = d.name.toLowerCase(), f = fam(s.fam), c = ctFor(d.name), pOpen = ui.pAct === 'pickup';
+  let pForm = '';
+  if (pOpen) {
+    const p = pickupOf(s), l = saleLitter(s);
+    formFor('pickup:' + s.pup, () => ({ date: p.date || l?.ready || '', time: p.time, place: p.place }));
+    pForm = `<div class="q-edit sa-edit" style="padding:6px 0 0"><div class="form-stack"><div class="dates">${fIn('date', 'Go-home date', { type: 'date' })}${fIn('time', 'Time', { type: 'time' })}</div>${fSel('place', 'Where', [['', 'Not set'], ...PLACES.map((x) => [x.id, x.n])])}
+      ${l?.ready ? `<small class="f-hint">${esc(litterName(l))} is ready ${wday(l.ready)}.</small>` : ''}</div>
+      <div class="sa-btns"><button type="button" class="chip" data-pact="pickup">Cancel</button><button type="button" class="chip go" data-sx="pickup|${esc(s.pup)}">Save</button></div></div>`;
+  }
+  return `<section class="card hub-head"><div><button type="button" class="link sale-who" data-open="person:${s.fam}">${esc(f.n)}${icon('chevron-right')}</button></div>
+      <div class="hub-line">${icon('car')}${s.gohomeIso ? `Goes home ${pickupLine(s)}` : 'No go-home date yet'}${pOpen ? '' : ` <button type="button" class="link" data-pact="pickup">${s.gohomeIso ? 'Change' : 'Set'}</button>`}</div>${pForm}</section>
+    ${saleMoney(s, pup)}
+    ${FEAT.contracts ? `<section class="card"><div class="rows">${row({ ic: 'file-pen-line', t: 'Contract', s: ctLine(c), go: c ? `contract:${c.id}` : 'contractedit:new' })}</div></section>` : ''}
+    ${ghCard(s, d)}`;
+}
+
+/* ================= the go-home checklist: hers, each item linked to what checks it off =================
+   Live: a new table (one row per item: name, link, order, kennel); ticks for the hand-ticked
+   ones are kept per sale. Linked items are worked out from the records, never stored. */
+const GH_LINKS = {
+  manual: ['Ticked by hand', 'circle-check'],
+  vet_visit: ['A vet visit on the puppy', 'stethoscope'],
+  vaccination: ['A vaccination on the puppy', 'syringe'],
+  deworm: ['A dewormer (Preventative) on the puppy', 'shield-check'],
+  microchip: ['A microchip number on the puppy', 'scan-line'],
+  contract: ['The sale contract signed', 'file-pen-line'],
+  balance: ['The balance paid', 'wallet'],
+  records: ['Print puppy records', 'clipboard-check'],
+  furever: ['Send the Furever link', 'send'],
+};
+const GH_LIST = [
+  { id: 'g1', t: 'Ready vet visit', link: 'vet_visit' },
+  { id: 'g2', t: 'Vaccinations', link: 'vaccination' },
+  { id: 'g3', t: 'Deworming', link: 'deworm' },
+  { id: 'g4', t: 'Microchip', link: 'microchip' },
+  { id: 'g5', t: 'Contract signed', link: 'contract' },
+  { id: 'g6', t: 'Balance paid', link: 'balance' },
+  { id: 'g7', t: 'Print puppy records', link: 'records' },
+  { id: 'g8', t: 'Send Furever link', link: 'furever' },
+  { id: 'g9', t: 'Go-home pack', link: 'manual' },
+];
+const GH_TICKS = { Poppy: ['g7', 'g8', 'g9'], Hazel: ['g8'] };
+const CHIPPED = { hazel: '985 141 004 2217', poppy: '985 141 004 2231' };
+const GH_EV = { vet_visit: ['Vet visit', 'vet_visit'], vaccination: ['Vaccination', 'vaccination'], deworm: ['Preventative', 'preventative'] };
+let ghSeeded = 0;
+function ghSeed() {
+  if (ghSeeded++) return;
+  const add = (id, ...evs) => { const d = dogById(id); if (!d) return; EVENTS[id] ||= eventsFor(d).slice(); EVENTS[id].push(...evs); EVENTS[id].sort((a, b) => b.d.localeCompare(a.d)); };
+  const vet = (d) => ({ d, type: ['Vet visit', 'blue', 'stethoscope'], cat: 'Health', t: 'Go-home exam', body: 'Hartland Animal Hospital · healthy' });
+  const worm = (d) => ({ d, type: ['Preventative', 'blue', 'shield-check'], cat: 'Health', t: 'Pyrantel', body: 'Third dose' });
+  add('poppy', vet('2026-11-16'), worm('2026-11-12')); add('hazel', vet('2026-11-16'), worm('2026-11-12')); add('fern', worm('2026-11-12'));
+}
+function ghState(s, d) {
+  ghSeed();
+  const tick = GH_TICKS[s.pup] || [], st = saleStatement(s), c = ctFor(s.pup), f = fam(s.fam);
+  return GH_LIST.map((it) => {
+    let done = false, note = '';
+    const ev = GH_EV[it.link];
+    if (ev) { const e = eventsFor(d).find((x) => x.type[0] === ev[0]); done = !!e; note = e ? `${esc(e.t)} · ${short(e.d)}` : `Add a ${ev[0].toLowerCase()} to ${esc(d.name)}`; }
+    else if (it.link === 'microchip') { done = !!CHIPPED[d.id]; note = done ? CHIPPED[d.id] : 'No microchip number yet'; }
+    else if (it.link === 'contract') { done = c?.st === 'signed'; note = ctLine(c); }
+    else if (it.link === 'balance') { done = st.remaining <= 0; note = done ? 'Paid in full' : `${money(st.remaining)} due`; }
+    else {
+      done = tick.includes(it.id);
+      note = it.link === 'records' ? (done ? 'Printed' : `Print ${esc(d.name)}'s records`) : it.link === 'furever' ? (done ? `Sent to ${esc(f.n)}` : `Send to ${esc(f.n)}`) : done ? 'Done' : 'Tap when done';
+    }
+    return { ...it, done, note };
+  });
+}
+const GH_HAND = ['manual', 'records', 'furever'];
+const ghRow = (s, x) => {
+  const live = !x.done || GH_HAND.includes(x.link);
+  return `<button type="button" class="row gh-row${x.done ? ' done' : ''}" ${live ? `data-ghdo="do|${esc(s.pup)}|${x.id}"` : 'disabled'}><span class="row-ic ${x.done ? 'green' : 'gray'}">${icon(x.done ? 'circle-check' : 'circle')}</span><span class="row-main"><span class="row-t">${esc(x.t)}</span><span class="row-s">${x.note}</span></span><span class="row-end">${!x.done && !GH_HAND.includes(x.link) ? chev : ''}</span></button>`;
+};
+function ghCard(s, d, { inLitter } = {}) {
+  const items = ghState(s, d), done = items.filter((x) => x.done).length, l = saleLitter(s);
+  const head = inLitter
+    ? `<h2><button type="button" class="link" data-open="dogsec:${d.id}|sale">${esc(d.name)}</button><span class="hub-line" style="font-family:var(--font-body);font-weight:500">${esc(fam(s.fam).n)} · ${pickupLine(s, { place: 0 })}</span></h2>`
+    : `<h2>${icon('list-checks')}Before ${esc(d.name)} goes home</h2>`;
+  return `<section class="card"><div class="section-h">${head}<span class="fcount">${done} of ${items.length}</span></div>
+    <div class="rows">${items.map((x) => ghRow(s, x)).join('')}</div>
+    ${inLitter ? '' : `<div class="gh-foot">${l ? `<button type="button" class="set-link" data-open="littersec:${l.id}|gohome">${icon('car')}${esc(litterName(l))} go-home</button>` : ''}<button type="button" class="set-link" data-open="ghlist">${icon('settings')}Edit checklist</button></div>`}</section>`;
+}
+function ghDo(v) {
+  const [k, a, b] = v.split('|');
+  if (k === 'do') {
+    const s = SALES.find((x) => x.pup === a), d = saleDog(s), it = GH_LIST.find((x) => x.id === b), tick = (GH_TICKS[a] ||= []), on = tick.includes(b);
+    const toggle = (msg) => { if (on) tick.splice(tick.indexOf(b), 1); else tick.push(b); render(); toast(on ? 'Unticked' : msg); };
+    if (it.link === 'manual') return toggle('Ticked');
+    if (it.link === 'records') return toggle(`${d.name}'s puppy records are ready to print`);
+    if (it.link === 'furever') return toggle(`Furever link sent to ${fam(s.fam).n}`);
+    if (GH_EV[it.link]) return open(`addevent:dog|${d.id}|${GH_EV[it.link][1]}`);
+    if (it.link === 'microchip') return open(`editdog:${d.id}`);
+    if (it.link === 'contract') { const c = ctFor(a); return open(c ? `contract:${c.id}` : 'contractedit:new'); }
+    if (it.link === 'balance') {
+      ui.pAct = 'pay|new';
+      if (top().s === 'dogsec' && top().p === `${d.id}|sale`) { render(); $('#screen [data-pact="pay|new"]')?.scrollIntoView({ block: 'center' }); return; }
+      return open(`dogsec:${d.id}|sale`);
+    }
+    return;
+  }
+  if (k === 'ready') {
+    const l = LITTERS.find((x) => x.id === a), fm = ui.form;
+    if (!fm.ready) return toast('Date is required');
+    if (l.depOpen && fm.ready < l.depOpen) return toast('Ready date is before deposits open');
+    l.ready = fm.ready; ui.pAct = null; ui.formSpec = null; render(); return toast('Saved');
+  }
+  /* the checklist itself */
+  const i = GH_LIST.findIndex((x) => x.id === a);
+  if (k === 'up' || k === 'down') { const j = k === 'up' ? i - 1 : i + 1; if (j < 0 || j >= GH_LIST.length) return; [GH_LIST[i], GH_LIST[j]] = [GH_LIST[j], GH_LIST[i]]; render(); return; }
+  if (k === 'rm') { const t = GH_LIST[i].t; GH_LIST.splice(i, 1); ui.pAct = null; ui.formSpec = null; render(); return toast(`${t} removed`); }
+  if (k === 'save') {
+    const fm = ui.form, t = (fm.t || '').trim();
+    if (!t) return toast('Name is required');
+    if (i >= 0) Object.assign(GH_LIST[i], { t, link: fm.link }); else GH_LIST.push({ id: 'g' + Date.now(), t, link: fm.link });
+    ui.pAct = null; ui.formSpec = null; render(); return toast(i >= 0 ? 'Saved' : 'Added');
+  }
+}
+S.ghlist = () => {
+  const ed = (it) => {
+    formFor('gh:' + (it ? it.id : 'new'), () => ({ t: it ? it.t : '', link: it ? it.link : 'manual' }));
+    return `<div class="q-edit sa-edit"><div class="form-stack">${fIn('t', 'Item', { ph: 'Puppy kit packed' })}${fSel('link', 'Checked off by', Object.entries(GH_LINKS).map(([v, [t]]) => [v, t]))}</div>
+      <div class="sa-btns">${it ? `<button type="button" class="chip" data-ghdo="rm|${it.id}">Remove</button>` : ''}<button type="button" class="chip go" data-ghdo="save|${it ? it.id : 'new'}">${it ? 'Save' : 'Add'}</button></div></div>`;
+  };
+  const item = (it, i) => {
+    const key = 'gh|' + it.id, op = ui.pAct === key;
+    return `<div class="rem${op ? ' open' : ''}"><div class="gh-edit-row"><button type="button" class="row" data-pact="${key}" aria-expanded="${op}"><span class="row-ic">${icon(GH_LINKS[it.link][1])}</span><span class="row-main"><span class="row-t">${esc(it.t)}</span><span class="row-s">${GH_LINKS[it.link][0]}</span></span></button>
+      <span class="gh-move"><button type="button" data-ghdo="up|${it.id}" aria-label="Move ${esc(it.t)} up"${i ? '' : ' disabled'}>${icon('chevron-up')}</button><button type="button" data-ghdo="down|${it.id}" aria-label="Move ${esc(it.t)} down"${i < GH_LIST.length - 1 ? '' : ' disabled'}>${icon('chevron-down')}</button></span></div>${op ? ed(it) : ''}</div>`;
+  };
+  const nOpen = ui.pAct === 'gh|new';
   return {
-    bar: bar('Payments', { sub: `${s.pup} · ${fam(s.fam).n}` }),
-    body: `<section class="card">${facts([['Total', money(st.total)], ['Paid', money(st.paid)], ['Remaining', `<b>${money(st.remaining)}</b>`], ['Next', st.next ? `${money(st.next.owed)}${st.next.date ? ` by ${short(st.next.date)}` : ''}` : 'Nothing owed']])}</section>
-      ${allPaid ? `<div class="stub-note">${icon('circle-check')}<span>Everything is paid. <button type="button" class="link" data-paydo="full|${s.pup}|">Mark paid in full</button></span></div>` : ''}
-      <div class="label-row"><div class="group-label">Due dates</div><button type="button" class="set-link" data-open="saleedit:${pup}">${icon('calendar-clock')}${s.sched ? 'Change schedule' : 'Use a schedule'}</button></div>
-      <section class="card"><div class="rows">${st.due.map((x) => srow(x.owed <= 0 ? 'circle-check' : 'calendar-clock', x.t + pill(x.state), `${x.date ? fmt(x.date) : 'No date'}${x.paid && x.owed > 0 ? ` · ${money(x.paid)} paid` : ''}`, { tone: x.owed <= 0 ? 'green' : x.state[0] === 'Overdue' ? 'red' : x.state[0] === 'Due soon' ? 'amber' : '', end: `<span class="amt">${money(x.amt)}</span>` })).join('')}</div></section>
-      <div class="group-label">Received</div>
-      <section class="card"><div class="rows">${st.received.map(recRow).join('')}
-        <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="pay|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Record a payment</span><span class="row-s">${st.next ? `${money(st.next.owed)} next` : 'Nothing owed'}</span></span><span class="row-end"><span class="chev">${icon(nOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>${nOpen ? form('new') : ''}</div>
-      </div></section>
-      <p class="f-hint">Final payment: ${esc(SET.payments.final)}</p>`,
+    bar: bar('Go-home checklist', { sub: 'Every puppy you sell' }),
+    body: `<p class="lede">What you do before each puppy goes home, in your order. Link an item to what checks it off and it ticks itself; the rest you tick on the puppy's sale.</p>
+      <section class="card"><div class="rows">${GH_LIST.map(item).join('')}
+        <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="gh|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Add an item</span></span></button>${nOpen ? ed(null) : ''}</div>
+      </div></section>`,
   };
 };
+
+function saleX(v) {
+  const [k, pup] = v.split('|'), s = SALES.find((x) => x.pup === pup), fm = ui.form;
+  if (k === 'pickup') {
+    if (!fm.date) return toast('Date is required');
+    Object.assign(s, { gohomeIso: fm.date, gohome: wday(fm.date), ghTime: fm.time || '', ghPlace: fm.place || '' });
+    const when = `${wday(fm.date)}${fm.time ? ` · ${hm12(fm.time)}` : ''}`, g = GOHOME.find((x) => x.pup === pup);
+    if (g) g.when = when; else GOHOME.push({ pup, fam: s.fam, when, checks: [] });
+    const a = AGENDA.find((x) => x.t === `${pup} goes home`);
+    if (a) Object.assign(a, { d: fm.date, time: hm12(fm.time) });
+    else AGENDA.push({ id: 'a' + (AGENDA.length + 1), d: fm.date, time: hm12(fm.time), ic: 'car', tone: 'green', kind: 'Go-home', t: `${pup} goes home`, s: fam(s.fam).n, go: `dogsec:${saleDog(s).id}|sale`, sched: 1 });
+    ui.pAct = null; ui.formSpec = null; render(); return toast(`Goes home ${when}. It's on the calendar.`);
+  }
+  if (k === 'sched') { Object.assign(s, { sched: fm.sched, balDue: fm.sched ? '' : fm.balDue }); ui.pAct = null; ui.formSpec = null; render(); return toast('Saved'); }
+  const st = saleStatement(s);
+  if (k === 'invoice') return toast(st.remaining > 0 ? `Invoice for ${money(st.remaining)} sent to ${fam(s.fam).n}` : `Receipt sent to ${fam(s.fam).n}`);
+  if (k === 'link') return toast(st.next ? `Payment link for ${money(st.next.owed)} copied` : 'Nothing is owed');
+}
 function payDo(spec) {
   const [act, pup, pid] = spec.split('|'), s = SALES.find((x) => x.pup === pup), fm = ui.form;
   if (act === 'full') { const st = saleStatement(s); s.balPaid = st.received.map((r) => r.date).sort().at(-1) || TODAY; s.status = 'paid_in_full'; render(); toast('Marked paid in full'); return; }
@@ -5238,7 +5448,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-ghdo],[data-sx],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if (d.mo) return moAct(d.mo);
@@ -5449,6 +5659,8 @@ document.addEventListener('click', (e) => {
     (l.prices ||= {})[k] = v; ui.qOther = null; ui.qOpen = null; render(); toast('Saved'); return;
   }
   if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
+  if (d.ghdo) { ghDo(d.ghdo); return; }
+  if (d.sx) { saleX(d.sx); return; }
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }
   if (d.addo) { adDo(d.addo); return; }
