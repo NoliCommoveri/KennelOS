@@ -3481,6 +3481,15 @@ function personBadge(id) {
   if (f && ['placed', 'client'].includes(f.st)) return pill(['Client', 'gray']);
   return p ? pill([p.t, p.t === 'Care team' ? 'violet' : 'gray']) : '';
 }
+/* a new person's name, email and phone, checked against everyone she has (contacts and
+   applicants alike), saying which one matched */
+function newPersonCheck(fm) {
+  const m = fm.who === 'new' ? null : knownMatch(fm);
+  if (!m) return '';
+  const q = (v) => String(v || '').trim().toLowerCase(), dg = (v) => String(v || '').replace(/\D/g, '');
+  const by = fm.email && q(m.d.email) === q(fm.email) ? 'email' : dg(fm.phone).length >= 7 && dg(m.d.phone).endsWith(dg(fm.phone).slice(-7)) ? 'phone' : 'name';
+  return `<div class="stub-note">${icon('user-round')}<span>Same ${by} as ${esc(m.p.n)}. <button type="button" class="link" data-fc="pick|${m.p.id}">Use ${esc(m.p.n)}</button> · <button type="button" class="link" data-fc="who|new">Create new</button></span></div>`;
+}
 function personPicker(fm, { title = 'Buyer', all = 'more' } = {}) {
   if (fm.pick) {
     const p = personOf(fm.pick), d = DETAILS[fm.pick] || {};
@@ -3498,7 +3507,7 @@ function personPicker(fm, { title = 'Buyer', all = 'more' } = {}) {
     ${shown.length ? `<section class="card"><div class="rows">${shown.map((p) => `<button type="button" class="row" data-fc="pick|${p.id}"><span class="row-ic">${icon('user-round')}</span><span class="row-main"><span class="row-t">${esc(p.n)}${personBadge(p.id)}</span><span class="row-s">${esc(DETAILS[p.id]?.email || DETAILS[p.id]?.phone || p.s)}</span></span></button>`).join('')}
       ${people.length > max ? `<button type="button" class="row" data-pact="pp|all"><span class="row-ic">${icon('chevron-down')}</span><span class="row-main"><span class="row-t">Show all ${people.length}</span></span></button>` : ''}</div></section>` : ''}
     ${!people.length && n ? '<p class="lede">No one matches.</p>' : ''}
-    ${words.length ? `${formCard('New person', `${fIn('email', 'Email', { type: 'email' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Address')}`)}${(() => { const m = fm.who === 'new' ? null : (fm.email || fm.phone) && knownMatch({ name: '', email: fm.email, phone: fm.phone }); return m ? `<div class="stub-note">${icon('user-round')}<span>${esc(fm.email || fm.phone)} belongs to ${esc(m.p.n)}. <button type="button" class="link" data-fc="pick|${m.p.id}">Use ${esc(m.p.n)}</button> · <button type="button" class="link" data-fc="who|new">Create new</button></span></div>` : ''; })()}${dnsNote(dnsMatch(fm))}` : ''}`;
+    ${words.length ? `${formCard('New person', `${fIn('email', 'Email', { type: 'email' })}${fIn('phone', 'Phone', { type: 'tel' })}${fIn('addr', 'Address')}`)}${newPersonCheck(fm)}${dnsNote(dnsMatch(fm))}` : ''}`;
 }
 
 /* ---------- Add sale ---------- */
@@ -3555,7 +3564,7 @@ function saleNew() {
     const name = (fm.name || '').trim();
     if (!name) return toast('Buyer is required');
     if (fm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fm.email.trim())) return toast('Invalid email');
-    const m = fm.who === 'new' ? null : (fm.email || fm.phone) && knownMatch({ name: '', email: fm.email, phone: fm.phone });
+    const m = fm.who === 'new' ? null : knownMatch(fm);
     if (m) return toast(`Possible match: ${m.p.n}`);
   }
   const price = Number(fm.price), dep = Number(fm.dep);
@@ -5244,11 +5253,17 @@ document.addEventListener('click', (e) => {
   else if (d.wl) { const [a, id] = d.wl.split('|'); wlAct(a, id); }
   else if (d.catjump) { const [kind, cat] = d.catjump.split('|'); ui.f.ledger = { ...blankF(), sel: { Kind: [kind === 'in' ? 'Income' : 'Expense'], Category: [cat] } }; open('ledger'); }
 });
+/* redraw after she moves to another box, keeping her in the box she moved to */
+function redrawKeepFocus() { setTimeout(() => { const k = document.activeElement?.dataset?.fv; render(); if (k) { const n = $(`[data-fv="${k}"]`); if (n) { const v = n.value; n.focus(); n.value = ''; n.value = v; } } }, 0); }
+document.addEventListener('pointerdown', (e) => { ui.tapping = !!e.target.closest?.('button, a'); }, true);
+document.addEventListener('pointerup', () => { setTimeout(() => { ui.tapping = false; }, 0); }, true);
 document.addEventListener('change', (e) => {
   const fk = e.target.dataset?.fv;
-  if (fk && e.target.tagName === 'INPUT' && ['price', 'dep'].includes(fk) && /^addsale/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; render(); return; }
+  /* leaving a box redraws the hints under it, unless she left it by tapping a button: that
+     tap's own redraw does it, and redrawing first would swallow the tap */
+  if (fk && e.target.tagName === 'INPUT' && ['price', 'dep'].includes(fk) && /^addsale/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; if (!ui.tapping) redrawKeepFocus(); return; }
   /* email and phone are checked against everyone she has once she leaves the box */
-  if (fk && ['email', 'phone'].includes(fk) && /^(addfamily|addperson|addsale|dnsadd)/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; render(); return; }
+  if (fk && ['email', 'phone'].includes(fk) && /^(addfamily|addperson|addsale|dnsadd)/.test(ui.formSpec || '')) { ui.form[fk] = e.target.value; if (!ui.tapping) redrawKeepFocus(); return; }
   if (fk && e.target.tagName === 'SELECT') {
     ui.form[fk] = e.target.value;
     if (fk === 'litter') { const l = LITTERS.find((x) => x.id === e.target.value); if (l) ui.form.born = l.whelp; }

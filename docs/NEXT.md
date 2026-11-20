@@ -454,6 +454,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   gets the same sorts and the Application filter.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: A new person's checks; taps and typing not lost
+
+- Prototype (`docs/design/forest-look-prototype.html`, published): the person picker's New
+  person details check the typed name, email and phone against everyone she has, contacts and
+  applicants alike, and say which matched ("Same phone as the Ito family", Use them or Create
+  new); saving checks all three too.
+- Fixed: leaving a box by tapping a button (Save) redrew the page first and the tap was lost;
+  moving to another box lost focus and could scramble what she typed next. Redraws now wait
+  for a button's own redraw, and keep her in the box she moved to.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
