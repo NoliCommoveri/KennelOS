@@ -515,6 +515,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   their person page.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: Carry-over note C1, pedigree import and call names
+
+- `docs/KennelOS_UI_Redesign_Plan.md` gains §9 *Carry-over notes* (live gaps to close when a
+  screen is rebuilt) with the owner's **C1**: a sire or dam typed through Kels by call name only
+  isn't matched when the same dog arrives on a pedigree chart (the import matches by number and
+  registered name only), so it becomes a second dog. When pedigree import is brought over: also
+  compare call-name-only dogs, by position first, in review; fill blanks on a match; offer the
+  registered name and number when adding an outside parent; and raise already-split pairs in
+  Possible duplicates.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

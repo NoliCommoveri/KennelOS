@@ -528,3 +528,27 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   [name]** as the main button beside **Create new**; a name alone is a quieter "Possible match"
   line. Neither blocks saving: Save becomes **Save anyway**.
 
+## 9. Carry-over notes
+
+Gaps in the live app to close when the screen that has them is rebuilt. Each is the owner's or
+found in the code; none is built yet.
+
+- **C1. Pedigree import doesn't find a parent typed by call name (the owner, 2026-11-20).** In
+  live, Kels's litter task asks only for an outside sire's or dam's call name (registered name and
+  number are optional), so she often saves "Titan" with neither. The pedigree import
+  (`data/pedigreeImport.js` `planImport`) matches a chart's dogs by registration number, then
+  by registered name, never by call name, so the same Titan arriving on a chart as "Meadow
+  Ridge Titan of the Hill" becomes a second, pedigree-only dog. When pedigree import is brought
+  into the redesign:
+  - A chart dog that matches nothing by number or registered name is also compared with dogs
+    that have neither (a call name only), by `dogSearch`'s word match. The strongest clue is
+    position: the chart's sire or dam where the dog the chart is for already has a sire or dam
+    recorded. A match goes to the import's review ("Same as your Titan?"), never automatically.
+  - Choosing it fills the existing dog's blanks (registered name, number, color, birth date)
+    from the chart, as the import already does for a matched dog, and its ancestors hang off that
+    dog. Nothing it has is overwritten.
+  - Kels's outside-parent step and Add dog's outside dog offer the registered name and number
+    (still optional), so fewer dogs are saved with a call name only.
+  - Possible duplicates (D24) also raises a call-name-only dog and a pedigree-only dog whose
+    registered name contains that call name, with the same breed and sex, as a **Possible**
+    pair, so ones already split can be merged.
