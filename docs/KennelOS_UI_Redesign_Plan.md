@@ -315,6 +315,12 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Her terms, not ours.** Breeders aren't expected to understand how records are stored,
     and no screen explains it. The screens are designed to fit how she thinks about people,
     so they look like the data was built that way.
+    **Applies to every screen, not only people (the owner, 2026-11-20):** no copy exists to
+    tell her about the plumbing: where a file or record is kept or filed ("in Poppy's
+    documents"), that it's on this device or in the cloud, what moves where on a merge, what is
+    or isn't stored, or which service carries it ("through your Dropbox"). A line stays only
+    when it changes what she decides or does (Replace deletes what's on this phone; a reset
+    can't be undone).
   - **Change it where she is.** Where she'd reasonably believe a page is the place to change
     something (an applicant's email, on that applicant's page), it is. She's never sent to
     another page to change it.

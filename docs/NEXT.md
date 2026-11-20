@@ -556,6 +556,19 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   touched, one copy per file on the phone by SHA-256, storage use shown. Three open questions.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: No plumbing copy (D8, every screen)
+
+- The owner: no copy exists to tell her about the plumbing. D8's "her terms, not ours" in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8 now says it applies to every screen, with what counts.
+- Prototype: removed "in Poppy's documents" and "filed in … documents" (contracts), "stored on
+  this device, and in your cloud backup" (Documents), what moves where on a merge (now "Willow
+  keeps everything from both"), "your helper's app reads it from there" and "through your
+  Dropbox" (Backup, Sharing), "Everything stays on this device" (Kels), "on this device" on
+  Find duplicates, the Accounts-are-in-Business row (Storage), "never stored" (relationships),
+  the private vault wording on What gets backed up (now what it means for her), and Danger
+  zone's "On this device" heading (now "Your records").
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
