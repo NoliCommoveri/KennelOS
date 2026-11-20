@@ -697,6 +697,11 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .form-stack input, .form-stack select, .form-stack textarea, .dates input { width: 100%; min-width: 0; box-sizing: border-box; }
 .dates label { min-width: 0; flex: 1 1 130px; }
 .form-stack input[type="date"], .dates input[type="date"] { min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
+/* a sale's add-ons */
+.sa-edit { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+.sa-edit .form-stack { width: 100%; }
+.sa-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.facts dd b { font-family: var(--font-display); font-weight: 800; }
 </style>
 
 <div class="proto">
@@ -752,6 +757,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Everything about a family hangs off their one page (One person, one page). Its tiles open one job each, and none of them asks for or repeats their name, email or phone: where a screen uses one (sign-in codes, an email she sends), it shows it with <b>Change</b>, which opens Their details. <b>Offers &amp; passes</b> opens on their place (overall, and among families who want what they want) and passes used, then every turn they've had with its outcome and reason, then what she can do: offer a turn out of order, sell them a pup outside the turn order, move their place, pause it, or take them off the list (they withdrew, or she's removing them; 7 days to undo). <b>Fee</b> says what it is and where it stands (waived by a program, due, paid and counted toward the price) and marks it received, with how they paid. <b>Messages</b> is one thread: what they wrote on their status page, what she wrote, and each email sent, with Send again on one that failed; she writes from a starting point or her own words, by email or copied for a text. <b>Status page</b> shows what they see right now, when they last looked, where their sign-in codes go, what they can do there, their link, and a new link if it was shared by mistake. <b>History</b> is all of it, newest first.</p>
     <p><b>Add family</b> asks who first and checks as she types: an email, phone or name she already has brings up "Is this the Okafor family?", and Yes adds that person back to the list (their earlier puppy stays on their page), so nobody is ever entered twice. Then what they want, which litters (any, or only some dams and sires), a program, and whether the fee is in, with the place they'll get. A <b>Side sale</b> (from the turn order or a family's Offers &amp; passes) is her pick for a family, outside the turn order: each mismatch is said plainly (a pup on hold, a different sex, another family holding that pup in their turn) and none blocks it. The price and deposit fill in from the pup's litter (or her usual) and she can change either, with the deposit due date, go-home, which payment schedule follows and notes: what the app fills in is always a starting point. <b>Programs</b> are hers to name; each is the same question rows as Setup (fee, place in line, time to answer, whether passes count, pausing), what families see if she writes it, and the families in it.</p>
 
+    <h3>Add-ons</h3>
+    <p>Everything a family pays for beyond the puppy is an add-on: transport and boarding after go-home sit in the same list as her own (photo session, training package, starter kit), though they're kept apart behind the scenes. <b>Business › Add-ons</b> holds the defaults: price, how it's charged (flat, per day, per mile), a note, and whether it's offered on new sales; Setup's transport and boarding rows open the same screen. On a sale, <b>Add-ons</b> is the one screen for every cost outside the puppy's price: each add-on with its default price to change for this sale, days for boarding, a one-time charge, and the puppy, add-ons, total and paid at the top. Side sale offers them as it's recorded.</p>
+
     <h3>Where things moved</h3>
     <table class="map">
       <thead><tr><th>Today's app</th><th>In the prototype</th></tr></thead>
@@ -805,7 +813,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 
     <h3>Line management</h3>
     <p>Drawn from <code>docs/KennelOS_Line_Management_Plan.md</code> (a plan; nothing built). Every dog is related to every other through the sire and dam links: a dog's Relatives, a pair check for any two dogs (relationship by name, COI, shared ancestors, how much pedigree is known, traits side by side, possible colors, DNA), and Litters › Lines (COI if bred for her males × her females, what each dog carries, what the program is missing, how lines produce). Planned pairings over her warning line show on Home, the pairing and both dogs. Traits are their own records, a long-lived grade per dog, with a puppy score kept beside the adult grade. Colors come from her own list as a dropdown, asked for each pup at birth; birth records include stillborn pups. What a dog carries is worked out each time from tests, her color links, its parents and its litters. The sample program is Labradors, so the color genes are real: Ash was never color tested, but yellow and chocolate pups show he carries both. The COI figures are calculated live from the sample pedigree.</p>
-    <p>Extra charges moved out of Setup to Business, next to Accounts: a list she builds and reuses. Her usual price (including male and female prices and the full registration surcharge), deposit, when payments are due, the ways families pay, and her saved payment schedules are together on one screen, Business › <b>Pricing and schedules</b>. They're settings, but ones she changes often, and to her a payment schedule means all of that together. Setup's row for them opens that same screen.</p>
+    <p>Add-ons (photo sessions, training packages, kits) moved out of Setup to Business, next to Accounts, with transport and boarding after go-home listed beside them: one screen for every default cost beyond the puppy, and on each sale one Add-ons screen for that sale's. Her usual price (including male and female prices and the full registration surcharge), deposit, when payments are due, the ways families pay, and her saved payment schedules are together on one screen, Business › <b>Pricing and schedules</b>. They're settings, but ones she changes often, and to her a payment schedule means all of that together. Setup's row for them opens that same screen.</p>
     <p>Every answer that's an amount, a time or a list she'd name herself ends in a <b>+</b>: she types her own, and it becomes one of her choices from then on. The choices shown are only common starting points. A question whose answers are fixed (yes or no, same or different) keeps them.</p>
 
     <h3>Lite edition</h3>
@@ -924,7 +932,7 @@ const SALES = [
   { pup: 'Poppy', fam: 'okafor', price: 3200, paid: 3200, date: '2026-11-06', gohome: 'Sat Nov 21' },
   { pup: 'Fern',  fam: 'marsh', price: 3200, paid: 500, date: '2026-11-07', gohome: 'Sun Nov 22' },
 ];
-const saleState = (s) => s.paid >= s.price ? ['Paid in full', 'green'] : s.paid === 0 ? ['Deposit pending', 'amber'] : ['Balance due', 'amber'];
+const saleState = (s) => s.paid >= saleTotal(s) ? ['Paid in full', 'green'] : s.paid === 0 ? ['Deposit pending', 'amber'] : ['Balance due', 'amber'];
 
 /* waitlist: one rolling list across litters (Waitlist spec §2, §6) */
 const WL = [
@@ -953,7 +961,7 @@ const REQUESTS = [{ id: 'r1', fam: 'okafor', kind: 'Pickup time', body: 'Could w
 const GOHOME = [
   { pup: 'Hazel', fam: 'lindqvist', when: 'Sat Nov 21 · 10:00 AM', checks: [['Contract signed', 1], ['Balance paid', 0, '$2,700 due'], ['Vaccines', 1], ['Microchip registered', 1], ['Go-home pack', 0]] },
   { pup: 'Poppy', fam: 'okafor', when: 'Sat Nov 21 · 1:00 PM', checks: [['Contract signed', 1], ['Balance paid', 1], ['Vaccines', 1], ['Microchip registered', 1], ['Go-home pack', 0]] },
-  { pup: 'Fern', fam: 'marsh', when: 'Sun Nov 22 · 11:00 AM', checks: [['Contract signed', 0, 'Sent Nov 9'], ['Balance paid', 0, '$2,700 due'], ['Vaccines', 1], ['Microchip registered', 0], ['Go-home pack', 0]] },
+  { pup: 'Fern', fam: 'marsh', when: 'Sun Nov 22 · 11:00 AM', checks: [['Contract signed', 0, 'Sent Nov 9'], ['Balance paid', 0, '$2,935 due'], ['Vaccines', 1], ['Microchip registered', 0], ['Go-home pack', 0]] },
 ];
 /* one person, one page (Redesign plan D8): each person's name, email, phone and address
    are held once, here, whatever brought them in (an application, a sale, the vet). Their
@@ -1017,7 +1025,7 @@ const FEATURES = [
   ['contracts', 'Contracts & e-sign', 'Contract templates and signing'],
   ['studServices', 'Stud services', 'Breeding outside females to your males'],
   ['shows', 'Shows & titles', 'Show results and title points'],
-  ['invoicing', 'Invoices & receipts', 'Invoices, receipts and extra charges'],
+  ['invoicing', 'Invoices & receipts', 'Invoices, receipts and add-ons'],
   ['foster', 'Foster litters', 'Litters whelped under a foster arrangement'],
   ['multiKennel', 'More than one kennel', 'Switch between kennels you run'],
   ['companion', 'Companion messages', 'Messages to families and partners'],
@@ -1094,8 +1102,8 @@ const SETUP = {
     ['pricing', 'tag', 'Pricing and schedules', () => `${usualPrice()} · ${SET.pricing.deposit} deposit · balance ${SET.pricing.balanceDue.toLowerCase()}`, 'Price boxes on each litter, sale defaults, invoice payment methods, and the Payment schedules page', null, null, 'pricing'],
     ['waitlist', 'list-ordered', 'Waitlist', () => `${SET.waitlist.fee} fee · ${SET.waitlist.respond} to answer · ${SET.waitlist.passes} passes · 2 programs`, 'Kennel page › Waitlist settings, and the Waitlist programs page'],
     ['breeding', 'git-fork', 'Breeding program', () => `${TRAITS.length} traits · ${COLORS.filter((c) => c.kind === 'color').length} colors · warn at COI ${SET.lines.coi}`, 'Nowhere yet: new with the Line Management Plan. Colors replace the free-text color box on each dog'],
-    ['payments', 'receipt', 'Invoices & receipts', () => 'Invoice footer set · receipt wording default', 'Invoice defaults. Extra charges moved to Business, next to Accounts'],
-    ['gohome', 'car', 'Go-home & transport', () => 'Pickup places not set · transport $350', "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
+    ['payments', 'receipt', 'Invoices & receipts', () => 'Invoice footer set · receipt wording default', 'Invoice defaults. Add-ons moved to Business, next to Accounts'],
+    ['gohome', 'car', 'Go-home & transport', () => 'Pickup places not set · transport $350 · boarding $35/day', "Kennel page › Pickup places and Transport fee, and each litter's pickup times"],
     ['care', 'stethoscope', 'Health & care', () => 'OFA hips, elbows, eyes · DNA · Labrador feeding schedule', 'Kennel page › Preferred tests, Feeding schedules, Puppy Record fields, Lifecycle nudges'],
     ['contracts', 'file-pen-line', 'Contracts & e-sign', () => 'Firma connected · 3 templates', 'The Contracts page and e-sign setup', 'contracts'],
     ['money', 'coins', 'Money & mileage', () => 'Mileage $0.70/mi · tax year Jan–Dec', 'Kennel page › Finances, and mileage defaults'],
@@ -1115,7 +1123,7 @@ const SETUP_TODO = [['clock', 'amber', 'Set your time zone. Offer deadlines use 
 const GROUP_Q = {
   kennel: [['Kennel name', 'Thornfield Kennels'], ['Prefix', 'THORN'], ['Location', 'Hartland, VT'], ['Time zone', 'Not set'], ['Breeds', 'Labrador Retriever'], ['Logo', 'Uploaded']],
   payments: [['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
-  gohome: [['Pickup places', 'Not set'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport fee', '$350 within 300 miles'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
+  gohome: [['Pickup places', 'Not set'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport', '$350 within 300 miles', 0, 'addons'], ['Boarding after go-home', '$35 a day', 0, 'addons'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
   care: [['Preferred tests', 'OFA hips, elbows, eyes (CAER), DNA panel'], ['Feeding schedule', 'Labrador Retriever'], ['Puppy Record fields', '8 shown'], ['Lifecycle reminders', 'On']],
   contracts: [['E-sign', 'Firma connected'], ['Templates', 'Pet sale, Co-own, Stud service'], ['Send for e-sign', '10 a month included', 1]],
   money: [['Mileage rate', '$0.70 a mile'], ['Tax year', 'January–December'], ['Accounts', 'Checking, Venmo']],
@@ -1245,7 +1253,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1385,7 +1393,7 @@ S.person = (id) => {
   if (req) attn.push(['message-square-text', 'blue', `Asks: ${req.kind.toLowerCase()}`, 'wlrequests']);
   const side = f && SALES.find((x) => x.fam === f.id && x.side);
   if (side) attn.push(['arrow-left-right', 'blue', `Side sale: ${side.pup}, deposit due ${wday(side.due)}`, `personsec:${id}|offers`]);
-  if (sale && !sale.side && sale.paid < sale.price) attn.push(['wallet', 'amber', `${money(sale.price - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
+  if (sale && !sale.side && sale.paid < saleTotal(sale)) attn.push(['wallet', 'amber', `${money(saleTotal(sale) - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
   const t = [];
   if (f) {
     t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
@@ -1632,8 +1640,8 @@ S.dogsec = (p) => {
   } else if (k === 'sale') {
     const s = SALES.find((v) => v.pup === d.name);
     body = s
-      ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Paid', money(s.paid)], ['Balance', money(s.price - s.paid)], ['Go-home', s.gohome], ['Contract', d.name === 'Fern' ? 'Sent, not signed' : s.paid ? 'Signed' : 'Not sent']])}</section>
-         <section class="card"><div class="rows">${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: d.name === 'Fern' ? 'Sent Nov 9 · remind the Marsh family' : 'Signed through e-sign', go: 'stub:contracts' }) : ''}</div></section>`
+      ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Add-ons', addonsTotal(s) ? money(addonsTotal(s)) : 'None'], ['Paid', money(s.paid)], ['Balance', money(saleTotal(s) - s.paid)], ['Go-home', s.gohome], ['Contract', d.name === 'Fern' ? 'Sent, not signed' : s.paid ? 'Signed' : 'Not sent']])}</section>
+         <section class="card"><div class="rows">${row({ ic: 'receipt', t: 'Add-ons', s: saleAddons(s).length ? saleAddons(s).map(addonName).join(', ') : 'Transport, boarding, photo sessions, training', end: addonsTotal(s) ? `<span class="amt">${money(addonsTotal(s))}</span>` : '', go: `saleaddons:${d.name.toLowerCase()}` })}${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: d.name === 'Fern' ? 'Sent Nov 9 · remind the Marsh family' : 'Signed through e-sign', go: 'stub:contracts' }) : ''}</div></section>`
       : empty('tag', d.disp === 'keeping' ? `${d.name} is staying in your program.` : `${d.name} has no family yet.`, d.disp === 'keeping' ? '' : 'Add sale');
   } else if (k === 'litters') {
     body = `<section class="card"><div class="rows">${LITTERS.filter((l) => l.dam === d.name || l.sire === d.name).map((l) => row({ ic: 'paw-print', t: litterName(l), extra: pill(l.status), s: l.whelp ? `Whelped ${fmt(l.whelp)} · ${l.m + l.f} puppies` : `Due ${fmt(l.due)}`, go: `litter:${l.id}` })).join('')}</div></section>`;
@@ -1781,7 +1789,7 @@ S.littersec = (p) => {
     ]);
   } else if (k === 'income') {
     const recd = litterLedger(l, 'in');
-    body = `<div class="kpis"><div class="card kpi">${icon('badge-dollar-sign')}<span>Received</span><b>${money(l.id === 'wa' ? sum(recd.map((e) => e.amt)) : 16000)}</b></div><div class="card kpi">${icon('calendar-clock')}<span>Still due</span><b>${money(l.id === 'wa' ? sum(SALES.map((s) => s.price - s.paid)) : 0)}</b></div></div>
+    body = `<div class="kpis"><div class="card kpi">${icon('badge-dollar-sign')}<span>Received</span><b>${money(l.id === 'wa' ? sum(recd.map((e) => e.amt)) : 16000)}</b></div><div class="card kpi">${icon('calendar-clock')}<span>Still due</span><b>${money(l.id === 'wa' ? sum(SALES.map((s) => saleTotal(s) - s.paid)) : 0)}</b></div></div>
       ${l.id === 'wa' ? `<section class="card"><div class="rows">${SALES.map((s) => row({ t: s.pup, extra: pill(saleState(s)), s: fam(s.fam).n, end: `<span class="amt">${money(s.price)}</span>`, go: `dogsec:${s.pup.toLowerCase()}|sale` })).join('')}</div></section>` : ''}`;
   } else if (k === 'expenses') {
     const ex = litterLedger(l, 'out');
@@ -1823,7 +1831,7 @@ S.business = () => ({
     </div></section>
     <section class="card big-rows"><div class="rows">
       ${row({ ic: 'landmark', t: 'Accounts', s: 'Bank, payment and referral accounts', go: 'stub:accounts' })}
-      ${FEAT.invoicing ? row({ ic: 'receipt', t: 'Extra charges', s: 'Your price list: crate, training stay, boarding', go: 'stub:extra-charges' }) : ''}
+      ${FEAT.invoicing ? row({ ic: 'receipt', t: 'Add-ons', s: 'Transport, boarding, photo sessions, training', go: 'addons' }) : ''}
       ${row({ ic: 'calendar-clock', t: 'Pricing and schedules', s: `${usualPrice()} · ${SET.pricing.deposit} deposit · ${SCHEDULES.length} saved schedules`, go: 'pricing' })}
     </div></section>`,
 });
@@ -1855,7 +1863,7 @@ S.sales = () => {
   const shown = applyF('sales', SALES);
   return {
     bar: bar('Sales & Placements', { action: addBtn('Add sale', 'stub:add-sale') }),
-    body: `<div class="kpis"><div class="card kpi">${icon('tag')}<span>Sold this year</span><b>${SALES.length}</b></div><div class="card kpi">${icon('wallet')}<span>Balances due</span><b>${money(sum(SALES.map((s) => s.price - s.paid)))}</b></div></div>
+    body: `<div class="kpis"><div class="card kpi">${icon('tag')}<span>Sold this year</span><b>${SALES.length}</b></div><div class="card kpi">${icon('wallet')}<span>Balances due</span><b>${money(sum(SALES.map((s) => saleTotal(s) - s.paid)))}</b></div></div>
       ${filterBar('sales', { placeholder: 'Search pups or families', shown: shown.length, total: SALES.length })}
       <section class="card"><div class="rows">${shown.map((s) => row({ t: `${s.pup} → ${fam(s.fam).n}`, extra: pill(saleState(s)), s: `Sold ${short(s.date)} · go-home ${s.gohome}`, end: `<span class="amt">${money(s.price)}</span>`, go: `dogsec:${s.pup.toLowerCase()}|sale` })).join('') || '<p class="lede" style="padding:12px 14px">No sales match.</p>'}</div></section>`,
   };
@@ -1887,7 +1895,7 @@ S.financials = () => {
   if (ui.finTab === 'overview') {
     body = `<div class="kpis">
         <div class="card kpi">${icon('badge-dollar-sign')}<span>Earned income</span><b>${money(inc)}</b><small>Received, Jan–Nov</small></div>
-        <div class="card kpi">${icon('calendar-clock')}<span>Anticipated</span><b>${money(sum(SALES.map((s) => s.price - s.paid)))}</b><small>Balances not yet paid</small></div>
+        <div class="card kpi">${icon('calendar-clock')}<span>Anticipated</span><b>${money(sum(SALES.map((s) => saleTotal(s) - s.paid)))}</b><small>Balances not yet paid</small></div>
         <div class="card kpi">${icon('receipt')}<span>Expenses</span><b>${money(exp)}</b><small>Logged, Jan–Nov</small></div>
         <div class="card kpi">${icon('trending-up')}<span>Net (earned − spent)</span><b>${money(net, true)}</b><small>Before anticipated</small></div>
       </div>
@@ -2006,7 +2014,7 @@ S.setupsec = (k) => {
       ${k === 'waitlist' ? row({ ic: 'award', tone: 'violet', t: 'Programs', s: 'Military · Cancer support', go: 'wlprograms' }) : ''}</div></section>`;
   } else {
     body = planned ? `<div class="plan-box">${icon(g[1])}<span>This area is reserved for a planned feature.</span>${planTag(planned)}</div>` : '';
-    body += `<section class="card"><div class="rows">${(GROUP_Q[k] || []).map(([qq, a, pn]) => `<div class="q-row${pn ? ' planned' : ''}"><button type="button" class="q-head" data-open="stub:${esc(qq.toLowerCase().replace(/[^a-z]+/g, '-'))}"><span class="q">${qq}${pn ? ' ' + planTag(pn) : ''}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
+    body += `<section class="card"><div class="rows">${(GROUP_Q[k] || []).map(([qq, a, pn, to]) => `<div class="q-row${pn ? ' planned' : ''}"><button type="button" class="q-head" data-open="${to || 'stub:' + esc(qq.toLowerCase().replace(/[^a-z]+/g, '-'))}"><span class="q">${qq}${pn ? ' ' + planTag(pn) : ''}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
     if (!planned) body += `<p class="lede">Not drawn in detail. It would use the same question-and-answer rows as Waitlist and Pricing and schedules.</p>`;
   }
   if (from) body += `<p class="from">Today these live in: ${from}.</p>`;
@@ -2609,7 +2617,7 @@ PSEC.messages = (f, id) => {
 PSEC.status = (f, id) => {
   if (!f) return null;
   const d = DETAILS[id] || {}, sale = SALES.find((s) => s.fam === f.id), holds = OFFER.open && OFFER.fam === f.id;
-  const theySee = f.st === 'placed' ? [`${f.pup} is yours`, sale ? (sale.paid >= sale.price ? `Paid in full · go-home ${sale.gohome}` : `${money(sale.price - sale.paid)} due at go-home, ${sale.gohome}`) : '']
+  const theySee = f.st === 'placed' ? [`${f.pup} is yours`, sale ? (sale.paid >= saleTotal(sale) ? `Paid in full · go-home ${sale.gohome}` : `${money(saleTotal(sale) - sale.paid)} due at go-home, ${sale.gohome}`) : '']
     : holds ? ['It’s your turn!', `Cedar is available to you · answer by ${wday(OFFER.due)}`]
     : f.st === 'active' ? [`#${f.pos} on the list`, `Passes used: ${passesUsed(f.id)} of ${SET.waitlist.passes} · Clover × Titan, due Dec 8: ${f.listen && !f.listen.includes('Clover') ? 'not a match for you' : 'a match for you'}`]
     : f.st === 'approved' ? ['You’re approved', `Pay the ${SET.waitlist.fee} fee by ${wday(f.feeDue)} to join the list`]
@@ -2712,6 +2720,8 @@ S.sidesale = (fid) => {
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
         <p class="f-hint">${!p ? 'Prefilled from the litter' : fm.price !== auto || fm.dep !== autoDep ? 'Custom for this sale · <button type="button" class="link" data-sreset-price>Reset</button>' : 'Prefilled from the litter'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
+        ${fChips('adds', 'Add-ons', ADDONS.filter((a) => a.on).map((a) => [a.id, `${a.n} · ${addonPrice(a)}`]), { multi: 1 })}
+        ${(fm.adds || []).includes('boarding') ? `<div class="dates">${fIn('bdays', 'Boarding days', { type: 'number' })}</div>` : ''}
         ${fChips('sched', 'Payment schedule', sched)}
         <div class="form-stack">${fText('notes', 'Notes')}</div>
 </section>
@@ -2749,6 +2759,80 @@ S.wlprogram = (id) => {
       <div class="group-label">Assigned families</div>
       <section class="card">${fams.length ? `<div class="rows">${fams.map((f) => row({ ic: 'user-round', t: f.n, s: famLine(f), go: `person:${f.id}` })).join('')}</div>` : `<p class="lede pad">No families assigned.</p>`}</section>
       ${p.fresh ? `<button type="button" class="primary-btn" data-progdone="${p.id}">${icon('check')}Save program</button>` : ''}`,
+  };
+};
+
+/* ================= Add-ons: everything a family pays for beyond the puppy ================= */
+/* Transport and boarding after go-home are kept apart from her own add-ons behind the
+   scenes, but she sees and sets them all in one place: Business › Add-ons for her
+   defaults, and a sale's Add-ons for that sale. */
+const ADDONS = [
+  { id: 'transport', n: 'Transport', ic: 'truck', built: 1, unit: 'flat', price: 350, note: 'Within 300 miles', on: 1 },
+  { id: 'boarding', n: 'Boarding after go-home', ic: 'house', built: 1, unit: 'day', price: 35, note: 'From the day after go-home', on: 1 },
+  { id: 'photo', n: 'Photo session', ic: 'sparkles', unit: 'flat', price: 150, on: 1 },
+  { id: 'training', n: 'Training package', ic: 'award', unit: 'flat', price: 1200, days: 14, note: 'Boards 14 days; replaces boarding', on: 1 },
+  { id: 'kit', n: 'Starter kit', ic: 'clipboard-list', unit: 'flat', price: 85, on: 1 },
+  { id: 'crate', n: 'Travel crate', ic: 'receipt', unit: 'flat', price: 120, on: 1 },
+];
+const UNIT = { flat: '', day: ' a day', mile: ' a mile' };
+const addonPrice = (a) => `${money(a.price)}${UNIT[a.unit]}`;
+/* what each sale carries: [{ id, amount, qty?, days?, label? }] */
+const SALE_ADDONS = { Fern: [{ id: 'kit', amount: 85 }, { id: 'photo', amount: 150 }] };
+const saleAddons = (s) => (SALE_ADDONS[s.pup] ||= []);
+const addonsTotal = (s) => sum(saleAddons(s).map((x) => x.amount));
+const saleTotal = (s) => s.price + addonsTotal(s);
+const addonName = (x) => x.label || ADDONS.find((a) => a.id === x.id)?.n || 'Add-on';
+
+/* her defaults */
+S.addons = () => ({
+  bar: bar('Add-ons', { action: addBtn('New add-on', 'addon:new') }),
+  body: `<section class="card"><div class="rows">${ADDONS.map((a) => row({ ic: a.ic, t: a.n, extra: a.on ? '' : pill(['Off', 'gray']), s: [addonPrice(a), a.note].filter(Boolean).join(' · '), go: `addon:${a.id}` })).join('')}</div></section>`,
+});
+S.addon = (id) => {
+  let a = ADDONS.find((x) => x.id === id);
+  const fresh = !a;
+  const fm = formFor('addon:' + id, () => (a ? { n: a.n, price: String(a.price), unit: a.unit, note: a.note || '', days: a.days ? String(a.days) : '', on: a.on ? 'on' : 'off' } : { n: '', price: '', unit: 'flat', note: '', days: '', on: 'on' }));
+  return {
+    bar: bar(fresh ? 'New add-on' : a.n, { sub: 'Add-on' }),
+    body: `${formCard('', `${a && a.built ? '' : fIn('n', 'Name', { req: 1 })}
+        <div class="dates">${fIn('price', 'Default price ($)', { type: 'number' })}</div>
+        ${a && a.built ? '' : fChips('unit', 'Charged', [['flat', 'Flat'], ['day', 'Per day'], ['mile', 'Per mile']])}
+        ${(a && a.id === 'training') || (!a || !a.built) && fm.unit === 'flat' ? fIn('days', 'Boarding days included', { type: 'number' }) : ''}
+        ${fIn('note', 'Note', { ph: a && a.id === 'transport' ? 'Within 300 miles' : '' })}`)}
+      <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
+      ${saveBar(`data-addonsave="${esc(id)}"`)}
+      ${a && !a.built ? `<section class="card big-rows danger"><div class="rows"><button type="button" class="row" data-addondel="${a.id}"><span class="row-ic">${icon('trash-2')}</span><span class="row-main"><span class="row-t">Delete add-on</span><span class="row-s">Existing sales keep it</span></span><span class="row-end">${chev}</span></button></div></section>` : ''}`,
+  };
+};
+
+/* one sale's add-ons: every cost outside the puppy's price */
+S.saleaddons = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], list = saleAddons(s);
+  const has = (id) => list.find((x) => x.id === id);
+  const line = (a) => {
+    const cur = has(a.id), key = 'sa|' + a.id, open = ui.pAct === key;
+    let edit = '';
+    if (open) {
+      const fm = formFor(`sa:${s.pup}:${a.id}`, () => ({ amount: String(cur ? cur.amount : a.price), days: String(cur?.days || 3), qty: String(cur?.qty || 1) }));
+      const fields = a.unit === 'day' ? `<div class="dates">${fIn('days', 'Days', { type: 'number' })}${fIn('amount', `Rate ($${a.unit === 'day' ? ' a day' : ''})`, { type: 'number' })}</div>`
+        : a.unit === 'mile' ? `<div class="dates">${fIn('qty', 'Miles', { type: 'number' })}${fIn('amount', 'Rate ($ a mile)', { type: 'number' })}</div>`
+        : `<div class="dates">${fIn('amount', 'Price ($)', { type: 'number' })}</div>`;
+      edit = `<div class="q-edit sa-edit"><div class="form-stack">${fields}</div>
+        <div class="sa-btns">${cur ? `<button type="button" class="chip" data-sado="remove|${a.id}|${s.pup}">Remove</button>` : ''}<button type="button" class="chip go" data-sado="save|${a.id}|${s.pup}">${cur ? 'Update' : 'Add'}</button></div></div>`;
+    }
+    return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic${cur ? ' green' : ''}">${icon(a.ic)}</span><span class="row-main"><span class="row-t">${a.n}</span><span class="row-s">${cur ? (cur.days ? `${cur.days} days × ${money(cur.amount / cur.days)}` : cur.qty > 1 ? `${cur.qty} × ${money(cur.amount / cur.qty)}` : 'Added') : addonPrice(a)}</span></span><span class="row-end">${cur ? `<span class="amt">${money(cur.amount)}</span>` : '<span class="link">Add</span>'}<span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>${edit}</div>`;
+  };
+  const custom = list.filter((x) => x.id === 'custom');
+  const cOpen = ui.pAct === 'sa|custom', cfm = cOpen ? formFor(`sa:${s.pup}:custom`, () => ({ label: '', amount: '' })) : null;
+  return {
+    bar: bar('Add-ons', { sub: `${s.pup} · ${fam(s.fam).n}` }),
+    body: `<section class="card">${facts([['Puppy', money(s.price)], ['Add-ons', money(addonsTotal(s))], ['Total', `<b>${money(saleTotal(s))}</b>`], ['Paid', money(s.paid)]])}</section>
+      <section class="card"><div class="rows">${ADDONS.filter((a) => a.on || has(a.id)).map(line).join('')}
+        ${custom.map((x, i) => `<div class="row static"><span class="row-ic green">${icon('receipt')}</span><span class="row-main"><span class="row-t">${esc(x.label)}</span><span class="row-s">One-time charge</span></span><span class="row-end"><span class="amt">${money(x.amount)}</span><button type="button" class="link" data-sado="removec|${i}|${s.pup}">Remove</button></span></div>`).join('')}
+        <div class="rem${cOpen ? ' open' : ''}"><button type="button" class="row" data-pact="sa|custom" aria-expanded="${cOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">One-time charge</span><span class="row-s">Not on your add-on list</span></span><span class="row-end"><span class="chev">${icon(cOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>
+          ${cOpen ? `<div class="q-edit sa-edit"><div class="form-stack"><div class="dates">${fIn('label', 'Description')}${fIn('amount', 'Amount ($)', { type: 'number' })}</div></div><div class="sa-btns"><button type="button" class="chip go" data-sado="custom|x|${s.pup}">Add</button></div></div>` : ''}</div>
+      </div></section>
+      ${setLink('Edit default add-ons', 'addons')}`,
   };
 };
 
@@ -3458,7 +3542,7 @@ const SCREENS = [
   ['The list', 'users', 'Every waitlist family', 'wllist'],
   ['Applications', 'inbox', 'Approve or decline', 'wlapps'],
   ['Fees due', 'wallet', 'Mark a fee received', 'wlfees'],
-  ['Family requests', 'message-square-text', 'Pickup times, extras, transport', 'wlrequests'],
+  ['Family requests', 'message-square-text', 'Pickup times, add-ons, transport', 'wlrequests'],
   ['Turn order', 'list-ordered', 'Willow × Ash picks', 'wlpicks:wa'],
   ['Picks preview', 'eye', 'Clover × Titan', 'wlpreview:ct'],
   ['Programs', 'award', 'Military, cancer support', 'wlprograms'],
@@ -3475,7 +3559,7 @@ const SCREENS = [
   ['Lines', 'git-fork', 'How dogs relate, COI if bred, what they carry', 'lines'],
   ['How lines produce', 'chart-column', 'Litters, C-sections, abnormalities, colors by sire and dam', 'production'],
   ['Accounts', 'landmark', 'Bank, payment and referral accounts', 'stub:accounts'],
-  ['Extra charges', 'receipt', 'Your price list of extras', 'stub:extra-charges'],
+  ['Add-ons', 'receipt', 'Transport, boarding, photo sessions, training', 'addons'],
   ['Pricing and schedules', 'calendar-clock', 'Usual price, deposit, timing, ways to pay, saved schedules', 'pricing'],
   ['Setup', 'settings', 'All settings', 'setup'],
   ['Backup & Restore', 'cloud', 'Backup files', 'stub:backup'],
@@ -3509,7 +3593,7 @@ function searchIndex() {
     add('Settings', ic, t, sm(), to || `setupsec:${k}`);
     (QS[k] || []).forEach(([qk, q]) => add('Settings', 'settings', q, `${t} · ${SET[k][qk]}`, to || `setupsec:${k}`));
     if (k === 'pricing') Object.entries(PRICE_Q).forEach(([qk, [q]]) => add('Settings', 'settings', q, `${t} · ${SET.pricing[qk] ?? SET.payments[qk]}`, 'pricing'));
-    (GROUP_Q[k] || []).forEach(([q, a]) => add('Settings', 'settings', q, `${t} · ${a}`, `setupsec:${k}`));
+    (GROUP_Q[k] || []).forEach(([q, a, , to]) => add('Settings', 'settings', q, `${t} · ${a}`, to || `setupsec:${k}`));
   });
   FEATURES.forEach(([f, t, s]) => add('Settings', 'toggle-right', `${t} (${FEAT[f] ? 'on' : 'off'})`, `What you use · ${s}`, 'setupsec:features'));
   REPORTS.forEach(([g, ic, list]) => list.forEach((t) => add('Reports', ic, t, `${g} report`, `stub:${t}`)));
@@ -3727,6 +3811,7 @@ function sideSave() {
   if (!(price > 0)) return toast('Price is required');
   if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
   SALES.push({ pup: p.name, fam: f.id, price, deposit: dep, paid: 0, date: TODAY, gohome: fm.gohome ? wday(fm.gohome) : 'Not set', side: 1, due: fm.due, sched: fm.sched, notes: fm.notes || '' });
+  SALE_ADDONS[p.name] = (fm.adds || []).map((id) => { const a = ADDONS.find((x) => x.id === id); return a.unit === 'day' ? { id, days: Number(fm.bdays) || 1, amount: a.price * (Number(fm.bdays) || 1) } : { id, amount: a.price }; });
   if (fm.match) f.wants = p.sex === 'm' ? 'male' : 'female';
   ui.formSpec = null; back(); toast('Side sale recorded; deposit requested');
 }
@@ -3785,7 +3870,7 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
+  const el = e.target.closest('[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
@@ -3807,6 +3892,27 @@ document.addEventListener('click', (e) => {
     ui.form[k] = v; ui.form._own = null; if (k === 'name') delete ui.form.kind; render(); toast(`${v} is one of your choices now`); return;
   }
   if ('dcolor' in d) { const n = ($('#d-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); ui.form.color = n; render(); toast(`${n} added to your colors`); return; }
+  if (d.addonsave) {
+    const fm = ui.form, price = Number(fm.price); let a = ADDONS.find((x) => x.id === d.addonsave);
+    if (!a && !(fm.n || '').trim()) return toast('Name is required');
+    if (!(price >= 0) || fm.price === '') return toast('Price is required');
+    if (!a) { a = { id: 'a' + (ADDONS.length + 1), ic: 'receipt' }; ADDONS.push(a); }
+    if (!a.built) { a.n = fm.n.trim(); a.unit = fm.unit; }
+    Object.assign(a, { price, note: fm.note || '', on: fm.on === 'on' ? 1 : 0, days: Number(fm.days) || undefined });
+    ui.formSpec = null; back(); toast('Saved'); return;
+  }
+  if (d.addondel) { ADDONS.splice(ADDONS.findIndex((x) => x.id === d.addondel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }
+  if (d.sado) {
+    const [act, aid, pup] = d.sado.split('|'), s = SALES.find((x) => x.pup === pup), list = saleAddons(s), fm = ui.form;
+    if (act === 'remove') { list.splice(list.findIndex((x) => x.id === aid), 1); ui.pAct = null; ui.formSpec = null; render(); toast('Removed'); return; }
+    if (act === 'removec') { const cs = list.filter((x) => x.id === 'custom'); list.splice(list.indexOf(cs[Number(aid)]), 1); render(); toast('Removed'); return; }
+    if (act === 'custom') { const amt = Number(fm.amount); if (!(fm.label || '').trim()) return toast('Description is required'); if (!(amt > 0)) return toast('Amount is required'); list.push({ id: 'custom', label: fm.label.trim(), amount: amt }); ui.pAct = null; ui.formSpec = null; render(); toast('Added'); return; }
+    const a = ADDONS.find((x) => x.id === aid), rate = Number(fm.amount);
+    if (!(rate >= 0) || fm.amount === '') return toast('Price is required');
+    const x = a.unit === 'day' ? { id: aid, days: Number(fm.days) || 1, amount: rate * (Number(fm.days) || 1) } : a.unit === 'mile' ? { id: aid, qty: Number(fm.qty) || 1, amount: rate * (Number(fm.qty) || 1) } : { id: aid, amount: rate };
+    const i = list.findIndex((y) => y.id === aid); if (i < 0) list.push(x); else list[i] = x;
+    ui.pAct = null; ui.formSpec = null; render(); toast(i < 0 ? 'Added' : 'Updated'); return;
+  }
   if ('sresetPrice' in d) { ui.form.price = ''; ui.form.dep = ''; render(); return; }
   if (d.lpset != null) { const [, lid, k, v] = d.lpset.split('|'), l = LITTERS.find((x) => x.id === lid); l.prices ||= {}; if (v) l.prices[k] = v; else delete l.prices[k]; ui.qOpen = null; render(); toast('Saved'); return; }
   if (d.lpown) {

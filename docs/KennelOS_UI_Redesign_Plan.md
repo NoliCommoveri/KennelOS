@@ -308,3 +308,10 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   "Next pass removes them from the list."), errors as "Name is required", confirmations as
   "Saved". No addressing her as "you" to explain, no "they"/"them" chattiness, no reassurance
   ("they're told kindly"), no describing how the app works inside.
+- **D15. Add-ons (2026-11-20).** The owner: "extras" are **Add-ons** on screen (stored
+  names stay as they are), and transport and boarding after go-home show as add-ons wherever
+  she adds them to a sale or sets defaults, though their data stays where it is. One screen
+  controls every cost outside the base price: Business › **Add-ons** for defaults (Setup's
+  transport and boarding rows open it), and a sale's **Add-ons** for that sale (each amount
+  editable per D13, boarding by days, one-time charges, the sale's total). The Business table
+  of §1 reads Business › Add-ons where it said Extra charges.

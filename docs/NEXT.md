@@ -220,6 +220,20 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   D14 in the plan gains the tone rule.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D15, Add-ons
+
+- The owner's D15 in `docs/KennelOS_UI_Redesign_Plan.md` §8, prototype only (the live app
+  keeps "extras" for now).
+- `docs/design/forest-look-prototype.html`: "Extra charges" is **Add-ons** everywhere.
+  Business › Add-ons lists transport, boarding after go-home and her own add-ons with
+  default price, flat / per day / per mile, note and offered on new sales; New add-on in the
+  header; Setup › Go-home's Transport and Boarding rows open it. A sale gains **Add-ons**
+  (from its Sale screen): each add-on to add, change or remove for that sale, boarding by
+  days, one-time charges, and puppy / add-ons / total / paid. Side sale offers add-ons as
+  it's recorded. Balances everywhere include add-ons (Fern's sample sale carries a starter
+  kit and a photo session).
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
