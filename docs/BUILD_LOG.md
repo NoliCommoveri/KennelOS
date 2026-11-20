@@ -6801,3 +6801,12 @@ it goes on `main`.
   Board page opened in Chromium, no errors.
 - Docs: End-State guide §19 (Away board), §21.2 (stays), eventRepo reads.
 - **Service worker:** no file added or removed; no `CACHE_NAME` bump yet.
+
+## 2026-11-20: Service worker cache v166, and two live checks passed
+
+- `CACHE_NAME` v165 → v166, so the boarding Where and Staying with us reach installed
+  devices. `PRECACHE_URLS` unchanged (no file added or removed).
+- The owner passed the two live checks left open: the template library's copy down (a
+  breeder's From KennelOS → Add, Place fields / Preview on the copy; `docs/LAUNCH_CHECKLIST.md`)
+  and the live Mapbox try of the waitlist address checks (Waitlist Fixes plan step 9).
+  README Status no longer lists either.
