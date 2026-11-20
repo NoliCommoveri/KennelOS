@@ -173,6 +173,7 @@ piece can't do the job** (D18).
 | Three or more fixed choices | `fChips()` · `.chip` | Flat / Per day / Per mile, Same as group / … | Lists that grow with her records |
 | Several of a few choices | `fChips({ multi })` · `.chip` | Ticking any number (add-ons on a sale, what a due date covers) | Long lists |
 | On or off in a list, saved at once | `.switch-row` · `.switch` | Feature and trait switches | |
+| One of several, each needing a line (trial) | `fRadio()` · `.radios` / `.radio` | Options that are phrases or need a short explanation; an option that can't apply is disabled with why (a price rule's type, an add-on's When paid and Due dates) | Short choices: chips |
 | A list that grows with her records | `fSel()` · `select`; filter dropdowns (D11) | Dogs, groups, partners, families, schedules | Two or three fixed choices |
 | Text, number, date, time | `fIn()` · label above the input, hint as `<small>` | Every typed value | |
 | Longer text | `fText()` · `textarea` | Notes, messages | |
@@ -461,4 +462,15 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   "neither", or one that can be left blank, is different. Yes / No is a switch, two named
   options are a `.seg`, built into `fChips()` (§3.1). Repeating payment steps (an add-on's
   payment plan and a saved schedule's due dates) share `stepCards()`: one card per step.
+- **D20. Price rules look at the parent or the pup; radio lists on trial (2026-11-20).**
+  The owner: a rule first picks **Parent** or **Pup**, then what to look at: **Name** (a
+  specific dog; was "A parent"), **Breed**, **Registry**, **Title**, **Imported**, **Scores**.
+  For a pup, Name, Title and Imported are greyed out (parents only). A pup breed rule sets
+  the base price (as D17's breed rule did); a parent breed rule adds or subtracts by which
+  parent (a Poodle sire, say); pup registry and pup scores (her puppy evaluations) adjust
+  each pup's own price. **For the build:** parent rules fill the litter's expected prices as
+  in D17; pup rules are applied on top when a sale's price is prefilled (`saleDefaults`'s
+  `expectedPricing`), so the litter keeps one stored price per sex. The rule type is a
+  **radio list**, tried here and on an add-on's Payment card (When paid, Due dates) for the
+  owner to compare with chips; §3.1 lists it as a trial component until she decides.
 

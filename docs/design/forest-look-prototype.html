@@ -706,6 +706,13 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .rule-work span { font-weight: 700; color: var(--ink); min-width: 56px; }
 .rule-work b { color: var(--ink); }
 .sa-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
+.radios { display: flex; flex-direction: column; }
+.radio { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border: 0; background: none; text-align: left; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.radio + .radio { border-top: 1px solid var(--line); }
+.radio-dot { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--line-strong); box-sizing: border-box; }
+.radio[aria-checked="true"] .radio-dot { border-color: var(--primary); background: var(--primary); box-shadow: inset 0 0 0 3px var(--surface); }
+.radio-t small { display: block; font-size: 12.5px; color: var(--muted); }
+.radio:disabled { opacity: .45; cursor: default; }
 .f-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ink); }
 .f-group .seg { align-self: flex-start; max-width: 100%; }
 /* a sale's add-ons */
@@ -772,7 +779,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Everything a family pays for beyond the puppy is an add-on: transport and boarding after go-home sit in the same list as her own (photo session, training package, starter kit), though they're kept apart behind the scenes. <b>Business › Add-ons</b> holds the defaults: price, how it's charged (flat, per day, per mile), a note, and whether it's offered on new sales; Setup's transport and boarding rows open the same screen. On a sale, <b>Add-ons</b> is the one screen for every cost outside the puppy's price: each add-on with its default price to change for this sale, days for boarding, a one-time charge, and the puppy, add-ons, total and paid at the top. Side sale offers them as it's recorded.</p>
     <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
     <p><b>Transport</b> is priced per mile from her standard pickup place: fee per mile, round trip or one way, no charge under a distance, offered only to families living at least so far away (City / state becomes required on applications), and "in touch" past a limit. <b>Check a distance</b> gets driving miles through Mapbox (cloud backup) or Open in Maps and shows the working. <b>Handled by</b> sets the default for new sales: the kennel, or a third party, one of her transport partners or unknown. Each partner (a Transport account) carries a referral reward, per booking or a percent of their price; the Transport screen totals expected and received rewards by partner. On a sale, transport is either the kennel's (miles, Get driving miles, a fee prefilled from her rate) or a third party's (partner, anything charged on the sale, the reward expected or received). <b>Pickup places</b> (Setup › Go-home) holds her places, which one mileage starts from, which families see, and how late families can change a pickup.</p>
-    <p><b>Price rules</b> (Pricing and schedules) set litter prices from what the litter is: a breed's own prices replace the usual price, and each other rule that fits adds or subtracts an amount or a percent: a specific parent, a parent's title, the parents' registry, an imported parent, or how the parents score on her traits. A litter's Pricing shows the working; its own price, and every sale already made, keep theirs.</p>
+    <p><b>Price rules</b> (Pricing and schedules) each look at the <b>parents</b> or the <b>pup</b>, then at a name, breed, registry, title, import or trait scores (name, title and import are parents only). A pup breed price replaces the usual price; parent rules add or subtract and set the litter's price; pup rules (its puppy scores, its registry) adjust each pup's own price when it's sold. A litter's Pricing shows the working and each pup's adjustment; its own price, and every sale already made, keep theirs.</p>
     <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time, ready to go home). A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the balance (a schedule or one due date) and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
 
     <h3>Where things moved</h3>
@@ -1746,14 +1753,19 @@ const LP_Q = [
   ['fullReg', 'Full registration', ['Not offered', '+$500', '+$1,000', '+$1,500']],
 ];
 const usualOf = (k) => (k === 'male' || k === 'female') ? (SET.pricing.priceBy === 'Different prices' ? SET.pricing[k] : SET.pricing.pet) : SET.pricing[k];
-/* price rules (new; owner 2026-11-20): a litter's price starts from her usual price, or a
-   breed's own price, and every rule that fits adds on: an imported parent, or how the
-   parents score on her traits. The result fills the litter's prices (live:
-   Litter.expected_price_male/_female, which every sale reads); a litter's own price wins. */
+/* price rules (D17, D20): each rule looks at the litter's parents or at the pup. A litter's
+   price starts from her usual price, or the pups' breed price (which replaces it); every
+   parent rule that fits adds or subtracts. Pup rules then adjust each pup's own price (its
+   puppy scores, its registry) when it's sold. Parent rules fill the litter's prices (live:
+   Litter.expected_price_male/_female); pup rules apply on top when a sale is prefilled.
+   A litter's own price, and every sale already made, keep theirs. */
 const IMPORTED = { titan: 'Netherlands' };
-/* live Dog.titles ([{ abbr, organization }]) and Dog.registry, as sample */
+/* live Dog.titles ([{ abbr, organization }]), Dog.registry and Dog.breed, as sample */
 const DOG_TITLES = { gunnar: ['CH'], titan: ['GCH', 'CGC'], ash: ['CGC'] };
 const DOG_REG = { willow: 'AKC', ash: 'AKC', clover: 'AKC', ivy: 'AKC', juniper: 'AKC', gunnar: 'AKC', titan: 'CKC', duke: 'AKC', cassius: 'AKC' };
+const DOG_BREED = {};
+const breedOf = (id) => DOG_BREED[id] || 'Labrador Retriever';
+const PUP_SCORES = { cedar: { head: 5, ears: 0, back: 0, rear: 0, temp: 5 } };
 const TITLE_LIST = [['any', 'Any title'], ['CH', 'CH · Champion'], ['GCH', 'GCH · Grand Champion'], ['CGC', 'CGC · Canine Good Citizen'], ['MH', 'MH · Master Hunter']];
 const REG_LIST = ['AKC', 'CKC', 'UKC', 'Not registered'];
 const POS = [['either', 'Either'], ['dam', 'Dam'], ['sire', 'Sire'], ['both', 'Both']];
@@ -1761,73 +1773,98 @@ const posText = (p) => ({ either: 'either parent', dam: 'dam', sire: 'sire', bot
 const byPos = (l, p, test) => { const d = test(l.dam.toLowerCase()), s = test(l.sire.toLowerCase()); return p === 'dam' ? d : p === 'sire' ? s : p === 'both' ? d && s : d || s; };
 const ruleParents = () => [...new Map([...LITTERS.flatMap((l) => [l.dam, l.sire]), ...DOGS.filter((d) => d.status !== 'puppy').map((d) => d.name)].map((n) => [n.toLowerCase(), n])).entries()];
 const litBreed = () => 'Labrador Retriever';
-const BREED_LIST = ['Labrador Retriever', 'Golden Retriever', 'Goldendoodle'];
+const BREED_LIST = ['Labrador Retriever', 'Golden Retriever', 'Goldendoodle', 'Poodle'];
+/* the rule kinds, in order; the last flag: parents only */
+const RULE_KINDS = [['name', 'Name', 'A specific dog', 1], ['breed', 'Breed', ''], ['registry', 'Registry', 'AKC, CKC, UKC'], ['title', 'Title', 'CH, GCH, CGC…', 1], ['imported', 'Imported', '', 1], ['score', 'Scores', 'Your trait scores']];
 const PRICE_RULES = [
-  { id: 'r1', kind: 'breed', breed: 'Golden Retriever', male: 3800, female: 3600, on: 1 },
-  { id: 'r2', kind: 'imported', parent: 'either', add: 500, unit: 'flat', on: 1 },
-  { id: 'r3', kind: 'score', trait: 'move', how: 'avg', min: 4.5, add: 300, unit: 'flat', on: 1 },
-  { id: 'r4', kind: 'parent', dog: 'ash', add: 250, unit: 'flat', on: 1 },
-  { id: 'r5', kind: 'title', title: 'GCH', parent: 'either', add: 400, unit: 'flat', on: 1 },
-  { id: 'r6', kind: 'registry', registry: 'CKC', parent: 'both', add: 300, unit: 'flat', sign: 'sub', on: 1 },
+  { id: 'r1', of: 'pup', kind: 'breed', breed: 'Golden Retriever', male: 3800, female: 3600, on: 1 },
+  { id: 'r2', of: 'parent', kind: 'imported', parent: 'either', add: 500, unit: 'flat', on: 1 },
+  { id: 'r3', of: 'parent', kind: 'score', trait: 'move', how: 'avg', min: 4.5, add: 300, unit: 'flat', on: 1 },
+  { id: 'r4', of: 'parent', kind: 'name', dog: 'ash', add: 250, unit: 'flat', on: 1 },
+  { id: 'r5', of: 'parent', kind: 'title', title: 'GCH', parent: 'either', add: 400, unit: 'flat', on: 1 },
+  { id: 'r6', of: 'parent', kind: 'registry', registry: 'CKC', parent: 'both', add: 300, unit: 'flat', sign: 'sub', on: 1 },
+  { id: 'r7', of: 'pup', kind: 'score', trait: 'temp', min: 5, add: 200, unit: 'flat', on: 1 },
 ];
 const amt$ = (v) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
 const traitName = (id) => (id === 'overall' ? 'Overall' : TRAITS.find((t) => t.id === id)?.n || id);
-const parentScore = (name, trait) => {
-  const t = DOG_TR[String(name).toLowerCase()]?.adult;
-  if (!t) return null;
-  if (trait !== 'overall') return t[trait] ?? null;
-  const qs = TRAITS.filter((x) => x.kind === 'q').map((x) => t[x.id]).filter((v) => v != null);
-  return qs.length ? sum(qs) / qs.length : null;
-};
+const avgQ = (t) => { const qs = TRAITS.filter((x) => x.kind === 'q').map((x) => t[x.id]).filter((v) => v != null); return qs.length ? sum(qs) / qs.length : null; };
+const parentScore = (name, trait) => { const t = DOG_TR[String(name).toLowerCase()]?.adult; return !t ? null : trait === 'overall' ? avgQ(t) : t[trait] ?? null; };
+const pupScore = (id, trait) => { const t = DOG_TR[id]?.puppy || PUP_SCORES[id]; return !t ? null : trait === 'overall' ? avgQ(t) : t[trait] ?? null; };
+const perPup = (r) => r.of === 'pup' && r.kind !== 'breed';
+/* parent rules and the pups' breed: the litter's price */
 const ruleFits = (r, l) => {
-  if (r.kind === 'breed') return litBreed(l) === r.breed;
+  if (r.of === 'pup') return r.kind === 'breed' && litBreed(l) === r.breed;
+  if (r.kind === 'name') return [l.dam.toLowerCase(), l.sire.toLowerCase()].includes(r.dog);
+  if (r.kind === 'breed') return byPos(l, r.parent, (id) => breedOf(id) === r.breed);
   if (r.kind === 'imported') return byPos(l, r.parent, (id) => !!IMPORTED[id]);
-  if (r.kind === 'parent') return [l.dam.toLowerCase(), l.sire.toLowerCase()].includes(r.dog);
   if (r.kind === 'title') return byPos(l, r.parent, (id) => (r.title === 'any' ? (DOG_TITLES[id] || []).length > 0 : (DOG_TITLES[id] || []).includes(r.title)));
   if (r.kind === 'registry') return byPos(l, r.parent, (id) => (DOG_REG[id] || 'Not registered') === r.registry);
   const a = parentScore(l.dam, r.trait), b = parentScore(l.sire, r.trait);
   if (a == null || b == null) return false;
   return r.how === 'both' ? a >= r.min && b >= r.min : r.how === 'either' ? a >= r.min || b >= r.min : (a + b) / 2 >= r.min;
 };
-const ruleName = (r) => r.kind === 'breed' ? r.breed : r.kind === 'imported' ? `Imported ${r.parent === 'either' ? 'parent' : posText(r.parent)}` : r.kind === 'parent' ? `${(ruleParents().find(([id]) => id === r.dog) || [, r.dog])[1]} as a parent` : r.kind === 'title' ? `${r.title === 'any' ? 'Titled' : r.title} ${posText(r.parent)}` : r.kind === 'registry' ? `${r.registry} ${posText(r.parent)}` : `${traitName(r.trait)} ${r.how === 'avg' ? 'average' : r.how === 'both' ? 'both parents' : 'either parent'} ${r.min}+`;
+/* pup rules: each pup's own price */
+const pupFits = (r, id) => (r.kind === 'registry' ? (DOG_REG[id] || 'AKC') === r.registry : r.kind === 'score' ? (pupScore(id, r.trait) ?? -1) >= r.min : false);
+const dogName = (id) => (ruleParents().find(([x]) => x === id) || [, id])[1];
+const ruleName = (r) => {
+  if (r.of === 'pup') return r.kind === 'breed' ? `${r.breed} pups` : r.kind === 'registry' ? `${r.registry} pups` : `Pup ${traitName(r.trait).toLowerCase()} ${r.min}+`;
+  if (r.kind === 'name') return `${dogName(r.dog)} as a parent`;
+  if (r.kind === 'breed') return `${r.breed} ${posText(r.parent)}`;
+  if (r.kind === 'imported') return `Imported ${r.parent === 'either' ? 'parent' : posText(r.parent)}`;
+  if (r.kind === 'title') return `${r.title === 'any' ? 'Titled' : r.title} ${posText(r.parent)}`;
+  if (r.kind === 'registry') return `${r.registry} ${posText(r.parent)}`;
+  return `${traitName(r.trait)} ${r.how === 'avg' ? 'average' : r.how === 'both' ? 'both parents' : 'either parent'} ${r.min}+`;
+};
 const ruleSign = (r) => (r.sign === 'sub' ? -1 : 1);
-const ruleEffect = (r) => (r.kind === 'breed' ? `${money(r.male)} M · ${money(r.female)} F` : `${r.sign === 'sub' ? '−' : '+'}${r.unit === 'pct' ? `${r.add}%` : money(r.add)}`);
-const ruleIcon = (r) => ({ breed: 'dog', imported: 'globe', parent: 'heart', title: 'trophy', registry: 'id-card' }[r.kind] || 'award');
+const sets = (r) => r.of === 'pup' && r.kind === 'breed';
+const ruleEffect = (r) => (sets(r) ? `${money(r.male)} M · ${money(r.female)} F` : `${r.sign === 'sub' ? '−' : '+'}${r.unit === 'pct' ? `${r.add}%` : money(r.add)}`);
+const ruleIcon = (r) => (r.of === 'pup' ? 'paw-print' : { name: 'heart', breed: 'dog', imported: 'globe', title: 'trophy', registry: 'id-card' }[r.kind] || 'award');
+const ruleAmt = (r, base) => ruleSign(r) * (r.unit === 'pct' ? Math.round((base * r.add) / 100) : r.add);
 const ruledPrice = (l, sex) => {
-  const fits = PRICE_RULES.filter((r) => r.on && l && ruleFits(r, l)), br = fits.find((r) => r.kind === 'breed');
+  const fits = PRICE_RULES.filter((r) => r.on && l && ruleFits(r, l)), br = fits.find(sets);
   const base = br ? br[sex] : amt$(usualOf(sex)), steps = [[br ? br.breed : 'Usual', base]];
   let total = base;
-  fits.filter((r) => r.kind !== 'breed').forEach((r) => { const a = ruleSign(r) * (r.unit === 'pct' ? Math.round((base * r.add) / 100) : r.add); total += a; steps.push([ruleName(r), a]); });
-  return { total, steps };
+  fits.filter((r) => !sets(r)).forEach((r) => { const a = ruleAmt(r, base); total += a; steps.push([ruleName(r), a]); });
+  return { total, steps, base };
 };
+/* a pup's own adjustments, from the pup rules: [[name, amount]] */
+const pupSteps = (id, base) => PRICE_RULES.filter((r) => r.on && perPup(r) && pupFits(r, id)).map((r) => [ruleName(r), ruleAmt(r, base)]);
 const LP_ALIAS = { maleDep: 'deposit', femaleDep: 'deposit', fullRegM: 'fullReg', fullRegF: 'fullReg' };
 const usualFor = (k, l) => (l && (k === 'male' || k === 'female') ? money(ruledPrice(l, k).total) : k === 'split' ? 'Same for both sexes' : usualOf(LP_ALIAS[k] || k));
 const workingLine = (w) => w.steps.map(([n, a], i) => (i ? `${esc(n)} ${a < 0 ? money(a) : `+${money(a)}`}` : `${esc(n)} ${money(a)}`)).join(' · ') + (w.steps.length > 1 ? ` = <b>${money(w.total)}</b>` : '');
-const rulesFor = (r) => LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(r, l));
+const openPups = () => DOGS.filter((d) => d.status === 'puppy' && !['placed', 'keeping'].includes(d.disp));
+const rulesFor = (r) => (perPup(r) ? openPups().filter((d) => pupFits(r, d.id)) : LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(r, l)));
+const fitsText = (r) => { const n = rulesFor(r).length, w = perPup(r) ? 'pup' : 'open litter'; return n ? `${n} ${w}${n === 1 ? '' : 's'}` : `no ${w}s`; };
 
 S.pricerule = (id) => {
   const r = PRICE_RULES.find((x) => x.id === id), fresh = !r;
-  const fm = formFor('pricerule:' + id, () => ({ kind: r?.kind || 'imported', breed: r?.breed || BREED_LIST[1], male: str(r?.male), female: str(r?.female), parent: r?.parent || 'either', dog: r?.dog || 'ash', title: r?.title || 'any', registry: r?.registry || 'CKC', sign: r?.sign || 'add', trait: r?.trait || 'overall', how: r?.how || 'avg', min: str(r?.min ?? 4), add: str(r?.add), unit: r?.unit || 'flat', on: !r || r.on ? 'on' : 'off' }));
-  const draft = { kind: fm.kind, breed: fm.breed, parent: fm.parent, dog: fm.dog, title: fm.title, registry: fm.registry, trait: fm.trait, how: fm.how, min: Number(fm.min) || 0 };
-  const fits = LITTERS.filter((l) => l.status[0] !== 'Closed' && ruleFits(draft, l));
-  const when = fm.kind === 'breed' ? fSel('breed', 'Breed', BREED_LIST)
-    : fm.kind === 'imported' ? fChips('parent', 'Imported', POS)
-    : fm.kind === 'parent' ? fSel('dog', 'Parent', ruleParents())
-    : fm.kind === 'title' ? `${fSel('title', 'Title', TITLE_LIST)}${fChips('parent', 'Held by', POS)}`
-    : fm.kind === 'registry' ? `${fSel('registry', 'Registry', REG_LIST)}${fChips('parent', 'Registered', POS)}`
-    : `${fSel('trait', 'Trait', [['overall', 'Overall (quality traits)'], ...TRAITS.filter((t) => t.kind === 'q').map((t) => [t.id, t.n])])}
-       ${fChips('how', 'Parents', [['avg', 'Average'], ['both', 'Both at least'], ['either', 'Either at least']])}
+  const fm = formFor('pricerule:' + id, () => ({ of: r?.of || 'parent', kind: r?.kind || 'imported', breed: r?.breed || BREED_LIST[1], male: str(r?.male), female: str(r?.female), parent: r?.parent || 'either', dog: r?.dog || 'ash', title: r?.title || 'any', registry: r?.registry || 'CKC', sign: r?.sign || 'add', trait: r?.trait || 'overall', how: r?.how || 'avg', min: str(r?.min ?? 4), add: str(r?.add), unit: r?.unit || 'flat', on: !r || r.on ? 'on' : 'off' }));
+  const pup = fm.of === 'pup';
+  if (pup && RULE_KINDS.find((k) => k[0] === fm.kind)?.[3]) fm.kind = 'breed';
+  const draft = { of: fm.of, kind: fm.kind, breed: fm.breed, parent: fm.parent, dog: fm.dog, title: fm.title, registry: fm.registry, trait: fm.trait, how: fm.how, min: Number(fm.min) || 0 };
+  const which = pup ? '' : fChips('parent', 'Which parent', POS);
+  const traits = TRAITS.filter((t) => t.kind === 'q' && (!pup || t.pup));
+  const when = fm.kind === 'name' ? fSel('dog', 'Dog', ruleParents())
+    : fm.kind === 'breed' ? `${fSel('breed', 'Breed', BREED_LIST)}${which}`
+    : fm.kind === 'registry' ? `${fSel('registry', 'Registry', REG_LIST)}${which}`
+    : fm.kind === 'title' ? `${fSel('title', 'Title', TITLE_LIST)}${which}`
+    : fm.kind === 'imported' ? which
+    : `${fSel('trait', 'Trait', [['overall', 'Overall (quality traits)'], ...traits.map((t) => [t.id, t.n])])}${pup ? '' : fChips('how', 'Parents', [['avg', 'Average'], ['both', 'Both at least'], ['either', 'Either at least']])}
        <div class="dates">${fIn('min', 'Score at least (1–5)', { type: 'number' })}</div>`;
-  const effect = fm.kind === 'breed'
+  const effect = sets(draft)
     ? `<div class="dates">${fIn('male', 'Male price ($)', { type: 'number' })}${fIn('female', 'Female price ($)', { type: 'number' })}</div><small class="f-hint">Replaces the usual price</small>`
     : `<label>Change<span class="adj-line">${fSeg('sign', [['add', '+', 'Add'], ['sub', '−', 'Subtract']])}${fSeg('unit', [['flat', '$', 'Dollars'], ['pct', '%', 'Percent']])}<input data-fv="add" type="number" inputmode="decimal" step="any" value="${fv('add')}" placeholder="0" autocomplete="off" aria-label="Amount"></span></label>`;
+  const fits = rulesFor(draft);
   return {
     bar: bar(fresh ? 'New price rule' : ruleName(r), { sub: 'Price rule' }),
-    body: `${formCard('When', `${fChips('kind', 'Rule', [['breed', 'Breed'], ['parent', 'A parent'], ['title', 'Parent title'], ['registry', 'Registry'], ['imported', 'Imported parent'], ['score', 'Parent scores']])}${when}`)}
-      ${formCard('Price', effect)}
+    body: `${formCard('When', `${fChips('of', 'Looks at', [['parent', 'Parent'], ['pup', 'Pup']])}
+        ${fRadio('kind', 'Rule', RULE_KINDS.map(([v, t, sub, parentOnly]) => [v, t, pup && parentOnly ? 'Parents only' : sub, pup && parentOnly]))}${when}`)}
+      ${formCard('Price', effect, perPup(draft) ? 'Each pup it fits' : '')}
       <section class="card app-card">${fChips('on', 'Active', [['on', 'On'], ['off', 'Off']])}</section>
       <div class="group-label">Fits now</div>
-      <section class="card"><div class="rows">${fits.map((l) => row({ ic: 'paw-print', t: litterName(l), s: l.status[0], go: `littersec:${l.id}|pricing` })).join('') || '<p class="lede" style="padding:12px 14px">No open litters.</p>'}</div></section>
+      <section class="card"><div class="rows">${perPup(draft)
+        ? fits.map((d) => row({ ic: 'paw-print', t: d.name, s: `${d.sex === 'm' ? 'Male' : 'Female'} · ${DISP[d.disp][0]}`, go: `dog:${d.id}` })).join('') || '<p class="lede" style="padding:12px 14px">No pups for sale.</p>'
+        : fits.map((l) => row({ ic: 'paw-print', t: litterName(l), s: l.status[0], go: `littersec:${l.id}|pricing` })).join('') || '<p class="lede" style="padding:12px 14px">No open litters.</p>'}</div></section>
       <p class="f-hint">Litters with their own price and existing sales keep theirs.</p>
       ${saveBar(`data-prsave="${esc(id)}"`)}
       ${r ? delRow(`data-prdel="${r.id}"`, 'Delete rule', 'Litters keep prices already set') : ''}`,
@@ -1912,7 +1949,9 @@ S.littersec = (p) => {
   } else if (k === 'pricing') {
     const sold = SALES.filter((x) => DOGS.find((d) => d.name === x.pup)?.litter === l.id).length;
     const wk = ['male', 'female'].filter((x) => !l.prices?.[x]).map((x) => [x, ruledPrice(l, x)]).filter(([, w]) => w.steps.length > 1 || w.steps[0][0] !== 'Usual');
-    body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}</section>` : ''}
+    const pupAdj = DOGS.filter((d) => d.litter === l.id && d.status === 'puppy' && !['placed', 'keeping'].includes(d.disp)).map((d) => [d, pupSteps(d.id, ruledPrice(l, d.sex === 'm' ? 'male' : 'female').base)]).filter(([, st]) => st.length);
+    if (pupAdj.length && !wk.length) wk.push(['both', ruledPrice(l, 'female')]);
+    body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}${pupAdj.map(([d, st]) => `<p class="rule-work"><span>${esc(d.name)}</span>${st.map(([n, a]) => `${esc(n)} ${a < 0 ? money(a) : `+${money(a)}`}`).join(' · ')}</p>`).join('')}</section>` : ''}
       <section class="card"><div class="rows">${[...LP_Q.slice(0, 2), ['split', 'Deposit and full registration', ['Same for both sexes', 'Different by sex']], ...(l.prices?.split === 'Different by sex' ? LP_SPLIT : LP_Q.slice(2))].map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
       ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div><small class="f-hint">Prefilled from your timing</small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
       ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
@@ -1960,8 +1999,8 @@ S.pricing = () => {
       <div class="group-label">Usual price</div>
       <section class="card"><div class="rows">${pq('priceBy')}${two ? pq('male') + pq('female') : pq('pet')}${pq('fullReg')}</div></section>
       <div class="label-row"><div class="group-label">Price rules</div><button type="button" class="set-link" data-open="pricerule:new">${icon('plus')}New rule</button></div>
-      <section class="card"><div class="rows">${PRICE_RULES.map((r) => { const n = rulesFor(r).length; return row({ ic: ruleIcon(r), t: esc(ruleName(r)), extra: r.on ? '' : pill(['Off', 'gray']), s: `${ruleEffect(r)} · ${n ? `${n} open litter${n === 1 ? '' : 's'}` : 'no open litters'}`, go: `pricerule:${r.id}` }); }).join('') || '<p class="lede" style="padding:12px 14px">No rules. Every litter starts at the usual price.</p>'}</div></section>
-      <p class="f-hint">A breed price replaces the usual; other rules add on.</p>
+      <section class="card"><div class="rows">${PRICE_RULES.map((r) => { const n = rulesFor(r).length; return row({ ic: ruleIcon(r), t: esc(ruleName(r)), extra: r.on ? '' : pill(['Off', 'gray']), s: `${ruleEffect(r)} · ${fitsText(r)}`, go: `pricerule:${r.id}` }); }).join('') || '<p class="lede" style="padding:12px 14px">No rules. Every litter starts at the usual price.</p>'}</div></section>
+      <p class="f-hint">A pup breed price replaces the usual; other rules add or subtract.</p>
       <div class="group-label">Deposit and timing</div>
       <section class="card"><div class="rows">${pq('deposit')}${pq('depositsOpen')}${pq('depositDue')}${pq('balanceDue')}${pq('readyAt')}</div></section>
       <div class="group-label">Ways families pay</div>
@@ -2300,6 +2339,9 @@ const OWN_OPTS = {};
    chips are for three or more, several at once, or a choice that can be left blank */
 const fSeg = (k, opts, aria = '') => `<span class="seg" role="group"${aria ? ` aria-label="${esc(aria)}"` : ''}>${opts.map(([v, t, n]) => `<button type="button" data-fc="${k}|${esc(v)}" aria-pressed="${String(ui.form[k] ?? '') === String(v)}"${n ? ` aria-label="${esc(n)}"` : ''}>${esc(t)}</button>`).join('')}</span>`;
 const fSwitch = (k, label, onV, offV) => { const on = ui.form[k] === onV; return `<div class="f-switch"><span>${label}</span><button type="button" class="switch" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-fc="${k}|${esc(on ? offV : onV)}"></button></div>`; };
+/* one of several, as a radio list (trial, D20): options with a short line each; a
+   disabled option shows why in its line */
+const fRadio = (k, label, opts) => `<div class="f-group" role="radiogroup"${label ? ` aria-label="${esc(label)}"` : ''}>${label ? `<div class="group-label">${label}</div>` : ''}<div class="radios">${opts.map(([v, t, sub, off]) => `<button type="button" class="radio" role="radio" aria-checked="${String(ui.form[k]) === String(v)}"${off ? ' disabled' : ''} data-fc="${k}|${esc(v)}"><span class="radio-dot"></span><span class="radio-t">${esc(t)}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div></div>`;
 const fChips = (k, label, opts, { own, multi, toggle } = {}) => {
   if (opts.length === 2 && !own && !multi && !toggle && !(OWN_OPTS[k] || []).length) {
     const two = opts.map((o) => (Array.isArray(o) ? o : [o, o]));
@@ -2827,7 +2869,8 @@ S.sidesale = (fid) => {
   /* the price and deposit start from the litter's prices (or her usual) and are hers to change */
   const lit = p && LITTERS.find((l) => l.id === p.litter);
   const amt = (v) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
-  const base = amt(p ? (lit?.prices?.[p.sex === 'm' ? 'male' : 'female'] || usualFor(p.sex === 'm' ? 'male' : 'female', lit)) : SET.pricing.pet);
+  const sexK = p && (p.sex === 'm' ? 'male' : 'female');
+  const base = amt(p ? (lit?.prices?.[sexK] || usualFor(sexK, lit)) : SET.pricing.pet) + (p && lit ? sum(pupSteps(p.id, ruledPrice(lit, sexK).base).map(([, a]) => a)) : 0);
   const fullAdd = amt(lit?.prices?.fullReg || SET.pricing.fullReg);
   const auto = String(base + (fm.reg === 'Full' ? fullAdd : 0)), autoDep = String(amt(lit?.prices?.deposit || SET.pricing.deposit));
   if (!fm.price || fm.price === fm._auto) fm.price = auto; fm._auto = auto;
@@ -3027,9 +3070,8 @@ S.addon = (id) => {
         ${built ? '' : fChips('unit', 'Charged', [['flat', 'Flat'], ['day', 'Per day'], ['mile', 'Per mile']])}
         ${fIn('desc', 'Description', { hint: 'Shown to families' })}`)}
       ${!built && FEAT.waitlistOnline ? formCard('Requests', `${fChips('ask', 'Requestable on status page', [['yes', 'Yes'], ['no', 'No']])}${fm.ask === 'yes' ? `${agesFields(g)}<small class="f-hint">${g ? `Blank: ${esc(g.n)} ages` : 'Blank: no limit'}</small>` : ''}`) : ''}
-      ${built ? '' : formCard('Payment', `${fChips('pm', 'When paid', [...(g ? [['group', 'Same as group']] : []), ['balance', 'With the balance'], ['plan', 'Payment plan']])}
-        ${fm.pm === 'group' ? `<small class="f-hint">${esc(g.n)}: ${planText(g.plan)}</small>` : ''}
-        ${fChips('own', 'Due dates', [...(g ? [['group', `Same as group (${g.own ? 'own dates' : 'sale schedule'})`]] : []), ['no', 'Sale schedule'], ['yes', 'Own dates']])}`)}
+      ${built ? '' : formCard('Payment', `${fRadio('pm', 'When paid', [...(g ? [['group', 'Same as group', esc(planText(g.plan))]] : []), ['balance', 'With the balance', 'All of it with the sale’s balance'], ['plan', 'Payment plan', 'Payments set below']])}
+        ${fRadio('own', 'Due dates', [...(g ? [['group', 'Same as group', g.own ? 'Own dates' : 'The sale’s schedule']] : []), ['no', 'Sale schedule', 'Paid on the sale’s due dates'], ['yes', 'Own dates', 'Paid apart from the sale']])}`)}
       ${!built && fm.pm === 'plan' ? planEditor() : ''}
       <section class="card app-card">${fChips('on', 'Offered on new sales', [['on', 'Yes'], ['off', 'No']])}</section>
       ${saveBar(`data-addonsave="${esc(id)}"`)}
@@ -4373,24 +4415,25 @@ document.addEventListener('click', (e) => {
   if (d.ldsave) { const l = LITTERS.find((x) => x.id === d.ldsave), fm = ui.form; if (fm.open && fm.ready && fm.ready < fm.open) return toast('Ready date is before deposits open'); Object.assign(l, { depOpen: fm.open, openTime: fm.time, ready: fm.ready || l.ready }); toast('Saved'); return; }
   if (d.prsave) {
     const fm = ui.form; let r = PRICE_RULES.find((x) => x.id === d.prsave);
-    const next = { kind: fm.kind, on: fm.on === 'on' ? 1 : 0 };
-    if (fm.kind === 'breed') {
+    const next = { of: fm.of, kind: fm.kind, on: fm.on === 'on' ? 1 : 0 };
+    if (sets(next)) {
       if (!(Number(fm.male) > 0) || !(Number(fm.female) > 0)) return toast('Male and female prices are required');
-      if (PRICE_RULES.some((x) => x !== r && x.kind === 'breed' && x.breed === fm.breed)) return toast('This breed has a rule');
+      if (PRICE_RULES.some((x) => x !== r && sets(x) && x.breed === fm.breed)) return toast('This breed has a rule');
       Object.assign(next, { breed: fm.breed, male: Number(fm.male), female: Number(fm.female) });
     } else {
       if (!(Number(fm.add) > 0)) return toast('Amount is required');
-      if (PRICE_RULES.some((x) => x !== r && fm.kind === 'parent' && x.kind === 'parent' && x.dog === fm.dog)) return toast('This parent has a rule');
       Object.assign(next, { add: Number(fm.add), unit: fm.unit, sign: fm.sign });
-      if (fm.kind === 'imported') next.parent = fm.parent;
-      else if (fm.kind === 'parent') next.dog = fm.dog;
-      else if (fm.kind === 'title') Object.assign(next, { title: fm.title, parent: fm.parent });
-      else if (fm.kind === 'registry') Object.assign(next, { registry: fm.registry, parent: fm.parent });
-      else { const min = Number(fm.min); if (!(min >= 1 && min <= 5)) return toast('Score must be 1 to 5'); Object.assign(next, { trait: fm.trait, how: fm.how, min }); }
+      const pos = fm.of === 'parent' ? { parent: fm.parent } : {};
+      if (fm.kind === 'name') { if (PRICE_RULES.some((x) => x !== r && x.kind === 'name' && x.dog === fm.dog)) return toast('This dog has a rule'); next.dog = fm.dog; }
+      else if (fm.kind === 'breed') Object.assign(next, { breed: fm.breed }, pos);
+      else if (fm.kind === 'registry') Object.assign(next, { registry: fm.registry }, pos);
+      else if (fm.kind === 'title') Object.assign(next, { title: fm.title }, pos);
+      else if (fm.kind === 'imported') Object.assign(next, pos);
+      else { const min = Number(fm.min); if (!(min >= 1 && min <= 5)) return toast('Score must be 1 to 5'); Object.assign(next, { trait: fm.trait, min }, fm.of === 'parent' ? { how: fm.how } : {}); }
     }
     const fresh = !r;
     if (!r) { r = { id: 'r' + (PRICE_RULES.length + 1) }; PRICE_RULES.push(r); }
-    ['breed', 'male', 'female', 'parent', 'dog', 'title', 'registry', 'sign', 'trait', 'how', 'min', 'add', 'unit'].forEach((k) => delete r[k]);
+    Object.keys(r).forEach((k) => { if (k !== 'id') delete r[k]; });
     Object.assign(r, next); ui.formSpec = null; back(); toast(fresh ? 'Added' : 'Saved'); return;
   }
   if (d.prdel) { PRICE_RULES.splice(PRICE_RULES.findIndex((x) => x.id === d.prdel), 1); ui.formSpec = null; back(); toast('Deleted'); return; }

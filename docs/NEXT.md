@@ -335,6 +335,15 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   old `.plan-steps` styles are gone. §3.1's table and its duplicates list are updated.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: D20, parent or pup rules; radio list trial
+
+- The owner's D20. Prototype: a price rule's When card is Looks at (Parent / Pup), then a
+  radio list of Name, Breed, Registry, Title, Imported, Scores (the parents-only ones
+  disabled for a pup), then that kind's fields. Pup rules adjust each pup's price: a
+  litter's Pricing lists each pup's adjustment and Side sale prefills with it (sample: Pup
+  temperament 5+ +$200, Cedar). New `fRadio()` component, also on an add-on's Payment card.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
