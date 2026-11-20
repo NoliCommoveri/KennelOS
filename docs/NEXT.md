@@ -189,6 +189,8 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   picked) or her usual, with a line saying so; she can change either. Go-home date, which
   saved payment schedule follows the deposit, and notes join the deposit due date. Changing
   the registration refills the price only if she hasn't typed her own.
+- At the owner's request the choice is labelled **Registration type**, its chips just
+  **Limited** and **Full (+$1,000)**, so they sit side by side on a phone.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

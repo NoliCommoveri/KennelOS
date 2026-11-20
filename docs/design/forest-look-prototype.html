@@ -2711,7 +2711,7 @@ S.sidesale = (fid) => {
       ${f && OFFER.open && OFFER.fam === f.id ? `<div class="stub-note warn">${icon('triangle-alert')}<span>They hold the turn now. Record their pick on <button type="button" class="link" data-open="wloffer">their turn</button> instead.</span></div>` : `
       <section class="card app-card">${fChips('pup', 'Pup', pups.map((d) => [d.id, `${d.name} · ${d.sex === 'm' ? 'M' : 'F'}${d.disp !== 'available' ? ' · ' + DISP[d.disp][0].toLowerCase() : ''}`]))}</section>
       ${notes.map(([ic, t, k]) => `<div class="stub-note${k === 'warn' ? ' warn' : ''}">${icon(ic)}<span>${t}${k === 'match' ? `<br><button type="button" class="link" data-fc="match|${fm.match ? '' : '1'}">${fm.match ? '✓ Also updating their answers to match' : 'Also update their answers to match'}</button>` : ''}</span></div>`).join('')}
-      <section class="card app-card">${fChips('reg', 'Selling at', [['Limited', 'Limited registration'], ['Full', `Full registration${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
+      <section class="card app-card">${fChips('reg', 'Registration type', [['Limited', 'Limited'], ['Full', `Full${fullAdd ? ` (+${money(fullAdd)})` : ''}`]])}
         <div class="form-stack"><div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}${fIn('dep', 'Deposit ($)', { type: 'number' })}</div>
         <p class="f-hint">${p ? `From ${lit ? litterName(lit) + '’s' : 'your usual'} price for ${p.sex === 'm' ? 'males' : 'females'}${fm.reg === 'Full' && fullAdd ? ' plus full registration' : ''}. Change either for this sale; the litter’s prices stay.` : 'Pick the pup and these fill in from its litter.'}</p>
         <div class="dates">${fIn('due', 'Deposit due', { type: 'date' })}${fIn('gohome', 'Go-home', { type: 'date' })}</div></div>
