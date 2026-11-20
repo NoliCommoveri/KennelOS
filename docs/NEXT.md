@@ -388,6 +388,15 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   (§8's open question 1); Add entry records no income directly.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-20: The prototype published where the owner sees it
+
+- The prototype had stopped reaching the owner: the docs named artifact `KCfKzER1Fo7aEYd7idfpS4`,
+  which her account can't open, and the one in her list (`Qon8foccjzDmQc4ssLcua1`) was still the
+  Nov 18 copy. The repo copy is now published as "KennelOS Forest Look",
+  https://claude.ai/artifact/1fhGXn25fAQVyJjcXSUxLa, and CLAUDE.md says every session that changes
+  the prototype publishes it there. The plan's header points to it.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

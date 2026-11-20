@@ -3,14 +3,14 @@
 > Status: **plan only, nothing built** (2026-11-19). Work goes on `next` (CLAUDE.md "Next
 > release").
 >
-> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
-> copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `KCfKzER1Fo7aEYd7idfpS4`, version 3 of 2026-11-19: the 2026-11-18 design, artifact
-> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page, D9's Pricing and schedules and D10's +
-> drawn in, and its icons built into the page instead of loaded from a CDN). Open it in a browser and use
-> the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
-> owner changes the artifact, copy it in again and note the date here; the repo copy is what
-> builds are checked against.
+> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, published
+> for the owner as the artifact "KennelOS Forest Look",
+> https://claude.ai/artifact/1fhGXn25fAQVyJjcXSUxLa (from 2026-11-20). Every session that changes
+> the prototype publishes it there (CLAUDE.md). It began as the 2026-11-18 design (artifact
+> `Qon8foccjzDmQc4ssLcua1`, now out of date), with D8's one person page, D9's Pricing and
+> schedules and D10's + drawn in, and its icons built into the page instead of loaded from a CDN.
+> Open it and use the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design
+> notes). The repo copy is what builds are checked against.
 >
 > **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
 > `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
