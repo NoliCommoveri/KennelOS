@@ -76,7 +76,7 @@ test('studBoardingFor: the travelling dog, reason Stud service, overlapping date
 test('studBoardingPrefill: the trip as a boarding event', () => {
   assert.deepEqual(S.studBoardingPrefill(svc({ direction: 'to_us', partner_contact_id: 'c' })), {
     event_type: 'boarding', event_date: '2026-01-01', event_end_date: '2026-01-05', related_contact_id: 'c', title: 'Stud service',
-    details: { boarding_reason: 'Stud service', location: 'With us' }
+    details: { stay_at: 'with_us', boarding_reason: 'Stud service', location: 'With us' }
   });
   assert.equal(S.studBoardingPrefill(svc({ direction: 'to_partner' }), { address: '1 Main St\nVT' }).details.location, '1 Main St, VT');
 });

@@ -509,7 +509,8 @@ export const CLOUD_FIELDS = {
       "boarding_reason",
       "dropoff_time",
       "location",
-      "pickup_time"
+      "pickup_time",
+      "stay_at"
     ],
     "breeding_tie": [
       "method",

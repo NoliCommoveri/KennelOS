@@ -6764,3 +6764,49 @@ it goes on `main`.
 - `CACHE_NAME` v164 → v165, for this session's batch: review batch I and the Delete wizard
   reach installed devices. `PRECACHE_URLS` gained `assets/deleteBlockers.js`,
   `assets/linkedDeleteUI.js` and `data/linkedDelete.js`.
+
+## 2026-11-19: A pop-up on the public list for litters opening soon
+
+- The owner asked for the status page's pop-up on the public waitlist too, in that page's
+  colors, for picks opening soon only. `list.js openingSoonPopup`: "Picks opening soon", then
+  each born litter on Coming up whose picks haven't opened, grouped by its name and birth
+  date, with its "Picks open in …" countdown in big bold words (soonest first; no planned
+  opening: "Opening date coming soon", last). Everyone sees it, signed in or not; one per
+  visit, closed with Got it or Escape; not at `#signin` (the status page's Sign In button) or
+  inside her website (a framed page grows to fit, so it could land off screen). Litters with
+  picks open aren't in it. Fixed words: no new setting. `family.css .public-popup`.
+- Checked in Chromium at 390 px with three born litters (two dated, one not): order,
+  countdowns ticking, Got it closing it, none at `#signin`. `node --test`: 2376 pass;
+  `cd cloud && npm test`: 408 pass.
+- Docs: End-State guide §29.
+
+## 2026-11-20: Stays with us leave Away from home
+
+- The owner's extended stays (a stay extra with boarding days, e.g. "12 Week Extended Stay":
+  sold pups staying at her place) showed under Away from home, as did deferred-pickup boarding
+  and visiting studs, because the board listed every running boarding event.
+- A boarding event now says where the dog is: `details.stay_at` (`away` / `with_us`, vocab
+  `STAY_AT`, the form's **Where** select). Blank (every stay logged before) is worked out by
+  `vocab.boardingStayAt`: a stay extra's link, a pickup's standard boarding, reason Deferred
+  pickup / Extended stay, or location "With us" mean with us. Every stay the app logs sets
+  it. `awayBoard.getAwayBoardRows` lists only away stays; `getStayingWithUsRows` feeds the
+  board page's new **Staying with us** card. No data written to existing events.
+- The owner renamed training stays: the reason an extra's stay gets is now "Extended stay"
+  (`goHome.EXTENDED_STAY_REASON`), and Kels, the waitlist review, the delete refusal and the
+  contract field help say "extended stay". Older stays keep "Training" as their reason.
+- Privacy: `stay_at` is a cloud key (a declared, non-free-text boarding detail, as the vocab
+  rule makes it), so it syncs; `cloudFields.js` regenerated.
+- Load budgets raised 5 KB for app.js (947), Today (1,778) and Waitlist entry (2,091).
+- Tests: `tests/awayBoard.test.js`. `node --test`: 2380 pass; `cd cloud && npm test`: 408 pass.
+  Board page opened in Chromium, no errors.
+- Docs: End-State guide §19 (Away board), §21.2 (stays), eventRepo reads.
+- **Service worker:** no file added or removed; no `CACHE_NAME` bump yet.
+
+## 2026-11-20: Service worker cache v166, and two live checks passed
+
+- `CACHE_NAME` v165 → v166, so the boarding Where and Staying with us reach installed
+  devices. `PRECACHE_URLS` unchanged (no file added or removed).
+- The owner passed the two live checks left open: the template library's copy down (a
+  breeder's From KennelOS → Add, Place fields / Preview on the copy; `docs/LAUNCH_CHECKLIST.md`)
+  and the live Mapbox try of the waitlist address checks (Waitlist Fixes plan step 9).
+  README Status no longer lists either.
