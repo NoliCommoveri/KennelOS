@@ -53,7 +53,7 @@ beforeEach(async () => {
 
 const allSales = () => saleRepo.getAll({ includeArchived: true });
 
-test('a side sale on an Available pup: a deposit-pending sale, no offer row, the pup still offered', async () => {
+test('a side sale on an Available pup: a deposit-pending sale, no offer row, the pup held off every turn (U8)', async () => {
   const { sale, issues } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   assert.equal(sale.status, 'deposit_pending');
   assert.equal(sale.side_entry_id, ids.ng);
@@ -62,11 +62,11 @@ test('a side sale on an Available pup: a deposit-pending sale, no offer row, the
   assert.deepEqual(issues.fields, ['sex'], 'Ng asked for a male');
   assert.equal((await waitlistOfferRepo.getAll()).length, 0, 'never a turn');
   const willow = await dogRepo.getById(ids.willow);
-  assert.equal(rules.isPupAvailable(willow, await allSales()), true, 'still offered until the deposit');
-  // Opening picks: the top family still gets a turn listing Willow.
+  assert.equal(rules.isPupAvailable(willow, await allSales()), false, 'every pending sale holds its pup (Unified Sale plan U8)');
+  // Opening picks: the top family's turn leaves Willow out.
   const turn = await actions.openPicks(A.id, { date: DAY });
   assert.equal(turn.entry_id, ids.lee);
-  assert.ok(turn.offers[0].eligible_dog_ids.includes(ids.willow));
+  assert.ok(!turn.offers[0].eligible_dog_ids.includes(ids.willow));
 });
 
 test('a family with a pending side sale is not offered turns meanwhile; a cancel gives them back their place', async () => {
@@ -128,11 +128,11 @@ test('refused: the family holds the turn, a second pending side sale, a placed p
   await assert.rejects(actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY }), /on the list/);
 });
 
-test('two claims: the turn family picks the side-sale pup; the side deposit arriving first lets their pick go', async () => {
-  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
+test('two claims: a side sale on the turn family\'s pick; the side deposit arriving first lets their pick go', async () => {
   const turn = await actions.openPicks(A.id, { date: DAY }); // Lee
   const row = turn.offers[0];
   await actions.recordPick(row.id, { chosenDogId: ids.willow, date: DAY });
+  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   const claims = rules.pupClaims(ids.willow, { sales: await allSales(), offers: await waitlistOfferRepo.getAll() });
   assert.deepEqual(claims.map((c) => c.kind).sort(), ['pick', 'side']);
   const res = await actions.confirmSideDeposit(sale.id, { date: DAY });
@@ -145,9 +145,9 @@ test('two claims: the turn family picks the side-sale pup; the side deposit arri
 });
 
 test('two claims: the turn deposit arriving first cancels the side sale; that family keeps their place', async () => {
-  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   const turn = await actions.openPicks(A.id, { date: DAY });
   await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.willow, date: DAY });
+  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   const res = await actions.confirmDeposit(turn.offers[0].id, { date: DAY });
   assert.deepEqual(res.resolved.map((r) => [r.kind, r.entry_id]), [['side_cancelled', ids.ng]]);
   assert.equal((await saleRepo.getById(sale.id)).status, 'cancelled');
@@ -157,9 +157,9 @@ test('two claims: the turn deposit arriving first cancels the side sale; that fa
 test('a released pick with no pup left ends their turn without a pass', async () => {
   await dogRepo.update(ids.pip, { disposition: 'keeping' });
   await dogRepo.update(ids.held, { disposition: 'keeping' });
-  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   const turn = await actions.openPicks(A.id, { date: DAY }); // Lee: Willow only
   await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.willow, date: DAY });
+  const { sale } = await actions.recordSideSale(ids.ng, { dogId: ids.willow, registration: 'limited', date: DAY });
   const res = await actions.confirmSideDeposit(sale.id, { date: DAY });
   assert.equal(res.resolved[0].voided, true);
   const row = await waitlistOfferRepo.getById(turn.offers[0].id);
@@ -194,6 +194,6 @@ test('the family page reads it as a turn with a pick: same row shape, their numb
   assert.equal(ng.offers[0].picked_pup.call_name, 'Willow');
   assert.deepEqual(ng.place_hidden, { reason: 'turn' });
   assert.equal(p.turn_queue.some((q) => q.entry_id === ids.ng), false, 'not offered turns meanwhile');
-  assert.ok(p.litters[A.id].pups.some((d) => d.id === ids.willow), 'Willow still shows as available');
+  assert.ok(!p.litters[A.id].pups.some((d) => d.id === ids.willow), 'Willow is held for them: off the pups a turn picks from (U8)');
   assert.equal(p.litters[A.id].open_offer_entry_id ?? null, null, 'never the litter\'s open offer');
 });

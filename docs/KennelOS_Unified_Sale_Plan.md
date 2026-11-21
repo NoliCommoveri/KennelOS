@@ -1,8 +1,12 @@
 # KennelOS — One sale, whoever's buying (plan)
 
-> Status: **plan only, nothing built** (2026-11-20). An enhancement to live's sales, drawn in the
-> UI redesign's prototype (`docs/design/forest-look-prototype.html`, Add sale) and built with
-> or after it. Owner questions U1–U8 (§6) are open.
+> Status: **Phase 1 built on `main` (2026-11-21); Phases 2 and 3 not built.** An enhancement
+> to live's sales, drawn in the UI redesign's prototype (`docs/design/forest-look-prototype.html`,
+> Add sale). The owner answered U1–U8 on 2026-11-21 (§6): built on `main`, into today's Sale
+> page, not with the redesign.
+>
+> **Modified:** U8 went the other way from the recommendation: every sale still waiting on its
+> deposit holds its pup, side sales included (§2.2, §4 changed to match).
 >
 > The owner (2026-11-20): a sale shouldn't go a different way, or look different, because the
 > buyer is on the waitlist. What the side sale does with the pup and the deposit (warn that
@@ -57,8 +61,9 @@ in the pup or the buyer.
      Available-and-held for this buyer, off every family's turns and online lists until the
      deposit is in, and goes back to what it was if the sale is cancelled
      (`side_holds_pup`, `side_prior_disposition`);
-   - **an Available pup with the deposit not in yet** stays offered to waitlist turns, as a side
-     sale's does: the first deposit received takes it (U8);
+   - **an Available pup with the deposit not in yet** is held for this buyer: off every turn and
+     every family's choices (U8). Two claims arise only when she records a sale on a pup a family
+     already picked in their turn, or goes ahead past the warning; the first deposit settles them;
    - **registration** defaults the way the side sale's does: the pup's intended registration,
      else the first the family's purposes fit (a family on the list), else Limited; priced by
      `expectedPricing`, a typed price moving with the registration (prototype `prefillPrice`);
@@ -105,8 +110,8 @@ labels, buttons or hints (redesign plan D14, D8).
   Sync class: `cloud` like the other `side_*` fields (owner approved those 2026-11-08); a
   privacy decision to confirm (U3). Regenerate `cloud/src/lib/cloudFields.js`.
 - The hold fields `side_holds_pup` and `side_prior_disposition` are written on **any** sale that
-  pulls a pup, not only one with `side_entry_id`; `isPupAvailable`'s rule becomes: a sale still
-  at `deposit_pending` doesn't take an Available pup unless it holds it (U8), whoever the buyer.
+  pulls a pup, not only one with `side_entry_id`; `isPupAvailable`'s rule becomes: every live
+  sale takes the pup, one still at `deposit_pending` included (U8), whoever the buyer.
 - **No new tables.** The link to a family stays `side_entry_id` (pending) and the entry's
   `placed_sale_id` (once placed). The field names keep "side" in the data only.
 - `referenceRegistry`, `syncRegistry`, tests for `cloudDirty`: as for any new field.
@@ -129,6 +134,12 @@ labels, buttons or hints (redesign plan D14, D8).
 
 ## 6. Questions for the owner
 
+Answered 2026-11-21: U1–U7 as recommended; U8 the other way (every pending sale holds its
+pup; the owner: "If the breeder is recording a sale not through the waitlist flow they
+probably don't want the waitlist to take it from them"). On `main`. U3: no "Deposit due" rule
+exists in Pricing yet (it comes with the redesign's D9), so Phase 1's Deposit due starts blank
+for a buyer not on the list.
+
 | # | Question | Recommendation |
 |---|---|---|
 | U1 | A buyer who has applied or owes the fee, not yet on the list | Allowed. Selling places them: their application is closed as placed with this sale, and their fee (if paid later) is still theirs to credit. |
@@ -142,9 +153,14 @@ labels, buttons or hints (redesign plan D14, D8).
 
 ## 7. Phases
 
-1. **Every sale, any buyer** (all editions): §2.2: the claims warning at recording time, the held
+1. **Every sale, any buyer** (all editions) — **built 2026-11-21**: §2.2: the claims warning at recording time, the held
    pup and its restore, U8's rule, registration defaults, `deposit_due_date` with reminders and
    the overdue flag, and settling two claims on the first deposit.
+   **Modified:** built as `data/saleChecks.js` (pure, every edition) and `data/pendingSale.js`
+   (cancel and put back), not `assets/saleChecks.js`. "Reminders" for a buyer not on the list
+   is Today's `sale-deposit-overdue` only: no email goes to someone with no status page. The
+   pup is still asked about after a new sale (Placed by default, so it shows as Already
+   Reserved), as before.
 2. **A buyer on the list** (Pro): §2.3: the buyer list, the family checks, saving through
    `recordSale`; the side-sale dialog retired; every entry point opens the Sale page.
 3. **Old sales** (Pro): U7's Today item.

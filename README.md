@@ -95,6 +95,9 @@ backup, carries a program from Lite to Pro.
     covers it).
   - Next release: the `next` branch publishes a Pro test build at next-pro.kennelos.app; what's
     on it is in `docs/NEXT.md` on that branch.
+  - One sale form for every buyer (`docs/KennelOS_Unified_Sale_Plan.md`): Phase 1 (every
+    sale's checks, held pup, deposit due date, two claims settled) built; Phases 2 (a buyer on
+    the list, the side-sale dialog retired) and 3 (old sales) next.
   - Planned, not built: credits, security hardening, mail budget, voice, family help,
     duplicate applications, assisted setup, line management, program types, the Stripe
     webhook for waitlist deposits (owner questions open).

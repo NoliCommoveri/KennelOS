@@ -173,6 +173,7 @@ export const CLOUD_FIELDS = {
         "buyer_contact_id",
         "created_at",
         "deposit_date",
+        "deposit_due_date",
         "deposit_paid_via_account_id",
         "dog_id",
         "fee_passed_to_buyer",

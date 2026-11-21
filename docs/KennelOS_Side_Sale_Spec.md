@@ -5,6 +5,13 @@
 > older pup she wants in front of someone now. To the family it looks exactly like a turn pick.
 > To the turn rules it doesn't exist. Every decision is in §9. Pro only (the waitlist is Pro).
 > Companion spec: `KennelOS_Picks_Preview_Spec.md` (side sales show there, its §5.3).
+>
+> **Modified:** a side sale still waiting on its deposit now holds its pup off every turn,
+> whether or not she pulled it from Undecided / Keeping / Health hold (owner's U8,
+> `docs/KennelOS_Unified_Sale_Plan.md`, 2026-11-21). `side_holds_pup` now only says whether a
+> cancel puts the pup back. So two claims on one pup arise only when she records a side sale
+> on a pup a family already picked in their turn. The due date is also written as
+> `deposit_due_date`, the field every sale has.
 
 ## 1. Why
 

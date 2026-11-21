@@ -267,6 +267,8 @@ const PRECACHE_URLS = [
   'data/waitlistReports.js',
   'data/rosterCount.js',
   'data/saleDefaults.js',
+  'data/saleChecks.js',
+  'data/pendingSale.js',
   'data/saleRepo.js',
   'data/sampleData.js',
   'data/scopePredicates.js',

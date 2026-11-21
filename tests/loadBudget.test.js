@@ -46,12 +46,12 @@ const pageGraph = (page) => staticGraph(page ? [APP, join(shared, 'pages', `${pa
 // 84 / 1,353, Waitlist 102 / 1,721, Waitlist entry 114 / 2,034, Kels 129 / 2,129.
 const BUDGETS = {
   'app.js': { modules: 59, kb: 950 }, // 945 → 950 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 947
-  today: { modules: 102, kb: 1780 }, // 1775 → 1780 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 1,778
+  today: { modules: 102, kb: 1790 }, // 1780 → 1790 (2026-11-21): every sale's deposit due date and its overdue flag (Unified Sale plan) reached 1,784; 1775 → 1780 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 1,778
   dogs: { modules: 66, kb: 1050 },
   dog: { modules: 78, kb: 1240 }, // 1220 → 1240 (2026-11-19): the waitlist timers' rules and review batch F together reached 1,221
   litter: { modules: 99, kb: 1580 }, // 1575 → 1580 (2026-11-19): review batch I (a refused Delete's note, assets/deleteBlockers.js) reached 1,576
-  sale: { modules: 86, kb: 1395 }, // 1390 → 1395 (2026-11-19): review batch I (a refused Delete's note) reached 1,391
-  waitlist: { modules: 104, kb: 1770 },
+  sale: { modules: 86, kb: 1410 }, // 1395 → 1410 (2026-11-21): the sale's checks, held pup and settled claims (Unified Sale plan) reached 1,404; 1390 → 1395 (2026-11-19): review batch I (a refused Delete's note) reached 1,391
+  waitlist: { modules: 104, kb: 1775 }, // 1770 → 1775 (2026-11-21): the Unified Sale plan's settled claims reached 1,772
   'waitlist-entry': { modules: 116, kb: 2095 }, // 2090 → 2095 (2026-11-20): boarding's Where (away / with us, vocab.boardingStayAt) and the board's Staying with us reached 2,091
   kels: { modules: 131, kb: 2180 }
 };

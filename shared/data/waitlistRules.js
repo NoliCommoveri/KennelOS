@@ -746,15 +746,14 @@ const UNOFFERED_DISPOSITIONS = ['undecided', 'keeping', 'placed', 'health_hold']
 // other non-archived sale (open OR delivered) means it's spoken for.
 // Only an `available` disposition is offered: the breeder marks a pup Available
 // once she's decided to sell it, and Kels's Tidy up asks about pups left unset.
-// A side sale (Side Sale Spec) still waiting on its deposit takes the pup only when
-// it holds it (`side_holds_pup`: she pulled the pup from Undecided / Keeping /
-// Health hold for that family); otherwise the pup stays offered until the deposit.
+// Every live sale takes the pup, a side sale still waiting on its deposit included
+// (Unified Sale plan U8): a sale she records herself is never taken from her by a
+// turn.
 export function isPupAvailable(dog, sales = []) {
   if (!dog || dog.is_archived) return false;
   if (GONE_DOG_STATUSES.includes(dog.status)) return false;
   if (UNOFFERED_DISPOSITIONS.includes(dog.disposition || 'undecided')) return false;
-  return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASED_SALE_STATUSES.includes(s.status)
-    && !(isSideSalePending(s) && !s.side_holds_pup));
+  return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASED_SALE_STATUSES.includes(s.status));
 }
 
 // "Already Reserved" (E2, decided 2026-11-11): disposition Placed, not archived, not

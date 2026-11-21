@@ -6855,3 +6855,34 @@ it goes on `main`.
 - Docs: End-State guide §23, §24.
 - **Service worker:** `assets/pdfShare.js` added to `PRECACHE_URLS` and `proPages.js`;
   `CACHE_NAME` v167 → v168 so installed devices get it.
+
+## 2026-11-21: One sale for every buyer, Phase 1 (every sale's checks)
+
+- Owner's answers to `docs/KennelOS_Unified_Sale_Plan.md` U1–U8: built on `main`; U1–U7 as
+  recommended; **U8 the other way**: every sale still waiting on its deposit holds its pup,
+  side sales included (`waitlistRules.isPupAvailable`; the picks preview names a side sale as
+  what takes the pup). Recorded in the plan (Modified) and the Side Sale spec (Modified).
+- **Every sale, whoever's buying** (all editions), on the Sale page:
+  - checks under the buyer: a placed, gone or archived pup refused at Save; a pup pulled from
+    Undecided / Keeping / Health hold named, held, and put back if the sale is cancelled from
+    Deposit Pending; the other live sales and turn picks on the pup now, each in a line;
+  - **Deposit due** while Deposit Pending: new plain field `Sale.deposit_due_date` (cloud, owner
+    approved; `cloudFields.js` regenerated), also written by a side sale beside
+    `side_deposit_due`; the payment statement asks for the deposit by it;
+  - Today's **sale-deposit-overdue** (any sale but a side sale): Open the sale, Cancel the sale;
+  - saving with the deposit in while other claims stand asks **End the other claim?**, then
+    `waitlistActions.settleOtherClaims` (another pending sale cancelled, a turn pick let go, a
+    side sale cancelled); `resolveOtherClaims` now cancels other plain pending sales too;
+  - **Also set [pup]'s intended registration** when the sale's registration differs.
+- New: `shared/data/saleChecks.js`, `shared/data/pendingSale.js`. Changed: `pages/sale.js`,
+  `data/waitlistRules.js`, `data/waitlistActions.js`, `data/picksPreview.js`, `data/nudges.js`,
+  `data/incomeView.js`, `data/saleRepo.js` (date check), `data/syncRegistry.js`, the side sale's
+  words on the picks panel and the family page.
+- Tests: `tests/unifiedSale.test.js` (new); `tests/waitlistSideSale.test.js` for U8 (two claims
+  now come from a side sale on a picked pup). Load budgets: today 1780 → 1790 KB, sale 1395 →
+  1410 KB, waitlist 1770 → 1775 KB. `node --test`: 2394 pass; `cloud` 408 pass. Checked in
+  Chromium: the new-sale checks, Deposit due, the Today flag, and a sale saved with its
+  deposit in cancelling the other pending sale. No errors.
+- Docs: End-State guide (Sale row, Every sale's checks, Available pup, Side sale, nudges table).
+- **Service worker:** `data/saleChecks.js` and `data/pendingSale.js` added to `PRECACHE_URLS`;
+  `CACHE_NAME` not bumped (asked).
