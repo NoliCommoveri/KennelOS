@@ -623,6 +623,20 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   litter and its pairing whelped and returns to the litter, now showing its whelped tiles.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: The prototype: a litter's pups are its own; Puppy care
+
+- The owner: a litter's Puppies didn't list the pups just recorded; she needs one entry for
+  the whole litter (weights, vet visit, deworming, vaccines) saved on each pup; pups need an ID
+  at birth, since "puppy 1" means nothing the next morning; and anything else live does for a
+  litter (litter page, Kels) should have a place on its tiles.
+- `docs/design/forest-look-prototype.html`: Births asks each pup's **ID collar** (next free
+  color, live's `guidedLitter.COLLAR_COLORS`) and an optional name, and saving makes the puppy
+  record ("Red collar"), with its own history from birth. **Puppies** lists the litter's own
+  pups. **Puppy care** replaces Weigh puppies: Weigh, Vet visit, Shots, Deworming, Screening
+  test, Medication, Microchips and Something else, typed once and saved as one event per pup
+  ticked (live's `cascadeTargets` and the care visit), with one entry shown for the litter.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
