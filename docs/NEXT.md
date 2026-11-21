@@ -598,6 +598,28 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   **Go-home** (that pup's checklist, `S.salegh`). Payments follows the tab it's opened from.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: D26, hubs built one way, with a stage bar (prototype)
+
+- The owner: tiles weren't the problem, tiles repeating each other were. Dogs, litters,
+  pairings and sales should be built and changed the same way, with everything live lets her
+  change reachable in sensible groups; rows in lists open to edit; a litter's header should
+  move its status in one touch, since that status drives so much. Recorded as D26 in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8.
+- `docs/design/forest-look-prototype.html`: a stage bar under the header on a puppy (its plan),
+  a litter, a pairing and a sale, each with its next step and every stage one tap away; the
+  steps follow live's status rules (litter births, ready, sold and close; pairing bred,
+  confirmed adds the expected litter, ended takes it off; a sale's money stages follow
+  payments and Mark delivered asks live's delivery questions). Headers lose Add event and Edit.
+  **Details** on every hub, with Edit: Litter Details' Edit is new (whelp or breeding dates,
+  delivery, litter registration, website, foster, nickname, notes, Archive). A pairing has its
+  own hub (`S.pairing`): Details and Edit (dam, sire, dates, method, website, notes, Delete),
+  Pairing check, Breeding (the dam's breeding events), Litter; pairing rows open it; a
+  Breeding logged on a dam with a planned pairing marks it Bred. A sale: Details (buyer,
+  stage, date, registration, source, notes; Edit changes the buyer) and **Price & payments**
+  (Edit: price, deposit, channel). Events (History, Breeding), expenses, Entries and documents
+  open to edit or delete; money received points to where it was recorded.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

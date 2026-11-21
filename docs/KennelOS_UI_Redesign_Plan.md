@@ -580,6 +580,29 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     the sizes? Recommended: automatic, with "Keep the original" on the same screen. (3) Does
     Lite get documents beyond dogs, or is it Pro (`proPages.js`, `editionConfig.js`)?
 
+- **D26. Hubs built one way; a stage bar (the owner, 2026-11-21).** The owner: tiles aren't
+  the problem, tiles repeating each other are; a breeder changes everything live lets her
+  change, grouped sensibly, reached the same way on a dog, a litter, a pairing and a sale.
+  - **A hub** is a header card (who or what it is), a **stage bar**, anything needing
+    attention, then tiles. The header holds no add or Edit button.
+  - **The stage bar** says where the record is in its life, the next step as a button, and the
+    stage itself tapped to pick any stage. Colour: blue coming, amber waiting on her, green done,
+    grey ended. The steps are the ones live's status rules prompt for: a litter's Expected →
+    Whelped (Record the birth) → Weaning → Ready → Sold (when every pup has a plan) → Closed
+    (live's close rule); a pairing's Planned (Log a breeding, which marks it Bred) → Confirmed
+    pregnant (adds the expected litter) or Not pregnant → Whelped (Record the birth), an ended
+    pairing taking its expected litter off; a sale's Deposit pending → Deposit paid → Paid in
+    full, which follow the money, then Mark delivered (live's delivery questions: owner,
+    leaves her dogs, close the litter), with returned / cancelled / voided in Details › Edit
+    (they ask why); a puppy's plan (Undecided, Available, Keeping, Health hold; Placed from a
+    sale). An adult dog has no bar; its status changes stay in Edit with live's prompts.
+  - **Details** on every hub holds what it is, with Edit (and Archive or Delete at its foot).
+    Every other tile holds one group and edits only that, Edit in its own header (a sale's
+    **Price & payments**: price, deposit, channel). A pairing gets a hub: Details, Pairing
+    check, Breeding (the dam's heat, progesterone, breedings, ultrasounds), Litter.
+  - **A row in a list opens to change or delete it:** events, expenses, documents, payments.
+    Money received opens to where it was recorded.
+
 ## 9. Carry-over notes
 
 Gaps in the live app to close when the screen that has them is rebuilt. Each is the owner's or
