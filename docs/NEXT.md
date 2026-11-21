@@ -694,6 +694,8 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   data) and a §5.1 line. `docs/design/forest-look-prototype.html`: the timeline groups them;
   Hazel's history has a go-home exam day (vet visit, fecal, giardia, DHPP #2, Bordetella,
   dewormer) to show it.
+- Then (owner): date grouping for now; later a grouping id on events, stamped by whatever
+  saves several events as one job, which grouping prefers (D27, needs its own plan).
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

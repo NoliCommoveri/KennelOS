@@ -734,11 +734,15 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Stays the same:** each event's own record, reminders, next-due dates, costs (each
     still its own expense), filters and exports. Search and filters match single events; a
     day with a match opens to show it. Deleting or editing one event never touches the others.
-  - **No new data.** Grouping is by date alone. A later option, only if dates prove too
-    coarse: live's care visit could stamp the events it saves with a shared visit id, and
-    grouping would prefer it; that would be a new field (syncRegistry, `private`), so it is
-    not proposed now.
-  - **Open (the owner's):** three or more, or two or more? Drawn at three.
+  - **No new data for now.** Grouping is by date alone, which the owner approved for now.
+  - **Later (the owner wants it):** a grouping id on events. Whatever saves several events
+    as one job stamps them with the same id: live's care visit, litter-wide logging, Puppy
+    care, a breeding's progesterone and ties. Grouping then prefers the id (a group of any
+    size, two events of one visit included) and falls back to the date for events without
+    one. It is a new optional field on Event (additive; classify in `syncRegistry.js`,
+    likely `private`; backups skip it on older builds), so it gets its own plan before it's
+    built.
+  - **Open (the owner's):** three or more, or two or more, for date grouping? Drawn at three.
 
 ## 9. Carry-over notes
 
