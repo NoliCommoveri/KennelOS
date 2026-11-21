@@ -840,7 +840,7 @@ button.tl-card:hover { border-color: var(--line-strong); }
     <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time); its ready date is on its Go-home screen. A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
 
     <h3>Hubs: one way for a dog, a litter, a pairing and a sale</h3>
-    <p>Each is a header card (who or what), a <b>stage bar</b>, anything needing attention, then tiles; the header has no add or Edit button. The stage bar says where it is in its life, with the next step as a button; tap the stage to pick any stage. Blue is coming, amber is waiting on her, green is done, grey is ended. A <b>litter</b>: Expected (Record the birth, then Mark whelped, which marks its pairing whelped) → Whelped (Start weaning) → Weaning (Mark ready) → Ready (Mark sold once every puppy has a plan) → Sold (Close the litter once one has gone home and none is left to place) → Closed. A <b>pairing</b>: Planned (Log a breeding opens Add event on the dam with Breeding picked; saving marks it Bred) → Bred (Confirmed pregnant, which adds the expected litter, or Not pregnant) → Confirmed pregnant (Record the birth) → Whelped; Not pregnant, Failed or Cancelled takes an expected litter off Litters. A <b>sale</b>: Deposit pending, Deposit paid and Paid in full follow the money (Record deposit, Record a payment); Mark delivered asks when, whether the owner is now the family, whether the pup leaves her dogs list and, when it's the last one, whether to close the litter; returned, cancelled or voided are in Details › Edit. A <b>puppy</b>'s plan is its stage: Undecided (Available, Keeping), Available (Add sale), Keeping, Health hold; Placed comes from a sale. An adult dog has no bar.</p>
+    <p>Each is a header card (who or what), a <b>stage bar</b>, anything needing attention, then tiles; the header has no add or Edit button. The stage bar says where it is in its life, with the next step as a button; tap the stage to pick any stage. Blue is coming, amber is waiting on her, green is done, grey is ended. A <b>litter</b>: Expected (Record the birth: Births records each pup, then "Is that all of them?" takes the delivery and Done whelping, which marks the litter and its pairing whelped and returns to the litter) → Whelped (Start weaning) → Weaning (Mark ready) → Ready (Mark sold once every puppy has a plan) → Sold (Close the litter once one has gone home and none is left to place) → Closed. A <b>pairing</b>: Planned (Log a breeding opens Add event on the dam with Breeding picked; saving marks it Bred) → Bred (Confirmed pregnant, which adds the expected litter, or Not pregnant) → Confirmed pregnant (Record the birth) → Whelped; Not pregnant, Failed or Cancelled takes an expected litter off Litters. A <b>sale</b>: Deposit pending, Deposit paid and Paid in full follow the money (Record deposit, Record a payment); Mark delivered asks when, whether the owner is now the family, whether the pup leaves her dogs list and, when it's the last one, whether to close the litter; returned, cancelled or voided are in Details › Edit. A <b>puppy</b>'s plan is its stage: Undecided (Available, Keeping), Available (Add sale), Keeping, Health hold; Placed comes from a sale. An adult dog has no bar.</p>
     <p><b>Details</b> on every hub holds what it is, with Edit, and Archive or Delete at the foot of Edit. Every other tile holds one group and changes only that, with Edit in its own header: a sale's <b>Price &amp; payments</b> edits the price, deposit and channel; a litter's Pricing and Go-home change in place. A <b>pairing</b> has its own hub: Details (dam, sire, dates, method, on website, notes), Pairing check, Breeding (the dam's heat, progesterone tests, breedings and ultrasounds) and its Litter. <b>A row in a list opens to change or delete it</b>: events in History and Breeding, expenses, Entries, documents and payments; money received opens to where it was recorded.</p>
 
     <h3>Sales, contracts and money</h3>
@@ -1831,6 +1831,13 @@ function litterSectionsBase(l) {
     [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
     [b + 'profile', 'id-card', 'Details', l.note],
   ];
+  if (l.id === 'ct' && l.whelp) return [
+    [b + 'puppies', 'paw-print', 'Puppies', `${l.m} M · ${l.f} F · not named yet`],
+    ...(FEAT.waitlist ? [['wlpreview:ct', 'list-ordered', 'Waitlist', `${activeFams().length} families · preview picks`]] : []),
+    [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
+    [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
+    [b + 'profile', 'id-card', 'Details', `${esc(l.delivery || 'Natural')} · born ${short(l.whelp)}`],
+  ];
   if (l.id === 'ct') return [
     [b + 'pregnancy', 'baby', 'Pregnancy', 'Day 43 of 63 · due Dec 8'],
     [b + 'prep', 'list-checks', 'Whelping prep', '2 of 6 done'],
@@ -2003,7 +2010,7 @@ S.litter = (id) => {
   return {
     bar: bar(litterName(l)),
     body: `<section class="card hub-head"><div class="hub-pills">${l.whelp ? `<span class="hub-line">${l.m} M · ${l.f} F</span>` : ''}</div><div class="hub-line">${l.whelp ? `Whelped ${fmt(l.whelp)} · ready ${short(l.ready)}` : `Bred ${short(l.bred)} · due ${fmt(l.due)}`}</div>${l.nick ? `<div class="hub-reg">${esc(l.nick)}</div>` : ''}</section>
-      ${litterStage(l)}${attnCard(LITTER_ATTN[l.id] || [])}${tiles(litterSections(l))}`,
+      ${litterStage(l)}${attnCard(l.id === 'ct' && l.whelp ? [] : LITTER_ATTN[l.id] || [])}${tiles(litterSections(l))}`,
   };
 };
 S.littersec = (p) => {
@@ -4955,7 +4962,7 @@ function lineLitterTiles(l) {
     out.push([b + 'births', 'baby', 'Births', `${bs.length} born · ${bs.filter((x) => x.alive).length} alive · natural`]);
     if (FEAT.lineTools) { const pups = DOGS.filter((d) => d.litter === 'wa'); out.push([b + 'score', 'clipboard-check', 'Score puppies', `${pups.filter((p) => puppyScored(p.id)).length} of ${pups.length} scored`]); }
   }
-  if (l.id === 'ct') out.push([b + 'births', 'baby', 'Births', BIRTHS.ct.length ? `${BIRTHS.ct.length} recorded so far` : 'Record each pup as she’s born']);
+  if (l.id === 'ct') out.push([b + 'births', 'baby', 'Births', l.whelp ? `${BIRTHS.ct.length} born · ${BIRTHS.ct.filter((x) => x.alive).length} alive` : BIRTHS.ct.length ? `${BIRTHS.ct.length} recorded so far` : 'Record each pup as she’s born']);
   const s = DOGS.find((d) => d.name === l.sire).id, d = DOGS.find((x) => x.name === l.dam).id;
   out.push([`pair:${s}|${d}`, 'git-compare', 'Pairing check', `COI ${pct(kin(s, d))} · ${relation(s, d).role.toLowerCase()}`]);
   return out;
@@ -4964,7 +4971,7 @@ function lineLittersec(l, k) {
   if (k === 'births') {
     const bs = BIRTHS[l.id] || [];
     const list = bs.length ? `<section class="card"><div class="section-h"><h2>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</h2></div><div class="rows">${bs.map((x) => row({ t: `#${x.n} · ${x.dog ? pedName(x.dog) : x.alive ? 'Not named yet' : x.cause}`, extra: `${sex(x.sex)}${pill([x.color, 'gray'])}${x.alive ? '' : pill(['Stillborn', 'red'])}${(x.abn || []).map((a) => pill([a, 'amber'])).join('')}`, s: `${x.time} · ${x.wt} oz`, go: x.dog ? `dog:${x.dog}` : '' })).join('')}</div></section>` : '';
-    if (l.id !== 'ct') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
+    if (l.id !== 'ct' || l.status[0] !== 'Expected') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
     const f = ui.birth;
     const colorSel = `<select id="b-color" aria-label="Color">${COLORS.filter((c) => c.kind === 'color').map((c) => `<option ${f.color === c.n ? 'selected' : ''}>${c.n}</option>`).join('')}<option value="__add">+ Add a color</option></select>`;
     return `${list}<section class="card app-card"><b style="font-family:var(--font-display);font-size:17px">Pup ${bs.length + 1}</b>
@@ -4973,7 +4980,11 @@ function lineLittersec(l, k) {
       <div><div class="group-label">Born</div><div class="chips">${[['1', 'Alive'], ['0', 'Stillborn']].map(([v, t]) => `<button type="button" class="chip" data-bf="alive|${v}" aria-pressed="${String(f.alive) === v}">${t}</button>`).join('')}</div></div>
       <div class="dates"><label>Birth weight (oz)<input id="b-wt" type="number" step="0.1" inputmode="decimal" value="${esc(f.wt || '')}"></label><label>Time<input id="b-time" type="time" value="${esc(f.time || '')}"></label></div>
       <div><div class="group-label">Abnormalities</div><div class="chips" style="flex-wrap:wrap">${['None', 'Cleft palate', 'Umbilical hernia', 'Swimmer puppy syndrome', 'Anasarca (walrus puppy)', 'Other'].map((a) => `<button type="button" class="chip" data-bf="abn|${a}" aria-pressed="${f.abn.includes(a) || (a === 'None' && !f.abn.length)}">${a}</button>`).join('')}</div></div>
-      <button type="button" class="primary-btn" data-bf="save|1">${icon('check')}Save pup ${bs.length + 1}</button></section>`;
+      <button type="button" class="primary-btn" data-bf="save|1">${icon('check')}Save pup ${bs.length + 1}</button></section>
+      ${bs.length ? `<section class="card app-card"><div class="f-head"><h2>Is that all of them?</h2><span>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</span></div>
+        <div class="f-group"><div class="group-label">Delivery</div><div class="chips wrap">${['Natural', 'C-section, planned', 'C-section, emergency'].map((v) => `<button type="button" class="chip" data-hx="whelpdel|${l.id}|${v}" aria-pressed="${(f.delivery || 'Natural') === v}">${v}</button>`).join('')}</div></div>
+        <button type="button" class="btn-2" data-hx="whelpdone|${l.id}">${icon('flag')}Done whelping: mark the litter whelped</button>
+        <p class="f-hint">You can add a pup you missed afterwards.</p></section>` : ''}`;
   }
   if (k === 'score') {
     const pups = DOGS.filter((d) => d.litter === l.id), list = TRAITS.filter((t) => t.pup);
@@ -5726,6 +5737,13 @@ function hubDo(v) {
   const [k, a, b] = v.split('|'), fm = ui.form;
   const done = (msg) => { ui.pAct = null; ui.formSpec = null; render(); if (msg) toast(msg); };
   if (k === 'disp') { const d = dogById(a); d.disp = b; return done(`${d.name}: ${DISP[b][0].toLowerCase()}`); }
+  if (k === 'whelpdel') { ui.birth.delivery = b; render(); return; }
+  if (k === 'whelpdone') {
+    const l = LITTERS.find((x) => x.id === a);
+    l.delivery = ui.birth.delivery || 'Natural';
+    hubDo(`lit|${a}|Whelped`);
+    back(); return;
+  }
   if (k === 'lit') {
     const l = LITTERS.find((x) => x.id === a), was = l.status[0];
     if (was === b) return done();
@@ -5733,7 +5751,7 @@ function hubDo(v) {
     let more = '';
     if (b === 'Whelped' && was === 'Expected') {
       const bs = BIRTHS[l.id] || []; l.whelp ||= TODAY; l.ready ||= addDays(l.whelp, 56); l.m = bs.filter((x) => x.alive && x.sex === 'm').length; l.f = bs.filter((x) => x.alive && x.sex === 'f').length;
-      const p = PAIRINGS.find((q) => q.dam === l.dam && q.sire === l.sire); if (p) { p.status = ['Whelped', 'green']; p.s = pairS(p); more = ` ${p.dam} × ${p.sire} is marked whelped too.`; }
+      const p = PAIRINGS.find((q) => q.dam === l.dam && q.sire === l.sire); if (p) { p.status = ['Whelped', 'green']; p.s = pairS(p); more = ' Its pairing is marked whelped too.'; }
     }
     if (b === 'Ready') { l.ready ||= TODAY; more = ' Go-home checklists are on Go-home.'; }
     return done(`${litterName(l)}: ${b.toLowerCase()}.${more}`);

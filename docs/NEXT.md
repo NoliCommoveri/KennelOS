@@ -618,6 +618,9 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   stage, date, registration, source, notes; Edit changes the buyer) and **Price & payments**
   (Edit: price, deposit, channel). Events (History, Breeding), expenses, Entries and documents
   open to edit or delete; money received points to where it was recorded.
+- Then (owner): Record the birth had no way to finish. Births, on an expected litter with a pup
+  recorded, ends with "Is that all of them?": delivery, then Done whelping, which marks the
+  litter and its pairing whelped and returns to the litter, now showing its whelped tiles.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
