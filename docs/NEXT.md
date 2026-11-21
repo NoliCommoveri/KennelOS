@@ -743,6 +743,21 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   new screens.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: The prototype's sample, by stage
+
+- The owner: the sample was crowded on every screen. `docs/design/forest-look-prototype.html`
+  (published): the bar's **Stage** now opens on Picks open and shows one part of the year at a
+  time; **Everything** is the old full sample. A table of tags (`SCENE_TAGS`) says which stages,
+  connection and website each sample record belongs to, and how a record differs by stage
+  (pups' plans, Willow × Ash's status, sales paid in full after go-home, Cedar sold to the Reyes
+  family). Changing Stage, Connected or Website rebuilds the sample lists in place from a master
+  copy, so screens read them as before. Home's This week and Coming up rows follow it.
+- Fixed: the Puppies list left out undecided pups; Dogs opens on Breeding when there are no
+  puppies; a trait screen threw on a puppy score without a label (on `main` too).
+- Checked by following every link from every hub in eleven scenes (each stage, plus device-only
+  and no-website), up to 900 screens each: no errors.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

@@ -955,6 +955,8 @@ button.tl-card:hover { border-color: var(--line-strong); }
 
     <h3>Home follows the kennel (D28)</h3>
     <p>No Home tile repeats a tab; the tabs carry the counts instead (Waitlist, and Litters while pups are going home or newborn). Three tiles follow where each litter or planned pairing is: between litters, planning, expecting, newborns, picks open, going home, after go-home. The most urgent come first, and a line of pills under Today names each stage. The other three stay put: <b>Website</b> while a KennelPort site is linked (what an Update website would change), <b>Messages</b> while any message channel is on, then her program type's tiles. Tiles change only when a litter changes stage. Use <b>Stage</b> in the bar above to see each one.</p>
+    <h3>The sample, by stage</h3>
+    <p>The prototype opens on <b>Picks open</b>. <b>Stage</b> shows one part of the year at a time, and each list holds only what fits it: no puppies between litters, Clover × Titan only while expecting, Willow × Ash's pups moving from undecided to available, placed and home, their sales, contracts, go-home weekend and messages appearing when they would. <b>Connected</b> and <b>Website</b> leave out what needs them (status-page messages, family requests, website messages). <b>Everything</b> is the whole sample at once. Changing any of them starts the sample over.</p>
     <h3>How connected (D29)</h3>
     <p>Several features come in pairs that do one job two ways: Companion links or status pages for families; Dropbox sync or live sync for a second phone and a helper; Furever or the puppy portal after go-home. First-run setup (<b>First run</b> in the bar) asks how she breeds, then how connected she is, and shows one of each pair. What you use can change it; turning a twin on there offers to stop the other. Co-owners and stud clients keep Companion links until breeder shares replace them, and the puppy portal needs a linked website. Use <b>Connected</b> and <b>Website</b> in the bar to compare.</p>
     <h3>Breeder to breeder</h3>
@@ -1511,15 +1513,15 @@ S.home = () => {
   const week = [
     ...homeLineRows(),
     FEAT.waitlist && OFFER.open && { ic: 'clock', tone: 'amber', t: `${fam(OFFER.fam).n.replace(' family', '')} · answer on ${DOGS.find((d) => d.id === OFFER.pup).name}`, s: `Due ${wday(OFFER.due)}`, end: pill([`${days(TODAY, OFFER.due)} days`, 'amber']), go: 'wloffer' },
-    { ic: 'stethoscope', tone: 'red', t: 'Wren · vet recheck', s: 'Was due Mon Nov 16', end: pill(['Overdue', 'red']), go: 'dog:wren' },
-    { ic: 'wallet', tone: 'amber', t: 'Lindqvist · $2,700 balance', s: 'Hazel · due Sat Nov 21', go: 'dogsec:hazel|sale' },
-    { ic: 'car', tone: '', t: 'Go-home weekend', s: 'Hazel, Poppy Sat Nov 21 · Fern Sun Nov 22', go: 'littersec:wa|gohome' },
-    { ic: 'scan-line', tone: 'blue', t: 'Clover · x-ray for count', s: 'Mon Nov 23 · day 48', go: 'dog:clover' },
-    { ic: 'flame', tone: 'amber', t: 'Juniper · expected heat', s: 'About Wed Nov 25', go: 'dog:juniper' },
+    hasAgenda('a7') && { ic: 'stethoscope', tone: 'red', t: 'Wren · vet recheck', s: 'Was due Mon Nov 16', end: pill(['Overdue', 'red']), go: 'dog:wren' },
+    SALES.some((x) => x.pup === 'Hazel' && x.paid < saleTotal(x)) && { ic: 'wallet', tone: 'amber', t: 'Lindqvist · $2,700 balance', s: 'Hazel · due Sat Nov 21', go: 'dogsec:hazel|sale' },
+    GOHOME.length && { ic: 'car', tone: '', t: 'Go-home weekend', s: 'Hazel, Poppy Sat Nov 21 · Fern Sun Nov 22', go: 'littersec:wa|gohome' },
+    hasAgenda('a12') && { ic: 'scan-line', tone: 'blue', t: 'Clover · x-ray for count', s: 'Mon Nov 23 · day 48', go: 'dog:clover' },
+    hasAgenda('a13') && { ic: 'flame', tone: 'amber', t: 'Juniper · expected heat', s: 'About Wed Nov 25', go: 'dog:juniper' },
   ].filter(Boolean).map(row).join('');
   const later = [
-    { ic: 'syringe', tone: 'blue', t: 'Birch, Cedar · 2nd vaccines', s: 'Thu Nov 26' },
-    { ic: 'baby', tone: '', t: 'Clover × Titan · due date', s: 'Tue Dec 8 · whelping box set-up Dec 1' },
+    hasAgenda('a14') && { ic: 'syringe', tone: 'blue', t: 'Birch, Cedar · 2nd vaccines', s: 'Thu Nov 26' },
+    litterIn('ct') && { ic: 'baby', tone: '', t: 'Clover × Titan · due date', s: 'Tue Dec 8 · whelping box set-up Dec 1' },
     FEAT.shows && { ic: 'trophy', tone: 'blue', t: 'Gunnar · Granite State KC show', s: 'Sat Dec 12 · Manchester, NH' },
   ].filter(Boolean).map((r) => row({ ...r, go: 'upcoming' })).join('');
   return {
@@ -1755,7 +1757,7 @@ S.dogs = () => {
   const showDisp = ui.dogTab === 'puppies' || ui.dogTab === 'all';
   const tr = (d) => `<tr data-open="dog:${d.id}"><td class="name">${d.name}</td><td>${sex(d.sex)}</td><td>${pill(STATUS[d.status])}</td>${showDisp ? `<td>${d.disp ? pill(DISP[d.disp]) : ''}</td>` : ''}<td class="wide-only">${age(d.born)}</td><td class="wide-only" style="color:var(--muted)">${d.reg || 'Willow × Ash'}</td><td class="num">${chev}</td></tr>`;
   let rows;
-  if (ui.dogTab === 'puppies') rows = ['available', 'health_hold', 'keeping', 'placed'].map((k) => { const g = list.filter((d) => d.disp === k); return g.length ? `<tr class="group-row"><td colspan="7">${DISP[k][0]} · ${g.length}</td></tr>${g.map(tr).join('')}` : ''; }).join('');
+  if (ui.dogTab === 'puppies') rows = ['undecided', 'available', 'health_hold', 'keeping', 'placed'].map((k) => { const g = list.filter((d) => d.disp === k); return g.length ? `<tr class="group-row"><td colspan="7">${DISP[k][0]} · ${g.length}</td></tr>${g.map(tr).join('')}` : ''; }).join('');
   else rows = list.map(tr).join('');
   return {
     bar: bar('Dogs', { ic: 'dog', action: addBtn('Add dog', 'adddog') }),
@@ -5041,7 +5043,7 @@ function lineDogsec(d, k) {
       <section class="card"><div class="rows">${list.map((t) => {
         const key = `${d.id}|${t.id}`, open = ui.tOpen === key, v = trV(d.id, t.id, puppy ? 'puppy' : 'adult'), pv = !puppy ? trV(d.id, t.id, 'puppy') : null;
         const opts = puppy ? (t.kind === 'q' ? [[2, 'Below'], [3, 'Good'], [4, 'Strong']] : [[-1, t.lo], [0, 'Correct'], [1, t.hi]]) : (t.kind === 'q' ? [1, 2, 3, 4, 5].map((n) => [n, `${n}`]) : [[-2, `Very ${t.lo.toLowerCase()}`], [-1, t.lo], [0, 'Correct'], [1, t.hi], [2, `Very ${t.hi.toLowerCase()}`]]);
-        return `<div class="q-row"><button type="button" class="q-head" data-topen="${key}" aria-expanded="${open}"><span class="q">${t.n}<span class="row-s" style="display:block">${trLabel(t, v, puppy)}${pv != null ? ` · as a puppy: ${trLabel(t, pv, true).toLowerCase()}` : ''}</span></span>${trScale(t, v, puppy)}${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? `<div class="q-edit">${opts.map(([val, l]) => `<button type="button" class="chip" data-tset="${d.id}|${t.id}|${val}|${puppy ? 'puppy' : 'adult'}" aria-pressed="${v === val}">${l}</button>`).join('')}</div>` : ''}</div>`;
+        return `<div class="q-row"><button type="button" class="q-head" data-topen="${key}" aria-expanded="${open}"><span class="q">${t.n}<span class="row-s" style="display:block">${trLabel(t, v, puppy)}${pv != null ? ` · as a puppy: ${(trLabel(t, pv, true) || '').toLowerCase()}` : ''}</span></span>${trScale(t, v, puppy)}${icon(open ? 'chevron-up' : 'chevron-down')}</button>${open ? `<div class="q-edit">${opts.map(([val, l]) => `<button type="button" class="chip" data-tset="${d.id}|${t.id}|${val}|${puppy ? 'puppy' : 'adult'}" aria-pressed="${v === val}">${l}</button>`).join('')}</div>` : ''}</div>`;
       }).join('')}</div></section>${setLink('Your trait list is in Setup › Breeding program', 'setupsec:traits')}`;
   }
   return null;
@@ -5259,7 +5261,7 @@ function typeSetupBody() {
 
 /* ================= D28: Home follows the kennel's stage ================= */
 /* the prototype bar's Stage, Connected and Website controls; the app reads all three from her records */
-const DEMO = { stage: 'auto', conn: 'cloud', site: 1 };
+const DEMO = { stage: 'picks', conn: 'cloud', site: 1 };
 const HOME_STAGES = { between: ['Between litters', 'gray'], planning: ['Planning', 'blue'], expecting: ['Expecting', 'blue'], newborns: ['Newborns', 'green'], picks: ['Picks open', 'amber'], gohome: ['Going home', 'amber'], after: ['After go-home', 'gray'] };
 const STAGE_RANK = ['gohome', 'picks', 'newborns', 'expecting', 'planning', 'between', 'after'];
 const STAGE_WHO = { between: '', planning: 'Juniper × Gunnar', expecting: 'Clover × Titan', newborns: 'Willow × Ash', picks: 'Willow × Ash', gohome: 'Willow × Ash', after: 'Willow × Ash' };
@@ -5273,7 +5275,7 @@ function homeStage(l) {
   return GOHOME.length ? 'gohome' : 'picks';
 }
 function kennelStages() {
-  if (DEMO.stage !== 'auto') return [{ k: DEMO.stage, who: STAGE_WHO[DEMO.stage] }];
+  if (DEMO.stage !== 'all') return [{ k: DEMO.stage, who: STAGE_WHO[DEMO.stage] }];
   const out = LITTERS.map((l) => ({ k: homeStage(l), who: litterName(l) })).filter((x) => x.k);
   PAIRINGS.filter((p) => p.status[0] === 'Planned').forEach((p) => out.push({ k: 'planning', who: `${p.dam} × ${p.sire}` }));
   return (out.length ? out : [{ k: 'between', who: '' }]).sort((a, b) => STAGE_RANK.indexOf(a.k) - STAGE_RANK.indexOf(b.k));
@@ -5286,7 +5288,7 @@ function stageTiles(k) {
   const T = {
     between: [['flame', 'Heat watch', 'Juniper · about Nov 25', 'dog:juniper'], ['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['stethoscope', 'Health tests', '2 due this month', 'dogs']],
     planning: [['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['flame', 'Heat log', 'Juniper · about Nov 25', 'dog:juniper']],
-    expecting: [['baby', `Day ${days(ct.bred, TODAY)} of 63`, `Clover · due ${short(ct.due)}`, 'litter:ct'], ['clipboard-list', 'Whelping prep', 'Box set-up Dec 1', 'litter:ct']],
+    expecting: ct ? [['baby', `Day ${days(ct.bred, TODAY)} of 63`, `Clover · due ${short(ct.due)}`, 'litter:ct'], ['clipboard-list', 'Whelping prep', 'Box set-up Dec 1', 'litter:ct']] : [],
     newborns: [['scale', 'Weigh puppies', `Last weighed ${weighedOn}`, 'littersec:wa|care'], ['baby', 'Births', '6 alive · 1 lost', 'littersec:wa|puppies']],
     picks: [FEAT.waitlist && ['list-ordered', 'Picks', `${fam(OFFER.fam).n.replace(' family', '')}’s turn · ${wday(OFFER.due)}`, 'wlpicks:wa'], FEAT.waitlistOnline ? ['clock', 'Offers', '1 waiting on an answer', 'wloffer'] : ['send', 'Picks update', 'Send to families', 'sharing'], ['wallet', 'Deposits', `${SALES.length} of 6 in`, 'sales']],
     gohome: [['car', 'Go-home', 'Sat Nov 21 · 3 pups', 'littersec:wa|gohome'], due.length && ['wallet', 'Balances due', `${money(sum(due.map((s) => saleTotal(s) - s.paid)))} · ${due.length} families`, 'sales'], FEAT.contracts && ['file-pen-line', 'Contracts', '1 to sign', 'contracts']],
@@ -5503,6 +5505,88 @@ S.profile = () => {
       + saveBar('data-toast="Saved"'),
   };
 };
+
+/* ================= the sample, by scene (prototype only) =================
+   The bar's Stage, Connected and Website pick a scene. Each sample list keeps a master copy;
+   a scene rebuilds the list in place from it: records tagged for other stages, the other
+   connection or no website are left out, and a record that differs by stage takes that
+   stage's fields. Untagged records (the breeding dogs, the care team, money history) are in
+   every scene. "Everything" is the whole sample, as drawn before. Changing the scene starts
+   the sample over, so edits made in one scene don't carry into the next. */
+const PUP_STAGES = ['newborns', 'picks', 'gohome', 'after'];
+const WA = { in: PUP_STAGES };
+const SCENE_TAGS = [
+  [DOGS, (r) => r.id, {
+    fern: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' }, picks: { disp: 'available' } } },
+    hazel: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' } } },
+    poppy: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' } } },
+    birch: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' } } },
+    cedar: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' }, after: { disp: 'placed' } } },
+    wren: { in: PUP_STAGES, by: { newborns: { disp: 'undecided' }, after: { disp: 'keeping' } } },
+  }],
+  [LITTERS, (r) => r.id, {
+    wa: { in: PUP_STAGES, by: { newborns: { status: ['Whelped', 'green'], note: 'Born Sep 24 · 6 puppies' }, picks: { status: ['Weaning', 'green'], note: 'Picks open · Reyes family’s turn' }, after: { status: ['Sold', 'gray'], note: 'Every puppy home or staying' } } },
+    ct: { in: ['expecting'] },
+  }],
+  [PAIRINGS, (r) => r.id, { jg: { in: ['planning', 'between'] }, ct: { in: ['expecting'] }, wa: WA }],
+  [SALES, (r) => r.pup, {
+    Hazel: { in: ['picks', 'gohome', 'after'], by: { after: (r) => ({ paid: saleTotal(r) }) } },
+    Poppy: { in: ['picks', 'gohome', 'after'] },
+    Fern: { in: ['gohome', 'after'], by: { after: (r) => ({ paid: saleTotal(r) }) } },
+    Cedar: { in: ['after'], notAll: 1 },
+  }],
+  [WL, (r) => r.id, {
+    lindqvist: { in: ['picks', 'gohome', 'after'] }, okafor: { in: ['picks', 'gohome', 'after'] }, marsh: { in: ['gohome', 'after'] },
+    reyes: { by: { after: { st: 'placed', pup: 'Cedar', pos: undefined } } },
+  }],
+  [GOHOME, (r) => r.pup, { Hazel: { in: ['gohome'] }, Poppy: { in: ['gohome'] }, Fern: { in: ['gohome'] } }],
+  [REQUESTS, (r) => r.id, { r1: { in: ['gohome'], conn: 'cloud' } }],
+  [CONTRACTS, (r) => r.id, { 'c-poppy': { in: ['picks', 'gohome', 'after'] }, 'c-hazel': { in: ['picks', 'gohome', 'after'] }, 'c-fern': { in: ['gohome', 'after'] }, 'c-cho': { in: ['expecting'] } }],
+  [AGENDA, (r) => r.id, {
+    a1: { in: ['expecting'] }, a3: { in: ['expecting'] }, a12: { in: ['expecting'] }, a15: { in: ['expecting'] }, a17: { in: ['expecting'] },
+    a2: { in: ['picks', 'gohome', 'after'] }, a4: { in: ['gohome', 'after'] }, a5: { in: ['newborns', 'picks', 'gohome'] },
+    a7: { in: ['picks', 'gohome'] }, a8: { in: ['gohome'] }, a9: { in: ['gohome'] }, a10: { in: ['gohome'] }, a11: { in: ['gohome'] }, a14: { in: ['picks', 'gohome'] },
+    a13: { in: ['between', 'planning'] },
+  }],
+  [NOTES, (r) => r.id, { n1: { in: ['gohome'], conn: 'cloud' }, n4: { in: ['gohome'], conn: 'cloud' }, n5: { in: ['picks', 'gohome', 'after'] }, n7: { in: ['picks', 'gohome', 'after'] } }],
+  [DUP_PAIRS, (r) => r.id, { dp3: { in: ['gohome', 'after'] } }],
+  [INBOX, (r) => r.id, { m1: { in: ['gohome'] }, m3: { in: ['gohome', 'after'] }, m5: { in: ['gohome'] } }],
+];
+/* a sale that only exists once every pup has gone home: Cedar to the Reyes family */
+SALES.push({ pup: 'Cedar', fam: 'reyes', price: 3200, paid: 3200, date: '2026-11-20', gohome: 'Sat Nov 28', gohomeIso: '2026-11-28', depDate: '2026-11-20', payments: [] });
+/* what an Update website would change, by stage */
+const SITE_BY = {
+  all: ['Hazel, Poppy and Fern: Placed · your site shows Available', 'Clover × Titan: Expected litter · not on your site', 'Cedar: New photos'],
+  expecting: ['Clover × Titan: Expected litter · not on your site'],
+  newborns: ['Willow × Ash: Born Sep 24 · your site shows Expected'],
+  picks: ['Hazel and Poppy: Placed · your site shows Available'],
+  gohome: ['Fern: Placed · your site shows Available', 'Cedar: New photos'],
+};
+const sceneMaster = new Map();
+const OFFER_MASTER = { ...OFFER };
+const sceneOk = (t) => !t || ((!t.in || (DEMO.stage === 'all' ? !t.notAll : t.in.includes(DEMO.stage))) && (!t.conn || t.conn === DEMO.conn) && (!t.site || DEMO.site));
+function applyScene() {
+  SCENE_TAGS.forEach(([arr, key, tags]) => {
+    if (!sceneMaster.has(arr)) sceneMaster.set(arr, structuredClone(arr));
+    const base = structuredClone(sceneMaster.get(arr));
+    arr.length = 0;
+    base.forEach((r) => {
+      const t = tags[key(r)];
+      if (!sceneOk(t)) return;
+      const v = DEMO.stage !== 'all' && t?.by?.[DEMO.stage];
+      arr.push(v ? Object.assign(r, typeof v === 'function' ? v(r) : v) : r);
+    });
+  });
+  Object.assign(OFFER, OFFER_MASTER, { open: ['all', 'picks'].includes(DEMO.stage) && OFFER_MASTER.open });
+  SITE.pending = [...(SITE_BY[DEMO.stage] || [])];
+  ui.dogTab = DOGS.some((d) => d.status === 'puppy') ? 'puppies' : 'breeding';
+  ui.formSpec = null;
+  if (DEMO.stage === 'all') SITE.pending = [...SITE_BY.all];
+  renumber();
+}
+const hasDog = (id) => DOGS.some((d) => d.id === id);
+const litterIn = (id) => LITTERS.some((l) => l.id === id);
+const hasAgenda = (id) => AGENDA.some((a) => a.id === id);
 
 /* ================= search: one keyword box over everything ================= */
 const SCREENS = [
@@ -6336,9 +6420,9 @@ document.addEventListener('click', (e) => {
   if (d.dup) return dupAct(d.dup);
   if ('siteupdate' in d) { SITE.pending = []; SITE.last = TODAY; render(); toast('Website updated'); return; }
   if (d.msgsend) { const m = INBOX.find((x) => x.id === d.msgsend); if (!(ui.form.body || '').trim()) return toast('Write a reply first'); ui.formSpec = null; back(); toast(m.src === 'portal' ? 'Sent to their puppy portal' : m.src === 'breeder' ? 'Sent' : 'Sent by email'); return; }
-  if ('welcomedone' in d) { PT.main = ui.form.type; PT.also = []; DEMO.conn = ui.form.conn; applyType(); syncDemo(); ui.formSpec = null; hist = [{ s: 'home' }]; render(); toast('You’re set up'); return; }
+  if ('welcomedone' in d) { PT.main = ui.form.type; PT.also = []; DEMO.conn = ui.form.conn; applyType(); applyScene(); syncDemo(); ui.formSpec = null; hist = [{ s: 'home' }]; render(); toast('You’re set up'); return; }
   if ('handoff' in d) { const f = ui.form, dg = dogById(f.dog); ui.formSpec = null; back(); playHandoff(dg.name, f.who); return; }
-  if (d.conn) { DEMO.conn = d.conn; applyConn(); syncDemo(); ui.twinAsk = null; render(); toast(d.conn === 'cloud' ? 'Using the cloud' : 'On your devices'); return; }
+  if (d.conn) { DEMO.conn = d.conn; applyConn(); applyScene(); syncDemo(); ui.twinAsk = null; render(); toast(d.conn === 'cloud' ? 'Using the cloud' : 'On your devices'); return; }
   if (d.twin) { const [act, off] = d.twin.split('|'); if (act === 'stop') FEAT[off] = false; ui.twinAsk = null; render(); if (act === 'stop') toast(`${featName(off)} off`); return; }
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
   if (d.fc != null) {
@@ -6743,14 +6827,14 @@ va.innerHTML = Object.entries(PTYPES).map(([k, t]) => `<option value="${k}">${t.
 function syncViewAs() { va.value = PT.main; }
 va.onchange = () => { PT.main = va.value; PT.also = []; applyType(); hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(`Viewing as ${PTYPES[PT.main].n}`); };
 const ds = $('#demo-stage'), dc = $('#demo-conn'), dsi = $('#demo-site');
-ds.innerHTML = `<option value="auto">From the sample</option>` + STAGE_RANK.map((k) => `<option value="${k}">${HOME_STAGES[k][0]}</option>`).join('');
+ds.innerHTML = `<option value="all">Everything</option>` + STAGE_RANK.map((k) => `<option value="${k}">${HOME_STAGES[k][0]}</option>`).join('');
 function syncDemo() { ds.value = DEMO.stage; dc.value = DEMO.conn; dsi.value = String(DEMO.site); syncViewAs(); }
 const demoHome = (msg) => { hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(msg); };
-ds.onchange = () => { DEMO.stage = ds.value; demoHome(ds.value === 'auto' ? 'Stages from the sample' : `Stage: ${HOME_STAGES[ds.value][0]}`); };
-dc.onchange = () => { DEMO.conn = dc.value; applyConn(); demoHome(dc.value === 'cloud' ? 'Using the cloud' : 'On your devices'); };
-dsi.onchange = () => { DEMO.site = Number(dsi.value); applyConn(); demoHome(DEMO.site ? 'Website linked' : 'No website'); };
+ds.onchange = () => { DEMO.stage = ds.value; applyScene(); demoHome(ds.value === 'all' ? 'The whole sample' : `Stage: ${HOME_STAGES[ds.value][0]}`); };
+dc.onchange = () => { DEMO.conn = dc.value; applyConn(); applyScene(); demoHome(dc.value === 'cloud' ? 'Using the cloud' : 'On your devices'); };
+dsi.onchange = () => { DEMO.site = Number(dsi.value); applyConn(); applyScene(); demoHome(DEMO.site ? 'Website linked' : 'No website'); };
 $('#open-welcome').onclick = () => { ui.formSpec = null; hist = [{ s: 'home' }]; open('welcome:1'); };
-applyType(); syncDemo();
+applyType(); applyScene(); syncDemo();
 render();
 })();
 </script>
