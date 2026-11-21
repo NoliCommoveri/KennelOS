@@ -747,6 +747,7 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .mline.owe > span:last-child { color: var(--p-amber-fg); }
 .btn-2:disabled { opacity: .45; cursor: default; }
 .lboz .row-end { gap: 6px; }
+.pup-plan .f-group > .pill { align-self: flex-start; }
 .lboz .row-end label { display: inline-flex; align-items: center; gap: 4px; }
 .lboz input { width: 58px !important; }
 /* the stage bar (D26): where a record is in its life, and its next step */
@@ -848,6 +849,9 @@ button.tl-card:hover { border-color: var(--line-strong); }
 
     <h3>A litter's puppies and their care</h3>
     <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name. <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
+
+    <h3>Puppy plans and puppy records</h3>
+    <p>A litter's <b>Puppies</b> sets every pup's plan (Undecided, Available, Keeping, Health hold; Placed comes from a sale and shows its family) and its registration (Limited, Full, Co-own, None), one card per pup; Add sale starts from that registration, and a sale made at another says so with a link to change it. <b>Puppy records</b> lists each pup's record (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights, from its history), printed or not, with Print all and Send to families; a record opens to Print or Send to family. Printing ticks the go-home checklist's Print puppy records. From Ready, Puppy records is the litter's first tile.</p>
 
     <h3>Sales, contracts and money</h3>
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
@@ -2029,7 +2033,7 @@ S.littersec = (p) => {
   const lineBody = lineLittersec(l, k);
   if (lineBody != null) return { bar: bar(title, { sub: litterName(l) }), body: lineBody };
   if (k === 'puppies') {
-    body = pups.length ? `<section class="card"><div class="rows">${pups.map((q) => { const s = SALES.find((v) => v.pup === q.name); return row({ t: esc(q.name), extra: `${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}${pill(DISP[q.disp || 'undecided'])}`, s: s ? fam(s.fam).n : q.disp === 'health_hold' ? 'Umbilical hernia recheck' : q.disp === 'keeping' ? 'Staying in the program' : OFFER.open && OFFER.pup === q.id ? `Offered to the ${fam(OFFER.fam).n}` : 'No family yet', end: WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : '', go: `dog:${q.id}` }); }).join('')}</div></section>`
+    body = pups.length ? puppiesScreen(l, pups)
       : l.status[0] === 'Closed' ? empty('paw-print', 'All five puppies from this litter were placed and archived.', '')
       : empty('paw-print', l.whelp ? 'No puppies recorded yet. Record each pup on Births.' : 'Puppies show here once they’re born.', l.whelp || l.status[0] === 'Expected' ? 'Births' : '', `littersec:${l.id}|births`);
   } else if (k === 'gohome') {
@@ -2045,6 +2049,8 @@ S.littersec = (p) => {
       ${setLink('Edit checklist', 'ghlist')}`;
   } else if (k === 'care') {
     body = careScreen(l);
+  } else if (k === 'records') {
+    body = recordsScreen(l);
   } else if (k === 'weigh') {
     body = `<div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Cedar eleven point two”</span>${planTag(2)}</div>
       <p class="lede">Enter today's weights. Leave a box empty to skip a puppy.</p>
@@ -3613,7 +3619,7 @@ S.addsale = (spec) => {
   const [pid = '', fid = ''] = (spec || '').split('|');
   ui.adSale = null;
   if (ui.stash && ui.stash.spec === 'addsale:' + (spec || '')) { ui.formSpec = ui.stash.spec; ui.form = ui.stash.form; ui.stash = null; }
-  const fm = formFor('addsale:' + (spec || ''), () => ({ pup: pid, pick: fid, reg: 'Limited', depIn: 'no', depDate: TODAY, depVia: '', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), gohome: '', sched: SCHEDULES.find((x) => x.usual).id, channel: '', lead: '', ref: '', adds: [] }));
+  const fm = formFor('addsale:' + (spec || ''), () => ({ pup: pid, pick: fid, reg: (pid && dogById(pid)?.ireg) || 'Limited', depIn: 'no', depDate: TODAY, depVia: '', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), gohome: '', sched: SCHEDULES.find((x) => x.usual).id, channel: '', lead: '', ref: '', adds: [] }));
   const sold = (d) => SALES.some((s) => s.pup === d.name);
   const pups = DOGS.filter((d) => d.status === 'puppy' && d.disp !== 'placed' && !sold(d));
   const adults = DOGS.filter((d) => ['active_breeding', 'retired_breeding'].includes(d.status) && !sold(d)).sort((a, b) => a.name.localeCompare(b.name));
@@ -5069,7 +5075,12 @@ function lineSetupBody(k) {
   return null;
 }
 
-function litterSections(l) { const base = litterSectionsBase(l); base.splice(Math.min(base.length, 3), 0, ...lineLitterTiles(l)); return base; }
+function litterSections(l) {
+  const base = litterSectionsBase(l); base.splice(Math.min(base.length, 3), 0, ...lineLitterTiles(l));
+  /* Puppy records: once the litter is Ready, the first tile */
+  if (l.whelp && l.status[0] !== 'Closed') { const t = [`littersec:${l.id}|records`, 'file-text', 'Puppy records', recLine(l)]; if (['Ready', 'Sold'].includes(l.status[0])) base.unshift(t); else base.push(t); }
+  return base;
+}
 
 
 /* ================= program types (docs/KennelOS_Program_Types_Plan.md) ================= */
@@ -5751,6 +5762,13 @@ function hubDo(v) {
   const done = (msg) => { ui.pAct = null; ui.formSpec = null; render(); if (msg) toast(msg); };
   if (k === 'disp') { const d = dogById(a); d.disp = b; return done(`${d.name}: ${DISP[b][0].toLowerCase()}`); }
   if (k === 'caresave') return careSave(a, b);
+  if (k === 'pplan') { const d = dogById(a); d.disp = b; render(); return toast(`${d.name}: ${DISP[b][0].toLowerCase()}`); }
+  if (k === 'preg') { const d = dogById(a); d.ireg = b; render(); return toast(`${d.name}: ${b.toLowerCase()} registration`); }
+  if (k === 'recprint' || k === 'recsend') { const l = LITTERS.find((x) => x.id === a), ps = recPups(l);
+    if (k === 'recprint') { markPrinted(ps); render(); return toast(`${ps.length} puppy records ready to print`); }
+    const sold = ps.filter((d) => SALES.some((v) => v.pup === d.name)); return toast(sold.length ? `Sent to ${sold.length} famil${sold.length > 1 ? 'ies' : 'y'}` : 'No pups have families yet'); }
+  if (k === 'recprint1') { const d = dogById(a); markPrinted([d]); render(); return toast(`${d.name}'s record is ready to print`); }
+  if (k === 'recsend1') { const d = dogById(a), v = SALES.find((x) => x.pup === d.name); return toast(`Sent to ${fam(v.fam).n}`); }
   if (k === 'whelpdel') { ui.birth.delivery = b; render(); return; }
   if (k === 'whelpdone') {
     const l = LITTERS.find((x) => x.id === a);
@@ -5926,6 +5944,55 @@ function careSave(lid, k) {
   const le = litEvents(lid); le.push({ d: f.d, type: [evT, tone, ic], t: title, body: k === 'weigh' || k === 'chip' ? body : `${all}${body ? ` · ${body}` : ''}`, cost: k === 'vet' ? (Number(f.cost) || 0) * done.length : 0 }); le.sort((a, b) => b.d.localeCompare(a.d));
   ui.formSpec = null; back(); toast(down.length ? `Saved. Not gaining: ${down.join(', ')}` : `Saved on ${done.length} pup${done.length > 1 ? 's' : ''}: one entry each`);
 }
+
+/* ================= a litter's pup plans and puppy records =================
+   Puppies is where each pup's plan (Undecided, Available, Keeping, Health hold; Placed comes
+   from a sale) and its registration (Limited, Full, Co-own, None: live's intended_registration,
+   which Add sale starts from) are set, every pup on one screen. Puppy records is each pup's
+   record to print or send; from Ready it is the litter's first tile. */
+const IREG = [['Limited', 'Limited'], ['Full', 'Full'], ['Co-own', 'Co-own'], ['None', 'None']];
+const iregOf = (d) => d.ireg || 'Limited';
+function puppiesScreen(l, pups) {
+  return `<p class="lede">Each pup's plan and registration. Add sale starts from them.</p>
+    ${pups.map((q) => {
+      const s = SALES.find((v) => v.pup === q.name), disp = q.disp || 'undecided';
+      const plan = disp === 'placed' ? `<span class="pill gray">Placed${s ? ` · ${esc(fam(s.fam).n)}` : ''}</span>`
+        : `<div class="chips wrap">${Object.entries(DISP).filter(([k]) => k !== 'placed').map(([k, [t]]) => `<button type="button" class="chip" data-hx="pplan|${q.id}|${k}" aria-pressed="${disp === k}">${t}</button>`).join('')}</div>`;
+      return `<section class="card app-card pup-plan"><div class="sell-top"><button type="button" class="link sale-who" data-open="dog:${q.id}">${esc(q.name)}${icon('chevron-right')}</button>${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}<span class="fcount" style="margin-left:auto">${WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : ''}</span></div>
+        <div class="f-group"><div class="group-label">Plan</div>${plan}</div>
+        <div class="f-group"><div class="group-label">Registration</div><div class="chips wrap">${IREG.map(([v, t]) => `<button type="button" class="chip" data-hx="preg|${q.id}|${v}" aria-pressed="${iregOf(q) === v}">${t}</button>`).join('')}</div>${s && (s.reg || 'Limited') !== iregOf(q) ? `<p class="f-hint">Sold as ${esc(s.reg || 'Limited')}: <button type="button" class="link" data-open="saleedit:${q.id}">change it on the sale</button></p>` : ''}</div></section>`;
+    }).join('')}`;
+}
+
+/* puppy records: printed is the go-home checklist's Print puppy records tick */
+const recItem = () => GH_LIST.find((x) => x.link === 'records');
+const PRINTED = {};
+const recPrinted = (d) => PRINTED[d.id] || ((GH_TICKS[d.name] || []).includes(recItem()?.id) ? 'earlier' : '');
+const recPups = (l) => DOGS.filter((d) => d.litter === l.id && d.status === 'puppy');
+const recLine = (l) => { const ps = recPups(l), n = ps.filter(recPrinted).length; return ps.length ? `${n} of ${ps.length} printed` : 'None yet'; };
+const recSummary = (d) => {
+  const evs = eventsFor(d), c = (t) => evs.filter((e) => e.type[0] === t).length;
+  return [c('Vaccination') && `${c('Vaccination')} shot${c('Vaccination') > 1 ? 's' : ''}`, c('Preventative') && `${c('Preventative')} dewormer${c('Preventative') > 1 ? 's' : ''}`, c('Vet visit') && 'vet exam', CHIPPED[d.id] && 'microchip', c('Weight check') && `${c('Weight check')} weight${c('Weight check') > 1 ? 's' : ''}`].filter(Boolean).join(' · ') || 'Nothing logged yet';
+};
+function markPrinted(ds) { ds.forEach((d) => { PRINTED[d.id] = TODAY; const it = recItem(); if (it && SALES.some((s) => s.pup === d.name)) { const t = (GH_TICKS[d.name] ||= []); if (!t.includes(it.id)) t.push(it.id); } }); }
+function recordsScreen(l) {
+  const ps = recPups(l);
+  if (!ps.length) return empty('file-text', 'Puppy records show here once pups are born.', '');
+  return `<p class="lede">Each pup's record: parents, birth, weights, shots, deworming, vet visits and microchip, kept up from its history.</p>
+    <section class="card"><div class="rows">${ps.map((d) => { const s = SALES.find((v) => v.pup === d.name), pr = recPrinted(d); return row({ ic: 'file-text', t: esc(d.name), extra: pr ? pill([pr === 'earlier' ? 'Printed' : `Printed ${short(pr)}`, 'green']) : pill(['Not printed', 'gray']), s: `${s ? `${esc(fam(s.fam).n)} · ` : ''}${recSummary(d)}`, go: `puprecord:${d.id}` }); }).join('')}</div></section>
+    <div class="actions-2"><button type="button" class="btn-2" data-hx="recsend|${l.id}">${icon('send')}Send to families</button><button type="button" class="primary-btn" data-hx="recprint|${l.id}">${icon('file-text')}Print all ${ps.length}</button></div>`;
+}
+S.puprecord = (id) => {
+  const d = dogById(id), x = info(d), s = SALES.find((v) => v.pup === d.name), evs = eventsFor(d), of = (t) => evs.filter((e) => e.type[0] === t);
+  const sec = (h, list) => `<div class="group-label">${h}</div>${list.length ? `<div class="rows">${list.map((e) => `<div class="row static"><span class="row-main"><span class="row-t">${e.t}</span><span class="row-s">${fmt(e.d)}${e.body && e.body !== '—' ? ` · ${e.body}` : ''}</span></span></div>`).join('')}</div>` : '<p class="f-hint">None yet</p>'}`;
+  return {
+    bar: bar('Puppy record', { sub: d.name }),
+    body: `<section class="card app-card"><div class="f-head"><h2>${esc(d.name)}</h2><span>${d.sex === 'm' ? 'Male' : 'Female'} · ${esc(x.color)}</span></div>
+        ${facts([['Born', fmt(d.born)], ['Sire', x.sire], ['Dam', x.dam], ['Microchip', CHIPPED[d.id] || 'Not yet'], ['Registration', iregOf(d)], ['Family', s ? esc(fam(s.fam).n) : 'Not placed']])}
+        ${sec('Shots', of('Vaccination'))}${sec('Deworming', of('Preventative'))}${sec('Vet visits', of('Vet visit'))}${sec('Weights', of('Weight check').slice(0, 4))}</section>
+      <div class="actions-2"><button type="button" class="btn-2" data-hx="recsend1|${d.id}"${s ? '' : ' disabled'}>${icon('send')}Send to family</button><button type="button" class="primary-btn" data-hx="recprint1|${d.id}">${icon('file-text')}Print</button></div>`,
+  };
+};
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {

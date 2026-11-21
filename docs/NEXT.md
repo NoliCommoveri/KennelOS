@@ -639,6 +639,19 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   weighs the same way); shown everywhere as "9 lb 10 oz".
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: The prototype: puppy plans and puppy records on the litter
+
+- The owner: each pup's plan (disposition) and registration set from the litter, and puppy
+  records, which go to the top once the litter is Ready.
+- `docs/design/forest-look-prototype.html`: a litter's **Puppies** is a card per pup with its
+  plan (Undecided, Available, Keeping, Health hold; Placed shows its family) and registration
+  (Limited, Full, Co-own, None: live's `intended_registration`); Add sale starts from it, and a
+  sale at another registration says so. **Puppy records**: each pup's record from its history
+  (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights),
+  printed or not, Print all, Send to families, and one record to Print or Send; printing ticks
+  the go-home checklist's Print puppy records. From Ready it is the litter's first tile.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
