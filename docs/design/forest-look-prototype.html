@@ -252,6 +252,21 @@ table.list .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tl-top .cost { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tl-body { color: var(--muted); font-size: 13px; }
 .tl-body strong { color: var(--ink); font-weight: 600; }
+.tl-group { padding: 0; overflow: hidden; }
+.tl-sum { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 10px 36px 10px 12px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; position: relative; }
+.tl-sum:hover { background: var(--surface-2); }
+.tl-sum .tl-top b { font-family: var(--font-display); font-size: 15px; }
+.tl-n { font-size: 12px; font-weight: 600; color: var(--muted); }
+.tl-sum .cost { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tl-chev { position: absolute; right: 10px; top: 12px; color: var(--faint); }
+.tl-subs { border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+.tl-sub { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; width: 100%; }
+.tl-subs > .tl-sub:first-child { border-top: 0; }
+button.tl-sub { cursor: pointer; }
+button.tl-sub:hover { background: var(--surface-2); }
+.tl-sub > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 13.5px; }
+.tl-sub .cost { margin-left: auto; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tl-sub .tl-top b { font-size: 14px; }
 
 /* litters */
 .litter { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); text-align: left; width: 100%; box-shadow: var(--shadow); }
@@ -748,6 +763,51 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .kels-star { border: 0; background: none; color: var(--faint); padding: 0 14px; align-self: stretch; cursor: pointer; }
 .kels-star[aria-pressed="true"] { color: var(--p-amber-fg); }
 .kels-star[aria-pressed="true"] svg { fill: currentColor; }
+/* one sale, one screen: the money lines, the go-home checklist */
+.sale-who { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 2px; }
+.sale-who i[data-lucide], .sale-who svg.lucide { width: 18px; height: 18px; color: var(--faint); }
+.hub-line .link { font-size: 13px; margin-left: 2px; }
+.mlines { padding: 2px 0 8px; }
+.mline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mline .m-sub { color: var(--muted); font-size: 12.5px; }
+.mline .link { font-size: 13px; }
+.mline.sum { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 9px; font-weight: 700; }
+.mline.bold { font-weight: 700; }
+.mline.owe > span:last-child { color: var(--p-amber-fg); }
+.btn-2:disabled { opacity: .45; cursor: default; }
+.lboz .row-end { gap: 6px; }
+.pup-plan .f-group > .pill { align-self: flex-start; }
+.lboz .row-end label { display: inline-flex; align-items: center; gap: 4px; }
+.lboz input { width: 58px !important; }
+/* the stage bar (D26): where a record is in its life, and its next step */
+.stage-bar { border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid transparent; }
+.stage-bar.blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.stage-bar.green { background: var(--p-green-bg); color: var(--p-green-fg); }
+.stage-bar.amber { background: var(--p-amber-bg); color: var(--p-amber-fg); }
+.stage-bar.violet { background: var(--p-violet-bg); color: var(--p-violet-fg); }
+.stage-bar.gray { background: var(--p-gray-bg); color: var(--p-gray-fg); }
+.sb-top { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; }
+.sb-stage { border: 0; background: none; color: inherit; font: 800 15px var(--font-display); padding: 2px 0; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.sb-stage i[data-lucide], .sb-stage svg.lucide { width: 16px; height: 16px; }
+.sb-line { font-size: 13px; color: var(--ink); opacity: .85; }
+.sb-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.sb-btn { border: 1px solid currentColor; background: var(--surface); color: inherit; border-radius: 999px; padding: 6px 13px; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.sb-btn:first-child { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.sb-btn i[data-lucide], .sb-btn svg.lucide { width: 15px; height: 15px; }
+.sb-picks .chips { gap: 6px; }
+.sb-note { margin: 6px 0 0; font-size: 12.5px; color: var(--ink); opacity: .8; }
+button.tl-card { text-align: left; width: 100%; font: inherit; color: inherit; cursor: pointer; }
+button.tl-card:hover { border-color: var(--line-strong); }
+.gh-row[disabled] { cursor: default; color: inherit; }
+.gh-row[disabled]:hover { background: none; }
+.gh-row.done .row-t { color: var(--muted); }
+.gh-foot { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px 12px; border-top: 1px solid var(--line); }
+.gh-edit-row { display: flex; align-items: center; }
+.gh-edit-row .row { flex: 1; min-width: 0; }
+.gh-move { display: flex; gap: 2px; padding-right: 8px; }
+.gh-move button { border: 0; background: none; color: var(--muted); padding: 6px; border-radius: 8px; cursor: pointer; display: inline-flex; }
+.gh-move button:disabled { opacity: .3; cursor: default; }
+.section-h h2 .link { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
 .sa-btns { display: flex; gap: 6px; justify-content: flex-end; }
 .facts dd b { font-family: var(--font-display); font-weight: 800; }
 </style>
@@ -814,12 +874,28 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
     <p>Her add-ons sit in <b>groups</b> (Photo packages, Training), each with its own settings that its add-ons follow unless one sets its own: the link and link text under the group on a family's status page, the ages families can request and cancel them, when they're paid (with the balance, or a payment plan by percent at an age, on approval or before pickup), and whether they're paid on their own dates or with the sale's schedule. Each add-on also has a description families see, whether families can request it on their status page, and boarding days included. Transport and boarding sit in a fixed <b>Go-home</b> group so they read as add-ons; it can't be renamed, given settings or take other add-ons, and their prices are the Setup › Go-home answers. Pricing and schedules lists each group's and add-on's payment rule under <b>Add-on payments</b>, opening the same group or add-on screen.</p>
     <p><b>Transport</b> is priced per mile from her standard pickup place: fee per mile, round trip or one way, no charge under a distance, offered only to families living at least so far away (City / state becomes required on applications), and "in touch" past a limit. <b>Check a distance</b> gets driving miles through Mapbox (cloud backup) or Open in Maps and shows the working. <b>Handled by</b> sets the default for new sales: the kennel, or a third party, one of her transport partners or unknown. Each partner (a Transport account) carries a referral reward, per booking or a percent of their price; the Transport screen totals expected and received rewards by partner. On a sale, transport is either the kennel's (miles, Get driving miles, a fee prefilled from her rate) or a third party's (partner, anything charged on the sale, the reward expected or received). <b>Pickup places</b> (Setup › Go-home) holds her places, which one mileage starts from, which families see, and how late families can change a pickup.</p>
     <p><b>Price rules</b> (Pricing and schedules) each look at the <b>parents</b> or the <b>pup</b>, then at a name, breed, registry, title, import or trait scores (name, title and import are parents only). A pup breed price replaces the usual price; parent rules add or subtract and set the litter's price; pup rules (its puppy scores, its registry) adjust each pup's own price when it's sold. A litter's Pricing shows the working and each pup's adjustment; its own price, and every sale already made, keep theirs.</p>
-    <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time, ready to go home). A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the balance (a schedule or one due date) and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
+    <p><b>Saved schedules</b> open their own screen: each due date's when (an age, a date, days before pickup, at pickup), what it covers, and how much (a percent of the total or of the rest, or an amount any money or only new payments can cover); the final payment is always the rest. Pricing and schedules also holds payment instructions and how the final payment is paid. A litter's <b>Pricing</b> can split deposit and full registration by sex and holds its own dates (deposits open, picks open time); its ready date is on its Go-home screen. A sale's <b>Edit</b> opens <b>Sale details</b>: status, date, registration, price, deposit and how it was paid, the channel and its processing fee, lead source and referrer, and why it ended, with any refund. Boarding on a sale is charged per day, week or month.</p>
+
+    <h3>Hubs: one way for a dog, a litter, a pairing and a sale</h3>
+    <p><b>A second way in is welcome</b> (a family's fee from Needs you, their page or Fees due); two ways into the same place on the same screen are not, so a hub never shows a tile and a row that open the same screen. Each is a header card (who or what), a <b>stage bar</b>, anything needing attention, then tiles; the header has no add or Edit button. The stage bar says where it is in its life, with the next step as a button; tap the stage to pick any stage. Blue is coming, amber is waiting on her, green is done, grey is ended. A <b>litter</b>: Expected (Record the birth: Births records each pup, then "Is that all of them?" takes the delivery and Done whelping, which marks the litter and its pairing whelped and returns to the litter) → Whelped (Start weaning) → Weaning (Mark ready) → Ready (Mark sold once every puppy has a plan) → Sold (Close the litter once one has gone home and none is left to place) → Closed. A <b>pairing</b>: Planned (Log a breeding opens Add event on the dam with Breeding picked; saving marks it Bred) → Bred (Confirmed pregnant, which adds the expected litter, or Not pregnant) → Confirmed pregnant (Record the birth) → Whelped; Not pregnant, Failed or Cancelled takes an expected litter off Litters. A <b>sale</b>: Deposit pending, Deposit paid and Paid in full follow the money (Record deposit, Record a payment); Mark delivered asks when, whether the owner is now the family, whether the pup leaves her dogs list and, when it's the last one, whether to close the litter; returned, cancelled or voided are in Details › Edit. A <b>puppy</b>'s plan is its stage: Undecided (Available, Keeping), Available (Add sale), Keeping, Health hold; Placed comes from a sale. An adult dog has no bar.</p>
+    <p><b>Details</b> on every hub holds what it is, with Edit, and Archive or Delete at the foot of Edit. Every other tile holds one group and changes only that, with Edit in its own header: a sale's <b>Price &amp; payments</b> edits the price, deposit and channel; a litter's Pricing and Go-home change in place. A <b>pairing</b> has its own hub: Details (dam, sire, dates, method, on website, notes), Pairing check, Breeding (the dam's heat, progesterone tests, breedings and ultrasounds) and its Litter. <b>A row in a list opens to change or delete it</b>: events in History and Breeding, expenses, Entries, documents and payments; money received opens to where it was recorded.</p>
+
+    <h3>A day's events, grouped</h3>
+    <p>In a history (a dog's, a litter's, Breeding), three or more events on the same day show as <b>one card</b>: titled by that day's vet visit (else its first event), with "7 events", the kinds counted ("vet visit · 2 screening tests · 2 vaccinations · dewormer") and the costs summed. Tapping it opens the day: each event on its own line, each opening to Edit event. They stay separate events; the grouping is only how they're shown. A day with one or two events looks as before. In the build, a search or filter that matches an event inside a day opens that day.</p>
+
+    <h3>A litter's puppies and their care</h3>
+    <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name, under the birth: how many born and alive, the delivery, any stillborn, and Add a pup you missed; each pup's card shows its birth order, time, weight and anything found. There is no Births tile: Record the birth on the stage bar opens it, and a litter has no Pairing check tile (the pairing's hub has it). <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
+
+    <h3>Puppy plans and puppy records</h3>
+    <p>A litter's <b>Puppies</b> sets every pup's plan (Undecided, Available, Keeping, Health hold; Placed comes from a sale and shows its family) and its registration (Limited, Full, Co-own, None), one card per pup; Add sale starts from that registration, and a sale made at another says so with a link to change it. <b>Puppy records</b> lists each pup's record (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights, from its history), printed or not, with Print all and Send to families; a record opens to Print or Send to family. Printing ticks the go-home checklist's Print puppy records. From Ready, Puppy records is the litter's first tile.</p>
 
     <h3>Sales, contracts and money</h3>
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
-    <p>A sale's <b>Payments</b> (from the Sale, Sale details or the person's page) shows the total, paid, remaining and next payment; each due date (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up; and the money received. <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note; a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
+    <p><b>A sale</b> (a pup's <b>Sale</b>, Sales &amp; Placements, the family's one Sale tile) is a hub: the family (opening their page) and when the pup goes home, with Change for the date, time and place right there, then its stage bar. That date looks like the sale's own but is the pickup on the calendar (live: the placement event), so changing one changes the other. Then one tile per thing, none repeated: <b>Details</b> (buyer, stage, sale date, registration, source, notes; Edit changes the buyer too, without moving anyone on the waitlist), <b>Price &amp; payments</b> (what's due and when), <b>Add-ons</b>, <b>Contract</b> and <b>Go-home</b> (that pup's checklist). <b>Price &amp; payments</b> holds all the money, with Edit for the price, deposit and channel: the puppy, each add-on, total, paid and balance; the due dates (the deposit, then her schedule's, or one balance at pickup) with Paid, Due soon, Overdue or Coming up, and Change for the schedule or due date in place; the money received, where <b>Record a payment</b> starts at the next amount owed, with the date, method, paid via, reference and note, and a payment opens to change or remove it. Once everything is in, <b>Mark paid in full</b>. Send invoice (Send receipt once paid) and Payment link sit under it, with what she nets after a processing fee. <b>Contracts</b> (Business) lists those waiting on signatures, drafts, signed and ended, with her contract forms and e-sign account. A contract shows who's signed, then what's next: <b>Send for signature</b> (her forms by kind, the ones that fit this sale first; the buyer's email with Change; whether she signs too), a reminder or the signing link, Mark signed for one signed on paper, or the signed copy. Its details follow its type: a sale; a reservation's litter, sex, color and deposit; who a stud service, co-own, lease or foster is with, and a lease's dates.</p>
     <p>In <b>Financials</b> the year opens a list of her years, and Overview, Income, Expenses and Entries follow it. <b>Add entry</b> on Entries is an expense, or money received: that lists the sales with a balance, stud fees and waitlist fees still owed, and each opens where it's recorded, since income is worked out from them. <b>Accounts</b> (Business) are grouped by type, transport partners among them. An account holds its name, type and website; her login (private); a payment service's or marketplace's processing fee and whether the buyer pays it; a payment service's link and instructions; a referral link, code and instructions, shared with families or on her website; a form service's contract forms; whether she signs new e-sign templates; and this year's expenses paid to it, opening Entries filtered to them.</p>
+
+    <h3>Go-home</h3>
+    <p>A litter's <b>Go-home</b> starts with its <b>ready date</b> (Change in place; contracts fill their ready date from it), then each sold pup's checklist, in go-home order. The <b>go-home checklist</b> is hers (Setup › Go-home › Go-home checklist): items in her order, each linked to what checks it off or ticked by hand. Linked items tick themselves from the records: a vet visit, vaccination or dewormer (Preventative) on the pup, its microchip number, the sale contract signed, the balance paid; Print puppy records and Send Furever link tick when she does them from the row. An item not done yet opens what does it (Add event with the type picked, the dog's details, the contract, Record a payment). In the build the list would be a new table (one row per item: name, link, order, kennel), with ticks for hand-ticked items per sale; linked items are worked out, never stored.</p>
 
     <h3>Possible duplicates</h3>
     <p>A hub with possible duplicates shows one row at the top ("2 dogs may be entered twice", "1 person and 1 kennel may be entered twice"): Dogs, People (people and kennels), Litters (litters and pairings), Sales and Financials (expenses). With none, there is no row. It opens <b>Possible duplicates</b> for just that kind, one card per pair: why they look the same (Very likely or Possible), the two side by side with differences highlighted, what's linked to each and where each came from. <b>Not the same</b> keeps both and stops asking. <b>Merge</b> asks which to keep (the one with more linked is suggested) and, where they disagree, which value wins; blanks fill from the other, everything linked moves over, and the other is deleted. Import / Export's Find duplicates lists every kind. On the add forms (Add dog, Add person, Add family, the person picker), a <b>certain</b> match, the same email or phone, or the same registered name, leads with <b>Use</b> that one (as sire or dam when adding a parent from a pedigree) beside <b>Create new</b>; a name alone is a quieter "Possible match" line. Neither stops her saving. The app works the counts out on this device after her data changes, never when a page opens and never sent anywhere, so the row is there from the first paint and costs the server nothing.</p>
@@ -877,9 +953,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
       <li><b>Program-type gaps</b> (<code>KennelOS_Program_Types_Plan.md</code> §4): guardian homes, trials and performance titles, semen inventory, care logs and inspections. Each needs its own plan.</li>
     </ol>
 
-    <h3>Home follows the kennel (D26)</h3>
+    <h3>Home follows the kennel (D28)</h3>
     <p>No Home tile repeats a tab; the tabs carry the counts instead (Waitlist, and Litters while pups are going home or newborn). Three tiles follow where each litter or planned pairing is: between litters, planning, expecting, newborns, picks open, going home, after go-home. The most urgent come first, and a line of pills under Today names each stage. The other three stay put: <b>Website</b> while a KennelPort site is linked (what an Update website would change), <b>Messages</b> while any message channel is on, then her program type's tiles. Tiles change only when a litter changes stage. Use <b>Stage</b> in the bar above to see each one.</p>
-    <h3>How connected (D27)</h3>
+    <h3>How connected (D29)</h3>
     <p>Several features come in pairs that do one job two ways: Companion links or status pages for families; Dropbox sync or live sync for a second phone and a helper; Furever or the puppy portal after go-home. First-run setup (<b>First run</b> in the bar) asks how she breeds, then how connected she is, and shows one of each pair. What you use can change it; turning a twin on there offers to stop the other. Co-owners and stud clients keep Companion links until breeder shares replace them, and the puppy portal needs a linked website. Use <b>Connected</b> and <b>Website</b> in the bar to compare.</p>
     <h3>Breeder to breeder</h3>
     <p>From <code>docs/KennelOS_Breeder_To_Breeder_Plan.md</code> (a plan; nothing built). Studs take applications and show each booking's steps; co-owns and leases have a standing page with the terms and what's due; a dog sold to another breeder arrives in their KennelOS, with a short hand-off (Sharing › Sell to a breeder). A breeder on KennelOS gets records in their own app; anyone else gets a status page. Her public profile is off until she turns it on, shows a region, never an address, and marks tests and titles verified from her records.</p>
@@ -937,9 +1013,9 @@ const LITTERS = [
 ];
 const litterName = (l) => `${l.dam} × ${l.sire}`;
 const PAIRINGS = [
-  { dam: 'Juniper', sire: 'Gunnar', status: ['Planned', 'blue'], s: 'Next heat expected about Nov 25 · first breeding' },
-  { dam: 'Clover', sire: 'Titan', status: ['Confirmed pregnant', 'green'], s: 'Bred Oct 6 and 8 · due Dec 8' },
-  { dam: 'Willow', sire: 'Ash', status: ['Whelped', 'green'], s: 'Whelped Sep 24 · 6 puppies' },
+  { id: 'jg', dam: 'Juniper', sire: 'Gunnar', status: ['Planned', 'blue'], s: 'Next heat expected about Nov 25 · first breeding', plan: '2026-11-27', method: 'Natural' },
+  { id: 'ct', dam: 'Clover', sire: 'Titan', status: ['Confirmed pregnant', 'green'], s: 'Bred Oct 6 and 8 · due Dec 8', bred: '2026-10-06', bred2: '2026-10-08', due: '2026-12-08', method: 'AI, chilled', web: true },
+  { id: 'wa', dam: 'Willow', sire: 'Ash', status: ['Whelped', 'green'], s: 'Whelped Sep 24 · 6 puppies', bred: '2026-07-24', bred2: '2026-07-26', due: '2026-09-25', method: 'Natural' },
 ];
 const EVENTS = {
   willow: [
@@ -1220,7 +1296,7 @@ const SETUP_TODO = [['clock', 'amber', 'Set your time zone. Offer deadlines use 
 const GROUP_Q = {
   kennel: [['Kennel name', 'Thornfield Kennels'], ['Prefix', 'THORN'], ['Location', 'Hartland, VT'], ['Time zone', 'Not set'], ['Breeds', 'Labrador Retriever'], ['Logo', 'Uploaded']],
   payments: [['Invoice footer', 'Set'], ['Receipt wording', 'Default']],
-  gohome: [['Pickup places', 'Maple Grove Library lot', 0, 'pickupplaces'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport', '$1.50 a mile, round trip', 0, 'addon:transport'], ['Boarding after go-home', '$35 a day', 0, 'addon:boarding'], ['Go-home checklist', 'Contract, balance, vaccines, microchip, pack']],
+  gohome: [['Pickup places', 'Maple Grove Library lot', 0, 'pickupplaces'], ['Pickup times', 'Sat and Sun, 10 AM–3 PM'], ['Transport', '$1.50 a mile, round trip', 0, 'addon:transport'], ['Boarding after go-home', '$35 a day', 0, 'addon:boarding'], ['Go-home checklist', 'Vet visit, vaccines, deworming, contract, balance and more', 0, 'ghlist']],
   care: [['Preferred tests', 'OFA hips, elbows, eyes (CAER), DNA panel'], ['Feeding schedule', 'Labrador Retriever'], ['Puppy Record fields', '8 shown'], ['Lifecycle reminders', 'On']],
   contracts: [['E-sign', 'Firma connected'], ['Templates', 'Pet sale, Co-own, Stud service'], ['Send for e-sign', '10 a month included', 1]],
   money: [['Mileage rate', '$0.70 a mile'], ['Tax year', 'January–December'], ['Accounts', 'Checking, Venmo']],
@@ -1254,7 +1330,26 @@ const row = ({ ic, tone = '', t, s, end = '', go, extra = '', planned }) =>
   `<button type="button" class="row${planned ? ' planned' : ''}" ${go ? `data-open="${go}"` : ''}>${ic ? `<span class="row-ic ${tone}">${icon(ic)}</span>` : ''}<span class="row-main"><span class="row-t">${t}${extra}${planned ? planTag(planned) : ''}</span>${s ? `<span class="row-s">${s}</span>` : ''}</span><span class="row-end">${end}${chev}</span></button>`;
 const tiles = (list) => `<div class="sec-grid">${list.map(([go, ic, t, s, planned]) => `<button type="button" class="sec-tile${planned ? ' planned planned-box' : ''}" data-open="${go}">${icon(ic)}<b>${t}</b><span>${s}</span>${planned ? planTag(planned) : ''}</button>`).join('')}</div>`;
 const attnCard = (list) => list.length ? `<section class="card"><div class="rows">${list.map(([ic, tone, t, go, s]) => row({ ic, tone, t, s, go })).join('')}</div></section>` : '';
-const timeline = (evs) => `<div class="timeline">${evs.map((e) => `<div class="tl-item"><div class="tl-date">${fmt(e.d)}</div><div class="card tl-card"><div class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</div><div class="tl-body">${e.body}</div></div></div>`).join('') || '<p class="lede">Nothing matches these filters.</p>'}</div>`;
+const tlOne = (evs, edit) => `<div class="timeline">${evs.map((e) => `<div class="tl-item"><div class="tl-date">${fmt(e.d)}</div><${edit ? `button type="button" data-open="${edit(e)}"` : 'div'} class="card tl-card"><div class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</div><div class="tl-body">${e.body}</div></${edit ? 'button' : 'div'}></div>`).join('') || '<p class="lede">Nothing matches these filters.</p>'}</div>`;
+/* a day's events, grouped for display only (D27): each stays its own event; three or more on
+   one day show as one card, its title the day's vet visit (else its first event), the kinds
+   counted, the cost summed; tapping it opens the day, each event still opening to Edit */
+const TL_PLURAL = { 'Vet visit': 'Vet visits', 'Vaccination': 'Vaccinations', 'Screening test': 'Screening tests', 'Preventative': 'Dewormers', 'Weight check': 'Weight checks', 'Medication': 'Medications', 'Breeding': 'Breedings', 'Progesterone test': 'Progesterone tests' };
+const TL_ONE = { Preventative: 'Dewormer' };
+const tlKinds = (g) => { const by = {}; g.forEach((e) => { by[e.type[0]] = (by[e.type[0]] || 0) + 1; }); return Object.entries(by).map(([t, n]) => (n > 1 ? `${n} ${(TL_PLURAL[t] || `${t}s`).toLowerCase()}` : (TL_ONE[t] || t).toLowerCase())); };
+const TL_GROUP_AT = 3;
+const timeline = (evs, edit) => {
+  const days = []; evs.forEach((e) => { const last = days[days.length - 1]; if (last && last.d === e.d) last.g.push(e); else days.push({ d: e.d, g: [e] }); });
+  if (days.every((x) => x.g.length < TL_GROUP_AT)) return tlOne(evs, edit);
+  return `<div class="timeline">${days.map(({ d, g }) => {
+    if (g.length < TL_GROUP_AT) return tlOne(g, edit).replace(/^<div class="timeline">|<\/div>$/g, '');
+    const key = `${d}:${g.length}:${g[0].t}`, open = (ui.tlOpen ||= {})[key], lead = g.find((e) => e.type[0] === 'Vet visit') || g[0], cost = sum(g.map((e) => e.cost || 0));
+    const kinds = tlKinds(g), first = kinds.join(' · ');
+    return `<div class="tl-item"><div class="tl-date">${fmt(d)}</div><div class="card tl-group${open ? ' open' : ''}">
+      <button type="button" class="tl-sum" data-tlg="${esc(key)}" aria-expanded="${!!open}"><span class="tl-top">${pill(lead.type.slice(0, 2), lead.type[2])}<b>${lead.t}</b><span class="tl-n">${g.length} events</span>${cost ? `<span class="cost">${money(cost)}</span>` : ''}</span><span class="tl-body">${first.charAt(0).toUpperCase() + first.slice(1)}</span><span class="tl-chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></button>
+      ${open ? `<div class="tl-subs">${g.map((e) => `<${edit ? `button type="button" data-open="${edit(e)}"` : 'div'} class="tl-sub"><span><span class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</span>${e.body && e.body !== '—' ? `<span class="tl-body">${e.body}</span>` : ''}</span></${edit ? 'button' : 'div'}>`).join('')}</div>` : ''}</div></div>`;
+  }).join('')}</div>`;
+};
 const facts = (pairs) => `<dl class="facts">${pairs.map(([k, v]) => `<div class="fact"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 const empty = (ic, text, btn, spec) => `<section class="card empty">${icon(ic)}<p>${text}</p>${btn ? `<button type="button" class="primary-btn" data-open="${spec || 'stub:' + btn.toLowerCase().replace(/ /g, '-')}">${icon('plus')}${btn}</button>` : ''}</section>`;
 const primary = (label, spec, ic = 'plus') => `<button type="button" class="primary-btn" data-open="${spec}">${icon(ic)}${label}</button>`;
@@ -1365,7 +1460,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { website: 'more', inbox: 'home', thread: 'home', welcome: 'home', studapps: 'studs', studpage: 'studs', studbook: 'studs', coowns: 'more', coown: 'more', senddog: 'more', profile: 'more', documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { website: 'more', inbox: 'home', thread: 'home', welcome: 'home', studapps: 'studs', studpage: 'studs', studbook: 'studs', coowns: 'more', coown: 'more', senddog: 'more', profile: 'more', documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1431,7 +1526,7 @@ S.home = () => {
     bar: `${backBtn()}${brandBlock()}<div class="head-icons"><button type="button" class="icon-btn" aria-label="Setup" data-open="setup">${icon('settings')}</button><button type="button" class="icon-btn bell" aria-label="Notifications${newNotes() ? `, ${newNotes()} new` : ''}" data-open="notifications">${icon('bell')}${newNotes() ? '<span class="dot"></span>' : ''}</button></div>`,
     body: `
       <div class="today-h"><h2>Today</h2><span>Wednesday, Nov 18</span></div>
-      <div class="pups-strip">${kennelStages().map((x) => pill([`${x.who ? x.who + ' · ' : ''}${STAGES[x.k][0]}`, STAGES[x.k][1]])).join('')}</div>
+      <div class="pups-strip">${kennelStages().map((x) => pill([`${x.who ? x.who + ' · ' : ''}${HOME_STAGES[x.k][0]}`, HOME_STAGES[x.k][1]])).join('')}</div>
       <div class="tiles">${t}</div>
       <div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Clover x-ray done”</span>${planTag(2)}</div>
       <div class="home-cols">
@@ -1468,9 +1563,6 @@ S.waitlist = () => {
       </section>
       ${tiles([
         ['wllist', 'users', 'The list', `${act.length} waiting · ${WL.filter((f) => f.st === 'placed').length} placed`],
-        ['wlapps', 'inbox', 'Applications', `${WL.filter((f) => f.st === 'applied').length} new`],
-        ['wlfees', 'wallet', 'Fees due', `${WL.filter((f) => f.st === 'approved').length} waiting`],
-        ['wlrequests', 'message-square-text', 'Family requests', `${REQUESTS.filter((r) => r.open).length} open`],
         ['wlpreview:ct', 'eye', 'Next: Clover × Titan', 'Due Dec 8 · preview picks'],
         ['wlprograms', 'award', 'Programs', 'Military · Cancer support'],
         ...(FEAT.waitlistOnline ? [['setupsec:website', 'globe', 'Family pages', 'Online · status pages on']] : []),
@@ -1506,7 +1598,6 @@ S.person = (id) => {
   if (req) attn.push(['message-square-text', 'blue', `Asks: ${req.kind.toLowerCase()}`, 'wlrequests']);
   const side = f && SALES.find((x) => x.fam === f.id && x.side);
   if (side) attn.push(['wallet', 'blue', `${side.pup}: deposit due ${wday(side.due)}`, `personsec:${id}|offers`]);
-  if (sale && !sale.side && sale.paid < saleTotal(sale)) attn.push(['wallet', 'amber', `${money(saleTotal(sale) - sale.paid)} balance due at go-home`, `dogsec:${sale.pup.toLowerCase()}|sale`]);
   const t = [];
   if (f) {
     t.push([`personsec:${id}|application`, 'file-text', 'Application', `Wants ${WANTS[f.wants].toLowerCase()} · ${f.use}`]);
@@ -1514,10 +1605,8 @@ S.person = (id) => {
     t.push([`personsec:${id}|fee`, 'badge-dollar-sign', 'Fee', f.st === 'applied' ? 'Not requested' : PROGRAMS.find((x) => x.n === f.program)?.fee === 'Waived' ? `Waived (${f.program})` : f.st === 'approved' ? `${SET.waitlist.fee} due` : `${SET.waitlist.fee} paid`]);
   }
   if (sale) {
-    t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${saleState(sale)[0]}`]);
-    t.push([`payments:${sale.pup.toLowerCase()}`, 'wallet', 'Payments', `${money(sale.paid)} of ${money(saleTotal(sale))} paid`]);
-    t.push(['littersec:wa|gohome', 'car', 'Go-home', GOHOME.find((g) => g.fam === id)?.when || sale.gohome]);
-    if (FEAT.contracts) { const c = ctFor(sale.pup); t.push([c ? `contract:${c.id}` : 'contractedit:new', 'file-pen-line', 'Contract', ctLine(c)]); }
+    const owed = saleTotal(sale) - sale.paid;
+    t.push([`dogsec:${sale.pup.toLowerCase()}|sale`, 'tag', 'Sale', `${sale.pup} · ${owed > 0 ? `${money(owed)} due` : 'paid in full'}${sale.gohomeIso ? ` · home ${short(sale.gohomeIso)}` : ''}`]);
   }
   if (f) { const ms = msgsOf(f), last = ms[ms.length - 1], unread = ms.filter((m) => m.fresh).length; t.push([`personsec:${id}|messages`, 'message-square-text', 'Messages', unread ? `${unread} new · ${short(last.at)}` : `Last ${short(last.at)}`]); }
   if (f && FEAT.waitlistOnline) t.push([`personsec:${id}|status`, 'globe', 'Status page', `Last opened: ${SEEN[f.id] || 'never'}`]);
@@ -1692,10 +1781,10 @@ function info(d) {
     tests: x.tests || (pup || d.status === 'external_reference' ? [] : [['Hips (OFA)', 'Good', '2024-05-02'], ['DNA breed panel', 'Clear', '2024-05-20']]), planned: x.planned || [] };
 }
 function eventsFor(d) {
-  return EVENTS[d.id] || [
+  return (EVENTS[d.id] ||= [
     { d: '2026-11-12', type: ['Weight check', 'gray', 'scale'], cat: 'Other', t: d.status === 'puppy' ? (WEIGHT[d.id] || 10) + ' lb' : '64.0 lb', body: 'Routine check.' },
     { d: '2026-10-29', type: ['Vaccination', 'blue', 'syringe'], cat: 'Health', t: d.status === 'puppy' ? 'DHPP #1' : 'Rabies', body: 'Hartland Animal Hospital' },
-  ];
+  ]);
 }
 const dogLedger = (d) => LEDGER.filter((e) => e.kind === 'out' && e.on.includes(d.name));
 function dogSectionsBase(d) {
@@ -1704,12 +1793,12 @@ function dogSectionsBase(d) {
   const ps = PAIRINGS.filter((p) => p.dam === d.name || p.sire === d.name);
   const sale = SALES.find((s) => s.pup === d.name);
   const out = [
-    [base + 'profile', 'id-card', 'Profile', `${d.reg ? 'Registered' : 'Not registered yet'} · microchipped`],
+    [base + 'profile', 'id-card', 'Details', `${d.reg ? 'Registered' : 'Not registered yet'} · microchipped`],
     [base + 'history', 'history', 'History', `${evs.length} events · last ${short(evs[0].d)}`],
     [base + 'health', 'shield-check', 'Health tests', x.tests.length ? `${x.tests.length} done${x.planned.length ? ` · ${x.planned.length} planned` : ''}` : 'None yet'],
   ];
   out.push(...lineSections(d));
-  if (d.status === 'puppy') out.push([base + 'sale', 'tag', 'Sale & contract', sale ? `${fam(sale.fam).n.replace(' family', '')} · ${saleState(sale)[0]}` : DISP[d.disp][0]]);
+  if (d.status === 'puppy') out.push([base + 'sale', 'tag', 'Sale', sale ? `${fam(sale.fam).n.replace(' family', '')} · ${saleTotal(sale) > sale.paid ? `${money(saleTotal(sale) - sale.paid)} due` : 'paid in full'}` : DISP[d.disp][0]]);
   if (ls.length) out.push([base + 'litters', 'paw-print', 'Litters', `${ls.length} · ${ls.reduce((n, l) => n + (l.m || 0) + (l.f || 0), 0)} puppies so far`]);
   if (ps.length) out.push([base + 'pairings', 'heart-handshake', 'Pairings', ps.map((p) => p.status[0]).join(' · ')]);
   if (x.stud && FEAT.studServices) out.push([base + 'stud', 'concierge-bell', 'Stud services', `${x.stud.length} this year`]);
@@ -1725,14 +1814,15 @@ function dogSectionsBase(d) {
 S.dog = (id) => {
   const d = dogById(id), x = info(d);
   return {
-    bar: bar(d.name, { action: addBtn('Add event', `addevent:dog|${d.id}`) }),
-    body: `<section class="card hub-head"><div class="hub-pills">${sex(d.sex)}${pill(STATUS[d.status])}${d.disp ? pill(DISP[d.disp]) : ''}</div><div class="hub-reg">${x.reg}</div><div class="hub-line">${age(d.born)} · ${x.sire} × ${x.dam} · ${x.color}</div></section>
-      ${attnCard([...lineAttn(d), ...x.attn])}${tiles(dogSections(d))}`,
+    bar: bar(d.name),
+    body: `<section class="card hub-head"><div class="hub-pills">${sex(d.sex)}${pill(STATUS[d.status])}</div><div class="hub-reg">${x.reg}</div><div class="hub-line">${age(d.born)} · ${x.sire} × ${x.dam} · ${x.color}</div></section>
+      ${dogStage(d)}${attnCard([...lineAttn(d), ...x.attn])}${tiles(dogSections(d))}`,
   };
 };
 
 S.dogsec = (p) => {
   const [id, k] = p.split('|');
+  ghSeed();
   const d = dogById(id), x = info(d), evs = eventsFor(d);
   const title = (dogSections(d).find((s) => s[0].endsWith('|' + k)) || [])[2] || k;
   let body = '', action = '', filterItems;
@@ -1746,7 +1836,7 @@ S.dogsec = (p) => {
   } else if (k === 'history') {
     action = addBtn('Add event', `addevent:dog|${d.id}`);
     const shown = applyF('history', evs);
-    body = `${filterBar('history', { placeholder: 'Search events', shown: shown.length, total: evs.length })}${timeline(shown)}`;
+    body = `${filterBar('history', { placeholder: 'Search events', shown: shown.length, total: evs.length })}${timeline(shown, (e) => `editevent:dog|${d.id}|${evs.indexOf(e)}`)}`;
     filterItems = evs;
   } else if (k === 'docs') {
     action = addBtn('Add', 'stub:add-document');
@@ -1761,10 +1851,7 @@ S.dogsec = (p) => {
       : empty('shield-check', `No health tests for ${d.name} yet.`, 'Log a test', `logtest:${d.id}`);
   } else if (k === 'sale') {
     const s = SALES.find((v) => v.pup === d.name);
-    if (s) action = `<button type="button" class="bar-btn" data-open="saleedit:${d.name.toLowerCase()}">${icon('pencil')}Edit</button>`;
-    body = s
-      ? `<section class="card">${facts([['Family', fam(s.fam).n], ['Price', money(s.price)], ['Add-ons', addonsTotal(s) ? money(addonsTotal(s)) : 'None'], ['Paid', money(s.paid)], ['Balance', money(saleTotal(s) - s.paid)], ['Go-home', s.gohome], ['Contract', ctLine(ctFor(d.name))]])}</section>
-         <section class="card"><div class="rows">${row({ ic: 'receipt', t: 'Add-ons', s: saleAddons(s).length ? saleAddons(s).map(addonName).join(', ') : 'Transport, boarding, photo sessions, training', end: addonsTotal(s) ? `<span class="amt">${money(addonsTotal(s))}</span>` : '', go: `saleaddons:${d.name.toLowerCase()}` })}${row({ ic: 'car', t: 'Go-home weekend', s: 'Everything left to do for this litter', go: 'littersec:wa|gohome' })}${row({ ic: 'user-round', t: fam(s.fam).n, s: 'Their details, payments and messages', go: `person:${s.fam}` })}${row({ ic: 'wallet', t: 'Payments', s: `${money(s.paid)} of ${money(saleTotal(s))} paid`, go: `payments:${d.name.toLowerCase()}` })}${FEAT.contracts ? row({ ic: 'file-pen-line', t: 'Contract', s: ctLine(ctFor(d.name)), go: ctFor(d.name) ? `contract:${ctFor(d.name).id}` : 'contractedit:new' }) : ''}</div></section>`
+    body = s ? saleScreen(s, d)
       : empty('tag', d.disp === 'keeping' ? `${d.name} is staying in your program.` : `${d.name} has no family yet.`, d.disp === 'keeping' ? '' : 'Add sale', `addsale:${d.id}`);
   } else if (k === 'litters') {
     body = `<section class="card"><div class="rows">${LITTERS.filter((l) => l.dam === d.name || l.sire === d.name).map((l) => row({ ic: 'paw-print', t: litterName(l), extra: pill(l.status), s: l.whelp ? `Whelped ${fmt(l.whelp)} · ${l.m + l.f} puppies` : `Due ${fmt(l.due)}`, go: `litter:${l.id}` })).join('')}</div></section>`;
@@ -1777,7 +1864,7 @@ S.dogsec = (p) => {
   } else if (k === 'expenses') {
     const ex = dogLedger(d);
     body = ex.length ? `<div class="card kpi">${icon('receipt')}<span>Spent on ${d.name} in 2026</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div>
-      <section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: `${fmt(e.d)} · ${e.party}`, end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${primary('Add expense', `addexpense:dog|${d.id}`)}${setLink('See these in Financials › Entries', 'ledger')}`
+      <section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: `${fmt(e.d)} · ${e.party}`, end: `<span class="amt">${money(e.amt)}</span>`, go: ledgerGo(e) })).join('')}</div></section>${primary('Add expense', `addexpense:dog|${d.id}`)}${setLink('See these in Financials › Entries', 'ledger')}`
       : empty('receipt', 'No expenses logged for this dog.', 'Add expense', `addexpense:dog|${d.id}`);
   } else if (k === 'pedigree') {
     const node = (n, r) => `<div class="node">${n}<small>${r}</small></div>`;
@@ -1818,7 +1905,15 @@ function litterSectionsBase(l) {
     ...(l.whelp ? [[b + 'puppies', 'paw-print', 'Puppies', `${l.m} M · ${l.f} F · not named yet`]] : [[b + 'pregnancy', 'baby', 'Pregnancy', `Day ${Math.max(0, days(l.bred, TODAY))} of 63 · due ${short(l.due)}`]]),
     [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
     [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
-    [b + 'profile', 'id-card', 'Profile', l.note],
+    [b + 'profile', 'id-card', 'Details', l.note],
+  ];
+  if (l.id === 'ct' && l.whelp) return [
+    [b + 'puppies', 'paw-print', 'Puppies', `${l.m} M · ${l.f} F`],
+    [b + 'care', 'stethoscope', 'Puppy care', 'Weights, shots, deworming, vet'],
+    ...(FEAT.waitlist ? [['wlpreview:ct', 'list-ordered', 'Waitlist', `${activeFams().length} families · preview picks`]] : []),
+    [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
+    [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
+    [b + 'profile', 'id-card', 'Details', `${esc(l.delivery || 'Natural')} · born ${short(l.whelp)}`],
   ];
   if (l.id === 'ct') return [
     [b + 'pregnancy', 'baby', 'Pregnancy', 'Day 43 of 63 · due Dec 8'],
@@ -1826,20 +1921,20 @@ function litterSectionsBase(l) {
     ...(FEAT.waitlist ? [['wlpreview:ct', 'list-ordered', 'Waitlist', `${activeFams().length} families · preview picks`]] : []),
     [b + 'pricing', 'tag', 'Pricing', litPriceLine(l)],
     [b + 'expenses', 'receipt', 'Expenses', money(sum(litterLedger(l, 'out').map((e) => e.amt)))],
-    [b + 'profile', 'id-card', 'Profile', 'Bred Oct 6 and 8 · outside sire'],
+    [b + 'profile', 'id-card', 'Details', 'Bred Oct 6 and 8 · outside sire'],
   ];
   const pups = DOGS.filter((d) => d.litter === l.id);
-  const done = GOHOME.reduce((n, g) => n + g.checks.filter((c) => c[1]).length, 0);
+  const gh = SALES.filter((s) => saleDog(s)?.litter === l.id).flatMap((s) => ghState(s, saleDog(s))), done = gh.filter((x) => x.done).length;
   const out = [[b + 'puppies', 'paw-print', 'Puppies', l.id === 'wa' ? `${pups.length} · ${pups.filter((p) => p.disp === 'placed').length} placed` : `${l.m + l.f} · all placed`]];
   if (l.id === 'wa') out.push(
-    [b + 'gohome', 'car', 'Go-home', `Nov 21–22 · ${done} of 15 checks done`],
-    [b + 'weigh', 'scale', 'Weigh puppies', `Last weighed ${weighedOn}`],
+    [b + 'gohome', 'car', 'Go-home', `Ready ${short(l.ready)} · ${done} of ${gh.length} done`],
+    [b + 'care', 'stethoscope', 'Puppy care', `Weights, shots, deworming · last weighed ${lastWeighed(l)}`],
     ...(FEAT.waitlist ? [['wlpicks:wa', 'list-ordered', 'Picks', OFFER.open ? `Turn ${WL.filter((f) => f.st === 'placed').length + 1} · ${fam(OFFER.fam).n.replace(' family', '')}` : 'Complete']] : []),
     [b + 'history', 'history', 'History', '5 events'],
   );
   const recd = sum(litterLedger(l, 'in').map((e) => e.amt));
   if (l.status[0] !== 'Closed') out.push([b + 'pricing', 'tag', 'Pricing', litPriceLine(l)]);
-  out.push([b + 'income', 'badge-dollar-sign', 'Income', l.id === 'wa' ? `${money(recd)} of ${money(sum(SALES.map((s) => s.price)))} in` : '$16,000 · closed'], [b + 'expenses', 'receipt', 'Expenses', l.id === 'wa' ? money(sum(litterLedger(l, 'out').map((e) => e.amt))) : '$2,180'], [b + 'profile', 'id-card', 'Profile', l.id === 'wa' ? 'Natural · on website' : 'Natural · hidden']);
+  out.push([b + 'income', 'badge-dollar-sign', 'Income', l.id === 'wa' ? `${money(recd)} of ${money(sum(SALES.map((s) => s.price)))} in` : '$16,000 · closed'], [b + 'expenses', 'receipt', 'Expenses', l.id === 'wa' ? money(sum(litterLedger(l, 'out').map((e) => e.amt))) : '$2,180'], [b + 'profile', 'id-card', 'Details', l.id === 'wa' ? 'Natural · on website' : 'Natural · hidden']);
   return out;
 }
 /* a litter's own prices: each answer is her usual until she picks another (D10's + too) */
@@ -1986,13 +2081,13 @@ function lpRow(l, k, label, opts) {
       : open ? `<div class="q-edit"><button type="button" class="chip" data-lpset="${key}|" aria-pressed="${!cur}">Default · ${esc(u)}</button>${list.map((o) => `<button type="button" class="chip" data-lpset="${key}|${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}${add}</div>` : ''}</div>`;
 }
 
-const LITTER_ATTN = { wa: [['car', '', 'Go-home weekend · Nov 21–22', 'littersec:wa|gohome'], ['stethoscope', 'red', 'Wren · vet recheck overdue', 'dog:wren']], ct: [['scan-line', 'blue', 'X-ray for puppy count · Mon Nov 23', 'littersec:ct|pregnancy']] };
+const LITTER_ATTN = { wa: [['stethoscope', 'red', 'Wren · vet recheck overdue', 'dog:wren']], ct: [['scan-line', 'blue', 'X-ray for puppy count · Mon Nov 23', 'littersec:ct|pregnancy']] };
 S.litter = (id) => {
   const l = LITTERS.find((x) => x.id === id) || LITTERS[0];
   return {
-    bar: bar(litterName(l), { action: l.id === 'wa' ? addBtn('Add event', `addevent:litter|${l.id}`) : '' }),
-    body: `<section class="card hub-head"><div class="hub-pills">${pill(l.status)}${l.whelp ? `<span class="hub-line">${l.m} M · ${l.f} F</span>` : ''}</div><div class="hub-line">${l.whelp ? `Whelped ${fmt(l.whelp)} · ready ${short(l.ready)}` : `Bred ${short(l.bred)} · due ${fmt(l.due)}`}</div>${l.nick ? `<div class="hub-reg">${esc(l.nick)}</div>` : ''}</section>
-      ${attnCard(LITTER_ATTN[l.id] || [])}${tiles(litterSections(l))}`,
+    bar: bar(litterName(l)),
+    body: `<section class="card hub-head"><div class="hub-pills">${l.whelp ? `<span class="hub-line">${l.m} M · ${l.f} F</span>` : ''}</div><div class="hub-line">${l.whelp ? `Whelped ${fmt(l.whelp)} · ready ${short(l.ready)}` : `Bred ${short(l.bred)} · due ${fmt(l.due)}`}</div>${l.nick ? `<div class="hub-reg">${esc(l.nick)}</div>` : ''}</section>
+      ${litterStage(l)}${attnCard(l.id === 'ct' && l.whelp ? [] : LITTER_ATTN[l.id] || [])}${tiles(litterSections(l))}`,
   };
 };
 S.littersec = (p) => {
@@ -2004,12 +2099,24 @@ S.littersec = (p) => {
   const lineBody = lineLittersec(l, k);
   if (lineBody != null) return { bar: bar(title, { sub: litterName(l) }), body: lineBody };
   if (k === 'puppies') {
-    body = pups.length ? `<section class="card"><div class="rows">${pups.map((q) => { const s = SALES.find((v) => v.pup === q.name); return row({ t: q.name, extra: `${sex(q.sex)}${pill(DISP[q.disp])}`, s: s ? fam(s.fam).n : q.disp === 'health_hold' ? 'Umbilical hernia recheck' : q.disp === 'keeping' ? 'Staying in the program' : OFFER.open && OFFER.pup === q.id ? `Offered to the ${fam(OFFER.fam).n}` : 'No family yet', end: `${WEIGHT[q.id]} lb`, go: `dog:${q.id}` }); }).join('')}</div></section>`
-      : empty('paw-print', 'All five puppies from this litter were placed and archived.', '');
+    body = pups.length ? puppiesScreen(l, pups)
+      : l.status[0] === 'Closed' ? empty('paw-print', 'All five puppies from this litter were placed and archived.', '')
+      : empty('paw-print', l.whelp ? 'No puppies recorded yet.' : 'Puppies show here once they’re born.', l.whelp || l.status[0] === 'Expected' ? 'Record a pup' : '', `littersec:${l.id}|births`);
   } else if (k === 'gohome') {
-    body = GOHOME.map((g) => `<section class="card"><div class="section-h"><h2>${g.pup}<span class="hub-line" style="font-family:var(--font-body);font-weight:500">${fam(g.fam).n}</span></h2></div>
-      <div class="hub-line" style="padding:0 14px 8px">${icon('clock')} ${g.when}</div>
-      <ul class="checks">${[...g.checks, ...(FEAT.lineTools ? [['Puppy scores', puppyScored(DOGS.find((x) => x.name === g.pup).id) ? 1 : 0]] : [])].map(([t, ok, note]) => `<li class="${ok ? 'done' : 'todo'}">${icon(ok ? 'circle-check' : 'circle')}<span>${t}</span>${note ? `<span class="note">${note}</span>` : ''}</li>`).join('')}</ul></section>`).join('');
+    const rOpen = ui.pAct === 'ready';
+    if (rOpen) formFor('litready:' + l.id, () => ({ ready: l.ready || '' }));
+    const when = (s) => (s.gohomeIso || '9') + (pickupOf(s).time || '');
+    const sold = SALES.filter((s) => saleDog(s)?.litter === l.id).sort((a, b) => when(a).localeCompare(when(b)));
+    body = `<section class="card hub-head"><div class="hub-reg">Ready to go home ${l.ready ? wday(l.ready) : 'not set'}</div>
+        <div class="hub-line">${l.whelp && l.ready ? `${Math.round(days(l.whelp, l.ready) / 7)} weeks old · ` : ''}contracts fill their ready date from this</div>
+        ${rOpen ? `<div class="q-edit sa-edit" style="padding:6px 0 0"><div class="form-stack"><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div></div><div class="sa-btns"><button type="button" class="chip" data-pact="ready">Cancel</button><button type="button" class="chip go" data-ghdo="ready|${l.id}">Save</button></div></div>`
+          : `<button type="button" class="set-link" data-pact="ready">${icon('calendar-clock')}Change ready date</button>`}</section>
+      ${sold.map((s) => ghCard(s, saleDog(s), { inLitter: 1 })).join('') || '<p class="lede">No puppies from this litter are sold yet.</p>'}
+      ${setLink('Edit checklist', 'ghlist')}`;
+  } else if (k === 'care') {
+    body = careScreen(l);
+  } else if (k === 'records') {
+    body = recordsScreen(l);
   } else if (k === 'weigh') {
     body = `<div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Cedar eleven point two”</span>${planTag(2)}</div>
       <p class="lede">Enter today's weights. Leave a box empty to skip a puppy.</p>
@@ -2024,20 +2131,16 @@ S.littersec = (p) => {
       };
     };
   } else if (k === 'history') {
-    body = timeline([
-      { d: '2026-11-12', type: ['Weight check', 'gray', 'scale'], t: 'All 6 puppies', body: '8.4 – 11.3 lb' },
-      { d: '2026-11-05', type: ['Picks', 'blue', 'list-ordered'], t: '3 families chose', body: 'Hazel, Poppy, Fern' },
-      { d: '2026-10-29', type: ['Vaccination', 'blue', 'syringe'], t: 'DHPP #1', cost: 228, body: 'All 6 · Hartland Animal Hospital' },
-      { d: '2026-10-22', type: ['Milestone', 'green', 'flag'], t: 'Weaning started', body: 'Soaked kibble 3× a day' },
-      { d: '2026-09-24', type: ['Whelping', 'green', 'baby'], t: '6 puppies', body: '<strong>2 male, 4 female</strong> · natural delivery' },
-    ]);
+    action = addBtn('Add event', `addevent:litter|${l.id}`);
+    const le = litEvents(l.id);
+    body = le.length ? timeline(le, (e) => `editevent:litter|${l.id}|${le.indexOf(e)}`) : empty('history', 'Nothing logged for this litter yet.', 'Add event', `addevent:litter|${l.id}`);
   } else if (k === 'income') {
     const recd = litterLedger(l, 'in');
     body = `<div class="kpis"><div class="card kpi">${icon('badge-dollar-sign')}<span>Received</span><b>${money(l.id === 'wa' ? sum(recd.map((e) => e.amt)) : 16000)}</b></div><div class="card kpi">${icon('calendar-clock')}<span>Still due</span><b>${money(l.id === 'wa' ? sum(SALES.map((s) => saleTotal(s) - s.paid)) : 0)}</b></div></div>
       ${l.id === 'wa' ? `<section class="card"><div class="rows">${SALES.map((s) => row({ t: s.pup, extra: pill(saleState(s)), s: fam(s.fam).n, end: `<span class="amt">${money(s.price)}</span>`, go: `dogsec:${s.pup.toLowerCase()}|sale` })).join('')}</div></section>` : ''}`;
   } else if (k === 'expenses') {
     const ex = litterLedger(l, 'out');
-    body = `<div class="card kpi">${icon('receipt')}<span>Spent on this litter</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div><section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: fmt(e.d), end: `<span class="amt">${money(e.amt)}</span>` })).join('')}</div></section>${primary('Add expense', `addexpense:litter|${l.id}`)}`;
+    body = `<div class="card kpi">${icon('receipt')}<span>Spent on this litter</span><b>${money(sum(ex.map((e) => e.amt)))}</b></div><section class="card"><div class="rows">${ex.map((e) => row({ ic: 'receipt', t: e.what, s: fmt(e.d), end: `<span class="amt">${money(e.amt)}</span>`, go: ledgerGo(e) })).join('')}</div></section>${primary('Add expense', `addexpense:litter|${l.id}`)}`;
   } else if (k === 'pregnancy' && l.fresh) {
     const day = Math.max(0, days(l.bred, TODAY));
     body = `<section class="card">${facts([['Day', `${day} of 63`], ['Bred', fmt(l.bred)], ['Confirmed', 'Not yet'], ['Due', fmt(l.due)]])}<div style="padding:0 14px 14px"><div class="progress"><span style="width:${Math.min(100, Math.round(day / 63 * 100))}%"></span></div></div></section>
@@ -2054,11 +2157,12 @@ S.littersec = (p) => {
     if (pupAdj.length && !wk.length) wk.push(['both', ruledPrice(l, 'female')]);
     body = `${wk.length ? `<section class="card app-card"><div class="group-label">From your price rules</div>${(wk.length === 2 && workingLine(wk[0][1]) === workingLine(wk[1][1]) ? [['both', wk[0][1]]] : wk).map(([x, w]) => `<p class="rule-work"><span>${x === 'both' ? 'Both' : x === 'male' ? 'Male' : 'Female'}</span>${workingLine(w)}</p>`).join('')}${pupAdj.map(([d, st]) => `<p class="rule-work"><span>${esc(d.name)}</span>${st.map(([n, a]) => `${esc(n)} ${a < 0 ? money(a) : `+${money(a)}`}`).join(' · ')}</p>`).join('')}</section>` : ''}
       <section class="card"><div class="rows">${[...LP_Q.slice(0, 2), ['split', 'Deposit and full registration', ['Same for both sexes', 'Different by sex']], ...(l.prices?.split === 'Different by sex' ? LP_SPLIT : LP_Q.slice(2))].map(([k, label, opts]) => lpRow(l, k, label, opts)).join('')}</div></section>
-      ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><div class="dates">${fIn('ready', 'Ready to go home', { type: 'date' })}</div><small class="f-hint">Prefilled from your timing</small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
+      ${(() => { const fmD = formFor('litdates:' + l.id, () => ({ open: l.depOpen || (l.whelp ? addDays(l.whelp, 35) : ''), time: l.openTime || '19:00', ready: l.ready || (l.whelp ? addDays(l.whelp, 56) : l.due ? addDays(l.due, 56) : '') })); return formCard('Dates', `<div class="dates">${fIn('open', 'Deposits open', { type: 'date' })}${fIn('time', 'Picks open at', { type: 'time' })}</div><small class="f-hint">Prefilled from your timing. Ready to go home: ${l.ready ? wday(l.ready) : 'not set'} · <button type="button" class="link" data-open="littersec:${l.id}|gohome">Change in Go-home</button></small><div class="sa-btns"><button type="button" class="chip go" data-ldsave="${l.id}">Save dates</button></div>`); })()}
       ${sold ? `<p class="f-hint">Existing sales (${sold}) keep their prices.</p>` : ''}
       <button type="button" class="set-link" data-open="pricing">${icon('settings')}Edit default pricing</button>`;
   } else {
-    body = `<section class="card">${facts(l.whelp ? [['Whelped', fmt(l.whelp)], ['Delivery', 'Natural'], ['Ready', fmt(l.ready)], ['Litter reg.', l.id === 'wa' ? 'AKC LR 8812 0045' : 'AKC LR 7310 2290'], ['On website', l.id === 'wa' ? 'Shown' : 'Hidden'], ['Foster', 'No']] : [['Dam', l.dam], ['Sire', `${l.sire} (Meadow Ridge)`], ['Bred', 'Oct 6 and 8'], ['Method', 'Natural'], ['On website', 'Shown'], ['Foster', 'No']])}</section>`;
+    action = editBtn(`litteredit:${l.id}`);
+    body = `<section class="card">${facts(litFacts(l))}</section>${l.notes ? `<section class="card app-card"><div class="group-label">Notes</div><div class="quote">${esc(l.notes)}</div></section>` : ''}`;
   }
   return { bar: bar(title, { action, sub: litterName(l) }), body, after };
 };
@@ -2213,7 +2317,7 @@ S.ledger = () => {
     bar: bar('Entries', { sub: `Financials ${finYear()}`, action: addBtn('Add', 'addentry') }),
     body: `${filterBar('ledger', { placeholder: 'Search entries', shown: shown.length, total: all.length })}
       <div class="card kpi">${icon('scale')}<span>Net of what's shown</span><b>${money(tot, true)}</b><small>${shown.filter((e) => e.kind === 'in').length} income · ${shown.filter((e) => e.kind === 'out').length} expenses</small></div>
-      ${months.map((m) => { const g = shown.filter((e) => e.d.startsWith(m)); return `<section class="card"><div class="section-h"><h2>${fmt(m + '-01', { month: 'long', year: 'numeric' })}</h2><span class="fcount">${money(sum(g.map((e) => (e.kind === 'in' ? e.amt : -e.amt))), true)}</span></div><div class="rows">${g.map((e) => row({ ic: e.kind === 'in' ? 'arrow-down-left' : 'arrow-up-right', tone: e.kind === 'in' ? '' : 'amber', t: e.what, s: `${short(e.d)} · ${e.on.join(', ')} · ${e.party}`, end: `<span class="amt">${e.kind === 'in' ? '+' : '−'}${money(e.amt)}</span>` })).join('')}</div></section>`; }).join('') || '<p class="lede">No entries match.</p>'}`,
+      ${months.map((m) => { const g = shown.filter((e) => e.d.startsWith(m)); return `<section class="card"><div class="section-h"><h2>${fmt(m + '-01', { month: 'long', year: 'numeric' })}</h2><span class="fcount">${money(sum(g.map((e) => (e.kind === 'in' ? e.amt : -e.amt))), true)}</span></div><div class="rows">${g.map((e) => row({ ic: e.kind === 'in' ? 'arrow-down-left' : 'arrow-up-right', tone: e.kind === 'in' ? '' : 'amber', t: e.what, s: `${short(e.d)} · ${e.on.join(', ')} · ${e.party}`, end: `<span class="amt">${e.kind === 'in' ? '+' : '−'}${money(e.amt)}</span>`, go: ledgerGo(e) })).join('')}</div></section>`; }).join('') || '<p class="lede">No entries match.</p>'}`,
   };
 };
 
@@ -2287,7 +2391,7 @@ const AGENDA = [
   { id: 'a2', d: '2026-10-29', ic: 'syringe', tone: 'blue', kind: 'Vaccination', t: 'Willow × Ash · DHPP #1', s: '6 puppies · Hartland Animal Hospital', go: 'litter:wa', rem: 1, done: '2026-10-29' },
   { id: 'a3', d: '2026-11-03', ic: 'activity', tone: 'violet', kind: 'Ultrasound', t: 'Clover · confirmed pregnant', s: 'About 7 sacs · Dr. Okonkwo', go: 'dog:clover' },
   { id: 'a4', d: '2026-11-10', ic: 'scan-line', tone: 'blue', kind: 'Microchip', t: 'Poppy · register microchip', s: 'AKC Reunite', go: 'dog:poppy', rem: 1, done: '2026-11-10' },
-  { id: 'a5', d: '2026-11-12', ic: 'scale', tone: '', kind: 'Weight check', t: 'Willow × Ash · puppies weighed', s: '8.4 to 11.3 lb', go: 'littersec:wa|weigh' },
+  { id: 'a5', d: '2026-11-12', ic: 'scale', tone: '', kind: 'Weight check', t: 'Willow × Ash · puppies weighed', s: '8.4 to 11.3 lb', go: 'littersec:wa|care' },
   { id: 'a6', d: '2026-11-13', ic: 'syringe', tone: 'blue', kind: 'Vaccination', t: 'Ash · rabies booster', s: '3-year · book with Hartland Animal Hospital', go: 'dog:ash', rem: 1 },
   { id: 'a7', d: '2026-11-16', ic: 'stethoscope', tone: 'red', kind: 'Vet visit', t: 'Wren · vet recheck', s: 'Umbilical hernia · Dr. Okonkwo', go: 'dog:wren', rem: 1 },
   { id: 'a8', d: '2026-11-20', ic: 'scan-line', tone: 'blue', kind: 'Microchip', t: 'Fern · register microchip', s: 'Before go-home Sun Nov 22', go: 'dog:fern', rem: 1 },
@@ -2577,15 +2681,15 @@ const evType = (k) => EV_TYPES.find((t) => t[0] === k);
 const REMIND = [['', 'No reminder'], ['14', 'In 2 weeks'], ['30', 'In a month'], ['90', 'In 3 months'], ['pick', 'Pick a date']];
 S.addevent = (p) => {
   /* p = "dog|<id>" or "litter|<id>" */
-  const [kind, id] = (p || 'dog|willow').split('|');
+  const [kind, id, pre] = (p || 'dog|willow').split('|');
   const subj = kind === 'litter' ? litterName(LITTERS.find((l) => l.id === id) || LITTERS[0]) : dogById(id).name;
   const d = kind === 'dog' ? dogById(id) : null;
-  const f = formFor('addevent:' + p, () => ({ type: '', d: TODAY, remind: '' }));
+  const f = formFor('addevent:' + p, () => ({ type: pre || '', d: TODAY, remind: '' }));
   const fits = (t) => (!t[6] || (d && d.sex === t[6])) && (!t[7] || FEAT[t[7]]) && (kind === 'dog' || ['vaccination', 'preventative', 'vet_visit', 'milestone', 'note', 'evaluation'].includes(t[0]));
   if (!f.type) {
     const cats = uniq(EV_TYPES.filter(fits).map((t) => t[4]));
     const tchip = (t) => `<button type="button" class="type-chip" data-fc="type|${t[0]}"><span class="row-ic ${t[3]}">${icon(t[2])}</span>${t[1]}</button>`;
-    const tests = kind === 'dog' ? `<section class="card"><div class="rows">${row({ ic: 'shield-check', tone: 'blue', t: 'Health test', s: 'OFA, PennHIP, DNA, eyes, cardiac', go: `logtest:${id}` })}</div></section>` : `<section class="card"><div class="rows">${row({ ic: 'scale', t: 'Weigh puppies', s: 'All puppies at once', go: `littersec:${id}|weigh` })}</div></section>`;
+    const tests = kind === 'dog' ? `<section class="card"><div class="rows">${row({ ic: 'shield-check', tone: 'blue', t: 'Health test', s: 'OFA, PennHIP, DNA, eyes, cardiac', go: `logtest:${id}` })}</div></section>` : `<section class="card"><div class="rows">${row({ ic: 'stethoscope', t: 'Puppy care', s: 'Weights, shots, deworming or a vet visit for the whole litter', go: `littersec:${id}|care` })}</div></section>`;
     return {
       bar: bar('Add event', { sub: subj }),
       body: `<section class="card app-card"><div class="group-label">Frequent</div><div class="type-grid">${EV_USED.map(evType).filter(fits).map(tchip).join('')}</div></section>${tests}
@@ -2837,7 +2941,7 @@ PSEC.offers = (f) => {
   if (on) {
     const turnFam = OFFER.open ? fam(OFFER.fam) : null;
     body += `<div class="group-label">Do something</div><section class="card"><div class="rows">
-      ${holds ? '' : act('offer', 'list-ordered', 'Offer a turn', 'Out of order', turnFam ? `<p class="f-hint">${turnFam.n} holds the current turn (Willow × Ash) until ${short(OFFER.due)}.</p><button type="button" class="chip" data-open="addsale:|${f.id}">${icon('tag')}Sell them a pup</button>` : `<button type="button" class="chip go" data-toast="Offer sent">Willow × Ash</button>`, 'amber')}
+      ${holds ? '' : act('offer', 'list-ordered', 'Offer a turn', 'Out of order', turnFam ? `<p class="f-hint">${turnFam.n} holds the current turn (Willow × Ash) until ${short(OFFER.due)}.</p><p class="f-hint">Or sell them a pup below.</p>` : `<button type="button" class="chip go" data-toast="Offer sent">Willow × Ash</button>`, 'amber')}
       ${holds ? '' : row({ ic: 'tag', tone: 'blue', t: 'Sell them a pup', s: 'Any pup, any time', go: `addsale:|${f.id}` })}
       ${act('move', 'move', 'Change position', `#${f.pos} of ${activeFams().length}`, `<div class="fbar-top"><label>#<input id="pa-pos" type="number" min="1" max="${activeFams().length}" value="${f.pos}" aria-label="New place"></label><button type="button" class="fbtn" data-pdo="move|${f.id}">Move</button></div>`)}
       ${act('pause', 'clock', f.paused ? `Paused until ${f.paused}` : 'Pause', f.paused ? 'Position held' : 'Position held; no offers until end date', f.paused ? `<button type="button" class="chip go" data-pdo="unpause|${f.id}">End pause</button>` : `<div class="fbar-top"><label>Until<input id="pa-until" type="date" min="${TODAY}" value="${addDays(TODAY, 60)}"></label><button type="button" class="fbtn" data-pdo="pause|${f.id}">Pause</button></div>`)}
@@ -3325,19 +3429,12 @@ const CHANNELS = [['', 'Direct'], ['gooddog', 'Good Dog'], ['puppyfind', 'PuppyF
 const REGS = [['Limited', 'Limited'], ['Full', 'Full'], ['Co-own', 'Co-own'], ['None', 'None']];
 S.saleedit = (pup) => {
   const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0];
-  const st0 = s.status || (s.paid >= saleTotal(s) ? 'paid_in_full' : s.paid > 0 ? 'deposit_paid' : 'deposit_pending');
-  const fm = formFor('saleedit:' + s.pup, () => ({ status: st0, date: s.date, reg: s.reg || 'Limited', price: str(s.price), dep: str(s.deposit ?? 500), depDate: s.depDate || s.date, depVia: s.depVia || 'zelle', sched: s.sched || '', balDue: s.balDue || '', balPaid: s.balPaid || '', balVia: s.balVia || '', channel: s.channel || '', fee: str(s.fee || ''), feeBuyer: s.feeBuyer ? 'yes' : 'no', lead: s.lead || 'Waitlist', ref: s.ref || '', end: s.end || '', endNote: s.endNote || '', refund: str(s.refund || ''), refundDate: s.refundDate || '', notes: s.notes || '' }));
+  const fm = formFor('saleedit:' + s.pup, saleInit(s));
   const ended = ['returned', 'cancelled', 'voided'].includes(fm.status);
   return {
-    bar: bar('Sale details', { sub: `${s.pup} · ${fam(s.fam).n}` }),
-    body: `${formCard('Sale', `${fSel('status', 'Status', SALE_ST)}<div class="dates">${fIn('date', 'Sale date', { type: 'date' })}</div>${fChips('reg', 'Registration', REGS)}
-        <div class="dates">${fIn('price', 'Price ($)', { type: 'number' })}</div>`)}
-      ${formCard('Deposit', `<div class="dates">${fIn('dep', 'Amount ($)', { type: 'number' })}${fIn('depDate', 'Received', { type: 'date' })}</div>${fSel('depVia', 'Paid via', PAY_ACCTS)}`)}
-      ${formCard('Balance', `${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}
-        ${fm.sched ? `<small class="f-hint">${esc(schedText(SCHEDULES.find((x) => x.id === fm.sched).steps))}</small>` : `<div class="dates">${fIn('balDue', 'Due', { type: 'date' })}</div>`}
-        <div class="dates">${fIn('balPaid', 'Paid in full on', { type: 'date' })}</div>${fSel('balVia', 'Paid via', PAY_ACCTS)}
-        <button type="button" class="set-link" data-open="payments:${pup}">${icon('wallet')}Payments · ${money(s.paid)} received</button>`)}
-      ${formCard('Sold through', `${fSel('channel', 'Channel', CHANNELS)}${fm.channel ? `<div class="dates">${fIn('fee', 'Processing fee ($)', { type: 'number' })}</div>${fChips('feeBuyer', 'Fee paid by', [['no', 'Kennel'], ['yes', 'Buyer']])}` : ''}`)}
+    bar: bar('Edit sale', { sub: `${s.pup} · ${fam(s.fam).n}` }),
+    body: `${formCard('Buyer', `${fSel('fam', 'Buyer', buyerOpts())}${fm.fam !== s.fam ? '<p class="f-hint">Changing the buyer doesn\'t change anyone\'s place on the waitlist.</p>' : ''}`)}
+      ${formCard('Sale', `${fSel('status', 'Stage', SALE_ST)}<div class="dates">${fIn('date', 'Sale date', { type: 'date' })}</div>${fChips('reg', 'Registration', REGS)}`)}
       ${formCard('Source', `${fIn('lead', 'Lead source')}${fSel('ref', 'Referred by', [['', 'Nobody'], ...PEOPLE_OF().slice(0, 6).map((p) => [p.id, p.n])])}`)}
       ${ended ? formCard('Ended', `${END_REASONS[fm.status].length ? fChips('end', 'Reason', END_REASONS[fm.status]) : ''}${fIn('endNote', 'Note')}<div class="dates">${fIn('refund', 'Refund ($)', { type: 'number' })}${fIn('refundDate', 'Refunded on', { type: 'date' })}</div>`) : ''}
       ${formCard('', fText('notes', 'Notes'))}
@@ -3590,7 +3687,7 @@ S.addsale = (spec) => {
   const [pid = '', fid = ''] = (spec || '').split('|');
   ui.adSale = null;
   if (ui.stash && ui.stash.spec === 'addsale:' + (spec || '')) { ui.formSpec = ui.stash.spec; ui.form = ui.stash.form; ui.stash = null; }
-  const fm = formFor('addsale:' + (spec || ''), () => ({ pup: pid, pick: fid, reg: 'Limited', depIn: 'no', depDate: TODAY, depVia: '', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), gohome: '', sched: SCHEDULES.find((x) => x.usual).id, channel: '', lead: '', ref: '', adds: [] }));
+  const fm = formFor('addsale:' + (spec || ''), () => ({ pup: pid, pick: fid, reg: (pid && dogById(pid)?.ireg) || 'Limited', depIn: 'no', depDate: TODAY, depVia: '', due: addDays(TODAY, Number.parseInt(SET.waitlist.respond, 10) || 3), gohome: '', sched: SCHEDULES.find((x) => x.usual).id, channel: '', lead: '', ref: '', adds: [] }));
   const sold = (d) => SALES.some((s) => s.pup === d.name);
   const pups = DOGS.filter((d) => d.status === 'puppy' && d.disp !== 'placed' && !sold(d));
   const adults = DOGS.filter((d) => ['active_breeding', 'retired_breeding'].includes(d.status) && !sold(d)).sort((a, b) => a.name.localeCompare(b.name));
@@ -3846,10 +3943,34 @@ function ctSave(id) {
 }
 
 /* ---------- a sale's Payments (live: the Payments card and Record a payment) ---------- */
+/* ================= one sale, one screen: who and when, the money, the contract, the go-home checklist =================
+   The go-home date, time and place look like the sale's own, but they're the pickup on the
+   calendar (live: the placement event), so changing one changes the other. */
+const GH_TIME = { Hazel: '10:00', Poppy: '13:00', Fern: '11:00' };
+const hm12 = (t) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const saleDog = (s) => DOGS.find((d) => d.name === s.pup);
+const saleLitter = (s) => { const d = saleDog(s); return d && LITTERS.find((l) => l.id === d.litter); };
+const pickupOf = (s) => ({ date: s.gohomeIso || '', time: s.ghTime ?? GH_TIME[s.pup] ?? '', place: s.ghPlace ?? stdPlace()?.id ?? '' });
+const pickupLine = (s, { place = 1 } = {}) => {
+  const p = pickupOf(s), pl = place && PLACES.find((x) => x.id === p.place);
+  return p.date ? `${wday(p.date)}${p.time ? ` · ${hm12(p.time)}` : ''}${pl ? ` · ${esc(pl.n)}` : ''}` : 'No go-home date yet';
+};
+
+/* a sale's Payments: the money, all of it, on one screen */
 S.payments = (spec) => {
   const [pup, auto] = (spec || '').split('|');
-  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], st = saleStatement(s);
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0];
   if (auto === 'new' && !top().autoDone) { top().autoDone = 1; ui.pAct = 'pay|new'; }
+  return { bar: bar('Price & payments', { sub: `${s.pup} · ${fam(s.fam).n}`, action: editBtn(`salemoney:${s.pup.toLowerCase()}`) }), body: saleMoney(s, s.pup.toLowerCase()) };
+};
+/* one pup's go-home checklist */
+S.salegh = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], d = saleDog(s);
+  return { bar: bar('Go-home', { sub: `${s.pup} · ${fam(s.fam).n}` }), body: ghCard(s, d) };
+};
+
+function saleMoney(s, pup) {
+  const st = saleStatement(s), adds = saleAddons(s), owed = st.remaining > 0;
   const form = (pid) => {
     const p = s.payments.find((x) => x.id === pid);
     formFor(`pay:${s.pup}:${pid}`, () => (p ? { amount: str(p.amount), date: p.date, method: p.method || '', via: p.via || '', ref: p.ref || '', note: p.note || '' } : { amount: str(st.next ? st.next.owed : ''), date: TODAY, method: '', via: '', ref: '', note: '' }));
@@ -3861,23 +3982,195 @@ S.payments = (spec) => {
   const recRow = (r) => {
     const key = 'pay|' + r.id, open = ui.pAct === key;
     return `<div class="rem${open ? ' open' : ''}"><button type="button" class="row" data-pact="${key}" aria-expanded="${open}"><span class="row-ic green">${icon('wallet')}</span><span class="row-main"><span class="row-t">${r.t}</span><span class="row-s">${fmt(r.date)}${r.method ? ` · ${esc(r.method)}` : ''}${r.via ? ` · ${esc(acctName(r.via))}` : ''}${r.ref ? ` · ${esc(r.ref)}` : ''}</span></span><span class="row-end"><span class="amt">${money(r.amount)}</span><span class="chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></span></button>
-      ${open ? (r.id === 'dep' ? `<div class="q-edit sa-edit"><div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-open="saleedit:${pup}">Change in Sale details</button></div></div>` : form(r.id)) : ''}</div>`;
+      ${open ? (r.id === 'dep' ? `<div class="q-edit sa-edit"><div class="sa-btns" style="justify-content:flex-start"><button type="button" class="chip" data-open="salemoney:${pup}">Change in Edit</button></div></div>` : form(r.id)) : ''}</div>`;
   };
-  const nOpen = ui.pAct === 'pay|new';
+  const nOpen = ui.pAct === 'pay|new', sOpen = ui.pAct === 'sched';
+  let schForm = '';
+  if (sOpen) {
+    formFor('sched:' + s.pup, () => ({ sched: s.sched || '', balDue: s.balDue || '' }));
+    schForm = `<div class="q-edit sa-edit" style="padding-top:12px"><div class="form-stack">${fSel('sched', 'Payment schedule', [['', 'None: one due date'], ...SCHEDULES.map((x) => [x.id, x.n])])}
+      ${ui.form.sched ? `<small class="f-hint">${esc(schedText(SCHEDULES.find((x) => x.id === ui.form.sched).steps))}</small>` : `<div class="dates">${fIn('balDue', 'Balance due', { type: 'date' })}</div><small class="f-hint">Left blank, it's due at go-home.</small>`}</div>
+      <div class="sa-btns"><button type="button" class="chip" data-pact="sched">Cancel</button><button type="button" class="chip go" data-sx="sched|${esc(s.pup)}">Save</button></div></div>`;
+  }
   const allPaid = st.remaining <= 0 && !s.balPaid && !['returned', 'cancelled', 'voided'].includes(s.status);
+  const line = (t, v, cls = '', sub = '') => `<div class="mline${cls}"><span>${t}${sub ? ` <span class="m-sub">${sub}</span>` : ''}</span><span>${v}</span></div>`;
+  const net = s.channel && s.fee ? `You net ${money(st.total - (s.feeBuyer ? 0 : s.fee))} after the ${money(s.fee)} processing fee. ` : '';
+  return `<section class="card"><div class="section-h"><h2>${icon('wallet')}Money</h2>${pill(saleState(s))}</div>
+      <div class="mlines">${line('Puppy', money(s.price), '', `${esc(s.reg || 'Limited')} registration`)}
+        ${adds.map((x) => line(esc(addonName(x)), money(x.amount), '', x.partner && partnerOf(x.partner) ? `by ${esc(partnerOf(x.partner).n)}` : '')).join('')}
+        <div class="mline"><button type="button" class="link" data-open="saleaddons:${pup}">${adds.length ? 'Change add-ons' : '+ Add-on'}</button></div>
+        ${line('Total', money(st.total), ' sum')}${line('Paid', money(st.paid))}${line('Balance', money(st.remaining), owed ? ' bold owe' : ' bold')}</div></section>
+    ${allPaid ? `<div class="stub-note">${icon('circle-check')}<span>Everything is paid. <button type="button" class="link" data-paydo="full|${s.pup}|">Mark paid in full</button></span></div>` : ''}
+    <div class="label-row"><div class="group-label">Due dates</div>${sOpen ? '' : `<button type="button" class="set-link" data-pact="sched">${icon('calendar-clock')}${s.sched ? 'Change schedule' : 'Change'}</button>`}</div>
+    <section class="card"><div class="rows">${schForm}${st.due.map((x) => srow(x.owed <= 0 ? 'circle-check' : 'calendar-clock', x.t + pill(x.state), `${x.date ? fmt(x.date) : 'No date'}${x.paid && x.owed > 0 ? ` · ${money(x.paid)} paid` : ''}`, { tone: x.owed <= 0 ? 'green' : x.state[0] === 'Overdue' ? 'red' : x.state[0] === 'Due soon' ? 'amber' : '', end: `<span class="amt">${money(x.amt)}</span>` })).join('')}</div></section>
+    <div class="group-label">Received</div>
+    <section class="card"><div class="rows">${st.received.map(recRow).join('')}
+      <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="pay|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Record a payment</span><span class="row-s">${st.next ? `${money(st.next.owed)} next` : 'Nothing owed'}</span></span><span class="row-end"><span class="chev">${icon(nOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>${nOpen ? form('new') : ''}</div>
+    </div></section>
+    <div class="actions-2"><button type="button" class="btn-2" data-sx="invoice|${esc(s.pup)}">${icon('file-text')}${owed ? 'Send invoice' : 'Send receipt'}</button><button type="button" class="btn-2" data-sx="link|${esc(s.pup)}"${owed ? '' : ' disabled'}>${icon('link')}Payment link</button></div>
+    <p class="f-hint">${net}Final payment: ${esc(SET.payments.final)}</p>`;
+}
+
+function saleScreen(s, d) {
+  const pup = d.name.toLowerCase(), f = fam(s.fam), c = ctFor(d.name), pOpen = ui.pAct === 'pickup';
+  let pForm = '';
+  if (pOpen) {
+    const p = pickupOf(s), l = saleLitter(s);
+    formFor('pickup:' + s.pup, () => ({ date: p.date || l?.ready || '', time: p.time, place: p.place }));
+    pForm = `<div class="q-edit sa-edit" style="padding:6px 0 0"><div class="form-stack"><div class="dates">${fIn('date', 'Go-home date', { type: 'date' })}${fIn('time', 'Time', { type: 'time' })}</div>${fSel('place', 'Where', [['', 'Not set'], ...PLACES.map((x) => [x.id, x.n])])}
+      ${l?.ready ? `<small class="f-hint">${esc(litterName(l))} is ready ${wday(l.ready)}.</small>` : ''}</div>
+      <div class="sa-btns"><button type="button" class="chip" data-pact="pickup">Cancel</button><button type="button" class="chip go" data-sx="pickup|${esc(s.pup)}">Save</button></div></div>`;
+  }
+  const st = saleStatement(s), adds = saleAddons(s), gh = ghState(s, d), ghDone = gh.filter((x) => x.done).length;
+  const tl = [
+    [`saledetails:${pup}`, 'id-card', 'Details', `${esc(f.n)} · sold ${short(s.date)}`],
+    [`payments:${pup}`, 'wallet', 'Price & payments', st.remaining > 0 ? `${money(st.remaining)} due${st.next?.date ? ` ${short(st.next.date)}` : ''}` : 'Paid in full'],
+    [`saleaddons:${pup}`, 'receipt', 'Add-ons', adds.length ? adds.map((x) => esc(addonName(x))).join(', ') : 'None'],
+    ...(FEAT.contracts ? [[c ? `contract:${c.id}` : 'contractedit:new', 'file-pen-line', 'Contract', ctLine(c)]] : []),
+    [`salegh:${pup}`, 'list-checks', 'Go-home', `${ghDone} of ${gh.length} done`],
+  ];
+  return `<section class="card hub-head">
+      <div><button type="button" class="link sale-who" data-open="person:${s.fam}">${esc(f.n)}${icon('chevron-right')}</button></div>
+      <div class="hub-line">${icon('car')}${s.gohomeIso ? `Goes home ${pickupLine(s)}` : 'No go-home date yet'}${pOpen ? '' : ` <button type="button" class="link" data-pact="pickup">${s.gohomeIso ? 'Change' : 'Set'}</button>`}</div>${pForm}</section>
+    ${saleStage(s, d)}${tiles(tl)}`;
+}
+
+/* ================= the go-home checklist: hers, each item linked to what checks it off =================
+   Live: a new table (one row per item: name, link, order, kennel); ticks for the hand-ticked
+   ones are kept per sale. Linked items are worked out from the records, never stored. */
+const GH_LINKS = {
+  manual: ['Ticked by hand', 'circle-check'],
+  vet_visit: ['A vet visit on the puppy', 'stethoscope'],
+  vaccination: ['A vaccination on the puppy', 'syringe'],
+  deworm: ['A dewormer (Preventative) on the puppy', 'shield-check'],
+  microchip: ['A microchip number on the puppy', 'scan-line'],
+  contract: ['The sale contract signed', 'file-pen-line'],
+  balance: ['The balance paid', 'wallet'],
+  records: ['Print puppy records', 'clipboard-check'],
+  furever: ['Send the Furever link', 'send'],
+};
+const GH_LIST = [
+  { id: 'g1', t: 'Ready vet visit', link: 'vet_visit' },
+  { id: 'g2', t: 'Vaccinations', link: 'vaccination' },
+  { id: 'g3', t: 'Deworming', link: 'deworm' },
+  { id: 'g4', t: 'Microchip', link: 'microchip' },
+  { id: 'g5', t: 'Contract signed', link: 'contract' },
+  { id: 'g6', t: 'Balance paid', link: 'balance' },
+  { id: 'g7', t: 'Print puppy records', link: 'records' },
+  { id: 'g8', t: 'Send Furever link', link: 'furever' },
+  { id: 'g9', t: 'Go-home pack', link: 'manual' },
+];
+const GH_TICKS = { Poppy: ['g7', 'g8', 'g9'], Hazel: ['g8'] };
+const CHIPPED = { hazel: '985 141 004 2217', poppy: '985 141 004 2231' };
+const GH_EV = { vet_visit: ['Vet visit', 'vet_visit'], vaccination: ['Vaccination', 'vaccination'], deworm: ['Preventative', 'preventative'] };
+let ghSeeded = 0;
+function ghSeed() {
+  if (ghSeeded++) return;
+  const add = (id, ...evs) => { const d = dogById(id); if (!d) return; EVENTS[id] ||= eventsFor(d).slice(); EVENTS[id].push(...evs); EVENTS[id].sort((a, b) => b.d.localeCompare(a.d)); };
+  const vet = (d) => ({ d, type: ['Vet visit', 'blue', 'stethoscope'], cat: 'Health', t: 'Go-home exam', body: 'Hartland Animal Hospital · healthy' });
+  const worm = (d) => ({ d, type: ['Preventative', 'blue', 'shield-check'], cat: 'Health', t: 'Pyrantel', body: 'Third dose' });
+  add('poppy', vet('2026-11-16'), worm('2026-11-12')); add('hazel', { ...vet('2026-11-16'), cost: 95 }, worm('2026-11-12'), { d: '2026-11-16', type: ['Screening test', 'blue', 'test-tube'], cat: 'Health', t: 'Fecal', body: 'Negative' }, { d: '2026-11-16', type: ['Screening test', 'blue', 'test-tube'], cat: 'Health', t: 'Giardia', body: 'Negative' }, { d: '2026-11-16', type: ['Vaccination', 'blue', 'syringe'], cat: 'Health', t: 'DHPP #2', body: 'Next due in 3 weeks', cost: 28 }, { d: '2026-11-16', type: ['Vaccination', 'blue', 'syringe'], cat: 'Health', t: 'Bordetella', body: 'Intranasal', cost: 22 }, { d: '2026-11-16', type: ['Preventative', 'blue', 'shield-check'], cat: 'Health', t: 'Pyrantel', body: 'Fourth dose' }); add('fern', worm('2026-11-12'));
+}
+function ghState(s, d) {
+  ghSeed();
+  const tick = GH_TICKS[s.pup] || [], st = saleStatement(s), c = ctFor(s.pup), f = fam(s.fam);
+  return GH_LIST.map((it) => {
+    let done = false, note = '';
+    const ev = GH_EV[it.link];
+    if (ev) { const e = eventsFor(d).find((x) => x.type[0] === ev[0]); done = !!e; note = e ? `${esc(e.t)} · ${short(e.d)}` : `Add a ${ev[0].toLowerCase()} to ${esc(d.name)}`; }
+    else if (it.link === 'microchip') { done = !!CHIPPED[d.id]; note = done ? CHIPPED[d.id] : 'No microchip number yet'; }
+    else if (it.link === 'contract') { done = c?.st === 'signed'; note = ctLine(c); }
+    else if (it.link === 'balance') { done = st.remaining <= 0; note = done ? 'Paid in full' : `${money(st.remaining)} due`; }
+    else {
+      done = tick.includes(it.id);
+      note = it.link === 'records' ? (done ? 'Printed' : `Print ${esc(d.name)}'s records`) : it.link === 'furever' ? (done ? `Sent to ${esc(f.n)}` : `Send to ${esc(f.n)}`) : done ? 'Done' : 'Tap when done';
+    }
+    return { ...it, done, note };
+  });
+}
+const GH_HAND = ['manual', 'records', 'furever'];
+const ghRow = (s, x) => {
+  const live = !x.done || GH_HAND.includes(x.link);
+  return `<button type="button" class="row gh-row${x.done ? ' done' : ''}" ${live ? `data-ghdo="do|${esc(s.pup)}|${x.id}"` : 'disabled'}><span class="row-ic ${x.done ? 'green' : 'gray'}">${icon(x.done ? 'circle-check' : 'circle')}</span><span class="row-main"><span class="row-t">${esc(x.t)}</span><span class="row-s">${x.note}</span></span><span class="row-end">${!x.done && !GH_HAND.includes(x.link) ? chev : ''}</span></button>`;
+};
+function ghCard(s, d, { inLitter } = {}) {
+  const items = ghState(s, d), done = items.filter((x) => x.done).length, l = saleLitter(s);
+  const head = inLitter
+    ? `<h2><button type="button" class="link" data-open="dogsec:${d.id}|sale">${esc(d.name)}</button><span class="hub-line" style="font-family:var(--font-body);font-weight:500">${esc(fam(s.fam).n)} · ${pickupLine(s, { place: 0 })}</span></h2>`
+    : `<h2>${icon('list-checks')}Before ${esc(d.name)} goes home</h2>`;
+  return `<section class="card"><div class="section-h">${head}<span class="fcount">${done} of ${items.length}</span></div>
+    <div class="rows">${items.map((x) => ghRow(s, x)).join('')}</div>
+    ${inLitter ? '' : `<div class="gh-foot">${l ? `<button type="button" class="set-link" data-open="littersec:${l.id}|gohome">${icon('car')}${esc(litterName(l))} go-home</button>` : ''}<button type="button" class="set-link" data-open="ghlist">${icon('settings')}Edit checklist</button></div>`}</section>`;
+}
+function ghDo(v) {
+  const [k, a, b] = v.split('|');
+  if (k === 'do') {
+    const s = SALES.find((x) => x.pup === a), d = saleDog(s), it = GH_LIST.find((x) => x.id === b), tick = (GH_TICKS[a] ||= []), on = tick.includes(b);
+    const toggle = (msg) => { if (on) tick.splice(tick.indexOf(b), 1); else tick.push(b); render(); toast(on ? 'Unticked' : msg); };
+    if (it.link === 'manual') return toggle('Ticked');
+    if (it.link === 'records') return toggle(`${d.name}'s puppy records are ready to print`);
+    if (it.link === 'furever') return toggle(`Furever link sent to ${fam(s.fam).n}`);
+    if (GH_EV[it.link]) return open(`addevent:dog|${d.id}|${GH_EV[it.link][1]}`);
+    if (it.link === 'microchip') return open(`editdog:${d.id}`);
+    if (it.link === 'contract') { const c = ctFor(a); return open(c ? `contract:${c.id}` : 'contractedit:new'); }
+    if (it.link === 'balance') return open(`payments:${d.id}|new`);
+    return;
+  }
+  if (k === 'ready') {
+    const l = LITTERS.find((x) => x.id === a), fm = ui.form;
+    if (!fm.ready) return toast('Date is required');
+    if (l.depOpen && fm.ready < l.depOpen) return toast('Ready date is before deposits open');
+    l.ready = fm.ready; ui.pAct = null; ui.formSpec = null; render(); return toast('Saved');
+  }
+  /* the checklist itself */
+  const i = GH_LIST.findIndex((x) => x.id === a);
+  if (k === 'up' || k === 'down') { const j = k === 'up' ? i - 1 : i + 1; if (j < 0 || j >= GH_LIST.length) return; [GH_LIST[i], GH_LIST[j]] = [GH_LIST[j], GH_LIST[i]]; render(); return; }
+  if (k === 'rm') { const t = GH_LIST[i].t; GH_LIST.splice(i, 1); ui.pAct = null; ui.formSpec = null; render(); return toast(`${t} removed`); }
+  if (k === 'save') {
+    const fm = ui.form, t = (fm.t || '').trim();
+    if (!t) return toast('Name is required');
+    if (i >= 0) Object.assign(GH_LIST[i], { t, link: fm.link }); else GH_LIST.push({ id: 'g' + Date.now(), t, link: fm.link });
+    ui.pAct = null; ui.formSpec = null; render(); return toast(i >= 0 ? 'Saved' : 'Added');
+  }
+}
+S.ghlist = () => {
+  const ed = (it) => {
+    formFor('gh:' + (it ? it.id : 'new'), () => ({ t: it ? it.t : '', link: it ? it.link : 'manual' }));
+    return `<div class="q-edit sa-edit"><div class="form-stack">${fIn('t', 'Item', { ph: 'Puppy kit packed' })}${fSel('link', 'Checked off by', Object.entries(GH_LINKS).map(([v, [t]]) => [v, t]))}</div>
+      <div class="sa-btns">${it ? `<button type="button" class="chip" data-ghdo="rm|${it.id}">Remove</button>` : ''}<button type="button" class="chip go" data-ghdo="save|${it ? it.id : 'new'}">${it ? 'Save' : 'Add'}</button></div></div>`;
+  };
+  const item = (it, i) => {
+    const key = 'gh|' + it.id, op = ui.pAct === key;
+    return `<div class="rem${op ? ' open' : ''}"><div class="gh-edit-row"><button type="button" class="row" data-pact="${key}" aria-expanded="${op}"><span class="row-ic">${icon(GH_LINKS[it.link][1])}</span><span class="row-main"><span class="row-t">${esc(it.t)}</span><span class="row-s">${GH_LINKS[it.link][0]}</span></span></button>
+      <span class="gh-move"><button type="button" data-ghdo="up|${it.id}" aria-label="Move ${esc(it.t)} up"${i ? '' : ' disabled'}>${icon('chevron-up')}</button><button type="button" data-ghdo="down|${it.id}" aria-label="Move ${esc(it.t)} down"${i < GH_LIST.length - 1 ? '' : ' disabled'}>${icon('chevron-down')}</button></span></div>${op ? ed(it) : ''}</div>`;
+  };
+  const nOpen = ui.pAct === 'gh|new';
   return {
-    bar: bar('Payments', { sub: `${s.pup} · ${fam(s.fam).n}` }),
-    body: `<section class="card">${facts([['Total', money(st.total)], ['Paid', money(st.paid)], ['Remaining', `<b>${money(st.remaining)}</b>`], ['Next', st.next ? `${money(st.next.owed)}${st.next.date ? ` by ${short(st.next.date)}` : ''}` : 'Nothing owed']])}</section>
-      ${allPaid ? `<div class="stub-note">${icon('circle-check')}<span>Everything is paid. <button type="button" class="link" data-paydo="full|${s.pup}|">Mark paid in full</button></span></div>` : ''}
-      <div class="label-row"><div class="group-label">Due dates</div><button type="button" class="set-link" data-open="saleedit:${pup}">${icon('calendar-clock')}${s.sched ? 'Change schedule' : 'Use a schedule'}</button></div>
-      <section class="card"><div class="rows">${st.due.map((x) => srow(x.owed <= 0 ? 'circle-check' : 'calendar-clock', x.t + pill(x.state), `${x.date ? fmt(x.date) : 'No date'}${x.paid && x.owed > 0 ? ` · ${money(x.paid)} paid` : ''}`, { tone: x.owed <= 0 ? 'green' : x.state[0] === 'Overdue' ? 'red' : x.state[0] === 'Due soon' ? 'amber' : '', end: `<span class="amt">${money(x.amt)}</span>` })).join('')}</div></section>
-      <div class="group-label">Received</div>
-      <section class="card"><div class="rows">${st.received.map(recRow).join('')}
-        <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="pay|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Record a payment</span><span class="row-s">${st.next ? `${money(st.next.owed)} next` : 'Nothing owed'}</span></span><span class="row-end"><span class="chev">${icon(nOpen ? 'chevron-up' : 'chevron-down')}</span></span></button>${nOpen ? form('new') : ''}</div>
-      </div></section>
-      <p class="f-hint">Final payment: ${esc(SET.payments.final)}</p>`,
+    bar: bar('Go-home checklist', { sub: 'Every puppy you sell' }),
+    body: `<p class="lede">What you do before each puppy goes home, in your order. Link an item to what checks it off and it ticks itself; the rest you tick on the puppy's sale.</p>
+      <section class="card"><div class="rows">${GH_LIST.map(item).join('')}
+        <div class="rem${nOpen ? ' open' : ''}"><button type="button" class="row" data-pact="gh|new" aria-expanded="${nOpen}"><span class="row-ic">${icon('plus')}</span><span class="row-main"><span class="row-t">Add an item</span></span></button>${nOpen ? ed(null) : ''}</div>
+      </div></section>`,
   };
 };
+
+function saleX(v) {
+  const [k, pup] = v.split('|'), s = SALES.find((x) => x.pup === pup), fm = ui.form;
+  if (k === 'pickup') {
+    if (!fm.date) return toast('Date is required');
+    Object.assign(s, { gohomeIso: fm.date, gohome: wday(fm.date), ghTime: fm.time || '', ghPlace: fm.place || '' });
+    const when = `${wday(fm.date)}${fm.time ? ` · ${hm12(fm.time)}` : ''}`, g = GOHOME.find((x) => x.pup === pup);
+    if (g) g.when = when; else GOHOME.push({ pup, fam: s.fam, when, checks: [] });
+    const a = AGENDA.find((x) => x.t === `${pup} goes home`);
+    if (a) Object.assign(a, { d: fm.date, time: hm12(fm.time) });
+    else AGENDA.push({ id: 'a' + (AGENDA.length + 1), d: fm.date, time: hm12(fm.time), ic: 'car', tone: 'green', kind: 'Go-home', t: `${pup} goes home`, s: fam(s.fam).n, go: `dogsec:${saleDog(s).id}|sale`, sched: 1 });
+    ui.pAct = null; ui.formSpec = null; render(); return toast(`Goes home ${when}. It's on the calendar.`);
+  }
+  if (k === 'sched') { Object.assign(s, { sched: fm.sched, balDue: fm.sched ? '' : fm.balDue }); ui.pAct = null; ui.formSpec = null; render(); return toast('Saved'); }
+  const st = saleStatement(s);
+  if (k === 'invoice') return toast(st.remaining > 0 ? `Invoice for ${money(st.remaining)} sent to ${fam(s.fam).n}` : `Receipt sent to ${fam(s.fam).n}`);
+  if (k === 'link') return toast(st.next ? `Payment link for ${money(st.next.owed)} copied` : 'Nothing is owed');
+}
 function payDo(spec) {
   const [act, pup, pid] = spec.split('|'), s = SALES.find((x) => x.pup === pup), fm = ui.form;
   if (act === 'full') { const st = saleStatement(s); s.balPaid = st.received.map((r) => r.date).sort().at(-1) || TODAY; s.status = 'paid_in_full'; render(); toast('Marked paid in full'); return; }
@@ -4078,7 +4371,7 @@ const DOCS = [
   { id: 'dc10', dog: 'fern', type: 'vet_summary', t: 'First vaccines and wellness exam', d: '2026-10-29', by: 'Hartland Animal Hospital' },
   { id: 'dc11', dog: 'clover', type: 'vet_summary', t: 'Ultrasound, confirmed pregnant', d: '2026-11-03', by: 'Dr. Okonkwo' },
 ];
-const docRow = (x, noType) => { const [l, ic, tone] = DOC_T[x.type]; return row({ ic, tone, t: esc(x.t), extra: noType ? pill([l, tone || 'gray']) : '', s: [fmt(x.d), x.by, x.res].filter(Boolean).map(esc).join(' · '), go: 'stub:document' }); };
+const docRow = (x, noType) => { const [l, ic, tone] = DOC_T[x.type]; return row({ ic, tone, t: esc(x.t), extra: noType ? pill([l, tone || 'gray']) : '', s: [fmt(x.d), x.by, x.res].filter(Boolean).map(esc).join(' · '), go: `doc:${x.id}` }); };
 FDEF.docs = { date: 'Date', dd: ['Dog'], items: () => DOCS.filter((x) => (ui.docType || 'all') === 'all' || x.type === ui.docType), get: { date: (x) => x.d, Dog: (x) => dogById(x.dog).name }, text: (x) => `${x.t} ${x.by || ''} ${x.res || ''} ${dogById(x.dog).name}` };
 S.documents = () => {
   const type = ui.docType || 'all', base = FDEF.docs.items(), list = applyF('docs', base);
@@ -4758,29 +5051,32 @@ function lineDogsec(d, k) {
 function lineLitterTiles(l) {
   const b = `littersec:${l.id}|`, out = [];
   if (l.id === 'wa') {
-    const bs = BIRTHS.wa;
-    out.push([b + 'births', 'baby', 'Births', `${bs.length} born · ${bs.filter((x) => x.alive).length} alive · natural`]);
     if (FEAT.lineTools) { const pups = DOGS.filter((d) => d.litter === 'wa'); out.push([b + 'score', 'clipboard-check', 'Score puppies', `${pups.filter((p) => puppyScored(p.id)).length} of ${pups.length} scored`]); }
   }
-  if (l.id === 'ct') out.push([b + 'births', 'baby', 'Births', BIRTHS.ct.length ? `${BIRTHS.ct.length} recorded so far` : 'Record each pup as she’s born']);
   const s = DOGS.find((d) => d.name === l.sire).id, d = DOGS.find((x) => x.name === l.dam).id;
-  out.push([`pair:${s}|${d}`, 'git-compare', 'Pairing check', `COI ${pct(kin(s, d))} · ${relation(s, d).role.toLowerCase()}`]);
   return out;
 }
 function lineLittersec(l, k) {
   if (k === 'births') {
     const bs = BIRTHS[l.id] || [];
     const list = bs.length ? `<section class="card"><div class="section-h"><h2>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</h2></div><div class="rows">${bs.map((x) => row({ t: `#${x.n} · ${x.dog ? pedName(x.dog) : x.alive ? 'Not named yet' : x.cause}`, extra: `${sex(x.sex)}${pill([x.color, 'gray'])}${x.alive ? '' : pill(['Stillborn', 'red'])}${(x.abn || []).map((a) => pill([a, 'amber'])).join('')}`, s: `${x.time} · ${x.wt} oz`, go: x.dog ? `dog:${x.dog}` : '' })).join('')}</div></section>` : '';
-    if (l.id !== 'ct') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
+    if (l.status[0] === 'Closed') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
     const f = ui.birth;
     const colorSel = `<select id="b-color" aria-label="Color">${COLORS.filter((c) => c.kind === 'color').map((c) => `<option ${f.color === c.n ? 'selected' : ''}>${c.n}</option>`).join('')}<option value="__add">+ Add a color</option></select>`;
+    const cOn = f.collar || nextCollar(l.id), cOpts = [...COLLAR_COLORS.filter((c) => !collarsUsed(l.id).includes(c)).slice(0, 8)];
     return `${list}<section class="card app-card"><b style="font-family:var(--font-display);font-size:17px">Pup ${bs.length + 1}</b>
+      <div><div class="group-label">ID collar</div><div class="chips wrap">${cOpts.map((c) => `<button type="button" class="chip" data-bf="collar|${c}" aria-pressed="${cOn === c}">${c}</button>`).join('')}</div></div>
+      <div class="form-stack"><label>Name <input id="b-name" autocomplete="off" value="${esc(f.name || '')}" placeholder="${esc(cOn ? `${cOn} collar` : 'Name')}"></label><small class="f-hint">Leave it as the collar color until you name them.</small></div>
       <div><div class="group-label">Sex</div><div class="chips">${[['m', 'Male'], ['f', 'Female']].map(([v, t]) => `<button type="button" class="chip" data-bf="sex|${v}" aria-pressed="${f.sex === v}">${t}</button>`).join('')}</div></div>
       <div><div class="group-label">Color</div><div class="fbar-top">${colorSel}</div>${f.adding ? `<div class="fbar-top" style="margin-top:8px"><label><input id="b-newcolor" placeholder="New color name"></label><button type="button" class="fbtn" data-bf="addcolor|1">Add</button></div>` : ''}</div>
       <div><div class="group-label">Born</div><div class="chips">${[['1', 'Alive'], ['0', 'Stillborn']].map(([v, t]) => `<button type="button" class="chip" data-bf="alive|${v}" aria-pressed="${String(f.alive) === v}">${t}</button>`).join('')}</div></div>
       <div class="dates"><label>Birth weight (oz)<input id="b-wt" type="number" step="0.1" inputmode="decimal" value="${esc(f.wt || '')}"></label><label>Time<input id="b-time" type="time" value="${esc(f.time || '')}"></label></div>
       <div><div class="group-label">Abnormalities</div><div class="chips" style="flex-wrap:wrap">${['None', 'Cleft palate', 'Umbilical hernia', 'Swimmer puppy syndrome', 'Anasarca (walrus puppy)', 'Other'].map((a) => `<button type="button" class="chip" data-bf="abn|${a}" aria-pressed="${f.abn.includes(a) || (a === 'None' && !f.abn.length)}">${a}</button>`).join('')}</div></div>
-      <button type="button" class="primary-btn" data-bf="save|1">${icon('check')}Save pup ${bs.length + 1}</button></section>`;
+      <button type="button" class="primary-btn" data-bf="save|1">${icon('check')}Save pup ${bs.length + 1}</button></section>
+      ${bs.length && l.status[0] === 'Expected' ? `<section class="card app-card"><div class="f-head"><h2>Is that all of them?</h2><span>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</span></div>
+        <div class="f-group"><div class="group-label">Delivery</div><div class="chips wrap">${['Natural', 'C-section, planned', 'C-section, emergency'].map((v) => `<button type="button" class="chip" data-hx="whelpdel|${l.id}|${v}" aria-pressed="${(f.delivery || 'Natural') === v}">${v}</button>`).join('')}</div></div>
+        <button type="button" class="btn-2" data-hx="whelpdone|${l.id}">${icon('flag')}Done whelping: mark the litter whelped</button>
+        <p class="f-hint">You can add a pup you missed afterwards.</p></section>` : ''}`;
   }
   if (k === 'score') {
     const pups = DOGS.filter((d) => d.litter === l.id), list = TRAITS.filter((t) => t.pup);
@@ -4794,7 +5090,7 @@ function lineLittersec(l, k) {
 [...DOGS, ...ANCESTORS].forEach((d) => { PED[d.id] = { name: d.name, sex: d.sex }; });
 function pairingRow(p) {
   const s = DOGS.find((x) => x.name === p.sire).id, d = DOGS.find((x) => x.name === p.dam).id, w = pairWarnings(s, d);
-  return row({ ic: w.length ? 'triangle-alert' : 'heart-handshake', tone: w.length ? 'red' : '', t: `${p.dam} × ${p.sire}`, extra: pill(p.status) + (w.length ? pill([relation(s, d).role, 'red']) : ''), s: w.length ? w.map((x) => x[1]).join(' · ') : `${p.s} · COI ${pct(kin(s, d))}`, go: `pair:${s}|${d}` });
+  return row({ ic: w.length ? 'triangle-alert' : 'heart-handshake', tone: w.length ? 'red' : '', t: `${p.dam} × ${p.sire}`, extra: pill(p.status) + (w.length ? pill([relation(s, d).role, 'red']) : ''), s: w.length ? w.map((x) => x[1]).join(' · ') : `${p.s} · COI ${pct(kin(s, d))}`, go: `pairing:${p.id}` });
 }
 function homeLineRows() {
   const out = [];
@@ -4852,7 +5148,12 @@ function lineSetupBody(k) {
   return null;
 }
 
-function litterSections(l) { const base = litterSectionsBase(l); base.splice(Math.min(base.length, 3), 0, ...lineLitterTiles(l)); return base; }
+function litterSections(l) {
+  const base = litterSectionsBase(l); base.splice(Math.min(base.length, 3), 0, ...lineLitterTiles(l));
+  /* Puppy records: once the litter is Ready, the first tile */
+  if (l.whelp && l.status[0] !== 'Closed') { const t = [`littersec:${l.id}|records`, 'file-text', 'Puppy records', recLine(l)]; if (['Ready', 'Sold'].includes(l.status[0])) base.unshift(t); else base.push(t); }
+  return base;
+}
 
 
 /* ================= program types (docs/KennelOS_Program_Types_Plan.md) ================= */
@@ -4892,7 +5193,7 @@ const PT = { main: 'show', also: ['stud'] };
 function applyType() {
   const on = new Set([PT.main, ...PT.also].flatMap((k) => PTYPES[k].feat));
   Object.keys(FEAT).forEach((k) => { FEAT[k] = on.has(k); });
-  applyConn(); /* D27: then one of each twin, from How connected */
+  applyConn(); /* D29: then one of each twin, from How connected */
 }
 const typeSummary = () => [PT.main, ...PT.also].map((k) => PTYPES[k].n).join(' + ');
 const TAB_DEF = { home: ['Home', 'house'], waitlist: ['Waitlist', 'list-ordered'], dogs: ['Dogs', 'dog'], litters: ['Litters', 'paw-print'], business: ['Business', 'briefcase'], more: ['More', 'ellipsis'], studs: ['Studs', 'concierge-bell'] };
@@ -4956,14 +5257,14 @@ function typeSetupBody() {
     <section class="card"><div class="rows">${[['Do you breed registered dogs?', PT.main === 'doodle' ? 'No' : 'Yes'], ['Litters a year', PT.main === 'large' ? '20 or more' : '3–5'], ['Is this your first litter?', 'No'], ['Is your waitlist online?', FEAT.waitlistOnline ? 'Yes' : 'No']].map(([q, a]) => `<div class="q-row"><button type="button" class="q-head" data-open="stub:${q.toLowerCase().replace(/[^a-z]+/g, '-')}"><span class="q">${q}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
 }
 
-/* ================= D26: Home follows the kennel's stage ================= */
+/* ================= D28: Home follows the kennel's stage ================= */
 /* the prototype bar's Stage, Connected and Website controls; the app reads all three from her records */
 const DEMO = { stage: 'auto', conn: 'cloud', site: 1 };
-const STAGES = { between: ['Between litters', 'gray'], planning: ['Planning', 'blue'], expecting: ['Expecting', 'blue'], newborns: ['Newborns', 'green'], picks: ['Picks open', 'amber'], gohome: ['Going home', 'amber'], after: ['After go-home', 'gray'] };
+const HOME_STAGES = { between: ['Between litters', 'gray'], planning: ['Planning', 'blue'], expecting: ['Expecting', 'blue'], newborns: ['Newborns', 'green'], picks: ['Picks open', 'amber'], gohome: ['Going home', 'amber'], after: ['After go-home', 'gray'] };
 const STAGE_RANK = ['gohome', 'picks', 'newborns', 'expecting', 'planning', 'between', 'after'];
 const STAGE_WHO = { between: '', planning: 'Juniper × Gunnar', expecting: 'Clover × Titan', newborns: 'Willow × Ash', picks: 'Willow × Ash', gohome: 'Willow × Ash', after: 'Willow × Ash' };
 /* each open litter or planned pairing is at one stage, read from its dates and its pups */
-function litterStage(l) {
+function homeStage(l) {
   if (l.status[0] === 'Closed') return null;
   if (!l.whelp) return 'expecting';
   if (days(l.whelp, TODAY) < 21) return 'newborns';
@@ -4973,11 +5274,11 @@ function litterStage(l) {
 }
 function kennelStages() {
   if (DEMO.stage !== 'auto') return [{ k: DEMO.stage, who: STAGE_WHO[DEMO.stage] }];
-  const out = LITTERS.map((l) => ({ k: litterStage(l), who: litterName(l) })).filter((x) => x.k);
+  const out = LITTERS.map((l) => ({ k: homeStage(l), who: litterName(l) })).filter((x) => x.k);
   PAIRINGS.filter((p) => p.status[0] === 'Planned').forEach((p) => out.push({ k: 'planning', who: `${p.dam} × ${p.sire}` }));
   return (out.length ? out : [{ k: 'between', who: '' }]).sort((a, b) => STAGE_RANK.indexOf(a.k) - STAGE_RANK.indexOf(b.k));
 }
-const stageLine = () => kennelStages().map((x) => `${x.who ? esc(x.who) + ' · ' : ''}${STAGES[x.k][0].toLowerCase()}`).join(' · ');
+const stageLine = () => kennelStages().map((x) => `${x.who ? esc(x.who) + ' · ' : ''}${HOME_STAGES[x.k][0].toLowerCase()}`).join(' · ');
 const balancesDue = () => SALES.filter((s) => saleTotal(s) > s.paid);
 /* a stage's tiles: [icon, title, subline, opens] */
 function stageTiles(k) {
@@ -4986,7 +5287,7 @@ function stageTiles(k) {
     between: [['flame', 'Heat watch', 'Juniper · about Nov 25', 'dog:juniper'], ['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['stethoscope', 'Health tests', '2 due this month', 'dogs']],
     planning: [['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['flame', 'Heat log', 'Juniper · about Nov 25', 'dog:juniper']],
     expecting: [['baby', `Day ${days(ct.bred, TODAY)} of 63`, `Clover · due ${short(ct.due)}`, 'litter:ct'], ['clipboard-list', 'Whelping prep', 'Box set-up Dec 1', 'litter:ct']],
-    newborns: [['scale', 'Weigh puppies', `Last weighed ${weighedOn}`, 'littersec:wa|weigh'], ['baby', 'Births', '6 alive · 1 lost', 'littersec:wa|puppies']],
+    newborns: [['scale', 'Weigh puppies', `Last weighed ${weighedOn}`, 'littersec:wa|care'], ['baby', 'Births', '6 alive · 1 lost', 'littersec:wa|puppies']],
     picks: [FEAT.waitlist && ['list-ordered', 'Picks', `${fam(OFFER.fam).n.replace(' family', '')}’s turn · ${wday(OFFER.due)}`, 'wlpicks:wa'], FEAT.waitlistOnline ? ['clock', 'Offers', '1 waiting on an answer', 'wloffer'] : ['send', 'Picks update', 'Send to families', 'sharing'], ['wallet', 'Deposits', `${SALES.length} of 6 in`, 'sales']],
     gohome: [['car', 'Go-home', 'Sat Nov 21 · 3 pups', 'littersec:wa|gohome'], due.length && ['wallet', 'Balances due', `${money(sum(due.map((s) => saleTotal(s) - s.paid)))} · ${due.length} families`, 'sales'], FEAT.contracts && ['file-pen-line', 'Contracts', '1 to sign', 'contracts']],
     after: [FEAT.portal ? ['globe', 'Puppy portal', 'Send the 2-week update', 'website'] : ['heart', 'Furever', 'Send the 2-week update', 'stub:furever'], ['coins', 'Litter P&L', 'Willow × Ash', 'stub:Litter P&L']],
@@ -5035,7 +5336,7 @@ function tabBadge(k, ny) {
   return 0;
 }
 
-/* ================= D27: how connected she is picks one of each twin ================= */
+/* ================= D29: how connected she is picks one of each twin ================= */
 const TWINS = [['companion', 'waitlistOnline', 'Keep families posted'], ['assistant', 'liveSync', 'A helper or a second phone'], ['furever', 'portal', 'The family’s app after go-home']];
 function applyConn() {
   const cloud = DEMO.conn === 'cloud';
@@ -5217,7 +5518,7 @@ const SCREENS = [
   ['Dogs', 'dog', 'All dogs and puppies', 'dogs'],
   ['Litters', 'paw-print', 'Litters, pairings, active breeding', 'litters'],
   ['Go-home', 'car', 'Willow × Ash checklist', 'littersec:wa|gohome'],
-  ['Weigh puppies', 'scale', 'Willow × Ash weights', 'littersec:wa|weigh'],
+  ['Puppy care', 'stethoscope', 'Willow × Ash weights, shots, deworming', 'littersec:wa|care'],
   ['Business', 'briefcase', 'Sales, people, money, reports', 'business'],
   ['Sales & Placements', 'tag', 'Puppy sales and balances', 'sales'],
   ['People', 'users', 'Contacts', 'people'],
@@ -5393,7 +5694,9 @@ function eventSave(spec) {
   const n = { vacc: f.good === '3 years' ? 1095 : 365, 14: 14, 30: 30, 90: 90 }[f.remind];
   const rd = f.remind === 'pick' ? f.remindOn : n ? addDays(f.d, n) : '';
   if (rd) AGENDA.push({ id: 'a' + (AGENDA.length + 1), d: rd, due: rd, ic: t[2], tone: t[3], kind: t[1], t: `${subj} · ${f.type === 'vaccination' ? (f.vaccine || 'vaccine') + ' due' : t[1].toLowerCase()}`, s: 'Your reminder', go: kind === 'dog' ? `dog:${id}` : `litter:${id}`, rem: 1 });
-  ui.formSpec = null; back(); toast(`Added to ${subj}’s history${rd ? ` · reminder ${rd.slice(0, 4) === TODAY.slice(0, 4) ? wday(rd) : fmt(rd)}` : ''}`);
+  let bredNote = '';
+  if (kind === 'dog' && f.type === 'breeding_tie') { const q = PAIRINGS.find((x) => x.dam === subj && x.status[0] === 'Planned' && (!f.with || pedName(f.with) === x.sire)); if (q) { q.status = ['Bred', 'violet']; q.bred = f.d; q.due = addDays(f.d, 63); q.s = pairS(q); bredNote = ` · ${q.dam} × ${q.sire} is bred, due ${short(q.due)}`; } }
+  ui.formSpec = null; back(); toast(`Added to ${subj}’s history${bredNote}${rd ? ` · reminder ${rd.slice(0, 4) === TODAY.slice(0, 4) ? wday(rd) : fmt(rd)}` : ''}`);
 }
 function pairSave() {
   const f = ui.form;
@@ -5403,7 +5706,7 @@ function pairSave() {
   const due = f.status !== 'Planned' && f.d ? addDays(f.d, 63) : '';
   const st = { Planned: ['Planned', 'blue'], Bred: ['Bred', 'violet'], 'Confirmed pregnant': ['Confirmed pregnant', 'green'] }[f.status];
   const line = f.status === 'Planned' ? (f.d ? `Planned for about ${short(f.d)} · ${f.method.toLowerCase()}` : `Date not set · ${f.method.toLowerCase()}`) : `Bred ${f.d ? short(f.d) : '—'}${f.d2 ? ` and ${short(f.d2)}` : ''}${due ? ` · due ${short(due)}` : ''}`;
-  PAIRINGS.unshift({ dam, sire, status: st, s: line });
+  PAIRINGS.unshift({ id: 'p' + Date.now(), dam, sire, status: st, s: line, method: f.method, web: f.web === 'yes', notes: f.notes || '', ...(f.status === 'Planned' ? { plan: f.d } : { bred: f.d, bred2: f.d2, due }) });
   ui.formSpec = null; ui.litTab = 'pairings'; back(); toast('Pairing added');
 }
 function litterSave() {
@@ -5536,9 +5839,497 @@ function render() {
   icons();
 }
 
+/* ================= hubs, built one way (D26): a dog, a litter, a pairing, a sale =================
+   Under the header, a stage bar: where it is in its life, the next step as a button, and the
+   stage itself, tapped, to pick any stage. Details holds what it is, with Edit; every other
+   tile holds one group and edits only that; a row in a list opens to change it. The steps
+   are the ones live's status rules ask about when a status changes. */
+function stageBar({ key, tone, label, line = '', btns = [], picks = [], note = '' }) {
+  const open = ui.pAct === 'stage:' + key;
+  return `<section class="stage-bar ${tone}"><div class="sb-top"><button type="button" class="sb-stage" data-pact="stage:${key}" aria-expanded="${open}" aria-label="Stage: ${esc(label)}. Change">${esc(label)}${icon(open ? 'chevron-up' : 'chevron-down')}</button>${line ? `<span class="sb-line">${line}</span>` : ''}</div>
+    ${btns.length && !open ? `<div class="sb-btns">${btns.map(([t, attr, ic]) => `<button type="button" class="sb-btn" ${attr}>${ic ? icon(ic) : ''}${esc(t)}</button>`).join('')}</div>` : ''}
+    ${open ? `<div class="sb-picks"><div class="chips wrap">${picks.map(([, t, on, attr]) => `<button type="button" class="chip" ${attr} aria-pressed="${!!on}">${esc(t)}</button>`).join('')}</div>${note ? `<p class="sb-note">${note}</p>` : ''}</div>` : ''}</section>`;
+}
+const editBtn = (spec) => `<button type="button" class="bar-btn" data-open="${spec}">${icon('pencil')}Edit</button>`;
+const dangerRow = (attr, t, s = '') => `<section class="card big-rows danger"><div class="rows"><button type="button" class="row" ${attr}><span class="row-ic">${icon('trash-2')}</span><span class="row-main"><span class="row-t">${t}</span>${s ? `<span class="row-s">${s}</span>` : ''}</span></button></div></section>`;
+
+/* ---------- a dog: a puppy's plan is its stage ---------- */
+const DISP_TONE = { undecided: 'amber', available: 'blue', keeping: 'green', placed: 'green', health_hold: 'amber' };
+function dogStage(d) {
+  if (d.status === 'deceased') return stageBar({ key: 'dog', tone: 'gray', label: 'Deceased', line: d.died ? fmt(d.died) : '' });
+  if (d.status !== 'puppy') return '';
+  const disp = d.disp || 'undecided', sale = SALES.find((s) => s.pup === d.name);
+  const line = sale ? `${esc(fam(sale.fam).n)} · ${sale.gohomeIso ? `goes home ${wday(sale.gohomeIso)}` : 'go-home not set'}`
+    : { available: 'The waitlist can offer this puppy', keeping: 'Staying in your program', health_hold: 'Not offered until you change it', undecided: 'Not offered yet' }[disp] || '';
+  const btns = disp === 'undecided' ? [['Available', `data-hx="disp|${d.id}|available"`], ['Keeping', `data-hx="disp|${d.id}|keeping"`]]
+    : disp === 'available' && !sale ? [['Add sale', `data-open="addsale:${d.id}"`, 'plus']] : [];
+  const picks = Object.entries(DISP).filter(([k]) => k !== 'placed' || disp === 'placed').map(([k, [t]]) => [k, t, disp === k, k === 'placed' ? '' : `data-hx="disp|${d.id}|${k}"`]);
+  return stageBar({ key: 'dog', tone: DISP_TONE[disp] || 'gray', label: DISP[disp]?.[0] || 'Undecided', line, btns, picks, note: sale ? 'Placed comes from the sale. Ending the sale frees the puppy.' : 'Placed comes from a sale.' });
+}
+
+/* ---------- a litter: Expected → Whelped → Weaning → Ready → Sold → Closed ---------- */
+const LIT_STAGES = [['Expected', 'blue'], ['Whelped', 'green'], ['Weaning', 'green'], ['Ready', 'green'], ['Sold', 'gray'], ['Closed', 'gray']];
+const litPups = (l) => DOGS.filter((d) => d.litter === l.id && d.status === 'puppy');
+const litOpen = (l) => litPups(l).filter((d) => ['available', 'undecided', undefined].includes(d.disp)).length;
+function litterStage(l) {
+  const st = l.status[0], go = (v, t, ic) => [t, `data-hx="lit|${l.id}|${v}"`, ic], avail = litOpen(l);
+  let line = '', btns = [], tone = 'blue';
+  if (st === 'Expected') {
+    const n = (BIRTHS[l.id] || []).length;
+    line = `Due ${wday(l.due)}${l.bred ? ` · day ${days(l.bred, TODAY)} of 63` : ''}`;
+    btns = n ? [go('Whelped', `${n} born · Mark whelped`, 'check')] : [['Record the birth', `data-open="littersec:${l.id}|births"`, 'baby']];
+    tone = days(TODAY, l.due) <= 7 ? 'amber' : 'blue';
+  } else if (st === 'Whelped') { line = `Born ${wday(l.whelp)} · ${age(l.whelp)}`; btns = [go('Weaning', 'Start weaning')]; }
+  else if (st === 'Weaning') { line = `${age(l.whelp)} · ready ${l.ready ? short(l.ready) : 'not set'}`; btns = [go('Ready', 'Mark ready', 'check')]; }
+  else if (st === 'Ready') { line = `Ready ${short(l.ready)} · ${avail ? `${avail} still available` : 'every puppy has a plan'}`; btns = avail ? [] : [go('Sold', 'Mark sold')]; tone = avail ? 'amber' : 'green'; }
+  else if (st === 'Sold') { const due = litCloseDue(l); line = due ? 'Every puppy is home' : 'Every puppy has a plan'; btns = due ? [go('Closed', 'Close the litter')] : []; tone = 'green'; }
+  else { line = esc(l.note || ''); tone = 'gray'; }
+  return stageBar({ key: 'lit', tone, label: st, line, btns, picks: LIT_STAGES.map(([v]) => [v, v, v === st, `data-hx="lit|${l.id}|${v}"`]), note: 'Moving back undoes nothing else: puppies, sales and dates stay.' });
+}
+/* live's close rule: no pup available or undecided, no open sale, one delivered */
+const litSales = (l) => SALES.filter((s) => saleDog(s)?.litter === l.id);
+const litCloseDue = (l, but) => !litOpen(l) && litSales(l).every((s) => s === but || !['deposit_pending', 'deposit_paid', 'paid_in_full'].includes(saleStatus(s))) && litSales(l).some((s) => s === but || saleStatus(s) === 'delivered');
+
+/* ---------- a pairing: Planned → Bred → Confirmed pregnant → Whelped, or it ends ---------- */
+const PAIR_STAGES = [['Planned', 'blue'], ['Bred', 'violet'], ['Confirmed pregnant', 'green'], ['Not pregnant', 'gray'], ['Whelped', 'green'], ['Failed', 'gray'], ['Cancelled', 'gray']];
+const pairById = (id) => PAIRINGS.find((p) => p.id === id);
+const pairIds = (p) => [DOGS.find((x) => x.name === p.sire)?.id, DOGS.find((x) => x.name === p.dam)?.id];
+const pairLitter = (p) => LITTERS.find((l) => l.dam === p.dam && l.sire === p.sire);
+const pairS = (p) => {
+  const st = p.status[0], l = pairLitter(p);
+  return st === 'Planned' ? (p.plan ? `Planned for about ${short(p.plan)} · ${(p.method || 'Natural').toLowerCase()}` : `Date not set · ${(p.method || 'Natural').toLowerCase()}`)
+    : ['Bred', 'Confirmed pregnant'].includes(st) ? `Bred ${p.bred ? short(p.bred) : '—'}${p.bred2 ? ` and ${short(p.bred2)}` : ''}${p.due ? ` · due ${short(p.due)}` : ''}`
+    : st === 'Whelped' ? `Whelped${l?.whelp ? ` ${short(l.whelp)}` : ''}${l?.whelp ? ` · ${(l.m || 0) + (l.f || 0)} puppies` : ''}` : st;
+};
+const BREED_T = ['Heat cycle', 'Progesterone test', 'Breeding', 'Ultrasound', 'Pregnancy update'];
+const breedEvents = (p) => { hubSeed(); const [, did] = pairIds(p), from = addDays(p.bred || p.plan || TODAY, -45), to = p.due ? addDays(p.due, 7) : '9999'; return did ? eventsFor(dogById(did)).filter((e) => BREED_T.includes(e.type[0]) && e.d >= from && e.d <= to) : []; };
+function pairStage(p) {
+  const st = p.status[0], l = pairLitter(p), [, did] = pairIds(p), go = (v, t, ic) => [t, `data-hx="pair|${p.id}|${v}"`, ic];
+  let btns = [], tone = PAIR_STAGES.find((x) => x[0] === st)?.[1] || 'gray';
+  if (st === 'Planned') btns = [['Log a breeding', `data-open="addevent:dog|${did}|breeding_tie"`, 'heart']];
+  if (st === 'Bred') btns = [go('Confirmed pregnant', 'Confirmed pregnant', 'check'), go('Not pregnant', 'Not pregnant')];
+  if (st === 'Confirmed pregnant') { btns = [['Record the birth', l ? `data-open="littersec:${l.id}|births"` : `data-hx="pair|${p.id}|Whelped"`, 'baby']]; if (p.due && days(TODAY, p.due) <= 7) tone = 'amber'; }
+  return stageBar({ key: 'pair', tone, label: st, line: esc(p.s), btns, picks: PAIR_STAGES.map(([v]) => [v, v, v === st, `data-hx="pair|${p.id}|${v}"`]), note: 'Confirmed pregnant adds the expected litter. Not pregnant, Failed or Cancelled takes an expected litter off Litters.' });
+}
+S.pairing = (id) => {
+  hubSeed();
+  const p = pairById(id) || PAIRINGS[0], [sid, did] = pairIds(p), l = pairLitter(p), w = sid && did ? pairWarnings(sid, did) : [], be = breedEvents(p);
+  const t = [
+    [`pairingsec:${p.id}|details`, 'id-card', 'Details', `${esc(p.method || 'Natural')}${p.status[0] === 'Planned' ? (p.plan ? ` · about ${short(p.plan)}` : ' · date not set') : p.bred ? ` · bred ${short(p.bred)}` : ''}`],
+    ...(sid && did && !w.length ? [[`pair:${sid}|${did}`, 'git-compare', 'Pairing check', `COI ${pct(kin(sid, did))} · no warnings`]] : []),
+    [`pairingsec:${p.id}|breeding`, 'heart', 'Breeding', be.length ? `${be.length} event${be.length > 1 ? 's' : ''} · last ${short(be[0].d)}` : 'Nothing logged yet'],
+    ...(l ? [[`litter:${l.id}`, 'paw-print', 'Litter', `${l.status[0]}${l.whelp ? ` · ${(l.m || 0) + (l.f || 0)} puppies` : l.due ? ` · due ${short(l.due)}` : ''}`]] : []),
+  ];
+  return {
+    bar: bar(`${p.dam} × ${p.sire}`, { sub: 'Pairing' }),
+    body: `<section class="card hub-head"><div class="hub-line"><button type="button" class="link" data-open="dog:${did}">${esc(p.dam)}</button> × ${sid ? `<button type="button" class="link" data-open="dog:${sid}">${esc(p.sire)}</button>` : esc(p.sire)}</div></section>
+      ${pairStage(p)}${w.length ? attnCard(w.map(([tone, tx]) => ['triangle-alert', tone, tx, `pair:${sid}|${did}`])) : ''}${tiles(t)}`,
+  };
+};
+S.pairingsec = (q) => {
+  const [id, k] = q.split('|'), p = pairById(id), [, did] = pairIds(p), sub = `${p.dam} × ${p.sire}`;
+  if (k === 'breeding') {
+    const evs = breedEvents(p);
+    return { bar: bar('Breeding', { sub, action: addBtn('Add', `addevent:dog|${did}`) }),
+      body: evs.length ? `<p class="lede">From ${esc(p.dam)}'s history: heat, progesterone, breedings and ultrasounds. Tap one to change it.</p>${timeline(evs, (e) => `editevent:dog|${did}|${EVENTS[did].indexOf(e)}`)}`
+        : empty('heart', `Nothing logged for ${esc(p.dam)} yet. Her heat, progesterone tests and breedings show here.`, 'Add event', `addevent:dog|${did}|heat_cycle`) };
+  }
+  return {
+    bar: bar('Details', { sub, action: editBtn(`pairingedit:${p.id}`) }),
+    body: `<section class="card">${facts([['Dam', esc(p.dam)], ['Sire', esc(p.sire)], ['Stage', p.status[0]], ['Method', esc(p.method || 'Natural')], ...(p.plan ? [['Planned for', fmt(p.plan)]] : []), ...(p.bred ? [['Bred', `${fmt(p.bred)}${p.bred2 ? ` and ${short(p.bred2)}` : ''}`]] : []), ...(p.due ? [['Due', fmt(p.due)]] : []), ...(FEAT.waitlistOnline ? [['On website', p.web ? 'Upcoming litter' : 'Not listed']] : [])])}</section>
+      ${p.notes ? `<section class="card app-card"><div class="group-label">Notes</div><div class="quote">${esc(p.notes)}</div></section>` : ''}`,
+  };
+};
+S.pairingedit = (id) => {
+  const p = pairById(id), [sid, did] = pairIds(p);
+  const f = formFor('pairingedit:' + id, () => ({ dam: did || '', sire: sid || '', plan: p.plan || '', bred: p.bred || '', bred2: p.bred2 || '', method: p.method || 'Natural', web: p.web ? 'yes' : 'no', notes: p.notes || '' }));
+  const pre = p.status[0] === 'Planned';
+  return {
+    bar: bar('Edit pairing', { sub: `${p.dam} × ${p.sire}` }),
+    body: `${formCard('Who', `${fSel('dam', 'Dam', dogOpts('f', 'Pick her'))}${fSel('sire', 'Sire', dogOpts('m', 'Pick him'))}`)}
+      ${formCard(pre ? 'When' : 'Breeding', `<div class="dates">${pre ? fIn('plan', 'Planned for', { type: 'date' }) : `${fIn('bred', 'First breeding', { type: 'date' })}${fIn('bred2', 'Again on', { type: 'date' })}`}</div>${!pre && f.bred ? `<p class="f-note">${icon('baby')}<span>Due ${wday(addDays(f.bred, 63))}</span></p>` : ''}${fChips('method', 'Method', METHODS)}`)}
+      ${FEAT.waitlistOnline ? `<section class="card app-card">${fChips('web', 'List on website as upcoming litter', [['yes', 'Yes'], ['no', 'Not yet']])}</section>` : ''}
+      ${formCard('', fText('notes', 'Notes'))}
+      ${saveBar(`data-hx="pairsave|${p.id}"`)}
+      ${dangerRow(`data-hx="pairdel|${p.id}"`, 'Delete this pairing', pairLitter(p) ? 'Its litter stays' : '')}`,
+  };
+};
+
+/* ---------- a litter's Details ---------- */
+S.litteredit = (id) => {
+  const l = LITTERS.find((x) => x.id === id), born = !!l.whelp;
+  formFor('litteredit:' + id, () => ({ nick: l.nick || '', whelp: l.whelp || '', bred: l.bred || '', due: l.due || '', delivery: l.delivery || 'Natural', reg: l.reg ?? (l.id === 'wa' ? 'AKC LR 8812 0045' : l.id === 'ia' ? 'AKC LR 7310 2290' : ''), web: (l.web ?? l.id === 'wa') ? 'yes' : 'no', foster: l.foster ? 'yes' : 'no', notes: l.notes || '' }));
+  return {
+    bar: bar('Edit litter', { sub: litterName(l) }),
+    body: `${born ? formCard('Whelping', `<div class="dates">${fIn('whelp', 'Whelp date', { type: 'date' })}</div>${fChips('delivery', 'Delivery', ['Natural', 'C-section, planned', 'C-section, emergency'])}<p class="f-hint">Counts come from Births.</p>`)
+        : formCard('Expected', `<div class="dates">${fIn('bred', 'Breeding date', { type: 'date' })}${fIn('due', 'Due', { type: 'date' })}</div>`)}
+      ${formCard('Papers', fIn('reg', 'Litter registration', { ph: 'Not registered yet' }))}
+      <section class="card app-card">${FEAT.waitlistOnline ? fChips('web', 'On your website', [['yes', 'Yes'], ['no', 'No']]) : ''}${FEAT.foster ? fChips('foster', 'Foster litter', [['no', 'No'], ['yes', 'Yes']]) : ''}</section>
+      ${formCard('', `${fIn('nick', 'Nickname')}${fText('notes', 'Notes')}`)}
+      ${saveBar(`data-hx="litsave|${l.id}"`)}
+      ${dangerRow(`data-hx="litarch|${l.id}"`, `Archive ${litterName(l)}`, 'Hidden from Litters; its puppies and sales stay')}`,
+  };
+};
+const litFacts = (l) => (l.whelp
+  ? [['Whelped', fmt(l.whelp)], ['Delivery', esc(l.delivery || 'Natural')], ['Ready', l.ready ? fmt(l.ready) : 'Not set'], ['Litter reg.', esc(l.reg ?? (l.id === 'wa' ? 'AKC LR 8812 0045' : l.id === 'ia' ? 'AKC LR 7310 2290' : '')) || 'Not registered yet'], ...(FEAT.waitlistOnline ? [['On website', (l.web ?? l.id === 'wa') ? 'Shown' : 'Hidden']] : []), ...(FEAT.foster ? [['Foster', l.foster ? 'Yes' : 'No']] : [])]
+  : [['Dam', esc(l.dam)], ['Sire', esc(l.sire)], ['Bred', l.bred ? fmt(l.bred) : '—'], ['Due', l.due ? fmt(l.due) : '—'], ...(FEAT.waitlistOnline ? [['On website', (l.web ?? true) ? 'Shown' : 'Hidden']] : []), ...(FEAT.foster ? [['Foster', l.foster ? 'Yes' : 'No']] : [])]);
+
+/* ---------- a sale: Deposit pending → Deposit paid → Paid in full → Delivered ---------- */
+const SALE_STAGES = [['deposit_pending', 'Deposit pending', 'amber'], ['deposit_paid', 'Deposit paid', 'blue'], ['paid_in_full', 'Paid in full', 'green'], ['delivered', 'Delivered', 'green'], ['returned', 'Returned', 'gray'], ['cancelled', 'Cancelled', 'gray'], ['voided', 'Voided', 'gray']];
+const MONEY_ST = ['deposit_pending', 'deposit_paid', 'paid_in_full'];
+/* the first three follow the money; the rest are hers */
+const saleStatus = (s) => (s.status && !MONEY_ST.includes(s.status) ? s.status : saleStatement(s).remaining <= 0 ? 'paid_in_full' : depIn(s) || s.paid > 0 ? 'deposit_paid' : 'deposit_pending');
+function saleStage(s, d) {
+  const st = saleStatus(s), [, label, tone0] = SALE_STAGES.find((x) => x[0] === st), stm = saleStatement(s), dOpen = ui.pAct === 'deliver';
+  let line = '', btns = [], tone = tone0;
+  const pay = (t) => [t, `data-open="payments:${d.id}|new"`, 'wallet'], deliver = ['Mark delivered', 'data-pact="deliver"', 'car'];
+  if (st === 'deposit_pending') { line = `${money(stm.due[0].amt)} deposit${s.due ? ` due ${short(s.due)}` : ''}`; btns = [pay('Record deposit')]; }
+  else if (st === 'deposit_paid') {
+    line = `${money(stm.remaining)} to go${stm.next?.date ? ` · due ${short(stm.next.date)}` : ''}`; btns = [pay('Record a payment')];
+    if (s.gohomeIso && s.gohomeIso <= TODAY) btns.push(deliver);
+    tone = ['Overdue', 'Due soon'].includes(stm.next?.state[0]) ? 'amber' : 'blue';
+  } else if (st === 'paid_in_full') { line = s.gohomeIso ? `Goes home ${wday(s.gohomeIso)}` : 'Go-home not set'; btns = [deliver]; }
+  else if (st === 'delivered') line = s.delivered ? `Went home ${wday(s.delivered)}` : 'Went home';
+  else line = s.endNote ? esc(s.endNote) : 'Ended';
+  const picks = SALE_STAGES.slice(0, 4).map(([v, t]) => [v, t, v === st, v === 'delivered' ? 'data-pact="deliver"' : `data-hx="salest|${esc(s.pup)}|${v}"`]);
+  let out = stageBar({ key: 'sale', tone, label, line, btns: dOpen ? [] : btns, picks, note: 'Deposit pending, deposit paid and paid in full follow the money recorded. To mark it returned, cancelled or voided, use Details › Edit: it asks why and records any refund.' });
+  if (dOpen && st !== 'delivered') {
+    const l = saleLitter(s), closeDue = l && l.status[0] !== 'Closed' && litCloseDue(l, s);
+    const f = formFor('deliver:' + s.pup, () => ({ d: s.gohomeIso && s.gohomeIso <= TODAY ? s.gohomeIso : TODAY, own: 'yes', gone: 'yes', close: closeDue ? 'yes' : 'no' }));
+    out += `<section class="card app-card"><div class="f-head"><h2>${esc(d.name)} went home</h2></div><div class="form-stack"><div class="dates">${fIn('d', 'On', { type: 'date' })}</div>
+      ${fSwitch('own', `Owner is now ${esc(fam(s.fam).n)}`, 'yes', 'no')}${fSwitch('gone', `${esc(d.name)} leaves your dogs list`, 'yes', 'no')}${closeDue ? fSwitch('close', `Close ${esc(litterName(l))}: every puppy is home`, 'yes', 'no') : ''}</div>
+      ${stm.remaining > 0 ? `<div class="stub-note warn">${icon('triangle-alert')}<span>${money(stm.remaining)} is still owed. <button type="button" class="link" data-open="payments:${d.id}|new">Record a payment</button></span></div>` : ''}
+      <div class="actions-2"><button type="button" class="btn-2" data-pact="deliver">Cancel</button><button type="button" class="primary-btn" data-hx="deliver|${esc(s.pup)}">${icon('check')}Mark delivered</button></div></section>`;
+    void f;
+  }
+  return out;
+}
+const buyerOpts = () => WL.filter((f) => ['placed', 'client', 'active', 'approved'].includes(f.st)).map((f) => [f.id, f.n]);
+const saleInit = (s) => () => ({ fam: s.fam, status: saleStatus(s), date: s.date, reg: s.reg || 'Limited', price: str(s.price), dep: str(s.deposit ?? 500), depDate: s.depDate || s.date, depVia: s.depVia || 'zelle', sched: s.sched || '', balDue: s.balDue || '', balPaid: s.balPaid || '', balVia: s.balVia || '', channel: s.channel || '', fee: str(s.fee || ''), feeBuyer: s.feeBuyer ? 'yes' : 'no', lead: s.lead || 'Waitlist', ref: s.ref || '', end: s.end || '', endNote: s.endNote || '', refund: str(s.refund || ''), refundDate: s.refundDate || '', notes: s.notes || '' });
+S.saledetails = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], st = saleStatus(s), ended = ['returned', 'cancelled', 'voided'].includes(st);
+  const ref = s.ref && personOf(s.ref);
+  return {
+    bar: bar('Details', { sub: `${s.pup} · Sale`, action: editBtn(`saleedit:${pup}`) }),
+    body: `<section class="card">${facts([['Buyer', `<button type="button" class="link" data-open="person:${s.fam}">${esc(fam(s.fam).n)}</button>`], ['Stage', SALE_STAGES.find((x) => x[0] === st)[1]], ['Sale date', fmt(s.date)], ['Registration', esc(s.reg || 'Limited')], ['Lead source', esc(s.lead || 'Waitlist')], ['Referred by', ref ? esc(ref.n) : 'Nobody'],
+        ...(ended ? [['Why it ended', esc((END_REASONS[st] || []).find(([v]) => v === s.end)?.[1] || '—')], ...(s.refund ? [['Refunded', `${money(s.refund)}${s.refundDate ? ` on ${short(s.refundDate)}` : ''}`]] : [])] : [])])}</section>
+      ${s.notes ? `<section class="card app-card"><div class="group-label">Notes</div><div class="quote">${esc(s.notes)}</div></section>` : ''}`,
+  };
+};
+S.salemoney = (pup) => {
+  const s = SALES.find((x) => x.pup.toLowerCase() === pup) || SALES[0], fm = formFor('salemoney:' + s.pup, saleInit(s));
+  return {
+    bar: bar('Edit price & deposit', { sub: `${s.pup} · ${fam(s.fam).n}` }),
+    body: `${formCard('Price', `<div class="dates">${fIn('price', 'Puppy price ($)', { type: 'number' })}</div><p class="f-hint">Add-ons are added on top: <button type="button" class="link" data-open="saleaddons:${pup}">Add-ons</button></p>`)}
+      ${formCard('Deposit', `<div class="dates">${fIn('dep', 'Amount ($)', { type: 'number' })}${fIn('depDate', 'Received', { type: 'date' })}</div>${fSel('depVia', 'Paid via', PAY_ACCTS)}`)}
+      ${formCard('Sold through', `${fSel('channel', 'Channel', CHANNELS)}${fm.channel ? `<div class="dates">${fIn('fee', 'Processing fee ($)', { type: 'number' })}</div>${fChips('feeBuyer', 'Fee paid by', [['no', 'Kennel'], ['yes', 'Buyer']])}` : ''}`)}
+      ${saveBar(`data-salesave="${esc(s.pup)}"`)}`,
+  };
+};
+
+/* ---------- a row in a list opens to change it: events, expenses, documents ---------- */
+const LIT_EVENTS = {
+  wa: [
+    { d: '2026-11-12', type: ['Weight check', 'gray', 'scale'], t: 'All 6 puppies', body: '8.4 – 11.3 lb' },
+    { d: '2026-11-05', type: ['Picks', 'blue', 'list-ordered'], t: '3 families chose', body: 'Hazel, Poppy, Fern' },
+    { d: '2026-10-29', type: ['Vaccination', 'blue', 'syringe'], t: 'DHPP #1', cost: 228, body: 'All 6 · Hartland Animal Hospital' },
+    { d: '2026-10-22', type: ['Milestone', 'green', 'flag'], t: 'Weaning started', body: 'Soaked kibble 3× a day' },
+    { d: '2026-09-24', type: ['Whelping', 'green', 'baby'], t: '6 puppies', body: '<strong>2 male, 4 female</strong> · natural delivery' },
+  ],
+};
+const litEvents = (id) => (LIT_EVENTS[id] ||= []);
+S.editevent = (spec) => {
+  const [kind, id, i] = spec.split('|'), list = kind === 'litter' ? litEvents(id) : eventsFor(dogById(id)), e = list[Number(i)];
+  if (!e) return S.stub('event');
+  formFor('editevent:' + spec, () => ({ d: e.d, t: String(e.t).replace(/<[^>]+>/g, ''), body: String(e.body || '').replace(/<[^>]+>/g, '').replace(/^—$/, ''), cost: str(e.cost || '') }));
+  return {
+    bar: bar('Edit event', { sub: kind === 'litter' ? litterName(LITTERS.find((l) => l.id === id)) : dogById(id).name }),
+    body: `<section class="card app-card"><div class="hub-pills">${pill(e.type.slice(0, 2), e.type[2])}</div><div class="form-stack"><div class="dates">${fIn('d', 'Date', { type: 'date' })}${fIn('cost', 'Cost ($)', { type: 'number' })}</div>${fIn('t', 'What')}${fText('body', 'Details')}</div></section>
+      ${saveBar(`data-hx="evsave|${esc(spec)}"`)}${dangerRow(`data-hx="evdel|${esc(spec)}"`, 'Delete this event')}`,
+  };
+};
+S.editexpense = (i) => {
+  const e = LEDGER[Number(i)];
+  if (!e) return S.stub('entry');
+  if (e.kind === 'in') {
+    const s = SALES.find((x) => e.on.includes(x.pup));
+    return { bar: bar('Money received', { sub: e.on.join(', ') }), body: `<section class="card">${facts([['Amount', money(e.amt)], ['Date', fmt(e.d)], ['What', esc(e.what)], ['From', esc(e.party)]])}</section>
+      <div class="stub-note">${icon('info')}<span>Money received is changed where it was recorded.${s ? ` <button type="button" class="link" data-open="payments:${s.pup.toLowerCase()}">${esc(s.pup)}'s Price & payments</button>` : ''}</span></div>` };
+  }
+  formFor('editexpense:' + i, () => ({ amt: str(e.amt), what: e.what, d: e.d, cat: e.cat, party: e.party, on: e.on.slice() }));
+  return {
+    bar: bar('Edit expense', { sub: e.on.join(', ') }),
+    body: `${formCard('', `<div class="dates">${fIn('amt', 'Amount ($)', { type: 'number' })}${fIn('d', 'Date', { type: 'date' })}</div>${fIn('what', 'Description')}${fIn('party', 'Paid to')}`)}
+      <section class="card app-card">${fChips('cat', 'Category', EXP_CATS, { own: 1 })}</section>
+      ${saveBar(`data-hx="exsave|${i}"`)}${dangerRow(`data-hx="exdel|${i}"`, 'Delete this expense')}`,
+  };
+};
+const ledgerGo = (e) => `editexpense:${LEDGER.indexOf(e)}`;
+S.doc = (id) => {
+  const x = DOCS.find((y) => y.id === id);
+  if (!x) return S.stub('document');
+  formFor('doc:' + id, () => ({ t: x.t, type: x.type, d: x.d, by: x.by || '', res: x.res || '' }));
+  return {
+    bar: bar('Document', { sub: dogById(x.dog).name }),
+    body: `<button type="button" class="primary-btn" data-toast="Opens the file">${icon('file-text')}Open ${esc(x.t)}</button>
+      ${formCard('', `${fIn('t', 'Title')}${fSel('type', 'Kind', Object.entries(DOC_T).map(([k, [l]]) => [k, l]))}<div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>${fIn('by', 'From', { ph: 'Lab, vet, registry' })}${fIn('res', 'Result', { ph: 'Clear, Good' })}`)}
+      ${saveBar(`data-hx="docsave|${id}"`)}${dangerRow(`data-hx="docdel|${id}"`, 'Delete this document')}`,
+  };
+};
+
+/* ---------- sample records the hubs read ---------- */
+let hubSeeded = 0;
+function hubSeed() {
+  if (hubSeeded++) return;
+  const add = (id, ...evs) => { const d = dogById(id); if (!d) return; const l = eventsFor(d); l.push(...evs); l.sort((a, b) => b.d.localeCompare(a.d)); };
+  const ev = (d, type, t, body) => ({ d, type, cat: 'Reproduction', t, body });
+  add('clover', ev('2026-10-04', ['Progesterone test', 'violet', 'test-tube'], '5.8 ng/mL', 'Ovulation · breed in 2–3 days'), ev('2026-10-06', ['Breeding', 'violet', 'heart'], 'with Titan', 'Chilled semen · Meadow Ridge'), ev('2026-10-08', ['Breeding', 'violet', 'heart'], 'with Titan', 'Chilled semen'), ev('2026-11-03', ['Ultrasound', 'violet', 'activity'], 'Confirmed', 'Dr. Okonkwo · at least 5 sacs'));
+  add('juniper', ev('2026-05-28', ['Heat cycle', 'amber', 'flame'], 'Started', 'Skipped this heat'));
+}
+
+/* ---------- what the hub actions do ---------- */
+function hubDo(v) {
+  const [k, a, b] = v.split('|'), fm = ui.form;
+  const done = (msg) => { ui.pAct = null; ui.formSpec = null; render(); if (msg) toast(msg); };
+  if (k === 'disp') { const d = dogById(a); d.disp = b; return done(`${d.name}: ${DISP[b][0].toLowerCase()}`); }
+  if (k === 'caresave') return careSave(a, b);
+  if (k === 'pplan') { const d = dogById(a); d.disp = b; render(); return toast(`${d.name}: ${DISP[b][0].toLowerCase()}`); }
+  if (k === 'preg') { const d = dogById(a); d.ireg = b; render(); return toast(`${d.name}: ${b.toLowerCase()} registration`); }
+  if (k === 'recprint' || k === 'recsend') { const l = LITTERS.find((x) => x.id === a), ps = recPups(l);
+    if (k === 'recprint') { markPrinted(ps); render(); return toast(`${ps.length} puppy records ready to print`); }
+    const sold = ps.filter((d) => SALES.some((v) => v.pup === d.name)); return toast(sold.length ? `Sent to ${sold.length} famil${sold.length > 1 ? 'ies' : 'y'}` : 'No pups have families yet'); }
+  if (k === 'recprint1') { const d = dogById(a); markPrinted([d]); render(); return toast(`${d.name}'s record is ready to print`); }
+  if (k === 'recsend1') { const d = dogById(a), v = SALES.find((x) => x.pup === d.name); return toast(`Sent to ${fam(v.fam).n}`); }
+  if (k === 'whelpdel') { ui.birth.delivery = b; render(); return; }
+  if (k === 'whelpdone') {
+    const l = LITTERS.find((x) => x.id === a);
+    l.delivery = ui.birth.delivery || 'Natural';
+    hubDo(`lit|${a}|Whelped`);
+    back(); return;
+  }
+  if (k === 'lit') {
+    const l = LITTERS.find((x) => x.id === a), was = l.status[0];
+    if (was === b) return done();
+    l.status = LIT_STAGES.find((x) => x[0] === b).slice();
+    let more = '';
+    if (b === 'Whelped' && was === 'Expected') {
+      const bs = BIRTHS[l.id] || []; l.whelp ||= TODAY; l.ready ||= addDays(l.whelp, 56); l.m = bs.filter((x) => x.alive && x.sex === 'm').length; l.f = bs.filter((x) => x.alive && x.sex === 'f').length;
+      const p = PAIRINGS.find((q) => q.dam === l.dam && q.sire === l.sire); if (p) { p.status = ['Whelped', 'green']; p.s = pairS(p); more = ' Its pairing is marked whelped too.'; }
+    }
+    if (b === 'Ready') { l.ready ||= TODAY; more = ' Go-home checklists are on Go-home.'; }
+    return done(`${litterName(l)}: ${b.toLowerCase()}.${more}`);
+  }
+  if (k === 'pair') {
+    const p = pairById(a), was = p.status[0];
+    if (was === b) return done();
+    p.status = PAIR_STAGES.find((x) => x[0] === b).slice();
+    let l = pairLitter(p), more = '';
+    if (b === 'Bred') { p.bred ||= TODAY; p.due = addDays(p.bred, 63); }
+    if (b === 'Confirmed pregnant' && !l) { p.bred ||= TODAY; p.due ||= addDays(p.bred, 63); LITTERS.push({ id: 'l' + (LITTERS.length + 1), dam: p.dam, sire: p.sire, fresh: 1, status: ['Expected', 'blue'], bred: p.bred, due: p.due, note: `Due ${short(p.due)}` }); more = ' Its litter is on Litters as expected.'; }
+    if (b === 'Whelped') { if (!l) { l = { id: 'l' + (LITTERS.length + 1), dam: p.dam, sire: p.sire, fresh: 1, status: ['Whelped', 'green'], whelp: TODAY, ready: addDays(TODAY, 56), m: 0, f: 0, note: 'Born today' }; LITTERS.push(l); more = ' Litter added: record each puppy on its Births.'; } else if (l.status[0] === 'Expected') { l.status = ['Whelped', 'green']; l.whelp ||= TODAY; l.ready ||= addDays(l.whelp, 56); more = ` ${litterName(l)} is marked whelped too.`; } }
+    if (['Not pregnant', 'Failed', 'Cancelled'].includes(b) && l && l.status[0] === 'Expected') { LITTERS.splice(LITTERS.indexOf(l), 1); more = ' Its expected litter is off Litters.'; }
+    p.s = pairS(p);
+    return done(`${p.dam} × ${p.sire}: ${b.toLowerCase()}.${more}`);
+  }
+  if (k === 'salest') {
+    const s = SALES.find((x) => x.pup === a), cur = saleStatus(s);
+    if (cur === b) return done();
+    if (!MONEY_ST.includes(cur)) { s.status = ''; delete s.delivered; return done(`Back to ${SALE_STAGES.find((x) => x[0] === saleStatus(s))[1].toLowerCase()}`); }
+    return done('That follows the money: record or remove a payment in Price & payments.');
+  }
+  if (k === 'deliver') {
+    const s = SALES.find((x) => x.pup === a), d = saleDog(s), l = saleLitter(s);
+    if (!fm.d) return toast('Date is required');
+    Object.assign(s, { status: 'delivered', delivered: fm.d });
+    if (fm.own === 'yes') d.owner = fam(s.fam).n;
+    if (fm.gone === 'yes') d.disp = 'placed';
+    if (fm.close === 'yes' && l) l.status = ['Closed', 'gray'];
+    return done(`${d.name} went home${fm.close === 'yes' && l ? `. ${litterName(l)} is closed.` : ''}`);
+  }
+  if (k === 'pairsave') {
+    const p = pairById(a), dam = pedName(fm.dam || ''), sire = pedName(fm.sire || '');
+    if (!fm.dam || !fm.sire) return toast('Dam and sire are required');
+    Object.assign(p, { dam, sire, plan: fm.plan, bred: fm.bred, bred2: fm.bred2, due: fm.bred ? addDays(fm.bred, 63) : p.due, method: fm.method, web: fm.web === 'yes', notes: fm.notes });
+    p.s = pairS(p); ui.formSpec = null; back(); return toast('Saved');
+  }
+  if (k === 'pairdel') { const p = pairById(a); PAIRINGS.splice(PAIRINGS.indexOf(p), 1); ui.formSpec = null; hist.splice(-2, 2); if (!hist.length) hist.push({ s: 'litters' }); render(); return toast(`${p.dam} × ${p.sire} deleted`); }
+  if (k === 'litsave') {
+    const l = LITTERS.find((x) => x.id === a);
+    if (l.whelp && !fm.whelp) return toast('Whelp date is required');
+    Object.assign(l, { nick: fm.nick, delivery: fm.delivery, reg: fm.reg, web: fm.web === 'yes', foster: fm.foster === 'yes', notes: fm.notes });
+    if (l.whelp) { if (fm.whelp !== l.whelp) l.ready = addDays(fm.whelp, days(l.whelp, l.ready || addDays(l.whelp, 56))); l.whelp = fm.whelp; } else Object.assign(l, { bred: fm.bred, due: fm.due || (fm.bred ? addDays(fm.bred, 63) : l.due) });
+    ui.formSpec = null; back(); return toast('Saved');
+  }
+  if (k === 'litarch') { const l = LITTERS.find((x) => x.id === a); l.arch = 1; LITTERS.splice(LITTERS.indexOf(l), 1); ui.formSpec = null; hist.length = 1; hist[0] = { s: 'litters' }; render(); return toast(`${litterName(l)} archived`); }
+  if (k === 'evsave' || k === 'evdel') {
+    const [kind, id, i] = v.slice(k.length + 1).split('|'), list = kind === 'litter' ? litEvents(id) : eventsFor(dogById(id)), e = list[Number(i)];
+    if (k === 'evdel') { list.splice(Number(i), 1); ui.formSpec = null; back(); return toast('Event deleted'); }
+    if (!fm.d) return toast('Date is required');
+    Object.assign(e, { d: fm.d, t: esc(fm.t || e.type[0]), body: esc(fm.body || '') || '—', cost: Number(fm.cost) || 0 });
+    list.sort((x, y) => y.d.localeCompare(x.d)); ui.formSpec = null; back(); return toast('Saved');
+  }
+  if (k === 'exsave' || k === 'exdel') {
+    const i = Number(a), e = LEDGER[i];
+    if (k === 'exdel') { LEDGER.splice(i, 1); ui.formSpec = null; back(); return toast('Expense deleted'); }
+    const amt = Number(fm.amt);
+    if (!(amt > 0)) return toast('Amount is required');
+    if (!(fm.what || '').trim()) return toast('Description is required');
+    Object.assign(e, { amt, what: fm.what.trim(), d: fm.d || e.d, cat: fm.cat || e.cat, party: fm.party || '' });
+    LEDGER.sort((x, y) => x.d.localeCompare(y.d)); ui.formSpec = null; back(); return toast('Saved');
+  }
+  if (k === 'docsave' || k === 'docdel') {
+    const x = DOCS.find((y) => y.id === a);
+    if (k === 'docdel') { DOCS.splice(DOCS.indexOf(x), 1); ui.formSpec = null; back(); return toast('Document deleted'); }
+    if (!(fm.t || '').trim()) return toast('Title is required');
+    Object.assign(x, { t: fm.t.trim(), type: fm.type, d: fm.d || x.d, by: fm.by, res: fm.res });
+    ui.formSpec = null; back(); return toast('Saved');
+  }
+}
+
+/* ================= a litter's puppies: born as records, cared for as a litter =================
+   Live: each pup saved on Births is a puppy record at once, named for its ID collar until she
+   names it ("Red collar"), so she knows who was who the next morning. Puppy care logs one
+   thing for the litter (weights, a vet visit, shots, deworming, microchips) and saves it as
+   one entry on each pup ticked, as live's litter-wide logging does. */
+const COLLAR_COLORS = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Pink', 'Black', 'White', 'Brown', 'Teal', 'Lime', 'Navy', 'Gray', 'Gold', 'Silver', 'Maroon', 'Lavender', 'Mint', 'Coral'];
+const collarsUsed = (lid) => DOGS.filter((d) => d.litter === lid && d.collar).map((d) => d.collar);
+const nextCollar = (lid) => COLLAR_COLORS.find((c) => !collarsUsed(lid).includes(c)) || '';
+/* a pup saved on Births becomes a puppy record */
+function birthPup(l, b) {
+  const collar = b.collar || nextCollar(l.id), name = (b.name || '').trim() || (collar ? `${collar} collar` : `Puppy ${DOGS.filter((d) => d.litter === l.id).length + 1}`);
+  let id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-'); while (DOGS.some((d) => d.id === id)) id += '-2';
+  const sid = DOGS.find((d) => d.name === l.sire)?.id, did = DOGS.find((d) => d.name === l.dam)?.id;
+  DOGS.push({ id, name, sex: b.sex, status: 'puppy', disp: 'undecided', born: TODAY, litter: l.id, collar });
+  PARENTS[id] = [sid, did]; COLOR_OF[id] = b.color; PED[id] = { name, sex: b.sex };
+  EVENTS[id] = [{ d: TODAY, type: ['Milestone', 'green', 'flag'], cat: 'Other', t: 'Born', body: `${esc(collar ? `${collar} collar` : '')}${b.time ? ` · ${esc(b.time)}` : ''}${Number(b.wt) > 0 ? ` · ${esc(b.wt)} oz` : ''}` || '—' }];
+  if (Number(b.wt) > 0) WEIGHT[id] = Math.round((Number(b.wt) / 16) * 10) / 10;
+  return id;
+}
+
+/* Puppy care: what she does for the whole litter, typed once */
+const CARE = {
+  weigh: ['Weigh', 'scale', 'Weight check', 'gray', 'Each pup’s weight'],
+  vet: ['Vet visit', 'stethoscope', 'Vet visit', 'blue', 'Exam, findings, cost per pup'],
+  shots: ['Shots', 'syringe', 'Vaccination', 'blue', 'Vaccines and when they’re next due'],
+  deworm: ['Deworming', 'shield-check', 'Preventative', 'blue', 'Product and dose'],
+  screen: ['Screening test', 'clipboard-check', 'Screening test', 'blue', 'Fecal, giardia and results'],
+  meds: ['Medication', 'test-tube', 'Medication', 'blue', 'Drug, dose, how often'],
+  chip: ['Microchips', 'scan-line', 'Microchip', 'green', 'Each pup’s number'],
+  other: ['Something else', 'clipboard-list', 'Note', 'gray', 'A milestone or a note'],
+};
+const homePups = (l) => DOGS.filter((d) => d.litter === l.id && d.status === 'puppy' && !SALES.some((s) => s.pup === d.name && saleStatus(s) === 'delivered'));
+const careTypes = Object.values(CARE).map((c) => c[2]);
+/* weights are pounds and ounces, as she reads the scale */
+const lbOz = (n) => { let lb = Math.floor(n), oz = Math.round((n - lb) * 16 * 10) / 10; if (oz >= 16) { lb += 1; oz -= 16; } return `${lb} lb${oz ? ` ${oz} oz` : ''}`; };
+const ozIn = (n) => `<input data-fv="${n}" type="number" inputmode="decimal" min="0" step="any" value="${fv(n)}" aria-label="${n.startsWith('wo') ? 'ounces' : 'pounds'}">`;
+const lastWeighed = (l) => { const e = litEvents(l.id).find((x) => x.type[0] === 'Weight check'); return e ? (e.d === TODAY ? 'today' : short(e.d)) : 'not yet'; };
+function careScreen(l) {
+  const hp = homePups(l), le = litEvents(l.id), recent = le.filter((e) => careTypes.includes(e.type[0]));
+  return `<p class="lede">${hp.length ? `For the ${hp.length} pup${hp.length > 1 ? 's' : ''} at home. Typed once, saved on each pup.` : 'No puppies at home.'}</p>
+    ${hp.length ? tiles(Object.entries(CARE).map(([k, [t, ic, , , s]]) => [`litcare:${l.id}|${k}`, ic, t, k === 'weigh' ? `Last weighed ${lastWeighed(l)}` : k === 'chip' ? `${hp.filter((d) => CHIPPED[d.id]).length} of ${hp.length} chipped` : s])) : ''}
+    ${recent.length ? `<div class="group-label">Done for the litter</div>${timeline(recent, (e) => `editevent:litter|${l.id}|${le.indexOf(e)}`)}` : ''}`;
+}
+S.litcare = (spec) => {
+  const [lid, k] = spec.split('|'), l = LITTERS.find((x) => x.id === lid), hp = homePups(l), [title, , evT] = CARE[k];
+  const f = formFor('litcare:' + spec, () => ({ d: TODAY, pups: hp.map((d) => d.id), vet: 'Hartland Animal Hospital', reason: 'Puppy exam', vax: ['DHPP'], next: '3 weeks', product: 'Pyrantel', what: '', ampm: new Date().getHours() < 12 ? 'AM' : 'PM' }));
+  const perPup = (label, key, ph, type = 'text', note = () => '') => `<section class="card"><div class="rows">${hp.map((d) => `<label class="row weigh-row" style="cursor:default"><span class="row-main"><span class="row-t">${esc(d.name)}${sex(d.sex)}</span><span class="row-s">${note(d)}</span></span><span class="row-end"><input data-fv="${key}_${d.id}" type="${type}"${type === 'number' ? ' inputmode="decimal" step="0.1" min="0"' : ''} value="${fv(`${key}_${d.id}`)}" placeholder="${ph}" aria-label="${esc(d.name)} ${label}" style="width:${type === 'number' ? 76 : 170}px">${type === 'number' ? '<span>lb</span>' : ''}</span></label>`).join('')}</div></section>`;
+  const who = `<section class="card app-card">${fChips('pups', 'Puppies', hp.map((d) => [d.id, d.name]), { multi: 1 })}</section>`;
+  let fields = '';
+  if (k === 'weigh') fields = `<p class="lede">Leave a pup's boxes empty to skip it.</p><section class="card"><div class="rows">${hp.map((d) => `<div class="row weigh-row lboz" style="cursor:default"><span class="row-main"><span class="row-t">${esc(d.name)}${sex(d.sex)}</span><span class="row-s">${WEIGHT[d.id] ? `Last ${lbOz(WEIGHT[d.id])}` : 'Not weighed yet'}</span></span><span class="row-end"><label>${ozIn(`wl_${d.id}`)}<span>lb</span></label><label>${ozIn(`wo_${d.id}`)}<span>oz</span></label></span></div>`).join('')}</div></section>`;
+  else if (k === 'chip') fields = `<p class="lede">Scan or type each number. Leave one empty to skip.</p>${perPup('microchip', 'c', '985…', 'text', (d) => (CHIPPED[d.id] ? `Now ${CHIPPED[d.id]}` : 'No microchip yet'))}`;
+  else if (k === 'vet') fields = `${who}${formCard('', `${fChips('vet', 'Vet', ['Dr. Ada Okonkwo', 'Hartland Animal Hospital'], { own: 1 })}${fIn('reason', 'Reason')}${fText('findings', 'What they found')}<div class="dates">${fIn('cost', 'Cost per pup ($)', { type: 'number' })}</div>`)}`;
+  else if (k === 'shots') fields = `${who}${formCard('', `${fChips('vax', 'Vaccines', ['DHPP', 'Parvo', 'Bordetella', 'Leptospirosis'], { multi: 1, own: 1 })}${fChips('next', 'Next due', ['2 weeks', '3 weeks', '4 weeks', 'Not again'])}${fIn('lot', 'Lot #')}`)}`;
+  else if (k === 'deworm') fields = `${who}${formCard('', `${fChips('product', 'Product', ['Pyrantel', 'Fenbendazole (Panacur)', 'Ponazuril', 'Revolution'], { own: 1 })}${fIn('dose', 'Dose', { ph: '1 mL per 10 lb' })}`)}`;
+  else if (k === 'screen') fields = `${who}${formCard('', `${fChips('test', 'Test', ['Fecal', 'Giardia', 'Coccidia'], { own: 1 })}${fIn('result', 'Result', { ph: 'Negative' })}`)}`;
+  else if (k === 'meds') fields = `${who}${formCard('', `${fIn('drug', 'Drug')}<div class="dates">${fIn('dose', 'Dose')}${fIn('often', 'How often', { ph: 'Twice a day for 5 days' })}</div>`)}`;
+  else fields = `${who}${formCard('', `${fIn('what', 'What', { ph: 'Eyes open, first walk, socialization' })}${fText('notes', 'Details')}`)}`;
+  return {
+    bar: bar(title, { sub: litterName(l) }),
+    body: `${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>${k === 'weigh' ? `<div class="f-group"><div class="group-label">Time of day</div>${fSeg('ampm', [['AM', 'AM'], ['PM', 'PM']], 'Time of day')}</div>` : ''}`)}${fields}${saveBar(`data-hx="caresave|${lid}|${k}"`)}`,
+  };
+};
+function careSave(lid, k) {
+  const l = LITTERS.find((x) => x.id === lid), f = ui.form, [, ic, evT, tone] = CARE[k], hp = homePups(l);
+  if (!f.d) return toast('Date is required');
+  const put = (d, t, body, cost) => { const list = eventsFor(d); list.push({ d: f.d, type: [evT, tone, ic], cat: k === 'other' ? 'Other' : 'Health', t, body, cost }); list.sort((a, b) => b.d.localeCompare(a.d)); };
+  let done = [], title = '', body = '', down = [];
+  if (k === 'weigh' || k === 'chip') {
+    hp.forEach((d) => { const v = k === 'weigh' ? (f[`wl_${d.id}`] || f[`wo_${d.id}`] ? String((Number(f[`wl_${d.id}`]) || 0) + (Number(f[`wo_${d.id}`]) || 0) / 16) : '') : String(f[`c_${d.id}`] || '').trim(); if (!v) return;
+      if (k === 'weigh') { const n = Number(v); if (!(n > 0)) return; if (WEIGHT[d.id] && n <= WEIGHT[d.id]) down.push(d.name); put(d, lbOz(n), `${f.ampm} · ${WEIGHT[d.id] ? `was ${lbOz(WEIGHT[d.id])}` : 'first weight'}`); WEIGHT[d.id] = Math.round(n * 1000) / 1000; }
+      else { put(d, v, 'Microchip implanted'); CHIPPED[d.id] = v; }
+      done.push(d); });
+    if (!done.length) return toast(k === 'weigh' ? 'Enter at least one weight' : 'Enter at least one number');
+    if (k === 'weigh') { weighedOn = f.d === TODAY ? 'today' : short(f.d); const ws = done.map((d) => WEIGHT[d.id]); title = `${done.length} puppies`; body = `${f.ampm} · ${lbOz(Math.min(...ws))} – ${lbOz(Math.max(...ws))}`; }
+    else { title = `${done.length} chipped`; body = done.map((d) => esc(d.name)).join(', '); }
+  } else {
+    done = hp.filter((d) => (f.pups || []).includes(d.id));
+    if (!done.length) return toast('Pick at least one puppy');
+    if (k === 'vet') { if (!f.vet) return toast('Vet is required'); title = esc(f.reason || 'Vet visit'); body = [esc(f.vet), esc(f.findings || '')].filter(Boolean).join(' · '); done.forEach((d) => put(d, title, body, Number(f.cost) || 0)); }
+    else if (k === 'shots') { if (!(f.vax || []).length) return toast('Pick a vaccine'); title = f.vax.map(esc).join(', '); body = `Next due: ${f.next.toLowerCase()}${f.lot ? ` · lot ${esc(f.lot)}` : ''}`; done.forEach((d) => f.vax.forEach((v) => put(d, esc(v), body))); }
+    else if (k === 'deworm') { if (!f.product) return toast('Product is required'); title = esc(f.product); body = esc(f.dose || ''); done.forEach((d) => put(d, title, body || '—')); }
+    else if (k === 'screen') { if (!f.test) return toast('Test is required'); title = esc(f.test); body = esc(f.result || ''); done.forEach((d) => put(d, title, body || '—')); }
+    else if (k === 'meds') { if (!(f.drug || '').trim()) return toast('Drug is required'); title = esc(f.drug.trim()); body = [f.dose, f.often].filter(Boolean).map(esc).join(' · '); done.forEach((d) => put(d, title, body || '—')); }
+    else { if (!(f.what || '').trim()) return toast('What is required'); title = esc(f.what.trim()); body = esc(f.notes || ''); done.forEach((d) => put(d, title, body || '—')); }
+  }
+  const all = done.length === hp.length ? `All ${done.length}` : done.map((d) => esc(d.name)).join(', ');
+  const le = litEvents(lid); le.push({ d: f.d, type: [evT, tone, ic], t: title, body: k === 'weigh' || k === 'chip' ? body : `${all}${body ? ` · ${body}` : ''}`, cost: k === 'vet' ? (Number(f.cost) || 0) * done.length : 0 }); le.sort((a, b) => b.d.localeCompare(a.d));
+  ui.formSpec = null; back(); toast(down.length ? `Saved. Not gaining: ${down.join(', ')}` : `Saved on ${done.length} pup${done.length > 1 ? 's' : ''}: one entry each`);
+}
+
+/* ================= a litter's pup plans and puppy records =================
+   Puppies is where each pup's plan (Undecided, Available, Keeping, Health hold; Placed comes
+   from a sale) and its registration (Limited, Full, Co-own, None: live's intended_registration,
+   which Add sale starts from) are set, every pup on one screen. Puppy records is each pup's
+   record to print or send; from Ready it is the litter's first tile. */
+const IREG = [['Limited', 'Limited'], ['Full', 'Full'], ['Co-own', 'Co-own'], ['None', 'None']];
+const iregOf = (d) => d.ireg || 'Limited';
+function puppiesScreen(l, pups) {
+  const bs = BIRTHS[l.id] || [], lost = bs.filter((x) => !x.alive);
+  const born = bs.length ? `<section class="card app-card"><div class="f-head"><h2>${bs.length} born · ${bs.length - lost.length} alive</h2><span>${esc(l.delivery || 'Natural')}</span></div>${lost.length ? `<p class="f-hint">Stillborn: ${lost.map((x) => `#${x.n}${x.abn?.length ? ` (${x.abn.map(esc).join(', ').toLowerCase()})` : x.cause && x.cause !== 'Stillborn' ? ` (${esc(x.cause).toLowerCase()})` : ''}`).join(', ')}</p>` : ''}${l.status[0] !== 'Closed' ? `<button type="button" class="set-link" data-open="littersec:${l.id}|births">${icon('plus')}Add a pup you missed</button>` : ''}</section>` : '';
+  return `${born}<p class="lede">Each pup's plan and registration. Add sale starts from them.</p>
+    ${pups.map((q) => {
+      const s = SALES.find((v) => v.pup === q.name), disp = q.disp || 'undecided';
+      const plan = disp === 'placed' ? `<span class="pill gray">Placed${s ? ` · ${esc(fam(s.fam).n)}` : ''}</span>`
+        : `<div class="chips wrap">${Object.entries(DISP).filter(([k]) => k !== 'placed').map(([k, [t]]) => `<button type="button" class="chip" data-hx="pplan|${q.id}|${k}" aria-pressed="${disp === k}">${t}</button>`).join('')}</div>`;
+      return `<section class="card app-card pup-plan"><div class="sell-top"><button type="button" class="link sale-who" data-open="dog:${q.id}">${esc(q.name)}${icon('chevron-right')}</button>${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}<span class="fcount" style="margin-left:auto">${WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : ''}</span></div>${(() => { const x = (BIRTHS[l.id] || []).find((y) => y.dog === q.id); return x ? `<p class="f-hint" style="margin:0">Pup #${x.n} · born ${esc(x.time)}${Number(x.wt) ? ` · ${x.wt} oz` : ''}${x.abn?.length ? ` · ${x.abn.map(esc).join(', ')}` : ''}</p>` : ''; })()}
+        <div class="f-group"><div class="group-label">Plan</div>${plan}</div>
+        <div class="f-group"><div class="group-label">Registration</div><div class="chips wrap">${IREG.map(([v, t]) => `<button type="button" class="chip" data-hx="preg|${q.id}|${v}" aria-pressed="${iregOf(q) === v}">${t}</button>`).join('')}</div>${s && (s.reg || 'Limited') !== iregOf(q) ? `<p class="f-hint">Sold as ${esc(s.reg || 'Limited')}: <button type="button" class="link" data-open="saleedit:${q.id}">change it on the sale</button></p>` : ''}</div></section>`;
+    }).join('')}`;
+}
+
+/* puppy records: printed is the go-home checklist's Print puppy records tick */
+const recItem = () => GH_LIST.find((x) => x.link === 'records');
+const PRINTED = {};
+const recPrinted = (d) => PRINTED[d.id] || ((GH_TICKS[d.name] || []).includes(recItem()?.id) ? 'earlier' : '');
+const recPups = (l) => DOGS.filter((d) => d.litter === l.id && d.status === 'puppy');
+const recLine = (l) => { const ps = recPups(l), n = ps.filter(recPrinted).length; return ps.length ? `${n} of ${ps.length} printed` : 'None yet'; };
+const recSummary = (d) => {
+  const evs = eventsFor(d), c = (t) => evs.filter((e) => e.type[0] === t).length;
+  return [c('Vaccination') && `${c('Vaccination')} shot${c('Vaccination') > 1 ? 's' : ''}`, c('Preventative') && `${c('Preventative')} dewormer${c('Preventative') > 1 ? 's' : ''}`, c('Vet visit') && 'vet exam', CHIPPED[d.id] && 'microchip', c('Weight check') && `${c('Weight check')} weight${c('Weight check') > 1 ? 's' : ''}`].filter(Boolean).join(' · ') || 'Nothing logged yet';
+};
+function markPrinted(ds) { ds.forEach((d) => { PRINTED[d.id] = TODAY; const it = recItem(); if (it && SALES.some((s) => s.pup === d.name)) { const t = (GH_TICKS[d.name] ||= []); if (!t.includes(it.id)) t.push(it.id); } }); }
+function recordsScreen(l) {
+  const ps = recPups(l);
+  if (!ps.length) return empty('file-text', 'Puppy records show here once pups are born.', '');
+  return `<p class="lede">Each pup's record: parents, birth, weights, shots, deworming, vet visits and microchip, kept up from its history.</p>
+    <section class="card"><div class="rows">${ps.map((d) => { const s = SALES.find((v) => v.pup === d.name), pr = recPrinted(d); return row({ ic: 'file-text', t: esc(d.name), extra: pr ? pill([pr === 'earlier' ? 'Printed' : `Printed ${short(pr)}`, 'green']) : pill(['Not printed', 'gray']), s: `${s ? `${esc(fam(s.fam).n)} · ` : ''}${recSummary(d)}`, go: `puprecord:${d.id}` }); }).join('')}</div></section>
+    <div class="actions-2"><button type="button" class="btn-2" data-hx="recsend|${l.id}">${icon('send')}Send to families</button><button type="button" class="primary-btn" data-hx="recprint|${l.id}">${icon('file-text')}Print all ${ps.length}</button></div>`;
+}
+S.puprecord = (id) => {
+  const d = dogById(id), x = info(d), s = SALES.find((v) => v.pup === d.name), evs = eventsFor(d), of = (t) => evs.filter((e) => e.type[0] === t);
+  const sec = (h, list) => `<div class="group-label">${h}</div>${list.length ? `<div class="rows">${list.map((e) => `<div class="row static"><span class="row-main"><span class="row-t">${e.t}</span><span class="row-s">${fmt(e.d)}${e.body && e.body !== '—' ? ` · ${e.body}` : ''}</span></span></div>`).join('')}</div>` : '<p class="f-hint">None yet</p>'}`;
+  return {
+    bar: bar('Puppy record', { sub: d.name }),
+    body: `<section class="card app-card"><div class="f-head"><h2>${esc(d.name)}</h2><span>${d.sex === 'm' ? 'Male' : 'Female'} · ${esc(x.color)}</span></div>
+        ${facts([['Born', fmt(d.born)], ['Sire', x.sire], ['Dam', x.dam], ['Microchip', CHIPPED[d.id] || 'Not yet'], ['Registration', iregOf(d)], ['Family', s ? esc(fam(s.fam).n) : 'Not placed']])}
+        ${sec('Shots', of('Vaccination'))}${sec('Deworming', of('Preventative'))}${sec('Vet visits', of('Vet visit'))}${sec('Weights', of('Weight check').slice(0, 4))}</section>
+      <div class="actions-2"><button type="button" class="btn-2" data-hx="recsend1|${d.id}"${s ? '' : ' disabled'}>${icon('send')}Send to family</button><button type="button" class="primary-btn" data-hx="recprint1|${d.id}">${icon('file-text')}Print</button></div>`,
+  };
+};
+
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup],[data-siteupdate],[data-msgsend],[data-welcomedone],[data-handoff],[data-conn],[data-twin]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-hx],[data-tlg],[data-ghdo],[data-sx],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup],[data-siteupdate],[data-msgsend],[data-welcomedone],[data-handoff],[data-conn],[data-twin]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if (d.mo) return moAct(d.mo);
@@ -5662,7 +6453,8 @@ document.addEventListener('click', (e) => {
     if (!(dep >= 0) || dep > price) return toast('Deposit exceeds price');
     if (['returned', 'voided'].includes(fm.status) && !fm.end) return toast('Reason is required');
     if (fm.refund !== '' && !(Number(fm.refund) >= 0)) return toast('Refund can’t be negative');
-    Object.assign(s, { status: fm.status, date: fm.date, reg: fm.reg, price, deposit: dep, depDate: fm.depDate, depVia: fm.depVia, sched: fm.sched, balDue: fm.balDue, balPaid: fm.balPaid, balVia: fm.balVia, channel: fm.channel, fee: Number(fm.fee) || 0, feeBuyer: fm.feeBuyer === 'yes', lead: fm.lead, ref: fm.ref, end: fm.end, endNote: fm.endNote, refund: Number(fm.refund) || 0, refundDate: fm.refundDate, notes: fm.notes });
+    if (fm.fam && fm.fam !== s.fam) { const g = GOHOME.find((x) => x.pup === s.pup); if (g) g.fam = fm.fam; s.fam = fm.fam; }
+    Object.assign(s, { status: MONEY_ST.includes(fm.status) ? '' : fm.status, delivered: fm.status === 'delivered' ? s.delivered || TODAY : undefined, date: fm.date, reg: fm.reg, price, deposit: dep, depDate: fm.depDate, depVia: fm.depVia, sched: fm.sched, balDue: fm.balDue, balPaid: fm.balPaid, balVia: fm.balVia, channel: fm.channel, fee: Number(fm.fee) || 0, feeBuyer: fm.feeBuyer === 'yes', lead: fm.lead, ref: fm.ref, end: fm.end, endNote: fm.endNote, refund: Number(fm.refund) || 0, refundDate: fm.refundDate, notes: fm.notes });
     ui.formSpec = null; back(); toast('Saved'); return;
   }
   if (d.planstep) {
@@ -5755,6 +6547,10 @@ document.addEventListener('click', (e) => {
     (l.prices ||= {})[k] = v; ui.qOther = null; ui.qOpen = null; render(); toast('Saved'); return;
   }
   if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
+  if (d.ghdo) { ghDo(d.ghdo); return; }
+  if (d.hx) { hubDo(d.hx); return; }
+  if (d.tlg) { (ui.tlOpen ||= {})[d.tlg] = !ui.tlOpen[d.tlg]; render(); return; }
+  if (d.sx) { saleX(d.sx); return; }
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }
   if (d.addo) { adDo(d.addo); return; }
@@ -5821,10 +6617,10 @@ document.addEventListener('click', (e) => {
   if (d.cadd) { const n = ui.cnew.name.trim(); if (!n) return toast('Type a color name first'); COLORS.push({ n, kind: ui.cnew.kind, links: ui.cnew.link ? [ui.cnew.link] : [] }); ui.cnew = { name: '', kind: 'color', link: '' }; render(); toast(`${n} added to your list`); return; }
   if (d.bf) {
     const [f, v] = d.bf.split('|'), b = ui.birth;
-    if (f === 'sex') b.sex = v; else if (f === 'alive') b.alive = Number(v);
+    if (f === 'sex') b.sex = v; else if (f === 'alive') b.alive = Number(v); else if (f === 'collar') b.collar = v;
     else if (f === 'abn') b.abn = v === 'None' ? [] : b.abn.includes(v) ? b.abn.filter((x) => x !== v) : [...b.abn, v];
     else if (f === 'addcolor') { const n = ($('#b-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); b.color = n; b.adding = false; toast(`${n} added to your colors. Link it to a gene in Setup.`); }
-    else if (f === 'save') { const list = BIRTHS.ct, n = list.length + 1; list.push({ n, time: b.time || '—', sex: b.sex, color: b.color, wt: Number(b.wt) || '—', alive: !!b.alive, cause: b.alive ? undefined : 'Stillborn', abn: b.abn }); ui.birth = { sex: 'f', color: b.color, alive: 1, wt: '', time: '', abn: [], adding: false }; toast(`Pup ${n} saved`); }
+    else if (f === 'save') { const lid = String(top().p || 'ct').split('|')[0], list = (BIRTHS[lid] ||= []), n = list.length + 1, lt = LITTERS.find((x) => x.id === lid), dog = b.alive ? birthPup(lt, b) : undefined; list.push({ n, time: b.time || '—', sex: b.sex, color: b.color, wt: Number(b.wt) || '—', alive: !!b.alive, cause: b.alive ? undefined : 'Stillborn', abn: b.abn, dog }); ui.birth = { sex: 'f', color: b.color, alive: 1, wt: '', time: '', abn: [], adding: false, delivery: b.delivery }; toast(dog ? `${dogById(dog).name} saved` : `Pup ${n} saved`); }
     render(); return;
   }
   if (d.qother) { ui.qOther = d.qother; render(); $('#qo-input')?.focus(); return; }
@@ -5904,6 +6700,7 @@ document.addEventListener('input', (e) => {
   if (fk && /^s\d+pct$/.test(fk)) { ui.form[fk] = e.target.value; const t = $('[data-plantotal]'); if (t) t.textContent = `Total ${sum(planSteps(ui.form).map((st) => Number(st.pct) || 0))}%`; return; }
   if (fk && e.target.tagName !== 'SELECT') { ui.form[fk] = e.target.value; if (fk === 'name' && ui.form._dup) { delete ui.form._dup; delete ui.form._dupOk; } if (fk === 'cost' || fk === 'remindOn') return; return; }
   if (e.target.id === 'b-wt') { ui.birth.wt = e.target.value; return; }
+  if (e.target.id === 'b-name') { ui.birth.name = e.target.value; return; }
   if (e.target.id === 'b-time') { ui.birth.time = e.target.value; return; }
   if (e.target.dataset.cnew) { ui.cnew.name = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#c-new'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } return; }
   const k = e.target.dataset.q; if (!k) return;
@@ -5946,10 +6743,10 @@ va.innerHTML = Object.entries(PTYPES).map(([k, t]) => `<option value="${k}">${t.
 function syncViewAs() { va.value = PT.main; }
 va.onchange = () => { PT.main = va.value; PT.also = []; applyType(); hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(`Viewing as ${PTYPES[PT.main].n}`); };
 const ds = $('#demo-stage'), dc = $('#demo-conn'), dsi = $('#demo-site');
-ds.innerHTML = `<option value="auto">From the sample</option>` + STAGE_RANK.map((k) => `<option value="${k}">${STAGES[k][0]}</option>`).join('');
+ds.innerHTML = `<option value="auto">From the sample</option>` + STAGE_RANK.map((k) => `<option value="${k}">${HOME_STAGES[k][0]}</option>`).join('');
 function syncDemo() { ds.value = DEMO.stage; dc.value = DEMO.conn; dsi.value = String(DEMO.site); syncViewAs(); }
 const demoHome = (msg) => { hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(msg); };
-ds.onchange = () => { DEMO.stage = ds.value; demoHome(ds.value === 'auto' ? 'Stages from the sample' : `Stage: ${STAGES[ds.value][0]}`); };
+ds.onchange = () => { DEMO.stage = ds.value; demoHome(ds.value === 'auto' ? 'Stages from the sample' : `Stage: ${HOME_STAGES[ds.value][0]}`); };
 dc.onchange = () => { DEMO.conn = dc.value; applyConn(); demoHome(dc.value === 'cloud' ? 'Using the cloud' : 'On your devices'); };
 dsi.onchange = () => { DEMO.site = Number(dsi.value); applyConn(); demoHome(DEMO.site ? 'Website linked' : 'No website'); };
 $('#open-welcome').onclick = () => { ui.formSpec = null; hist = [{ s: 'home' }]; open('welcome:1'); };

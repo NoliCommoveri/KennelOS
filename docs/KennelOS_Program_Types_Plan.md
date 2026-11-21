@@ -107,7 +107,7 @@ Asked on their own, not folded into a type:
 - **First litter or experienced.** A first litter gets Kels's step-by-step guidance.
 - **Litters a year.** Changes how dense Home and the lists are.
 - **Waitlist online or offline.** **Modified:** replaced by *How connected* (UI Redesign Plan
-  D27), which picks between each local feature and its cloud twin, the waitlist among them.
+  D29), which picks between each local feature and its cloud twin, the waitlist among them.
 
 ## 3. How a type drives the view
 
@@ -118,7 +118,7 @@ and **up to two others** ("show breeder who also stands studs" is common).
 - **Tabs and their order:** from the main type. Six at most; whatever drops off a tab is
   still a row in Business or More.
 - **Home tiles:** the main type's six, in order. **Modified:** a tile never repeats a tab, and
-  half the tiles follow the kennel's stage (UI Redesign Plan D26); the table's tiles are the
+  half the tiles follow the kennel's stage (UI Redesign Plan D28); the table's tiles are the
   type's choices for the slots that stay.
 - **A dog's sections:** reordered for the main type (Shows first for a show breeder, Stud
   services first for a stud program); sections that don't apply stay hidden as today.

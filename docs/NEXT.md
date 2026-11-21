@@ -15,7 +15,7 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
   drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
   Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
-  Documents and Kels so far), plus D26's stage-aware Home and D27's How connected for her review.
+  Documents and Kels so far), plus D28's stage-aware Home and D29's How connected for her review.
 - Plans, nothing built: breeder to breeder (`docs/KennelOS_Breeder_To_Breeder_Plan.md`) and one
   inbox (`docs/KennelOS_One_Inbox_Plan.md`).
 
@@ -571,15 +571,144 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   zone's "On this device" heading (now "Your records").
 - Docs only: no code, tests or service-worker change.
 
-## 2026-11-21: D26 stage-aware Home, D27 How connected; breeder-to-breeder and one-inbox plans
+## 2026-11-20: The prototype: one Sale screen, and her go-home checklist
+
+- The owner: a sale was spread over about six screens that repeated each other (the Sale's
+  summary card, its Payments, Add-ons, Go-home weekend and family rows, and the family page's
+  Sale, Payments, Go-home and Contract tiles, with a balance bar that led back to the sale).
+  The go-home date belongs on the sale screen but stays a pickup on the calendar. She wants a
+  go-home checklist of her own, each item linked to what checks it off; likely a new table.
+- `docs/design/forest-look-prototype.html`: a pup's **Sale** is one screen: the family (opens
+  their page) and when it goes home, with Change for date, time and place in place (saved as
+  the pickup: calendar and go-home lists follow); **Money** (puppy, each add-on, total, paid,
+  balance; due dates with Change for the schedule or due date in place; money received and
+  Record a payment; Send invoice / receipt and Payment link; what she nets after a fee); the
+  contract; and "Before <pup> goes home". The old Payments address opens the sale. Sale details
+  loses its Balance card. The family page has one Sale tile (pup, amount due, go-home) and no
+  balance bar; the dog's tile is **Sale**. A litter's **Go-home** opens with its ready date
+  (Change in place; Pricing's Dates points there) and each sold pup's checklist in go-home order.
+  **Go-home checklist** (Setup › Go-home): her items in her order, each ticked by hand or linked
+  to a vet visit, vaccination or dewormer on the pup, its microchip, the contract signed, the
+  balance paid, Print puppy records or Send Furever link; an item not done opens what does it
+  (Add event opens with the type picked). Design notes: Sales, contracts and money; new Go-home.
+- Live check (owner asked): live already has everything the sale's money needs (schedule,
+  payments, extras, refunds, payment links, net). Not in live: third-party transport partners,
+  a microchip-registered or go-home-pack field, and the checklist (a new table when built).
+- Then (owner): tiles were never the problem, tiles repeating each other were. The Sale is a
+  hub again: status, registration, the family and go-home (Change in place) at the top, then
+  one tile per thing: **Payments** (all the money, the screen above), **Add-ons**, **Contract**,
+  **Go-home** (that pup's checklist, `S.salegh`). Payments follows the tab it's opened from.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: D26, hubs built one way, with a stage bar (prototype)
+
+- The owner: tiles weren't the problem, tiles repeating each other were. Dogs, litters,
+  pairings and sales should be built and changed the same way, with everything live lets her
+  change reachable in sensible groups; rows in lists open to edit; a litter's header should
+  move its status in one touch, since that status drives so much. Recorded as D26 in
+  `docs/KennelOS_UI_Redesign_Plan.md` §8.
+- `docs/design/forest-look-prototype.html`: a stage bar under the header on a puppy (its plan),
+  a litter, a pairing and a sale, each with its next step and every stage one tap away; the
+  steps follow live's status rules (litter births, ready, sold and close; pairing bred,
+  confirmed adds the expected litter, ended takes it off; a sale's money stages follow
+  payments and Mark delivered asks live's delivery questions). Headers lose Add event and Edit.
+  **Details** on every hub, with Edit: Litter Details' Edit is new (whelp or breeding dates,
+  delivery, litter registration, website, foster, nickname, notes, Archive). A pairing has its
+  own hub (`S.pairing`): Details and Edit (dam, sire, dates, method, website, notes, Delete),
+  Pairing check, Breeding (the dam's breeding events), Litter; pairing rows open it; a
+  Breeding logged on a dam with a planned pairing marks it Bred. A sale: Details (buyer,
+  stage, date, registration, source, notes; Edit changes the buyer) and **Price & payments**
+  (Edit: price, deposit, channel). Events (History, Breeding), expenses, Entries and documents
+  open to edit or delete; money received points to where it was recorded.
+- Then (owner): Record the birth had no way to finish. Births, on an expected litter with a pup
+  recorded, ends with "Is that all of them?": delivery, then Done whelping, which marks the
+  litter and its pairing whelped and returns to the litter, now showing its whelped tiles.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: The prototype: a litter's pups are its own; Puppy care
+
+- The owner: a litter's Puppies didn't list the pups just recorded; she needs one entry for
+  the whole litter (weights, vet visit, deworming, vaccines) saved on each pup; pups need an ID
+  at birth, since "puppy 1" means nothing the next morning; and anything else live does for a
+  litter (litter page, Kels) should have a place on its tiles.
+- `docs/design/forest-look-prototype.html`: Births asks each pup's **ID collar** (next free
+  color, live's `guidedLitter.COLLAR_COLORS`) and an optional name, and saving makes the puppy
+  record ("Red collar"), with its own history from birth. **Puppies** lists the litter's own
+  pups. **Puppy care** replaces Weigh puppies: Weigh, Vet visit, Shots, Deworming, Screening
+  test, Medication, Microchips and Something else, typed once and saved as one event per pup
+  ticked (live's `cascadeTargets` and the care visit), with one entry shown for the litter.
+- Then (owner): weights in pounds and ounces, with AM / PM at the top (live's check-in
+  weighs the same way); shown everywhere as "9 lb 10 oz".
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: The prototype: puppy plans and puppy records on the litter
+
+- The owner: each pup's plan (disposition) and registration set from the litter, and puppy
+  records, which go to the top once the litter is Ready.
+- `docs/design/forest-look-prototype.html`: a litter's **Puppies** is a card per pup with its
+  plan (Undecided, Available, Keeping, Health hold; Placed shows its family) and registration
+  (Limited, Full, Co-own, None: live's `intended_registration`); Add sale starts from it, and a
+  sale at another registration says so. **Puppy records**: each pup's record from its history
+  (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights),
+  printed or not, Print all, Send to families, and one record to Print or Send; printing ticks
+  the go-home checklist's Print puppy records. From Ready it is the litter's first tile.
+- Then (owner): no Births tile (it led where Puppies does) and no Pairing check tile on a
+  litter. Puppies opens with the birth (born, alive, delivery, stillborn, Add a pup you
+  missed) and each pup's birth order, time and weight; Record the birth stays on the stage
+  bar; Births records a missed pup on any litter not closed.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: Waitlist review against live; same-screen duplicates
+
+- The owner asked for the waitlist checked against live (same rules, what's missing, what's
+  duplicated), then set the duplicate rule: second ways in are wanted; two ways into the same
+  place on the same screen are not (added to D26).
+- `docs/design/forest-look-prototype.html`: the Waitlist hub drops the Applications, Fees due
+  and Family requests tiles (Needs you opens them); a family's Offers & passes has Sell them a
+  pup once; a pairing with warnings shows them without a Pairing check tile beside them;
+  Willow × Ash drops the Go-home weekend row beside its Go-home tile.
+- Missing against live, for the owner to order: open / close picks from the preview, every
+  open litter selling at once with Offer to them, Review sale & send after a pick, backing
+  out, re-apply, the Ready now? check, turn timing (open days, closed dates, hours,
+  countdowns), automatic offers, family pages without the list, a lost pup's family back in
+  line with a credit, the answer-change log, Almost your turn / Communicate, fee paid online
+  and a family's invoices, the application form editor and import, waitlist import, the
+  public list, waitlist policies.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: The redesign plan lists this review's screens and the waitlist still to draw
+
+- The owner: put everything from this review in the plan, drawn or proposed.
+- `docs/KennelOS_UI_Redesign_Plan.md`: §5's Dogs, Litters, Waitlist, Business and Setup
+  phases name the new screens; §5.1 lists what was drawn (hubs and stage bars, the pairing
+  hub, the litter's Puppies, Births, Puppy care, Puppy records and Go-home, the sale hub and
+  Price & payments, the go-home checklist and the data it needs, rows that open to edit);
+  §5.2 lists the 16 live waitlist features the prototype doesn't draw yet, each with its
+  source plan and proposed place, first six first.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: D27, a day's events grouped in a history (proposed, drawn)
+
+- The owner: a go-home-ready visit fills a pup's history with separate events from one hour;
+  they must stay separate in the data but be grouped on screen.
+- `docs/KennelOS_UI_Redesign_Plan.md`: D27 (three or more events on a date show as one card,
+  titled by the day's vet visit, kinds counted, costs summed, opening to each event; no new
+  data) and a §5.1 line. `docs/design/forest-look-prototype.html`: the timeline groups them;
+  Hazel's history has a go-home exam day (vet visit, fecal, giardia, DHPP #2, Bordetella,
+  dewormer) to show it.
+- Then (owner): date grouping for now; later a grouping id on events, stamped by whatever
+  saves several events as one job, which grouping prefers (D27, needs its own plan).
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: D28 stage-aware Home, D29 How connected; breeder-to-breeder and one-inbox plans
 
 - The owner: Home's tiles shouldn't repeat the tab bar, and should follow the kennel's stage.
-  `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D26**: no tile repeats a tab (tabs get count
+  `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D28**: no tile repeats a tab (tabs get count
   badges), three tiles follow the stage of each litter or pairing (between litters, planning,
   expecting, newborns, picks open, going home, after go-home), three stay (the type's, plus
   Website while a KennelPort site is linked and Messages while a channel is on), and a line
   under Today names the stage. The Website tile reads `pendingWebsiteChanges` on the device.
-- **D27**: first-run setup asks How you breed and How connected (on my devices / the cloud),
+- **D29**: first-run setup asks How you breed and How connected (on my devices / the cloud),
   which picks one of each twin (Companion or the waitlist online; Dropbox and KennelAssistant or
   live sync; Furever or the puppy portal), read from use for existing breeders. Exceptions:
   Companion's partner bundle stays; the portal follows a linked site. Program Types plan §2 and
@@ -593,7 +722,7 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   they came; a brief for KennelPort's contract plan. README's doc map gains both rows.
 - Docs only: no code, tests or service-worker change.
 
-## 2026-11-21: The prototype draws D26, D27, breeder to breeder and Messages
+## 2026-11-21: The prototype draws D28, D29, breeder to breeder and Messages
 
 - `docs/design/forest-look-prototype.html` (published to the artifact), for the owner's review:
   - **Home:** a pill per litter or pairing stage under Today; three stage tiles (each stage gets

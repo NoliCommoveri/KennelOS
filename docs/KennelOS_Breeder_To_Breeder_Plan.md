@@ -65,7 +65,7 @@ is two people editing one record: each share has one sender per kind of fact (be
   with breeding rights, heats and breedings travel (phase 3, already decided). What's owed shows
   on both sides' Home when it comes due.
 - **This replaces Companion's partner bundle** for co-owners and stud clients once built (UI
-  Redesign Plan D27's exception). Until then the partner bundle stays.
+  Redesign Plan D29's exception). Until then the partner bundle stays.
 
 ## 5. Sales between breeders
 

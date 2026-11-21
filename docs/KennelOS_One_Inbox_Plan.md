@@ -32,7 +32,7 @@
 - **When both are linked, KennelOS is the home for messages.** KennelPort's own message view
   shows the thread read-only with "Answered in KennelOS", so nothing is answered twice.
 - **Home:** a **Messages** tile with the unread count, a stable tile while any message channel
-  is on (UI Redesign Plan D26).
+  is on (UI Redesign Plan D28).
 
 ## 3. Later, from KennelPort
 
