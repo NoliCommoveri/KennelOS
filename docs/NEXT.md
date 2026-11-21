@@ -591,7 +591,27 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
 - `docs/KennelOS_One_Inbox_Plan.md` (new): KennelPort forwards contact-form and portal messages,
   sealed to her key, into the inbox status-page messages already use; replies go back the way
   they came; a brief for KennelPort's contract plan. README's doc map gains both rows.
-- Prototype (`docs/design/forest-look-prototype.html`, published): see the next entry.
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: The prototype draws D26, D27, breeder to breeder and Messages
+
+- `docs/design/forest-look-prototype.html` (published to the artifact), for the owner's review:
+  - **Home:** a pill per litter or pairing stage under Today; three stage tiles (each stage gets
+    one before any gets a second), then Website, Messages and the type's tiles, never a tab;
+    Litters gets a badge while pups are going home or newborn. The bar gains **Stage** (from the
+    sample, or any one stage), **Connected** and **Website** to compare.
+  - **Website** (from its tile): the changes waiting, Update website, then rows. **Messages**:
+    one list marked Status page, Website, Puppy portal or Breeder; a thread replies the way the
+    message came.
+  - **First run** (in the bar): How you breed, then How connected. What you use gains How
+    connected at the top and, when a twin is turned on, offers to stop the other. Sharing shows
+    one of each twin; on the device answer, co-owners and stud clients keep Companion links.
+  - **Breeder to breeder:** Studs gains Applications, Your stud page and each booking's steps
+    (status page or in their KennelOS); Sharing gains Co-owns & leases (a page each), Sell to a
+    breeder (with the hand-off, `.handoff`, skipped by a tap, still under reduced motion) and
+    Your public profile (region, never an address; Verified from records).
+- §3.1 lists the stage pills and the hand-off. Design notes gain four sections; search finds the
+  new screens.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

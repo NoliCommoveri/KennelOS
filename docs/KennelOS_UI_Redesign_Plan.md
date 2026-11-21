@@ -201,6 +201,8 @@ piece can't do the job** (D18).
 | Sort | **Sort** at the top of the filter sheet: `ddBox` with `.dd-opt.one` (the date range's single pick), from the list's `FDEF[key].sorts`, the first its default; a sort she picks shows as a chip; the button reads **Sort & filter** (D22) | Any list she'd order more than one way (People, a person picker) | Column headers (tables only, live's `listView`) |
 | Choose a person | `personPicker()`: the filter bar, its box also the new person's name, then matching people as rows with `personBadge()` (#2 on the list, Fee due, Applied, Client, Care team), then New person's details | Every place a person is chosen: a sale's buyer, Do not sell (D21) | A `<select>` of people, or groups by kind of record |
 | History | `timeline()` | Events by date | |
+| Where the kennel is (D26) | `pill()`s in `.pups-strip` under Today | Each litter's or pairing's stage | |
+| A hand-off between kennels (owner-approved, 2026-11-21) | `playHandoff()` · `.handoff` | A dog sent to another breeder, a co-own starting | Any other confirmation: `toast()` |
 | Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
 
 **The two-option rule (D19).** Whenever there are exactly two options and one is required,
@@ -613,7 +615,8 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     `kennelportLink.pendingWebsiteChanges` (on the device, no request): "Up to date · updated
     Nov 3", "3 changes not on your site", or, by stage, "Clover's litter isn't on your site
     yet" / "Hazel placed · site still shows available". It opens a Website screen: the changes
-    waiting, **Update website**, and **More ▾** (Open my site, what's shown, site settings).
+    waiting, **Update website**, then rows for Open my site, What's shown, the puppy portal,
+    Messages and her public profile (the header keeps one action, §3.1).
   - **For the build:** the stage is worked out from litters (`status`, whelp date, pups'
     dispositions, go-home dates), pairings and heats, on the device, when Home opens. Nothing
     is stored. Home's tile list comes from `data/programTypes.js` (Program Types plan §5) plus

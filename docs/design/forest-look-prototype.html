@@ -420,6 +420,20 @@ dialog.drawer::backdrop { background: rgba(10, 20, 14, .45); }
 .sell-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sell-top b { font-family: var(--font-display); font-size: 17px; flex: 1; }
 .pups-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+/* breeder to breeder: the hand-off between two kennels */
+.handoff { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 97%, transparent); cursor: pointer; }
+.ho-in { width: min(320px, 86%); display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 6px; position: relative; }
+.ho-crest { width: 56px; height: 56px; border-radius: 50%; background: var(--forest-deep); color: #fff; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+.ho-path { height: 2px; border-top: 2px dashed var(--line-strong); }
+.ho-card { position: absolute; left: 0; top: -54px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 8px 10px; display: flex; gap: 6px; align-items: center; font-weight: 700; white-space: nowrap; }
+.ho-card i[data-lucide], .ho-card svg.lucide { width: 18px; height: 18px; color: var(--primary); }
+.ho-done { grid-column: 1 / -1; text-align: center; margin: 14px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.handoff .ho-card { left: calc(100% - 96px); }
+@media (prefers-reduced-motion: no-preference) {
+  .handoff .ho-card { animation: ho-move 1.5s ease-in-out both; }
+  .handoff .ho-done { animation: fade .3s 1.3s ease-out both; }
+  @keyframes ho-move { 0% { left: 0; transform: translateY(0); } 20% { left: 0; transform: translateY(-10px); } 80% { left: calc(100% - 96px); transform: translateY(-10px); } 100% { left: calc(100% - 96px); transform: translateY(0); } }
+}
 .ladder { display: flex; flex-direction: column; }
 .rung { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
 .ladder .rung:first-child { border-top: 0; }
@@ -750,6 +764,10 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
       <button type="button" id="plan-hide" aria-pressed="false">Hidden</button>
     </div>
     <label class="proto-title" style="font-size:12.5px;display:inline-flex;gap:6px;align-items:center">View as <select id="view-as" aria-label="View as program type"></select></label>
+    <label class="proto-title" style="font-size:12.5px;display:inline-flex;gap:6px;align-items:center">Stage <select id="demo-stage" aria-label="Kennel stage"></select></label>
+    <label class="proto-title" style="font-size:12.5px;display:inline-flex;gap:6px;align-items:center">Connected <select id="demo-conn" aria-label="How connected"><option value="cloud">Cloud</option><option value="device">On my devices</option></select></label>
+    <label class="proto-title" style="font-size:12.5px;display:inline-flex;gap:6px;align-items:center">Website <select id="demo-site" aria-label="KennelPort website"><option value="1">Linked</option><option value="0">None</option></select></label>
+    <button type="button" class="ghost" id="open-welcome"><i data-lucide="sparkles"></i>First run</button>
     <button type="button" class="ghost" id="open-map"><i data-lucide="map"></i>Design notes</button>
   </div>
 </div>
@@ -858,6 +876,15 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
       <li><b>Shared dogs, live updates</b> (<code>KennelOS_Shared_Dogs_Plan.md</code> phase 2): on a dog's Dog card tile.</li>
       <li><b>Program-type gaps</b> (<code>KennelOS_Program_Types_Plan.md</code> §4): guardian homes, trials and performance titles, semen inventory, care logs and inspections. Each needs its own plan.</li>
     </ol>
+
+    <h3>Home follows the kennel (D26)</h3>
+    <p>No Home tile repeats a tab; the tabs carry the counts instead (Waitlist, and Litters while pups are going home or newborn). Three tiles follow where each litter or planned pairing is: between litters, planning, expecting, newborns, picks open, going home, after go-home. The most urgent come first, and a line of pills under Today names each stage. The other three stay put: <b>Website</b> while a KennelPort site is linked (what an Update website would change), <b>Messages</b> while any message channel is on, then her program type's tiles. Tiles change only when a litter changes stage. Use <b>Stage</b> in the bar above to see each one.</p>
+    <h3>How connected (D27)</h3>
+    <p>Several features come in pairs that do one job two ways: Companion links or status pages for families; Dropbox sync or live sync for a second phone and a helper; Furever or the puppy portal after go-home. First-run setup (<b>First run</b> in the bar) asks how she breeds, then how connected she is, and shows one of each pair. What you use can change it; turning a twin on there offers to stop the other. Co-owners and stud clients keep Companion links until breeder shares replace them, and the puppy portal needs a linked website. Use <b>Connected</b> and <b>Website</b> in the bar to compare.</p>
+    <h3>Breeder to breeder</h3>
+    <p>From <code>docs/KennelOS_Breeder_To_Breeder_Plan.md</code> (a plan; nothing built). Studs take applications and show each booking's steps; co-owns and leases have a standing page with the terms and what's due; a dog sold to another breeder arrives in their KennelOS, with a short hand-off (Sharing › Sell to a breeder). A breeder on KennelOS gets records in their own app; anyone else gets a status page. Her public profile is off until she turns it on, shows a region, never an address, and marks tests and titles verified from her records.</p>
+    <h3>Messages</h3>
+    <p>From <code>docs/KennelOS_One_Inbox_Plan.md</code> (a plan; nothing built). Status-page, website, puppy-portal and breeder messages share one list, each marked with where it came from. A reply goes back the way the message came.</p>
 
     <h3>Program types</h3>
     <p>From <code>docs/KennelOS_Program_Types_Plan.md</code>. In Setup › How you breed she picks what her program mostly does (show / preservation, family pet, doodle or mixed-breed, working / performance, stud services, large or licensed kennel) and up to two others. That sets her tabs and their order, Home's six tiles, what's turned on in What you use, and the order of each dog's sections; her own switches win after. "View as" in the bar above switches the sample program between types. Line tools are on for show, working and stud programs and off for family pet, doodle and large kennels; pairing warnings and Relatives are never off. A stud program gets a Studs tab instead of Waitlist.</p>
@@ -1083,7 +1110,7 @@ const REPORTS = [
 ];
 
 /* features she uses: the one place with on/off switches (Setup › What you use) */
-const FEAT = { lineTools: true, waitlist: true, waitlistOnline: true, contracts: true, studServices: true, shows: true, invoicing: true, foster: false, multiKennel: false, companion: true, furever: false };
+const FEAT = { lineTools: true, waitlist: true, waitlistOnline: true, contracts: true, studServices: true, shows: true, invoicing: true, foster: false, multiKennel: false, companion: true, furever: false, assistant: false, liveSync: true, portal: true };
 const FEATURES = [
   ['waitlist', 'Waitlist', 'Applications, the rolling list, offers and picks'],
   ['waitlistOnline', 'Waitlist online', 'Online applications, family status pages, emails'],
@@ -1095,6 +1122,9 @@ const FEATURES = [
   ['multiKennel', 'More than one kennel', 'Switch between kennels you run'],
   ['companion', 'Companion messages', 'Messages to families and partners'],
   ['furever', 'Furever', 'The family pet-care app'],
+  ['portal', 'Puppy portal', 'Families follow their pup on your website'],
+  ['assistant', 'Dropbox sync & helper app', 'Your phones and your helper, kept in step'],
+  ['liveSync', 'Live sync', 'Every device and your helper, always in step'],
   ['lineTools', 'Line tools', 'Trait grades, puppy scores, line insights, the pairing finder'],
 ];
 
@@ -1335,7 +1365,7 @@ function renderSheet() {
 
 /* ================= navigation: one history across tabs ================= */
 const TABS = () => typeTabs();
-const TAB_OF = { documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
+const TAB_OF = { website: 'more', inbox: 'home', thread: 'home', welcome: 'home', studapps: 'studs', studpage: 'studs', studbook: 'studs', coowns: 'more', coown: 'more', senddog: 'more', profile: 'more', documents: 'more', dupes: 'business', backup: 'more', impexp: 'more', danger: 'more', sharing: 'more', storage: 'more', kels: 'more', oneoffs: 'business', addsale: 'business', addperson: 'business', dns: 'business', dnsadd: 'business', contracts: 'business', contract: 'business', contractsend: 'business', contractedit: 'business', payments: 'business', addentry: 'business', finyear: 'business', accounts: 'business', account: 'business', studs: 'studs', lines: 'litters', pair: 'litters', finder: 'litters', production: 'litters', programtraits: 'litters', addfamily: 'waitlist', sidesale: 'waitlist', wlprogram: 'waitlist', addlitter: 'litters', addpairing: 'litters', addons: 'business', addon: 'business', addongroup: 'business', schedule: 'business', saleedit: 'business', pricerule: 'business', transport: 'business', partner: 'business', pickupplaces: 'more', place: 'more', adddog: 'dogs', editdog: 'dogs', logtest: 'dogs', pedigree: 'dogs', dogcard: 'dogs', home: 'home', reminders: 'home', upcoming: 'home', calendar: 'home', notifications: 'home', waitlist: 'waitlist', wllist: 'waitlist', wlentry: 'waitlist', wloffer: 'waitlist', wlpicks: 'waitlist', wlapps: 'waitlist', wlfees: 'waitlist', wlrequests: 'waitlist', wlpreview: 'waitlist', wlprograms: 'waitlist', dogs: 'dogs', dog: 'dogs', dogsec: 'dogs', litters: 'litters', litter: 'litters', littersec: 'litters', business: 'business', sales: 'business', pricing: 'business', people: 'business', financials: 'business', ledger: 'business', reports: 'business', more: 'more', setup: 'more', setupsec: 'more' };
 let hist = [{ s: 'home' }];
 const top = () => hist[hist.length - 1];
 function saveScroll() { top().y = $('#screen').scrollTop; }
@@ -1401,6 +1431,7 @@ S.home = () => {
     bar: `${backBtn()}${brandBlock()}<div class="head-icons"><button type="button" class="icon-btn" aria-label="Setup" data-open="setup">${icon('settings')}</button><button type="button" class="icon-btn bell" aria-label="Notifications${newNotes() ? `, ${newNotes()} new` : ''}" data-open="notifications">${icon('bell')}${newNotes() ? '<span class="dot"></span>' : ''}</button></div>`,
     body: `
       <div class="today-h"><h2>Today</h2><span>Wednesday, Nov 18</span></div>
+      <div class="pups-strip">${kennelStages().map((x) => pill([`${x.who ? x.who + ' · ' : ''}${STAGES[x.k][0]}`, STAGES[x.k][1]])).join('')}</div>
       <div class="tiles">${t}</div>
       <div class="plan-box planned">${icon('mic')}<span>Hold to talk: “Clover x-ray done”</span>${planTag(2)}</div>
       <div class="home-cols">
@@ -2231,7 +2262,9 @@ S.setupsec = (k) => {
   let body = '';
   const lineSetup = lineSetupBody(k);
   if (lineSetup != null) { body = lineSetup; } else if (k === 'features') {
-    body = `<p class="lede">Turn off what you don't use. Its tabs, tiles and menu rows disappear everywhere; your records stay.</p>
+    const ask = ui.twinAsk && FEAT[ui.twinAsk] ? `<div class="stub-note warn">${icon('circle-alert')}<span>Stop ${featName(ui.twinAsk)} too? Links already sent keep working. <button type="button" class="link" data-twin="stop|${ui.twinAsk}">Stop it</button> · <button type="button" class="link" data-twin="keep|">Keep both</button></span></div>` : '';
+    body = `<div class="group-label">How connected</div><section class="card app-card">${radioList([['device', 'Everything stays on my devices', 'Companion links, Dropbox sync, Furever'], ['cloud', 'I’m happy using the cloud', 'Waitlist online, live sync, puppy portal']].map(([v, t, sub]) => ({ t, sub, on: DEMO.conn === v, attr: `data-conn="${v}"` })))}</section>${ask}
+      <p class="lede">Turn off what you don't use. Its tabs, tiles and menu rows disappear everywhere; your records stay.</p>
       <section class="card"><div class="rows">${FEATURES.map(([f, t, s]) => `<div class="switch-row"><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span><button type="button" class="switch" role="switch" aria-checked="${FEAT[f]}" aria-label="${t}" data-feat="${f}"></button></div>`).join('')}</div></section>`;
   } else if (QS[k]) {
     body = `<p class="lede">Tap a question to change its answer. Changes save right away.</p>
@@ -4146,11 +4179,20 @@ S.sharing = () => {
   return {
     bar: bar('Sharing', { ic: 'share-2' }),
     body: `<div class="group-label">With families</div><section class="card"><div class="rows">
-        ${row({ ic: 'message-square-text', tone: 'blue', t: 'Companion messages', s: 'Updates and care notes for families, sent as a link', go: 'stub:companion' })}
-        ${row({ ic: 'heart', tone: 'green', t: 'Furever', s: `The family app for each pup · ${goHome} to send`, go: 'stub:furever' })}</div></section>
+        ${FEAT.companion ? row({ ic: 'message-square-text', tone: 'blue', t: 'Companion messages', s: 'Updates and care notes for families, sent as a link', go: 'stub:companion' }) : ''}
+        ${FEAT.waitlistOnline ? row({ ic: 'link', tone: 'blue', t: 'Status pages', s: 'Each family’s own page, always current', go: 'wllist' }) : ''}
+        ${FEAT.furever ? row({ ic: 'heart', tone: 'green', t: 'Furever', s: `The family app for each pup · ${goHome} to send`, go: 'stub:furever' }) : ''}
+        ${FEAT.portal ? row({ ic: 'globe', tone: 'green', t: 'Puppy portal', s: `On your website · ${goHome} families`, go: 'website' }) : ''}</div></section>
       <div class="group-label">With your helper</div><section class="card"><div class="rows">
-        ${row({ ic: 'users', t: 'Your helper', s: `Last sent ${short(addDays(TODAY, -2))}`, go: 'stub:helper' })}</div></section>
-      <div class="group-label">With other breeders</div><section class="card"><div class="section-h"><h2>${icon('id-card')}Dog cards</h2><span class="fcount">${sent.length} sent</span></div><div class="rows">
+        ${FEAT.liveSync ? row({ ic: 'users', t: 'Your helper', s: 'Live · sees what you share with them', go: 'stub:helper' }) : row({ ic: 'users', t: 'Your helper', s: `Last sent ${short(addDays(TODAY, -2))}`, go: 'stub:helper' })}</div></section>
+      <div class="group-label">With other breeders</div>
+      ${DEMO.conn === 'cloud' ? `<section class="card"><div class="rows">
+        ${row({ ic: 'heart-handshake', t: 'Co-owns & leases', s: `${COOWNS.length} dogs · each co-owner’s own page`, go: 'coowns' })}
+        ${FEAT.studServices ? row({ ic: 'concierge-bell', t: 'Stud bookings', s: `${STUD_APPS.length} applications to review`, go: 'studs' }) : ''}
+        ${row({ ic: 'send', t: 'Sell to a breeder', s: 'The dog arrives in their KennelOS', go: 'senddog' })}
+        ${row({ ic: 'badge', t: 'Your public profile', s: 'How breeders and families find you', go: 'profile' })}</div></section>`
+      : `<section class="card"><div class="rows">${row({ ic: 'message-square-text', t: 'Co-owners and stud clients', s: 'Companion links with their dogs', go: 'stub:companion-partners' })}</div></section>`}
+      <section class="card"><div class="section-h"><h2>${icon('id-card')}Dog cards</h2><span class="fcount">${sent.length} sent</span></div><div class="rows">
         ${sent.map((d) => row({ ic: 'send', tone: 'green', t: d.name, s: info(d).card, go: `dogcard:${d.id}` })).join('')}
         ${row({ ic: 'plus', t: 'Send a dog', s: 'Its record, parents and health tests', go: 'dogs' })}
         ${row({ ic: 'arrow-down-left', t: 'Add dogs from a card', s: 'A link, code or file another breeder sent', go: 'stub:card-import' })}</div></section>
@@ -4850,13 +4892,14 @@ const PT = { main: 'show', also: ['stud'] };
 function applyType() {
   const on = new Set([PT.main, ...PT.also].flatMap((k) => PTYPES[k].feat));
   Object.keys(FEAT).forEach((k) => { FEAT[k] = on.has(k); });
+  applyConn(); /* D27: then one of each twin, from How connected */
 }
 const typeSummary = () => [PT.main, ...PT.also].map((k) => PTYPES[k].n).join(' + ');
 const TAB_DEF = { home: ['Home', 'house'], waitlist: ['Waitlist', 'list-ordered'], dogs: ['Dogs', 'dog'], litters: ['Litters', 'paw-print'], business: ['Business', 'briefcase'], more: ['More', 'ellipsis'], studs: ['Studs', 'concierge-bell'] };
 function typeTabs() {
   return PTYPES[PT.main].tabs.filter((k) => (k !== 'waitlist' || FEAT.waitlist) && (k !== 'studs' || FEAT.studServices)).map((k) => [k, ...TAB_DEF[k]]);
 }
-function homeTiles(ny, own, net) {
+function typeTileList(ny, own, net) {
   const planned = pairWarningsCount();
   const T = {
     waitlist: FEAT.waitlist && ['list-ordered', 'Waitlist', `${ny} need you`, 'waitlist'],
@@ -4873,8 +4916,10 @@ function homeTiles(ny, own, net) {
     care: ['clipboard-list', 'Care logs', 'Planned', 'stub:care-logs-and-inspections', 8],
   };
   const keys = [...PTYPES[PT.main].tiles, ...PTYPES.pet.tiles];
-  const list = uniq(keys).map((k) => T[k]).filter(Boolean).slice(0, 6);
-  return list.map(([ic, tt, s, g, pl]) => `<button type="button" class="tile${pl ? ' planned planned-box' : ''}" data-open="${g}">${icon(ic)}<b>${tt}</b><span>${s}</span>${pl ? planTag(pl) : ''}</button>`).join('');
+  return uniq(keys).filter((k) => T[k]).map((k) => [k, ...T[k]]);
+}
+function homeTiles(ny, own, net) {
+  return homeTileList(ny, own, net).map(([ic, tt, s, g, pl]) => `<button type="button" class="tile${pl ? ' planned planned-box' : ''}" data-open="${g}">${icon(ic)}<b>${tt}</b><span>${s}</span>${pl ? planTag(pl) : ''}</button>`).join('');
 }
 function pairWarningsCount() {
   return PAIRINGS.filter((p) => p.status[0] === 'Planned').filter((p) => pairWarnings(DOGS.find((x) => x.name === p.sire).id, DOGS.find((x) => x.name === p.dam).id).length).length;
@@ -4888,9 +4933,10 @@ function dogSections(d) {
 S.studs = () => ({
   bar: bar('Studs', { ic: 'concierge-bell', action: addBtn('Add booking', 'stub:add-booking') }),
   body: `
+    ${DEMO.conn === 'cloud' ? `<section class="card"><div class="rows">${row({ ic: 'inbox', tone: 'violet', t: 'Applications', extra: pill([`${STUD_APPS.length} to review`, 'violet']), s: STUD_APPS.map((a) => a.fem).join(', '), go: 'studapps' })}${row({ ic: 'eye', t: 'Your stud page', s: 'What other breeders see · Gunnar', go: 'studpage:gunnar' })}</div></section>` : ''}
     <section class="card"><div class="section-h"><h2>${icon('calendar-clock')}Bookings</h2></div><div class="rows">
-      ${row({ ic: 'truck', tone: 'amber', t: 'Meadow Ridge Poppy × Gunnar', extra: pill(['Booked', 'blue']), s: 'Her progesterone is rising · ship chilled about Tue Dec 2 · fee $1,500 or pick puppy', go: 'stub:stud-booking' })}
-      ${row({ ic: 'baby', t: 'Briar Hollow Maple × Gunnar', extra: pill(['Whelped', 'green']), s: 'Bred Apr 14 · 7 puppies · $1,500 paid', go: 'stub:stud-booking' })}
+      ${row({ ic: 'truck', tone: 'amber', t: 'Meadow Ridge Poppy × Gunnar', extra: pill(['Booked', 'blue']), s: 'Her progesterone is rising · ship chilled about Tue Dec 2 · fee $1,500 or pick puppy', go: DEMO.conn === 'cloud' ? 'studbook:poppy' : 'stub:stud-booking' })}
+      ${row({ ic: 'baby', t: 'Briar Hollow Maple × Gunnar', extra: pill(['Whelped', 'green']), s: 'Bred Apr 14 · 7 puppies · $1,500 paid', go: DEMO.conn === 'cloud' ? 'studbook:maple' : 'stub:stud-booking' })}
     </div></section>
     <section class="card"><div class="section-h"><h2>${icon('dog')}Your studs</h2></div><div class="rows">
       ${DOGS.filter((x) => x.sex === 'm' && x.status === 'active_breeding').map((m) => row({ ic: 'dog', t: m.name, extra: (DNA[m.id]?.EIC === 'Carrier' ? pill(['EIC carrier', 'amber']) : ''), s: `${COLOR_OF[m.id]} · carries ${carries(m.id).join(', ') || 'nothing hidden found'} · ${((n) => `${n} litter${n === 1 ? '' : 's'} recorded`)(PROD.filter((p) => p.sire === m.id).length)}`, go: `dog:${m.id}` })).join('')}
@@ -4909,6 +4955,253 @@ function typeSetupBody() {
     <div class="group-label">About your dogs</div>
     <section class="card"><div class="rows">${[['Do you breed registered dogs?', PT.main === 'doodle' ? 'No' : 'Yes'], ['Litters a year', PT.main === 'large' ? '20 or more' : '3–5'], ['Is this your first litter?', 'No'], ['Is your waitlist online?', FEAT.waitlistOnline ? 'Yes' : 'No']].map(([q, a]) => `<div class="q-row"><button type="button" class="q-head" data-open="stub:${q.toLowerCase().replace(/[^a-z]+/g, '-')}"><span class="q">${q}</span><span class="a">${a}</span>${icon('chevron-right')}</button></div>`).join('')}</div></section>`;
 }
+
+/* ================= D26: Home follows the kennel's stage ================= */
+/* the prototype bar's Stage, Connected and Website controls; the app reads all three from her records */
+const DEMO = { stage: 'auto', conn: 'cloud', site: 1 };
+const STAGES = { between: ['Between litters', 'gray'], planning: ['Planning', 'blue'], expecting: ['Expecting', 'blue'], newborns: ['Newborns', 'green'], picks: ['Picks open', 'amber'], gohome: ['Going home', 'amber'], after: ['After go-home', 'gray'] };
+const STAGE_RANK = ['gohome', 'picks', 'newborns', 'expecting', 'planning', 'between', 'after'];
+const STAGE_WHO = { between: '', planning: 'Juniper × Gunnar', expecting: 'Clover × Titan', newborns: 'Willow × Ash', picks: 'Willow × Ash', gohome: 'Willow × Ash', after: 'Willow × Ash' };
+/* each open litter or planned pairing is at one stage, read from its dates and its pups */
+function litterStage(l) {
+  if (l.status[0] === 'Closed') return null;
+  if (!l.whelp) return 'expecting';
+  if (days(l.whelp, TODAY) < 21) return 'newborns';
+  const pups = DOGS.filter((d) => d.litter === l.id);
+  if (pups.length && pups.every((d) => ['placed', 'keeping'].includes(d.disp)) && !GOHOME.length) return 'after';
+  return GOHOME.length ? 'gohome' : 'picks';
+}
+function kennelStages() {
+  if (DEMO.stage !== 'auto') return [{ k: DEMO.stage, who: STAGE_WHO[DEMO.stage] }];
+  const out = LITTERS.map((l) => ({ k: litterStage(l), who: litterName(l) })).filter((x) => x.k);
+  PAIRINGS.filter((p) => p.status[0] === 'Planned').forEach((p) => out.push({ k: 'planning', who: `${p.dam} × ${p.sire}` }));
+  return (out.length ? out : [{ k: 'between', who: '' }]).sort((a, b) => STAGE_RANK.indexOf(a.k) - STAGE_RANK.indexOf(b.k));
+}
+const stageLine = () => kennelStages().map((x) => `${x.who ? esc(x.who) + ' · ' : ''}${STAGES[x.k][0].toLowerCase()}`).join(' · ');
+const balancesDue = () => SALES.filter((s) => saleTotal(s) > s.paid);
+/* a stage's tiles: [icon, title, subline, opens] */
+function stageTiles(k) {
+  const ct = LITTERS.find((l) => l.id === 'ct'), due = balancesDue();
+  const T = {
+    between: [['flame', 'Heat watch', 'Juniper · about Nov 25', 'dog:juniper'], ['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['stethoscope', 'Health tests', '2 due this month', 'dogs']],
+    planning: [['git-fork', 'Pair check', 'Juniper × Gunnar', 'lines'], ['flame', 'Heat log', 'Juniper · about Nov 25', 'dog:juniper']],
+    expecting: [['baby', `Day ${days(ct.bred, TODAY)} of 63`, `Clover · due ${short(ct.due)}`, 'litter:ct'], ['clipboard-list', 'Whelping prep', 'Box set-up Dec 1', 'litter:ct']],
+    newborns: [['scale', 'Weigh puppies', `Last weighed ${weighedOn}`, 'littersec:wa|weigh'], ['baby', 'Births', '6 alive · 1 lost', 'littersec:wa|puppies']],
+    picks: [FEAT.waitlist && ['list-ordered', 'Picks', `${fam(OFFER.fam).n.replace(' family', '')}’s turn · ${wday(OFFER.due)}`, 'wlpicks:wa'], FEAT.waitlistOnline ? ['clock', 'Offers', '1 waiting on an answer', 'wloffer'] : ['send', 'Picks update', 'Send to families', 'sharing'], ['wallet', 'Deposits', `${SALES.length} of 6 in`, 'sales']],
+    gohome: [['car', 'Go-home', 'Sat Nov 21 · 3 pups', 'littersec:wa|gohome'], due.length && ['wallet', 'Balances due', `${money(sum(due.map((s) => saleTotal(s) - s.paid)))} · ${due.length} families`, 'sales'], FEAT.contracts && ['file-pen-line', 'Contracts', '1 to sign', 'contracts']],
+    after: [FEAT.portal ? ['globe', 'Puppy portal', 'Send the 2-week update', 'website'] : ['heart', 'Furever', 'Send the 2-week update', 'stub:furever'], ['coins', 'Litter P&L', 'Willow × Ash', 'stub:Litter P&L']],
+  };
+  return (T[k] || []).filter(Boolean);
+}
+/* her KennelPort site: what an Update website would change (pendingWebsiteChanges, on the device) */
+const SITE = { addr: 'thornfieldlabs.kennelport.com', last: '2026-11-03', pending: ['Hazel, Poppy and Fern: Placed · your site shows Available', 'Clover × Titan: Expected litter · not on your site', 'Cedar: New photos'] };
+function websiteTile() {
+  const st = kennelStages().map((x) => x.k), n = SITE.pending.length;
+  const s = !n ? `Up to date · ${short(SITE.last)}` : st.includes('expecting') && SITE.pending.some((p) => p.startsWith('Clover')) && n === 1 ? 'Clover’s litter isn’t on your site' : `${n} change${n > 1 ? 's' : ''} not on your site`;
+  return ['globe', 'Website', s, 'website'];
+}
+/* one inbox (docs/KennelOS_One_Inbox_Plan.md): every message, whatever it came from */
+const MSG_SRC = { status: ['Status page', 'blue', 'Replies by email'], website: ['Website', 'green', 'Replies by email'], portal: ['Puppy portal', 'violet', 'Replies on their puppy portal'], breeder: ['Breeder', 'amber', 'Replies in their KennelOS'] };
+const INBOX = [
+  { id: 'm1', who: 'okafor', src: 'status', t: 'Could we pick Poppy up at 2:00 PM instead of 1:00 PM on Saturday?', at: TODAY, time: '9:10 AM', fresh: 1 },
+  { id: 'm2', n: 'Dana Whitfield', src: 'website', t: 'Do you have any yellow females planned for spring?', at: TODAY, time: '7:42 AM', fresh: 1 },
+  { id: 'm3', who: 'lindqvist', src: 'portal', t: 'Hazel’s crate arrived. Which food should we have ready?', at: '2026-11-17', time: '8:15 PM', fresh: 1 },
+  { id: 'm4', who: 'briar', src: 'breeder', t: 'Maple is on day 4. Can we book Gunnar for this heat?', at: '2026-11-16', time: '6:30 PM' },
+  { id: 'm5', who: 'marsh', src: 'status', t: 'We signed the contract. Thanks!', at: '2026-11-15', time: '11:02 AM' },
+];
+const msgOn = (m) => (m.src === 'status' ? FEAT.waitlistOnline : m.src === 'website' ? DEMO.site && DEMO.conn === 'cloud' : m.src === 'portal' ? FEAT.portal : DEMO.conn === 'cloud');
+const inboxOn = () => INBOX.filter(msgOn);
+const msgWho = (m) => m.n || personOf(m.who)?.n || m.who;
+const messagesOn = () => DEMO.conn === 'cloud' && (FEAT.waitlistOnline || DEMO.site);
+
+/* the six tiles: three that follow the stage, then three that stay; none repeats a tab */
+function homeTileList(ny, own, net) {
+  const tabs = typeTabs().map((t) => t[0]);
+  const seen = new Set(), stage = [];
+  /* each stage gets its first tile before any stage gets a second, most urgent stage first */
+  const per = uniq(kennelStages().map((x) => x.k)).map(stageTiles);
+  for (let i = 0; stage.length < 3 && per.some((l) => l[i]); i++) per.forEach((l) => { const t = l[i]; if (t && !seen.has(t[1]) && stage.length < 3) { seen.add(t[1]); stage.push(t); } });
+  const stay = [];
+  if (DEMO.site) stay.push(websiteTile());
+  if (messagesOn()) { const u = inboxOn().filter((m) => m.fresh).length; stay.push(['inbox', 'Messages', u ? `${u} unread` : 'All read', 'inbox']); }
+  const typed = typeTileList(ny, own, net).filter(([k]) => !tabs.includes(k)).map(([, ...t]) => t);
+  const fill = [...stay, ...typed].filter((t) => !seen.has(t[1]));
+  return [...stage, ...fill].slice(0, 6);
+}
+/* tabs carry the counts the old tiles showed */
+function tabBadge(k, ny) {
+  if (k === 'waitlist') return ny;
+  if (k === 'litters') return kennelStages().filter((x) => ['gohome', 'newborns'].includes(x.k)).length;
+  return 0;
+}
+
+/* ================= D27: how connected she is picks one of each twin ================= */
+const TWINS = [['companion', 'waitlistOnline', 'Keep families posted'], ['assistant', 'liveSync', 'A helper or a second phone'], ['furever', 'portal', 'The family’s app after go-home']];
+function applyConn() {
+  const cloud = DEMO.conn === 'cloud';
+  FEAT.waitlistOnline = cloud && FEAT.waitlist; FEAT.companion = !cloud;
+  FEAT.liveSync = cloud; FEAT.assistant = !cloud;
+  FEAT.portal = cloud && !!DEMO.site; FEAT.furever = !FEAT.portal;
+}
+function twinNote(f) {
+  const pair = TWINS.find((p) => p.includes(f));
+  if (!pair || !FEAT[f]) return null;
+  const other = pair[0] === f ? pair[1] : pair[0];
+  return FEAT[other] ? other : null;
+}
+const featName = (f) => FEATURES.find((x) => x[0] === f)[1];
+
+/* ---------- Website ---------- */
+S.website = () => {
+  if (!DEMO.site) return { bar: bar('Website', { ic: 'globe' }), body: empty('globe', 'No website linked. A KennelPort site shows your dogs, litters and waitlist, and updates from here.', 'Connect a website', 'stub:connect-website') };
+  const n = SITE.pending.length;
+  return {
+    bar: bar('Website', { ic: 'globe', sub: SITE.addr }),
+    body: `<section class="card hub-head"><div class="hub-pills">${pill(n ? [`${n} change${n > 1 ? 's' : ''} waiting`, 'amber'] : ['Up to date', 'green'])}</div><div class="hub-line">Last updated ${fmt(SITE.last)}</div></section>
+      ${n ? `<section class="card"><div class="section-h"><h2>${icon('list')}Not on your site yet</h2></div><div class="rows">${SITE.pending.map((t) => srow('circle-alert', t.split(':')[0], t.split(': ')[1] || '', { tone: 'amber' })).join('')}</div></section>
+      <button type="button" class="primary-btn" data-siteupdate>${icon('send')}Update website</button>` : ''}
+      <section class="card"><div class="rows">
+        ${row({ ic: 'eye', t: 'Open my site', s: SITE.addr, go: 'stub:open-site' })}
+        ${row({ ic: 'dog', t: 'What’s shown', s: `${DOGS.filter((d) => d.status === 'active_breeding').length} dogs · 2 litters · your waitlist`, go: 'dogs' })}
+        ${FEAT.portal ? row({ ic: 'heart', t: 'Puppy portal', s: '3 families · Hazel, Poppy, Fern', go: 'stub:puppy-portal' }) : ''}
+        ${messagesOn() ? row({ ic: 'inbox', t: 'Messages', s: 'Website and portal messages come to KennelOS', go: 'inbox' }) : ''}
+        ${DEMO.conn === 'cloud' ? row({ ic: 'badge', t: 'Your public profile', s: 'How breeders and families find you', go: 'profile' }) : ''}
+      </div></section>
+      ${setLink('Website settings', 'setupsec:website')}`,
+  };
+};
+
+/* ---------- Messages: one inbox ---------- */
+S.inbox = () => {
+  const list = inboxOn().sort((a, b) => (b.fresh || 0) - (a.fresh || 0) || b.at.localeCompare(a.at));
+  const when = (m) => (m.at === TODAY ? m.time : short(m.at));
+  return {
+    bar: bar('Messages', { ic: 'inbox', sub: `${list.filter((m) => m.fresh).length} unread` }),
+    body: list.length ? `<section class="card"><div class="rows">${list.map((m) => row({ ic: m.fresh ? 'message-square-text' : 'user-round', tone: m.fresh ? 'blue' : '', t: esc(msgWho(m)), extra: pill(MSG_SRC[m.src].slice(0, 2)), s: `${esc(m.t)}`, end: `<span class="amt">${when(m)}</span>`, go: `thread:${m.id}` })).join('')}</div></section>`
+      : empty('inbox', 'No messages yet.'),
+  };
+};
+S.thread = (id) => {
+  const m = INBOX.find((x) => x.id === id); m.fresh = 0;
+  const f = formFor('thread:' + id, () => ({ body: '' }));
+  const page = m.who && personOf(m.who) ? m.who : '';
+  return {
+    bar: bar(esc(msgWho(m)), { sub: MSG_SRC[m.src][0] }),
+    body: `<section class="card"><div class="rows">${srow('message-square-text', esc(m.t), `${MSG_SRC[m.src][0]} · ${m.at === TODAY ? 'Today' : short(m.at)}, ${m.time}`, { tone: 'blue' })}</div></section>
+      ${formCard('', fText('body', 'Reply', 'Write a reply') + `<p class="f-hint">${MSG_SRC[m.src][2]}.</p>`)}
+      <div class="actions-2"><button type="button" class="btn-2" data-back>Cancel</button><button type="button" class="primary-btn" data-msgsend="${id}">${icon('send')}Send</button></div>
+      ${page ? row({ ic: 'user-round', t: 'Their page', s: personOf(m.who).s, go: `person:${m.who}` }) : `<section class="card"><div class="rows">${row({ ic: 'user-round', t: 'Add to People', s: 'Checked against everyone you have first', go: 'addperson' })}</div></section>`}`,
+  };
+};
+
+/* ---------- First-run setup: two questions ---------- */
+S.welcome = (step) => {
+  const f = formFor('welcome', () => ({ type: PT.main, conn: DEMO.conn }));
+  if (step === '2') return {
+    bar: bar('How connected?', { sub: 'Step 2 of 2' }),
+    body: `<p class="lede">You can change this later in What you use.</p>
+      ${fRadio('conn', '', [['device', 'Everything stays on my devices', 'Companion links for families · Dropbox for a second phone and your helper · Furever'], ['cloud', 'I’m happy using the cloud', 'Your waitlist online with status pages · live sync for every device and your helper · your website’s puppy portal']])}
+      <div class="actions-2"><button type="button" class="btn-2" data-open="welcome:1">Back</button><button type="button" class="primary-btn" data-welcomedone>${icon('check')}Done</button></div>`,
+  };
+  return {
+    bar: bar('How you breed', { sub: 'Step 1 of 2' }),
+    body: `<p class="lede">What does your program mostly do?</p>
+      ${fRadio('type', '', Object.entries(PTYPES).map(([k, t]) => [k, t.n, t.d]))}
+      <div class="actions-2"><button type="button" class="btn-2" data-back>Cancel</button><button type="button" class="primary-btn" data-open="welcome:2">${icon('arrow-right')}Next</button></div>`,
+  };
+};
+
+/* ================= breeder to breeder (docs/KennelOS_Breeder_To_Breeder_Plan.md) ================= */
+const ONKOS = { briar: 1, meadow: 0 }; /* which outside kennels use KennelOS */
+const shareWay = (who) => (ONKOS[who] ? ['In their KennelOS', 'green'] : ['Status page', 'blue']);
+const STUD_APPS = [
+  { id: 'sa1', k: 'Hollis Creek Kennels', fem: 'Hollis Creek Sadie', s: 'Yellow · 3 yr · OFA Good, EIC clear, PRA clear', heat: 'About Dec 10', how: 'Fresh chilled', from: 'Your public profile' },
+  { id: 'sa2', k: 'Fox Run Labradors', fem: 'Fox Run Bramble', s: 'Black · 4 yr · OFA Fair, EIC carrier', heat: 'About Jan 6', how: 'Frozen', from: 'Referred by Briar Hollow' },
+];
+const STUD_BOOK = {
+  poppy: { n: 'Meadow Ridge Poppy × Gunnar', who: 'meadow', how: 'Fresh chilled', fee: '$1,500 or pick puppy', step: 2, dates: ['Nov 2', 'Nov 3', 'About Dec 2'] },
+  maple: { n: 'Briar Hollow Maple × Gunnar', who: 'briar', how: 'Natural', fee: '$1,500 · paid', step: 6, dates: ['Mar 1', 'Mar 2', 'Apr 14', 'May 12', 'Jun 16', 'Jul 30'] },
+};
+const STUD_STEPS = ['Applied', 'Approved', 'Booked', 'Shipped or bred', 'Confirmed', 'Whelped', 'Paperwork'];
+S.studapps = () => ({
+  bar: bar('Stud applications', { sub: `${STUD_APPS.length} to review` }),
+  body: STUD_APPS.map((a) => `<section class="card app-card"><div class="f-head"><h2>${a.fem}</h2><span>${a.k}</span></div>${facts([['Female', a.s], ['Expected heat', a.heat], ['How', a.how], ['Came from', a.from]])}
+    <div class="chips"><button type="button" class="chip go" data-toast="Approved · booking added">Approve</button><button type="button" class="chip" data-toast="Question sent">Ask a question</button><button type="button" class="chip" data-toast="Declined">Decline</button></div></section>`).join(''),
+});
+S.studpage = (id = 'gunnar') => {
+  const d = dogById(id);
+  return {
+    bar: bar(`${d.name}’s stud page`, { sub: 'What other breeders see' }),
+    body: `<section class="card hub-head"><div class="hub-pills">${pill(['At stud', 'green'])}${pill(['Verified from records', 'blue'], 'shield-check')}</div><div class="hub-reg">${d.reg}</div><div class="hub-line">${age(d.born)} · ${COLOR_OF[d.id]} · Thornfield Kennels, Vermont</div></section>
+      <section class="card">${facts([['Fee', '$1,500 or pick puppy'], ['Available', 'Natural · fresh chilled · frozen'], ['Health', 'OFA hips Good · elbows Normal · EIC clear · PRA clear'], ['Titles', 'CH']])}</section>
+      <button type="button" class="primary-btn" data-toast="Their application opens here">${icon('send')}Apply</button>
+      <p class="f-hint">Shown on your public profile and your website.</p>`,
+  };
+};
+S.studbook = (id) => {
+  const b = STUD_BOOK[id], way = shareWay(b.who);
+  return {
+    bar: bar(b.n, { sub: personOf(b.who).n }),
+    body: `<section class="card hub-head"><div class="hub-pills">${pill([STUD_STEPS[b.step], 'blue'])}${pill(way)}</div><div class="hub-line">${b.how} · ${b.fee}</div></section>
+      <section class="card"><div class="section-h"><h2>${icon('list-checks')}Steps</h2></div><div class="rows">${STUD_STEPS.map((t, i) => srow(i <= b.step ? 'circle-check' : 'circle', t, i <= b.step ? b.dates[i] || '' : i === b.step + 1 ? 'Next' : '', { tone: i <= b.step ? 'green' : '' })).join('')}</div></section>
+      ${b.step < STUD_STEPS.length - 1 ? `<button type="button" class="primary-btn" data-toast="${STUD_STEPS[b.step + 1]} · ${ONKOS[b.who] ? 'shown in their KennelOS' : 'their status page updated'}">${icon('check')}Mark ${STUD_STEPS[b.step + 1].toLowerCase()}</button>` : ''}
+      <div class="stub-note">${icon(ONKOS[b.who] ? 'circle-check' : 'link')}<span>${ONKOS[b.who] ? `${personOf(b.who).n} uses KennelOS: this booking is on their female’s page there.` : `${personOf(b.who).n} follows this on a status page.`}</span></div>
+      <section class="card"><div class="rows">${ONKOS[b.who] ? '' : row({ ic: 'eye', t: 'See it as they do', s: 'Their status page', go: 'stub:stud-status-page' })}${row({ ic: 'inbox', t: 'Messages', s: 'One thread with them', go: 'inbox' })}</div></section>`,
+  };
+};
+const COOWNS = [
+  { dog: 'gunnar', who: 'briar', kind: 'Co-own', terms: [['Lives with', 'Thornfield Kennels'], ['Breeding rights', 'Both'], ['Owed', 'One pick puppy from his first 2027 litter'], ['Since', 'Jun 2022']], next: 'Pick back from his first 2027 litter' },
+  { dog: 'juniper', who: 'meadow', kind: 'Co-own', terms: [['Lives with', 'Thornfield Kennels'], ['Breeding rights', 'Thornfield'], ['Owed', 'Two litters, then sole ownership'], ['Since', 'Mar 2024']], next: 'First litter: Juniper × Gunnar, planned' },
+];
+S.coowns = () => ({
+  bar: bar('Co-owns & leases', { ic: 'heart-handshake' }),
+  body: `<section class="card"><div class="rows">${COOWNS.map((c) => row({ ic: 'dog', t: `${dogById(c.dog).name} · ${personOf(c.who).n}`, extra: pill(shareWay(c.who)), s: `${c.kind} · ${c.next}`, go: `coown:${c.dog}` })).join('')}</div></section>
+    <p class="f-hint">Each co-owner sees one page: the dog, the terms and what’s due next.</p>`,
+});
+S.coown = (id) => {
+  const c = COOWNS.find((x) => x.dog === id), d = dogById(id), linked = ONKOS[c.who];
+  return {
+    bar: bar(`${d.name} · ${c.kind.toLowerCase()}`, { sub: personOf(c.who).n }),
+    body: `<section class="card hub-head"><div class="hub-pills">${pill([c.kind, 'green'])}${pill(shareWay(c.who))}</div><div class="hub-reg">${d.reg}</div></section>
+      <section class="card">${facts(c.terms)}</section>
+      <section class="card"><div class="rows">${srow('calendar-clock', 'Due next', c.next, { tone: 'amber' })}</div></section>
+      <div class="stub-note">${icon(linked ? 'circle-check' : 'link')}<span>${linked ? `Kept matched in ${personOf(c.who).n}’s KennelOS. Heats and breedings are shared.` : `${personOf(c.who).n} sees this on a status page, always current.`}</span></div>
+      <section class="card"><div class="rows">${linked ? '' : row({ ic: 'eye', t: 'See it as they do', s: 'Their status page', go: 'stub:coown-status-page' })}${row({ ic: 'dog', t: `${d.name}’s page`, s: 'Everything on this dog', go: `dog:${id}` })}${row({ ic: 'inbox', t: 'Messages', s: 'One thread with them', go: 'inbox' })}</div></section>`,
+  };
+};
+S.senddog = () => {
+  const f = formFor('senddog', () => ({ dog: 'cedar', who: 'briar', terms: 'sold' }));
+  const pups = DOGS.filter((d) => d.status === 'puppy' && d.disp === 'available'), linked = ONKOS[f.who];
+  return {
+    bar: bar('Sell to a breeder'),
+    body: formCard('The dog', fSel('dog', 'Dog', [...pups, ...DOGS.filter((d) => d.status === 'active_breeding')].map((d) => [d.id, d.name])))
+      + formCard('The breeder', fSel('who', 'Kennel', Object.keys(ONKOS).map((k) => [k, personOf(k).n])) + `<p class="f-hint">${linked ? 'Uses KennelOS: the dog arrives in their app.' : 'Not on KennelOS: they get a status page and the dog card.'}</p>`)
+      + formCard('Terms', fChips('terms', 'How it’s sold', [['sold', 'Sold outright'], ['coown', 'Sold on co-own']]) + (f.terms === 'coown' ? '<p class="f-hint">Their co-own page starts when they accept.</p>' : ''))
+      + `<p class="f-hint">Price, deposit and payments are on Add sale.</p>`
+      + saveBar('data-handoff', 'Send the dog'),
+  };
+};
+function playHandoff(dogName, toId) {
+  const k = personOf(toId).n, el = document.createElement('div');
+  el.className = 'handoff'; el.setAttribute('role', 'status');
+  el.innerHTML = `<div class="ho-in"><div class="ho-crest" aria-hidden="true">T</div><div class="ho-path"></div><div class="ho-crest" aria-hidden="true">${esc(k[0])}</div><div class="ho-card">${icon('paw-print')}${esc(dogName)}</div><p class="ho-done">${esc(dogName)} joined ${esc(k)}</p></div>`;
+  const done = () => { if (el.isConnected) { el.remove(); toast(ONKOS[toId] ? 'Sent · waiting for them to accept' : 'Sent · status page link copied'); } };
+  el.addEventListener('click', done);
+  $('#app').appendChild(el); icons();
+  setTimeout(done, 2400);
+}
+S.profile = () => {
+  const f = formFor('profile', () => ({ on: 'yes', show: ['breeds', 'studs', 'litters', 'apply'], region: 'Vermont' }));
+  const shown = (k) => f.show.includes(k);
+  return {
+    bar: bar('Public profile', { ic: 'badge' }),
+    body: formCard('', fSwitch('on', 'Show my kennel to breeders and families', 'yes', 'no'))
+      + (f.on === 'yes' ? formCard('What it shows', fChips('show', '', [['breeds', 'Breeds'], ['studs', 'Studs at stud'], ['litters', 'Upcoming litters'], ['apply', 'Apply and Contact']], { multi: true }) + fIn('region', 'Region', { hint: 'City or state. Never your address.' }))
+      + `<div class="group-label">What they see</div><section class="card hub-head"><div class="hub-pills">${pill(['Verified from records', 'blue'], 'shield-check')}</div><div class="hub-reg">Thornfield Kennels</div><div class="hub-line">${esc(f.region || 'Region not set')}${shown('breeds') ? ' · Labrador Retrievers' : ''}</div></section>
+        <section class="card"><div class="rows">${shown('studs') ? row({ ic: 'concierge-bell', t: 'Gunnar at stud', s: 'OFA Good · EIC clear · CH', go: 'studpage:gunnar' }) : ''}${shown('litters') ? srow('baby', 'Clover × Titan', `Due ${short('2026-12-08')}`) : ''}${DEMO.site ? srow('globe', 'Website', SITE.addr) : ''}</div></section>` : '')
+      + saveBar('data-toast="Saved"'),
+  };
+};
 
 /* ================= search: one keyword box over everything ================= */
 const SCREENS = [
@@ -4954,6 +5247,13 @@ const SCREENS = [
   ['Calendar', 'calendar-days', 'Month view', 'calendar'],
   ['Notifications', 'bell', 'Applications, messages and requests', 'notifications'],
   ['Kennels', 'house', 'Switch kennels, outside kennels', 'kennels'],
+  ['Website', 'globe', 'Update your KennelPort site', 'website'],
+  ['Messages', 'inbox', 'Every message in one place', 'inbox'],
+  ['Stud applications', 'inbox', 'Review stud requests', 'studapps'],
+  ['Co-owns & leases', 'heart-handshake', 'Each co-owner’s own page', 'coowns'],
+  ['Sell to a breeder', 'send', 'The dog arrives in their KennelOS', 'senddog'],
+  ['Public profile', 'badge', 'How breeders and families find you', 'profile'],
+  ['First-run setup', 'sparkles', 'How you breed, how connected', 'welcome:1'],
 ];
 const SEARCH_GROUPS = ['Go to', 'Dogs', 'Litters', 'Waitlist', 'People', 'Sales', 'History', 'Documents', 'Money', 'Settings', 'Reports'];
 function searchIndex() {
@@ -5229,7 +5529,7 @@ function render() {
   $('#screen').innerHTML = scr.body;
   const tab = currentTab(), ny = needsYou().length;
   $('#tabbar').innerHTML = `<div class="rail-brand"><div class="brand-name">KennelOS <span class="ed-tag">PRO</span></div><button type="button" class="kennel-switch" data-open="kennels">${KENNEL} ${icon('chevron-down')}</button></div>` +
-    TABS().map(([k, l, ic]) => `<button type="button" class="tab" data-go="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span>${k === 'waitlist' && ny ? `<span class="badge" aria-label="${ny} need you">${ny}</span>` : ''}</button>`).join('') +
+    TABS().map(([k, l, ic]) => `<button type="button" class="tab" data-go="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span>${tabBadge(k, ny) ? `<span class="badge" aria-label="${tabBadge(k, ny)} ${k === 'waitlist' ? 'need you' : 'due'}">${tabBadge(k, ny)}</span>` : ''}</button>`).join('') +
     `<div class="rail-foot"><button type="button" class="tab" data-open="setup">${icon('settings')}<span>Setup</span></button></div>`;
   if (scr.after) scr.after();
   renderSheet();
@@ -5238,11 +5538,17 @@ function render() {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup],[data-siteupdate],[data-msgsend],[data-welcomedone],[data-handoff],[data-conn],[data-twin]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if (d.mo) return moAct(d.mo);
   if (d.dup) return dupAct(d.dup);
+  if ('siteupdate' in d) { SITE.pending = []; SITE.last = TODAY; render(); toast('Website updated'); return; }
+  if (d.msgsend) { const m = INBOX.find((x) => x.id === d.msgsend); if (!(ui.form.body || '').trim()) return toast('Write a reply first'); ui.formSpec = null; back(); toast(m.src === 'portal' ? 'Sent to their puppy portal' : m.src === 'breeder' ? 'Sent' : 'Sent by email'); return; }
+  if ('welcomedone' in d) { PT.main = ui.form.type; PT.also = []; DEMO.conn = ui.form.conn; applyType(); syncDemo(); ui.formSpec = null; hist = [{ s: 'home' }]; render(); toast('You’re set up'); return; }
+  if ('handoff' in d) { const f = ui.form, dg = dogById(f.dog); ui.formSpec = null; back(); playHandoff(dg.name, f.who); return; }
+  if (d.conn) { DEMO.conn = d.conn; applyConn(); syncDemo(); ui.twinAsk = null; render(); toast(d.conn === 'cloud' ? 'Using the cloud' : 'On your devices'); return; }
+  if (d.twin) { const [act, off] = d.twin.split('|'); if (act === 'stop') FEAT[off] = false; ui.twinAsk = null; render(); if (act === 'stop') toast(`${featName(off)} off`); return; }
   if ('sclose' in d) { if (e.target !== el && el.classList.contains('sheet-back')) return; ui.sheet = null; renderSheet(); return; }
   if (d.fc != null) {
     const [k, v, flag] = d.fc.split('|'), f = ui.form;
@@ -5565,7 +5871,7 @@ document.addEventListener('click', (e) => {
   else if ('sapply' in d) { const dr = ui.sheet.draft; if (dr.range === 'custom') { dr.from = $('#sf-from')?.value || ''; dr.to = $('#sf-to')?.value || ''; } ui.f[ui.sheet.key] = dr; ui.sheet = null; render(); }
   else if (d.qopen) { ui.qOpen = ui.qOpen === d.qopen ? null : d.qopen; ui.qOther = null; render(); }
   else if (d.qset) { const [k, qk, v] = d.qset.split('|'); SET[k][qk] = v; ui.qOpen = null; render(); toast('Saved'); }
-  else if (d.feat) { FEAT[d.feat] = !FEAT[d.feat]; render(); toast(`${FEATURES.find((f) => f[0] === d.feat)[1]} ${FEAT[d.feat] ? 'on' : 'off'}`); }
+  else if (d.feat) { FEAT[d.feat] = !FEAT[d.feat]; ui.twinAsk = twinNote(d.feat); render(); toast(`${FEATURES.find((f) => f[0] === d.feat)[1]} ${FEAT[d.feat] ? 'on' : 'off'}`); }
   else if (d.wl) { const [a, id] = d.wl.split('|'); wlAct(a, id); }
   else if (d.catjump) { const [kind, cat] = d.catjump.split('|'); ui.f.ledger = { ...blankF(), sel: { Kind: [kind === 'in' ? 'Income' : 'Expense'], Category: [cat] } }; open('ledger'); }
 });
@@ -5639,7 +5945,15 @@ const va = $('#view-as');
 va.innerHTML = Object.entries(PTYPES).map(([k, t]) => `<option value="${k}">${t.n}</option>`).join('');
 function syncViewAs() { va.value = PT.main; }
 va.onchange = () => { PT.main = va.value; PT.also = []; applyType(); hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(`Viewing as ${PTYPES[PT.main].n}`); };
-applyType(); syncViewAs();
+const ds = $('#demo-stage'), dc = $('#demo-conn'), dsi = $('#demo-site');
+ds.innerHTML = `<option value="auto">From the sample</option>` + STAGE_RANK.map((k) => `<option value="${k}">${STAGES[k][0]}</option>`).join('');
+function syncDemo() { ds.value = DEMO.stage; dc.value = DEMO.conn; dsi.value = String(DEMO.site); syncViewAs(); }
+const demoHome = (msg) => { hist = [{ s: 'home' }]; render(); $('#screen').scrollTop = 0; toast(msg); };
+ds.onchange = () => { DEMO.stage = ds.value; demoHome(ds.value === 'auto' ? 'Stages from the sample' : `Stage: ${STAGES[ds.value][0]}`); };
+dc.onchange = () => { DEMO.conn = dc.value; applyConn(); demoHome(dc.value === 'cloud' ? 'Using the cloud' : 'On your devices'); };
+dsi.onchange = () => { DEMO.site = Number(dsi.value); applyConn(); demoHome(DEMO.site ? 'Website linked' : 'No website'); };
+$('#open-welcome').onclick = () => { ui.formSpec = null; hist = [{ s: 'home' }]; open('welcome:1'); };
+applyType(); syncDemo();
 render();
 })();
 </script>
