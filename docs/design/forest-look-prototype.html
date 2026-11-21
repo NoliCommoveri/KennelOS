@@ -746,6 +746,9 @@ select#b-color { flex: 1; padding: 9px 10px; border: 1px solid var(--line-strong
 .mline.bold { font-weight: 700; }
 .mline.owe > span:last-child { color: var(--p-amber-fg); }
 .btn-2:disabled { opacity: .45; cursor: default; }
+.lboz .row-end { gap: 6px; }
+.lboz .row-end label { display: inline-flex; align-items: center; gap: 4px; }
+.lboz input { width: 58px !important; }
 /* the stage bar (D26): where a record is in its life, and its next step */
 .stage-bar { border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid transparent; }
 .stage-bar.blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
@@ -844,7 +847,7 @@ button.tl-card:hover { border-color: var(--line-strong); }
     <p><b>Details</b> on every hub holds what it is, with Edit, and Archive or Delete at the foot of Edit. Every other tile holds one group and changes only that, with Edit in its own header: a sale's <b>Price &amp; payments</b> edits the price, deposit and channel; a litter's Pricing and Go-home change in place. A <b>pairing</b> has its own hub: Details (dam, sire, dates, method, on website, notes), Pairing check, Breeding (the dam's heat, progesterone tests, breedings and ultrasounds) and its Litter. <b>A row in a list opens to change or delete it</b>: events in History and Breeding, expenses, Entries, documents and payments; money received opens to where it was recorded.</p>
 
     <h3>A litter's puppies and their care</h3>
-    <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name. <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> and <b>Microchips</b> take each pup's own value (beside its last), and naming pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
+    <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name. <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
 
     <h3>Sales, contracts and money</h3>
     <p><b>Add sale</b> is the one sale screen, from Sales &amp; Placements, a pup's Sale, the turn order or a family's page. It starts from the dog (a puppy, or an adult she's placing), then the buyer: one list of everyone she has, searched by name, email or phone as she types, each with a badge for where they stand (their place on the list, fee due, applied, client), families on the list first; typing a name nobody has makes a new person, checked against everyone and her Do not sell list. When the buyer has a place on the list, the screen says what doesn't match what they asked for (with Update their answers to match), a pup another family has in their turn, a pup being held for them, and an open turn of theirs; saving keeps their place and passes, or records their turn when they hold it. Registration, price and deposit fill in from the litter (a registration change moves her own price by the difference), with the deposit received (date, paid via) or due, go-home, payment schedule and add-ons, then where it came from (sold through, lead source, referred by). A buyer who never applied is a client: in People, never on the list. <b>Add person</b> (People) takes the same details and checks, the kinds of contact they are, their kennel and how they first got in touch. <b>Do not sell</b> lists who she won't sell to, with the reason; a row opens to Take off the list, and anyone added from People is hidden there while listed.</p>
@@ -2026,7 +2029,7 @@ S.littersec = (p) => {
   const lineBody = lineLittersec(l, k);
   if (lineBody != null) return { bar: bar(title, { sub: litterName(l) }), body: lineBody };
   if (k === 'puppies') {
-    body = pups.length ? `<section class="card"><div class="rows">${pups.map((q) => { const s = SALES.find((v) => v.pup === q.name); return row({ t: esc(q.name), extra: `${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}${pill(DISP[q.disp || 'undecided'])}`, s: s ? fam(s.fam).n : q.disp === 'health_hold' ? 'Umbilical hernia recheck' : q.disp === 'keeping' ? 'Staying in the program' : OFFER.open && OFFER.pup === q.id ? `Offered to the ${fam(OFFER.fam).n}` : 'No family yet', end: WEIGHT[q.id] ? `${WEIGHT[q.id]} lb` : '', go: `dog:${q.id}` }); }).join('')}</div></section>`
+    body = pups.length ? `<section class="card"><div class="rows">${pups.map((q) => { const s = SALES.find((v) => v.pup === q.name); return row({ t: esc(q.name), extra: `${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}${pill(DISP[q.disp || 'undecided'])}`, s: s ? fam(s.fam).n : q.disp === 'health_hold' ? 'Umbilical hernia recheck' : q.disp === 'keeping' ? 'Staying in the program' : OFFER.open && OFFER.pup === q.id ? `Offered to the ${fam(OFFER.fam).n}` : 'No family yet', end: WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : '', go: `dog:${q.id}` }); }).join('')}</div></section>`
       : l.status[0] === 'Closed' ? empty('paw-print', 'All five puppies from this litter were placed and archived.', '')
       : empty('paw-print', l.whelp ? 'No puppies recorded yet. Record each pup on Births.' : 'Puppies show here once they’re born.', l.whelp || l.status[0] === 'Expected' ? 'Births' : '', `littersec:${l.id}|births`);
   } else if (k === 'gohome') {
@@ -5867,6 +5870,9 @@ const CARE = {
 };
 const homePups = (l) => DOGS.filter((d) => d.litter === l.id && d.status === 'puppy' && !SALES.some((s) => s.pup === d.name && saleStatus(s) === 'delivered'));
 const careTypes = Object.values(CARE).map((c) => c[2]);
+/* weights are pounds and ounces, as she reads the scale */
+const lbOz = (n) => { let lb = Math.floor(n), oz = Math.round((n - lb) * 16 * 10) / 10; if (oz >= 16) { lb += 1; oz -= 16; } return `${lb} lb${oz ? ` ${oz} oz` : ''}`; };
+const ozIn = (n) => `<input data-fv="${n}" type="number" inputmode="decimal" min="0" step="any" value="${fv(n)}" aria-label="${n.startsWith('wo') ? 'ounces' : 'pounds'}">`;
 const lastWeighed = (l) => { const e = litEvents(l.id).find((x) => x.type[0] === 'Weight check'); return e ? (e.d === TODAY ? 'today' : short(e.d)) : 'not yet'; };
 function careScreen(l) {
   const hp = homePups(l), le = litEvents(l.id), recent = le.filter((e) => careTypes.includes(e.type[0]));
@@ -5876,11 +5882,11 @@ function careScreen(l) {
 }
 S.litcare = (spec) => {
   const [lid, k] = spec.split('|'), l = LITTERS.find((x) => x.id === lid), hp = homePups(l), [title, , evT] = CARE[k];
-  const f = formFor('litcare:' + spec, () => ({ d: TODAY, pups: hp.map((d) => d.id), vet: 'Hartland Animal Hospital', reason: 'Puppy exam', vax: ['DHPP'], next: '3 weeks', product: 'Pyrantel', what: '' }));
+  const f = formFor('litcare:' + spec, () => ({ d: TODAY, pups: hp.map((d) => d.id), vet: 'Hartland Animal Hospital', reason: 'Puppy exam', vax: ['DHPP'], next: '3 weeks', product: 'Pyrantel', what: '', ampm: new Date().getHours() < 12 ? 'AM' : 'PM' }));
   const perPup = (label, key, ph, type = 'text', note = () => '') => `<section class="card"><div class="rows">${hp.map((d) => `<label class="row weigh-row" style="cursor:default"><span class="row-main"><span class="row-t">${esc(d.name)}${sex(d.sex)}</span><span class="row-s">${note(d)}</span></span><span class="row-end"><input data-fv="${key}_${d.id}" type="${type}"${type === 'number' ? ' inputmode="decimal" step="0.1" min="0"' : ''} value="${fv(`${key}_${d.id}`)}" placeholder="${ph}" aria-label="${esc(d.name)} ${label}" style="width:${type === 'number' ? 76 : 170}px">${type === 'number' ? '<span>lb</span>' : ''}</span></label>`).join('')}</div></section>`;
   const who = `<section class="card app-card">${fChips('pups', 'Puppies', hp.map((d) => [d.id, d.name]), { multi: 1 })}</section>`;
   let fields = '';
-  if (k === 'weigh') fields = `<p class="lede">Leave a box empty to skip a pup.</p>${perPup('weight', 'w', 'lb', 'number', (d) => (WEIGHT[d.id] ? `Last ${WEIGHT[d.id]} lb` : 'Not weighed yet'))}`;
+  if (k === 'weigh') fields = `<p class="lede">Leave a pup's boxes empty to skip it.</p><section class="card"><div class="rows">${hp.map((d) => `<div class="row weigh-row lboz" style="cursor:default"><span class="row-main"><span class="row-t">${esc(d.name)}${sex(d.sex)}</span><span class="row-s">${WEIGHT[d.id] ? `Last ${lbOz(WEIGHT[d.id])}` : 'Not weighed yet'}</span></span><span class="row-end"><label>${ozIn(`wl_${d.id}`)}<span>lb</span></label><label>${ozIn(`wo_${d.id}`)}<span>oz</span></label></span></div>`).join('')}</div></section>`;
   else if (k === 'chip') fields = `<p class="lede">Scan or type each number. Leave one empty to skip.</p>${perPup('microchip', 'c', '985…', 'text', (d) => (CHIPPED[d.id] ? `Now ${CHIPPED[d.id]}` : 'No microchip yet'))}`;
   else if (k === 'vet') fields = `${who}${formCard('', `${fChips('vet', 'Vet', ['Dr. Ada Okonkwo', 'Hartland Animal Hospital'], { own: 1 })}${fIn('reason', 'Reason')}${fText('findings', 'What they found')}<div class="dates">${fIn('cost', 'Cost per pup ($)', { type: 'number' })}</div>`)}`;
   else if (k === 'shots') fields = `${who}${formCard('', `${fChips('vax', 'Vaccines', ['DHPP', 'Parvo', 'Bordetella', 'Leptospirosis'], { multi: 1, own: 1 })}${fChips('next', 'Next due', ['2 weeks', '3 weeks', '4 weeks', 'Not again'])}${fIn('lot', 'Lot #')}`)}`;
@@ -5890,7 +5896,7 @@ S.litcare = (spec) => {
   else fields = `${who}${formCard('', `${fIn('what', 'What', { ph: 'Eyes open, first walk, socialization' })}${fText('notes', 'Details')}`)}`;
   return {
     bar: bar(title, { sub: litterName(l) }),
-    body: `${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>`)}${fields}${saveBar(`data-hx="caresave|${lid}|${k}"`)}`,
+    body: `${formCard('', `<div class="dates">${fIn('d', 'Date', { type: 'date' })}</div>${k === 'weigh' ? `<div class="f-group"><div class="group-label">Time of day</div>${fSeg('ampm', [['AM', 'AM'], ['PM', 'PM']], 'Time of day')}</div>` : ''}`)}${fields}${saveBar(`data-hx="caresave|${lid}|${k}"`)}`,
   };
 };
 function careSave(lid, k) {
@@ -5899,12 +5905,12 @@ function careSave(lid, k) {
   const put = (d, t, body, cost) => { const list = eventsFor(d); list.push({ d: f.d, type: [evT, tone, ic], cat: k === 'other' ? 'Other' : 'Health', t, body, cost }); list.sort((a, b) => b.d.localeCompare(a.d)); };
   let done = [], title = '', body = '', down = [];
   if (k === 'weigh' || k === 'chip') {
-    hp.forEach((d) => { const v = String(f[`${k === 'weigh' ? 'w' : 'c'}_${d.id}`] || '').trim(); if (!v) return;
-      if (k === 'weigh') { const n = Number(v); if (!(n > 0)) return; if (WEIGHT[d.id] && n <= WEIGHT[d.id]) down.push(d.name); put(d, `${n} lb`, WEIGHT[d.id] ? `Was ${WEIGHT[d.id]} lb` : 'First weight'); WEIGHT[d.id] = n; }
+    hp.forEach((d) => { const v = k === 'weigh' ? (f[`wl_${d.id}`] || f[`wo_${d.id}`] ? String((Number(f[`wl_${d.id}`]) || 0) + (Number(f[`wo_${d.id}`]) || 0) / 16) : '') : String(f[`c_${d.id}`] || '').trim(); if (!v) return;
+      if (k === 'weigh') { const n = Number(v); if (!(n > 0)) return; if (WEIGHT[d.id] && n <= WEIGHT[d.id]) down.push(d.name); put(d, lbOz(n), `${f.ampm} · ${WEIGHT[d.id] ? `was ${lbOz(WEIGHT[d.id])}` : 'first weight'}`); WEIGHT[d.id] = Math.round(n * 1000) / 1000; }
       else { put(d, v, 'Microchip implanted'); CHIPPED[d.id] = v; }
       done.push(d); });
     if (!done.length) return toast(k === 'weigh' ? 'Enter at least one weight' : 'Enter at least one number');
-    if (k === 'weigh') { weighedOn = f.d === TODAY ? 'today' : short(f.d); const ws = done.map((d) => WEIGHT[d.id]); title = `${done.length} puppies`; body = `${Math.min(...ws)} – ${Math.max(...ws)} lb`; }
+    if (k === 'weigh') { weighedOn = f.d === TODAY ? 'today' : short(f.d); const ws = done.map((d) => WEIGHT[d.id]); title = `${done.length} puppies`; body = `${f.ampm} · ${lbOz(Math.min(...ws))} – ${lbOz(Math.max(...ws))}`; }
     else { title = `${done.length} chipped`; body = done.map((d) => esc(d.name)).join(', '); }
   } else {
     done = hp.filter((d) => (f.pups || []).includes(d.id));

@@ -635,6 +635,8 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   pups. **Puppy care** replaces Weigh puppies: Weigh, Vet visit, Shots, Deworming, Screening
   test, Medication, Microchips and Something else, typed once and saved as one event per pup
   ticked (live's `cascadeTargets` and the care visit), with one entry shown for the litter.
+- Then (owner): weights in pounds and ounces, with AM / PM at the top (live's check-in
+  weighs the same way); shown everywhere as "9 lb 10 oz".
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting
