@@ -3,21 +3,24 @@
 > Status: **plan only, nothing built** (2026-11-19). Work goes on `next` (CLAUDE.md "Next
 > release").
 >
-> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, a
-> copy of the owner's artifact "KennelOS Forest Look" (claude.ai artifact
-> `KCfKzER1Fo7aEYd7idfpS4`, version 3 of 2026-11-19: the 2026-11-18 design, artifact
-> `Qon8foccjzDmQc4ssLcua1`, with D8's one person page, D9's Pricing and schedules and D10's +
-> drawn in, and its icons built into the page instead of loaded from a CDN). Open it in a browser and use
-> the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design notes). If the
-> owner changes the artifact, copy it in again and note the date here; the repo copy is what
-> builds are checked against.
+> **The approved design is the prototype**: `docs/design/forest-look-prototype.html`, published
+> for the owner as the artifact "KennelOS Forest Look",
+> https://claude.ai/artifact/1fhGXn25fAQVyJjcXSUxLa (from 2026-11-20). Every session that changes
+> the prototype publishes it there (CLAUDE.md). It began as the 2026-11-18 design (artifact
+> `Qon8foccjzDmQc4ssLcua1`, now out of date), with D8's one person page, D9's Pricing and
+> schedules and D10's + drawn in, and its icons built into the page instead of loaded from a CDN.
+> Open it and use the bar at the top (Phone / Desktop, Planned shown / hidden, View as, Design
+> notes). The repo copy is what builds are checked against.
 >
 > **Filling in the stubs** (2026-11-20 on): the repo copy draws screens the artifact left as
 > `stub:` placeholders, in its own components and tokens: Reminders, Coming up, Calendar,
 > Notifications and Kennels; Add dog, Edit dog, Add
 > event, Log a test, Pedigree and Dog card; Add litter, Add pairing and Add expense; on a
 > person's page, Offers & passes, Fee, Messages, Status page and History; Add family, Side
-> sale, Programs and a program. Each is the owner's to approve or change, like any
+> sale, Programs and a program; Add sale, Add person, Do not sell, a sale's Payments, Contracts
+> (the list, a contract, Send for signature, its details), Add entry, the Financials year,
+> Accounts and an account; Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
+> Documents and Kels. Each is the owner's to approve or change, like any
 > screen; until she has seen it, it's a proposal (§2.5).
 >
 > **Decisions:** the fidelity rule in §2 and D1–D10 (§8) are the owner's (2026-11-19).
@@ -141,6 +144,72 @@ Today's app (`shared/assets/app.css`) is a different design: `#f6f7f9` page, `#2
 accent, system font at 15px, 8px radius, no dark mode. None of its values carry over where
 the prototype has its own.
 
+## 3.1 Components: one piece for each job
+
+The goal is one unified, cohesive look across the whole app: the same kind of thing always
+looks and works the same way, on every screen. So the display components are tracked here,
+by the job each one does, and **nothing new is made until we've checked that an existing
+piece can't do the job** (D18).
+
+**For every new field, control or display** (in the prototype or the build):
+1. **Name the job.** What is she doing: picking one of a few fixed choices, flipping a
+   two-way switch next to a value, typing an amount, turning something on or off, opening
+   a record, reading a status?
+2. **Find it in the table below** and use that component's helper and class, as is. Vary it
+   only through the options it already has (a tone, a sub-note, multi-select), never with
+   new CSS on top.
+3. **If nothing fits**, don't make it yet. Say why each close match doesn't work and bring
+   the proposal to the owner. Once approved, it's drawn in the prototype and added to this
+   table in the same change, so the next screen can reuse it.
+4. **Each prototype batch is checked for duplicates** before it's committed: no class that
+   repeats an existing one, no second way of drawing the same job.
+
+| Job | Component (prototype helper · class) | Use it for | Not for |
+|---|---|---|---|
+| Open a record or screen | `row()` · `.row` in `.card .rows` | Any list of things to tap: icon, title, subline, end value | Read-only lines |
+| Read-only line in a list | `srow()` · `.row.static` | A fact or a sentence shown as a row; optional tone and end value (a due date and its amount, a signer) | Anything tappable |
+| Main navigation rows | `.big-rows` | A hub's top-level rows (Business, More) | Ordinary lists |
+| A hub's sections | `tiles()` · `.sec-grid` / `.sec-tile` | A record's sections with a one-line status | Settings |
+| A setting she answers | `qRow()` · `.q-row` | One question that saves at once: an amount, time or list she can name opens to chips and + (D10); fixed phrase answers open to a radio list | Form fields saved with Save |
+| Two options, one required (named) | `fChips()` with two options draws `fSeg()` · `.seg` | Kennel / Third party, Round trip / One way, + / −, $ / % | Yes / No; a choice that can be left blank |
+| Yes or no, one required | `fChips()` with Yes / No draws `fSwitch()` · `.f-switch` + `.switch` | Offered on new sales, Shown to families, Requestable | A choice with a "neither" or blank |
+| Three or more fixed choices | `fChips()` · `.chip` | Flat / Per day / Per mile, Same as group / … | Lists that grow with her records |
+| Several of a few choices | `fChips({ multi })` · `.chip` | Ticking any number (add-ons on a sale, what a due date covers) | Long lists |
+| On or off in a list, saved at once | `.switch-row` · `.switch` | Feature and trait switches | |
+| One of several, each needing a line (trial) | `fRadio()` · `.radios` / `.radio` | Options that are phrases or need a short explanation; an option that can't apply is disabled with why (a price rule's type, an add-on's When paid and Due dates) | Short choices: chips |
+| A list that grows with her records | `fSel()` · `select` (groups as `{ group, opts }`), filter dropdowns (D11) | Dogs, groups, partners, families, schedules. Dogs: Sires, then Dams, each alphabetical | Two or three fixed choices |
+| Text, number, date, time | `fIn()` · label above the input, hint as `<small>` | Every typed value | |
+| Longer text | `fText()` · `textarea` | Notes, messages | |
+| Fields side by side | `.dates` | Two or three short fields that belong together | Labels long enough to wrap at phone width (stack them) |
+| A section of a form | `formCard(title, inner, sub)` · `.card.app-card` | Each group of fields, with a short note on the right | |
+| Save and Cancel | `saveBar()` · `.actions-2` | The end of every form | |
+| The header's one action | `addBtn()` · `.bar-btn` | New, Edit (at most one, with search and back) | A second action: use a row or a link |
+| A link to another screen or action | `setLink()` · `.set-link` | "Edit default add-ons", "New schedule" | The main action |
+| A heading with an action | `.label-row` + `.group-label` + `.set-link` | A section heading that adds to it (Saved schedules, Price rules) | |
+| Section heading | `.group-label` (between cards), `.section-h` (inside a card, with a count) | | |
+| A status | `pill([label, tone])` · `.pill` | Status and kind tags, the fixed tones only | Sentences |
+| A short summary | `facts()` · `.facts` | Key and value pairs at the top of a record | Long lists |
+| Big numbers | `.kpis` / `.kpi` | Totals at the top of a money screen | |
+| A hint | `.f-hint` | One short line under a field or card (D14) | Warnings |
+| A note, result or warning | `.stub-note` (`.warn` for amber) | A worked result, a heads-up, a conflict | Hints |
+| Nothing yet | `empty()` · `.card.empty` | An empty list, with its one action | |
+| Delete or end | `delRow()` · `.big-rows.danger` | The destructive action, last on the screen | |
+| Repeating steps | `stepCards()` · one `.card.app-card` per step, Remove in its head, Add below with the total | A payment plan's payments, a schedule's due dates | |
+| Edit in place | `.rem` + `.q-edit` | A row that opens to edit one item (a sale's add-ons) | Whole records: open their screen |
+| A record's header | `.hub-head` | Its name, pills and one-line facts | |
+| Filters | `filterBar()` + the filter sheet | Every list that can be filtered (D11) | |
+| Sort | **Sort** at the top of the filter sheet: `ddBox` with `.dd-opt.one` (the date range's single pick), from the list's `FDEF[key].sorts`, the first its default; a sort she picks shows as a chip; the button reads **Sort & filter** (D22) | Any list she'd order more than one way (People, a person picker) | Column headers (tables only, live's `listView`) |
+| Choose a person | `personPicker()`: the filter bar, its box also the new person's name, then matching people as rows with `personBadge()` (#2 on the list, Fee due, Applied, Client, Care team), then New person's details | Every place a person is chosen: a sale's buyer, Do not sell (D21) | A `<select>` of people, or groups by kind of record |
+| History | `timeline()` | Events by date | |
+| Confirmation | `toast()` | "Saved", "Added", errors ("Name is required") | |
+
+**The two-option rule (D19).** Whenever there are exactly two options and one is required,
+it's a toggle: Yes / No (or On / Off) is a switch, and two named options are a `.seg`. Chips
+are for three or more options, for choosing several, or for a choice that can be left blank
+or has a "neither". `fChips()` applies the rule itself, so a two-option field can't come out
+as chips by accident. A question row (`qRow`) whose answers are fixed phrases ("Same for both
+sexes" / "Different prices") opens to a radio list, since phrases don't fit a toggle.
+
 ## 4. What the prototype loads that the app can't
 
 The app has no CDN (CLAUDE.md). The prototype loads Figtree and Inter from Google Fonts
@@ -162,17 +231,131 @@ Each phase is one or more PRs into `next`, each with §6's checks and screenshot
    button (search itself in phase 2). Every page gets the shell.
 2. **Home and search.** Count tiles, This week, Coming up; the search overlay.
 3. **Dogs.** The list (tabs Puppies / Breeding / Not breeding / External / All, the table
-   with wide-only columns), the Dog hub and its section screens, History as the timeline.
-4. **Litters.** Litters, Pairings, Active breeding; the Litter hub; Go-home and Weigh
-   puppies.
+   with wide-only columns), the Dog hub (D26: header card, stage bar, tiles) and its
+   section screens, Details with Edit, History as the timeline with each event opening to
+   Edit event. A puppy's stage bar is its plan (§5.1).
+4. **Litters.** Litters, Pairings, Active breeding; the Litter hub (D26) with its stage bar;
+   Details and Edit litter; Puppies (the birth, then a plan and registration card per pup);
+   Births with ID collars and Done whelping; Puppy care; Puppy records; Go-home with the
+   ready date and each pup's checklist; the Pairing hub and its Details, Edit pairing and
+   Breeding (§5.1).
 5. **Waitlist tab.** Needs you (with the tab badge), Selling now, The list, Applications,
-   Fees due, Family requests, Turn order, Picks preview, Programs.
-6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries,
-   Reports, Accounts, Extra charges, Pricing and schedules (D9), Stud services, Contracts.
-7. **More and Setup.** Setup's areas and questions, What you use; Backup, Import/Export,
-   Sharing, Danger zone. Needs D2.
+   Fees due, Family requests, Turn order, Picks preview, Programs; then the live features the
+   prototype doesn't draw yet (§5.2), each drawn and approved before it's built.
+6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries
+   (each opening to Edit expense, or to where money received was recorded), Reports,
+   Accounts, Add-ons, Pricing and schedules (D9), Stud services, Contracts. A sale is a hub
+   (D26, §5.1): Details, Price & payments, Add-ons, Contract, Go-home.
+7. **More and Setup.** Setup's areas and questions, What you use, the Go-home checklist
+   (§5.1); Backup, Import/Export, Sharing, Danger zone; Documents (each opening to change it).
+   Needs D2.
 8. **Filters everywhere.** The shared filter sheet replaces each list's own controls.
 9. **The rest.** Every page not yet converted, by §2.5.
+
+### 5.1 Drawn in the prototype in the 2026-11-20/21 review (build with their phase)
+
+Each is in the prototype and its Design notes; `docs/NEXT.md` has the log. Where the build
+needs data live doesn't have, it says so.
+
+- **Hubs built one way (D26).** Every dog, litter, pairing and sale hub: a header card, a
+  **stage bar** (stage, next step, any stage one tap away; blue / amber / green / grey), what
+  needs attention, then tiles. No add or Edit button in a hub's header. **Details** on every
+  hub with Edit (Archive or Delete at its foot); every other tile edits only its own group.
+  Second ways in are wanted; two ways into the same place on one screen are not.
+- **Stage bars and what each step does** (live's status rules and prompts):
+  - Litter: Expected (Record the birth) → Whelped (Start weaning) → Weaning (Mark ready) →
+    Ready (Mark sold when every pup has a plan) → Sold (Close the litter, live's close rule)
+    → Closed.
+  - Pairing: Planned (Log a breeding opens Add event on the dam; saving marks it Bred) → Bred
+    (Confirmed pregnant adds the expected litter; Not pregnant) → Confirmed pregnant (Record
+    the birth) → Whelped; ending one takes an expected litter off Litters.
+  - Sale: Deposit pending → Deposit paid → Paid in full, following the money; Mark delivered
+    asks live's delivery questions (date, owner, leaves her dogs, close the litter);
+    returned, cancelled and voided stay in Details › Edit.
+  - Puppy: its plan (Undecided, Available, Keeping, Health hold; Placed from a sale). Adult
+    dogs have no bar.
+- **Pairing hub** (new): Details and Edit pairing (dam, sire, dates, method, website, notes,
+  Delete), Pairing check (only when no warnings show above it), Breeding (the dam's heat,
+  progesterone, breedings, ultrasounds), Litter. Pairing rows open it.
+- **Litter.** Details' Edit (whelp or breeding dates, delivery, litter registration, website,
+  foster, nickname, notes, Archive). No Births tile and no Pairing check tile. **Puppies**:
+  the birth (born, alive, delivery, stillborn, Add a pup you missed), then a card per pup
+  with its birth line, its plan and its registration (live's `intended_registration`; Add
+  sale starts from it). **Births**: each pup's ID collar (next free color, live's
+  `guidedLitter.COLLAR_COLORS`) and optional name; saving makes the puppy record ("Red
+  collar") with its own history from birth; "Is that all of them?" takes the delivery, and
+  Done whelping marks the litter and its pairing whelped. **Puppy care**: Weigh (AM / PM,
+  pounds and ounces per pup beside its last, naming pups not gaining), Vet visit, Shots,
+  Deworming, Screening test, Medication, Microchips, Something else: typed once, one event
+  per pup ticked (live's litter-wide logging and care visit), shown as one entry for the
+  litter. **Puppy records**: each pup's record from its history, printed or not, Print all,
+  Send to families, Print or Send one; from Ready it is the litter's first tile. **Go-home**:
+  the ready date first (Change in place; contracts' ready date), then each sold pup's
+  checklist in go-home order.
+- **Sale hub.** The family and the go-home date, time and place (Change in place: it is the
+  pickup event, so calendar and sale stay one); tiles Details (buyer, stage, date,
+  registration, source, notes; Edit changes the buyer without moving anyone on the list),
+  **Price & payments** (all the money: puppy, add-ons, total, paid, balance, due dates with
+  the schedule changed in place, money received, Record a payment, Send invoice / receipt,
+  Payment link, what she nets; Edit: price, deposit, channel), Add-ons, Contract, Go-home.
+  A family's page has one Sale tile.
+- **Go-home checklist** (Setup › Go-home): her own items in her order, each ticked by hand
+  or linked to what checks it off (a vet visit, vaccination or dewormer on the pup, its
+  microchip, the contract signed, the balance paid, Print puppy records, Send Furever link);
+  an item not done opens what does it. **Needs new data:** a table for her items (name,
+  link, order, kennel) and per-sale ticks for hand-ticked items; linked items are worked
+  out, never stored. Printed puppy records likewise need a stored date per pup.
+- **Rows open to edit** everywhere: events (History, Breeding), expenses, Entries,
+  documents, payments; money received opens to where it was recorded.
+- **A day's events grouped (D27):** three or more on one date show as one card in any history
+  timeline, opening to each event; display only.
+
+### 5.2 Waitlist: live features the prototype doesn't draw yet
+
+Each is built in live; it is drawn in the prototype and approved before its screens are
+rebuilt (§2.4), then built to the same rule. Proposed places in brackets.
+
+First:
+1. **Open picks / Close picks** from Picks preview (Open picks now at its foot).
+   `KennelOS_Picks_Preview_Spec.md`, `KennelOS_Waitlist_Spec.md`.
+2. **Every litter selling at once:** a Selling now card per open litter with Next: *family*
+   and Offer to them; one turn at a time across them. `KennelOS_Waitlist_Spec.md`.
+3. **Review sale & send** after a pick: the sale, a contract form, one deposit request with
+   the invoice [after They took on the offer screen]. `KennelOS_Integrations_Plan.md` §2.6.
+4. **Backing out:** the family's request, Approve with a reason and Put them back in line,
+   or Decline [Needs you and their page]. `KennelOS_Waitlist_Fixes_Plan.md`,
+   `KennelOS_Waitlist_Policies_Plan.md`.
+5. **Re-apply** for a second pup, keeping their history [a placed family's Offers &
+   passes]. `KennelOS_Waitlist_Spec.md`.
+6. **"Ready now?"**: the paused family's check and her setting for no answer [Needs you].
+   `KennelOS_Waitlist_Spec.md`, `KennelOS_Waitlist_W2_Plan.md`.
+
+Then:
+7. **Turn timing:** open days, closed dates, turns in hours, countdowns and the planned
+   opening families see [Setup › Waitlist]. `KennelOS_Waitlist_Timers_Plan.md`.
+8. **Automatic offers**, per moment, off by default [Setup › Waitlist].
+   `KennelOS_Waitlist_Timers_Plan.md`.
+9. **Family pages without the list:** a status page for a buyer from outside it, Keep off
+   the list, Put back on the list, a Family pages only group [The list, the family's page,
+   the sale]. `KennelOS_Waitlist_Fixes_Plan.md` (E3).
+10. **A lost pup:** the family back in line, money carried as a credit [asked when a sale
+    ends Voided]. `KennelOS_Waitlist_Fixes_Plan.md`, `KennelOS_Waitlist_Spec.md`.
+11. **Answer-change log** [the family's History]. `KennelOS_Waitlist_Spec.md`.
+12. **Almost your turn** and **Communicate** [rows on the Waitlist hub].
+    `KennelOS_Waitlist_Spec.md` / W2 plan (Almost your turn); Communicate has no plan, only
+    the End-State guide §29.
+13. **Fee paid online** and a family's **invoices and receipts** [their Fee and a Documents
+    section]. `KennelOS_Integrations_Plan.md` §4, `KennelOS_Waitlist_Fixes_Plan.md`.
+14. **Application form** editor and question import [Setup › Waitlist].
+    `KennelOS_Waitlist_Spec.md`.
+15. **Waitlist import** (a spreadsheet of an existing list) and the **public list** (on or
+    off, what it shows) [Setup › Waitlist]. Public list: `KennelOS_Waitlist_Policies_Plan.md`,
+    W2 plan; import has no plan, only the End-State guide §29.
+16. **Waitlist policies** and a **program suggested from an answer** [Setup › Waitlist].
+    `KennelOS_Waitlist_Policies_Plan.md`; program suggestion has no plan, only the guide §29.
+
+Also not yet on a litter's tiles, by the owner's choice for now: a litter's Documents and the
+litter finances report.
 
 Program types' screens (How you breed, View as) and Line Management's (Lines, pair check,
 pairing finder, Relatives, Traits, Genetics, Births, Score puppies, Breeding program) are
@@ -246,6 +429,12 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Her terms, not ours.** Breeders aren't expected to understand how records are stored,
     and no screen explains it. The screens are designed to fit how she thinks about people,
     so they look like the data was built that way.
+    **Applies to every screen, not only people (the owner, 2026-11-20):** no copy exists to
+    tell her about the plumbing: where a file or record is kept or filed ("in Poppy's
+    documents"), that it's on this device or in the cloud, what moves where on a merge, what is
+    or isn't stored, or which service carries it ("through your Dropbox"). A line stays only
+    when it changes what she decides or does (Replace deletes what's on this phone; a reset
+    can't be undone).
   - **Change it where she is.** Where she'd reasonably believe a page is the place to change
     something (an applicant's email, on that applicant's page), it is. She's never sent to
     another page to change it.
@@ -315,3 +504,267 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   transport and boarding rows open it), and a sale's **Add-ons** for that sale (each amount
   editable per D13, boarding by days, one-time charges, the sale's total). The Business table
   of §1 reads Business › Add-ons where it said Extra charges.
+  **Groups and rules (same day):** the owner: the add-on fields the live price list has stay
+  settable here, styled the new way. Business › Add-ons lists add-ons by **group**; each group
+  has its status-page link and link text, request and cancel ages, when it's paid (with the
+  balance or a payment plan) and own due dates or the sale's schedule, and each add-on can
+  follow its group or set its own, plus a description families see, requestable on the status
+  page, and boarding days. Transport and boarding sit in a fixed **Go-home** group that
+  can't be edited or take other add-ons. Pricing and schedules shows **Add-on payments**,
+  each opening the group or add-on (one place stores it). A sale's Add-ons lists them by
+  group. In the prototype: `S.addons`, `S.addongroup`, `S.addon`, `ADDON_GROUPS`.
+- **D16. Transport and pickup places (2026-11-20).** The owner: transport's live settings are
+  in the prototype, and a new choice is added. Business › Add-ons › **Transport** holds the
+  fee per mile, round trip or one way, no charge under, the families it's offered to (living
+  at least so many miles away), the "in touch" limit, where miles start (her standard pickup
+  place), a distance check (Mapbox's Get driving miles, or Open in Maps) and what families
+  see on the status page. **New:** **Handled by**, kennel or third party; for a third party,
+  one of her Transport accounts or unknown, and a **referral reward** per partner (per
+  booking or a percent of their price), so the screen tracks rewards expected and received.
+  A sale's Transport records the same per sale. Setup › Go-home › **Pickup places** is its
+  own screen: places, the standard one, shown or hidden, and the pickup change cutoff.
+  **Same day:** transport is **Per mile** or a **Flat fee** (new: live has only per mile; a
+  flat fee fills each sale's fee, and miles still decide who's offered it), and a sale's
+  Transport links to Transport settings and Pickup places.
+  In the prototype: `S.transport`, `S.partner`, `S.pickupplaces`, `S.place`.
+  **Open:** the new fields (a sale's transport handled by, partner, their price, reward
+  received; an Account's reward) need sync classes (`syncRegistry.js`) and a place in
+  the Income view before they're built.
+- **D17. Price rules (2026-11-20).** The owner: kennel-wide prices stay (D9) and grow into
+  **price rules** on Pricing and schedules. A litter's price starts from her usual price, or
+  a **breed** rule's own male and female prices (which replace the usual); every other rule
+  that fits adds an amount or a percent of that starting price: an **imported parent**
+  (either, the dam or the sire; live `Dog.imported`), or **parent scores** on her traits
+  (a quality trait or the overall average, by the parents' average, both at least, or either
+  at least). The litter's Pricing shows the working; a litter's own price, and every
+  existing sale, keeps its own. In the prototype: `PRICE_RULES`, `S.pricerule`,
+  `ruledPrice`. **For the build:** the rules fill the litter's `expected_price_male` /
+  `_female` (what every sale, the waitlist's turn prices and her website already read), so
+  nothing downstream changes; when they fill it (on creating the litter, and again while
+  she hasn't set her own) and the new kennel fields (`price_rules`, and the usual price
+  itself) need sync classes. Breed needs each litter's breed (from its parents). Other
+  rule kinds (health results) fit the same shape.
+  **Same day:** more rule kinds: **a parent** (a specific dog as the dam or sire), **parent
+  title** (any title or one, `Dog.titles`, held by either, the dam, the sire or both), and
+  **registry** (`Dog.registry`, AKC, CKC, UKC or not registered, for either, the dam, the
+  sire or both); imported parent also takes Both. Any rule but a breed can **add or
+  subtract**. Color is left out for now: the owner is looking into standard and
+  non-standard colored parents (as Boston Terrier pricing does) before deciding it.
+- **Field coverage: Pricing and sales (2026-11-20).** Traced against live so nothing
+  automation reads is lost; now in the prototype:
+  - Saved schedules (`S.schedule`, live `Kennel.payment_schedules`): due (`at_weeks`,
+    `on_date`, `before_pickup`, `at_pickup`), `n` / `due_date`, `covers`, percent of total or
+    remaining (`basis`) or an amount that earlier money can or can't cover (`prior_funds`);
+    the last step is always 100% of all.
+  - Pricing and schedules: payment instructions (`waitlist_config.payment_instructions`) and
+    the final payment (`Kennel.final_payment_methods`).
+  - A litter's Pricing: deposit and full registration by sex (`expected_deposit_*`,
+    `full_reg_surcharge_*`), and its dates (`accept_deposits_date`, `picks_open_time`,
+    `estimated_ready_date`), which the offers, countdowns, pickup times and boarding read.
+  - Sale details (`S.saleedit`): `status`, `sale_date`, `registration_type` (all four),
+    `price`, deposit (`deposit_amount`, `deposit_date`, `deposit_paid_via_account_id`),
+    `payment_schedule` or `balance_due_date`, `balance_paid_date`,
+    `balance_paid_via_account_id`, `sales_channel_account_id`, `processing_fee_amount`,
+    `fee_passed_to_buyer`, `lead_source`, `referred_by_contact_id`, `end_reason`, `end_note`,
+    `refund_amount`, `refund_date`, `notes`. Payments (`payments[]`) are a row still to draw.
+  - Side sale: Co-own and None registrations, and "Also set the pup's registration"
+    (live `updateRegistration`).
+  - Boarding on a sale: per Day / Week / Month and a duration note
+    (`deferred_boarding_frequency`, `deferred_boarding_duration_days`).
+  **Open for the owner:** (1) "Used on new sales" puts a saved schedule on every new sale;
+  live decided a sale never starts with one (Payment Schedule plan D23). (2) Pricing's
+  Deposit due is live's turn length (`respond_days`, the waitlist's "Time to answer an
+  offer"): one setting shown in two places, or two settings. (3) Her usual price, deposit,
+  ready age, deposits-open and balance-due rules are new kennel fields (live keeps these per
+  litter or per sale), each needing a sync class.
+- **D18. Share components (2026-11-20).** The owner: share and reuse where able, for one
+  unified, cohesive look across the whole app. The display components are tracked by job in
+  §3.1; every new field or piece is checked against that list first, reuses the one that
+  fits, and a new piece is made only once we've verified none does (and the owner agrees).
+  The build follows the same rule in `shared/assets/app.css`.
+- **D19. Two options are a toggle; one step component (2026-11-20).** The owner: anytime
+  there are two options and one is required, it's a switch or toggle; a choice with a
+  "neither", or one that can be left blank, is different. Yes / No is a switch, two named
+  options are a `.seg`, built into `fChips()` (§3.1). Repeating payment steps (an add-on's
+  payment plan and a saved schedule's due dates) share `stepCards()`: one card per step.
+- **D20. Price rules look at the parent or the pup; radio lists on trial (2026-11-20).**
+  The owner: a rule first picks **Parent** or **Pup**, then what to look at: **Name** (a
+  specific dog; was "A parent"), **Breed**, **Registry**, **Title**, **Imported**, **Scores**.
+  For a pup, Name, Title and Imported are greyed out (parents only). A pup breed rule sets
+  the base price (as D17's breed rule did); a parent breed rule adds or subtracts by which
+  parent (a Poodle sire, say); pup registry and pup scores (her puppy evaluations) adjust
+  each pup's own price. **For the build:** parent rules fill the litter's expected prices as
+  in D17; pup rules are applied on top when a sale's price is prefilled (`saleDefaults`'s
+  `expectedPricing`), so the litter keeps one stored price per sex. The rule type is a
+  **radio list**, tried here and on an add-on's Payment card (When paid, Due dates) for the
+  owner to compare with chips; §3.1 lists it as a trial component until she decides.
+  **Same day:** question rows with fixed phrase answers (Setup, Pricing and schedules, a
+  litter's Pricing split) open to a radio list; questions she can answer with her own value
+  keep chips and +. A list of dogs is grouped **Sires, then Dams**, alphabetical in each.
+- **D21. One sale screen; people as one list (2026-11-20).** The owner: she never sees a
+  difference that comes from how records are kept. A sale to a waitlist family is drawn on the
+  same Add sale screen as any other, never named as a side sale; what's different shows only as
+  notes (what doesn't match, another claim, a held pup, their open turn). Choosing a person is
+  one list, not "Waitlist" and "People": waitlist families are people too; where they stand is a
+  badge, and the order and filters do the rest. The live-app change is
+  `docs/KennelOS_Unified_Sale_Plan.md`.
+- **D22. Sorts and filters on a person list (2026-11-20).** The owner: a list of people sorts
+  (Waitlist first, Name A–Z, Name Z–A) and filters (applied: on the list, fee due, applied,
+  haven't applied). Live sorts only by table column headers, which card lists don't have, so
+  Sort joins the shared filter sheet as its first dropdown (§3.1). People and the person picker
+  have it; other lists gain their sorts as they're converted (phase 8).
+- **D23. Add-ons on a sale; one-off add-ons (2026-11-20).** The owner: a sale's add-ons, on Add
+  sale and on a saved sale's Add-ons screen, show only the ones on that sale, with **+ Add**
+  (her add-ons by name, and a one-time charge) and **Edit amounts** on each. Transport and
+  boarding are the sale's own and just change. An add-on from her list at another price asks
+  to **make a one-off add-on**, prefilled with everything else the same, because contracts
+  (an Extra agreement's `extra_list_id`) and the statement read the list row live: a one-time
+  charge would lose that. Before making one, a one-off from the same add-on with the same values
+  is used instead, so two sales at $120 share "Photo session ($120)". One-offs are never offered
+  (status pages, her website, new sales, the + list, Pricing's Add-on payments); Business ›
+  Add-ons › **One-off add-ons** lists them with the sales using each. In the prototype:
+  `addonPicker`, `adDo`, `S.saleaddons`, `S.oneoffs`, `oneOffs`, `sameOneOff`.
+  **For the build:** a row of `Kennel.extra_charge_list` gains `one_off` (boolean) and
+  `base_list_id` (the row it came from); both private like the list (`syncRegistry`), optional
+  in backups. Every place that offers extras skips `one_off` rows: the status page's requestable
+  extras, the website feed, new-sale presets and pickers; contracts' form-kind pick
+  (`extraChoices`) lists them under their base. The match is on name, group, unit, price,
+  description, days and payment rules. A one-off is written when the sale is saved, so a sale
+  she abandons leaves none (the prototype makes it at once).
+- **D24. Possible duplicates on the hubs (2026-11-20; drawn, for the owner's review).** The
+  owner: a hub with possible duplicates shows one row ("2 dogs may be entered twice") that opens
+  them for that kind of record; none, no row. Hubs: Dogs (dogs), People (contacts and kennels),
+  Litters (litters and pairings), Sales, Financials (expenses); the Waitlist keeps its own
+  applied-twice row. Events, documents and contracts stay in Import / Export's full check. The
+  screen: one card per pair, Not the same or Merge (keep which, which value wins), as
+  `recordMerge.js` does today. **Rules for the build:** the counts come from `duplicateScan.js`,
+  run on the device in the background a few seconds after a data change (and after a sync), one
+  table at a time; a hub reads the saved count, so nothing is scanned on a page open and the row
+  never appears after first paint (Load Performance Phase 1); a stale count shows no row until
+  the next visit. The saved counts are device-only: never `markDataChanged()`, never backed up or
+  synced, so they cause no Worker requests. Adding a record checks only that record against its
+  own table, using the same rules. **On an add form (the owner, 2026-11-20):** a certain match
+  (the same email or phone; the same registration number or registered name) leads with **Use
+  [name]** as the main button beside **Create new**; a name alone is a quieter "Possible match"
+  line. Neither blocks saving: Save becomes **Save anyway**.
+- **D25. Documents for more than a dog; smaller files (the owner, 2026-11-20; planned, not
+  built).** Asked by the owner. Nothing here is drawn or decided past what's written; the open
+  questions are at the end.
+  - **Today, in live:** a document must belong to one dog (`documentRepo` refuses one without
+    `dog_id`); a contract's signed copy is a dog's document with a `contract_id` back-link. The
+    only other stored files are an expense's receipt (`receipt_file_id`, not listed in Documents)
+    and the kennel logo. Papers about the kennel, a litter, a person or a whole stud service have
+    nowhere to go.
+  - **Who a document belongs to:** one owner: a dog, the kennel, a litter, a person, a sale or a
+    stud service. Additive only: `dog_id` stays for a dog's document (a shipped field is never
+    renamed), and new optional `owner_type` + `owner_id` name any other owner, with a compound
+    index in a new `db.version` block. Each owner is a new `referenceRegistry.js` entry (an owner
+    can't be hard-deleted while it has documents); the fields are classified in `syncRegistry.js`
+    (making them `cloud` is a privacy decision, to surface). Backups: check before building that
+    an older build reading a file with a non-dog document skips it rather than failing; if it
+    can't, that decides whether the backup format version is bumped.
+  - **Types by owner:** a dog keeps today's six. The kennel adds License or inspection,
+    Insurance, Breeder program; a litter adds Litter registration and Litter vet check; a person
+    adds Application and Proof of payment; a sale or stud service uses Contract and Other.
+  - **Screens:** Documents groups by owner (the kennel first, then dogs, litters, people), with a
+    "Belongs to" filter in the shared sheet. A Documents tile on the litter page, the person page
+    and a sale, and a Documents row in Setup › Your kennel. A litter's documents also show on each
+    of its pups' Documents as "From the litter", worked out when shown, never stored twice.
+  - **Smaller files.** Already: photos and screenshots become a compressed PDF (`pdfBuild.js`:
+    longest edge 2,000 px, JPEG 0.8, a 320 px thumbnail), and the cloud stores each file once by
+    its SHA-256 (`cloud/src/files.js`), refusing files over 25 MB. To add:
+    - **Scanned PDFs are compressed too.** An uploaded PDF over about 1.5 MB that is mostly page
+      images is re-rendered page by page and rebuilt with `pdfBuild.js`'s settings, showing the
+      size before and after; she can keep the original instead. Needs a PDF renderer vendored
+      into `shared/vendor/` (pdf.js) and loaded only on that path, so no page carries it.
+    - **Never touched:** a PDF with text (e-sign output, a registry's certificate) or any signed
+      contract. They're already small, and re-rendering would flatten the text and break a
+      signature's validity.
+    - **One copy on the phone:** a file attached twice (one stud contract on the stud and the
+      bitch) is stored once, by SHA-256, and deleted only when its last document goes. That
+      changes today's rule that a file belongs to exactly one document (`referenceRegistry.js`'s
+      Document note), so the guide changes with it.
+    - **Storage shows what's used:** on this device and in cloud backup, with the largest
+      files first, so she can find the one 20 MB scan.
+  - **Worker cost:** a file goes to the cloud once (already content-addressed); compression
+    makes each upload smaller. Nothing here adds a request per page open.
+  - **Open (the owner's):** (1) Can one document belong to two owners (the stud contract on both
+    dogs), or does it have one owner and show elsewhere as a link? Recommended: one owner, with
+    the litter-to-pups case shown as above. (2) Is compressing a scan automatic, or offered with
+    the sizes? Recommended: automatic, with "Keep the original" on the same screen. (3) Does
+    Lite get documents beyond dogs, or is it Pro (`proPages.js`, `editionConfig.js`)?
+
+- **D26. Hubs built one way; a stage bar (the owner, 2026-11-21).** The owner: tiles aren't
+  the problem, tiles repeating each other are; a breeder changes everything live lets her
+  change, grouped sensibly, reached the same way on a dog, a litter, a pairing and a sale.
+  - **A hub** is a header card (who or what it is), a **stage bar**, anything needing
+    attention, then tiles. The header holds no add or Edit button.
+  - **The stage bar** says where the record is in its life, the next step as a button, and the
+    stage itself tapped to pick any stage. Colour: blue coming, amber waiting on her, green done,
+    grey ended. The steps are the ones live's status rules prompt for: a litter's Expected →
+    Whelped (Record the birth) → Weaning → Ready → Sold (when every pup has a plan) → Closed
+    (live's close rule); a pairing's Planned (Log a breeding, which marks it Bred) → Confirmed
+    pregnant (adds the expected litter) or Not pregnant → Whelped (Record the birth), an ended
+    pairing taking its expected litter off; a sale's Deposit pending → Deposit paid → Paid in
+    full, which follow the money, then Mark delivered (live's delivery questions: owner,
+    leaves her dogs, close the litter), with returned / cancelled / voided in Details › Edit
+    (they ask why); a puppy's plan (Undecided, Available, Keeping, Health hold; Placed from a
+    sale). An adult dog has no bar; its status changes stay in Edit with live's prompts.
+  - **Details** on every hub holds what it is, with Edit (and Archive or Delete at its foot).
+    Every other tile holds one group and edits only that, Edit in its own header (a sale's
+    **Price & payments**: price, deposit, channel). A pairing gets a hub: Details, Pairing
+    check, Breeding (the dam's heat, progesterone, breedings, ultrasounds), Litter.
+  - **A row in a list opens to change or delete it:** events, expenses, documents, payments.
+    Money received opens to where it was recorded.
+  - **Second ways in are wanted** (the owner): a screen reachable from several places is fine.
+    What isn't: two ways into the same place on the same screen (a tile and a row, or two
+    rows, opening the same screen side by side).
+
+- **D27. A day's events grouped in a history (the owner, 2026-11-21; proposed, drawn).** The
+  owner: a go-home-ready visit is a vet visit, two screening tests, two vaccines and a
+  dewormer on one day. They are separate events and stay separate in the data; only the
+  timeline groups them, so one hour of a pup's life isn't a full page.
+  - **Rule (display only):** in any history timeline (a dog's History, a litter's History, a
+    pairing's Breeding, a family's History), **three or more events on the same date** show as
+    one card. One or two on a day show as they do now.
+  - **The card:** the date; the title of that day's vet visit (else its first event) with its
+    type pill; "6 events"; the kinds counted ("Vet visit · 2 screening tests · 2 vaccinations
+    · dewormer"); the costs summed. Tapping it opens the day in place: each event on its own
+    line (type, title, cost, details), each opening to Edit event, as any event does.
+  - **Stays the same:** each event's own record, reminders, next-due dates, costs (each
+    still its own expense), filters and exports. Search and filters match single events; a
+    day with a match opens to show it. Deleting or editing one event never touches the others.
+  - **No new data for now.** Grouping is by date alone, which the owner approved for now.
+  - **Later (the owner wants it):** a grouping id on events. Whatever saves several events
+    as one job stamps them with the same id: live's care visit, litter-wide logging, Puppy
+    care, a breeding's progesterone and ties. Grouping then prefers the id (a group of any
+    size, two events of one visit included) and falls back to the date for events without
+    one. It is a new optional field on Event (additive; classify in `syncRegistry.js`,
+    likely `private`; backups skip it on older builds), so it gets its own plan before it's
+    built.
+  - **Open (the owner's):** three or more, or two or more, for date grouping? Drawn at three.
+
+## 9. Carry-over notes
+
+Gaps in the live app to close when the screen that has them is rebuilt. Each is the owner's or
+found in the code; none is built yet.
+
+- **C1. Pedigree import doesn't find a parent typed by call name (the owner, 2026-11-20).** In
+  live, Kels's litter task asks only for an outside sire's or dam's call name (registered name and
+  number are optional), so she often saves "Titan" with neither. The pedigree import
+  (`data/pedigreeImport.js` `planImport`) matches a chart's dogs by registration number, then
+  by registered name, never by call name, so the same Titan arriving on a chart as "Meadow
+  Ridge Titan of the Hill" becomes a second, pedigree-only dog. When pedigree import is brought
+  into the redesign:
+  - A chart dog that matches nothing by number or registered name is also compared with dogs
+    that have neither (a call name only), by `dogSearch`'s word match. The strongest clue is
+    position: the chart's sire or dam where the dog the chart is for already has a sire or dam
+    recorded. A match goes to the import's review ("Same as your Titan?"), never automatically.
+  - Choosing it fills the existing dog's blanks (registered name, number, color, birth date)
+    from the chart, as the import already does for a matched dog, and its ancestors hang off that
+    dog. Nothing it has is overwritten.
+  - Kels's outside-parent step and Add dog's outside dog offer the registered name and number
+    (still optional), so fewer dogs are saved with a call name only.
+  - Possible duplicates (D24) also raises a call-name-only dog and a pedigree-only dog whose
+    registered name contains that call name, with the same breed and sex, as a **Possible**
+    pair, so ones already split can be merged.
