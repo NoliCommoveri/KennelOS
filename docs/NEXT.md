@@ -656,6 +656,24 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   bar; Births records a missed pup on any litter not closed.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: Waitlist review against live; same-screen duplicates
+
+- The owner asked for the waitlist checked against live (same rules, what's missing, what's
+  duplicated), then set the duplicate rule: second ways in are wanted; two ways into the same
+  place on the same screen are not (added to D26).
+- `docs/design/forest-look-prototype.html`: the Waitlist hub drops the Applications, Fees due
+  and Family requests tiles (Needs you opens them); a family's Offers & passes has Sell them a
+  pup once; a pairing with warnings shows them without a Pairing check tile beside them;
+  Willow × Ash drops the Go-home weekend row beside its Go-home tile.
+- Missing against live, for the owner to order: open / close picks from the preview, every
+  open litter selling at once with Offer to them, Review sale & send after a pick, backing
+  out, re-apply, the Ready now? check, turn timing (open days, closed dates, hours,
+  countdowns), automatic offers, family pages without the list, a lost pup's family back in
+  line with a credit, the answer-change log, Almost your turn / Communicate, fee paid online
+  and a family's invoices, the application form editor and import, waitlist import, the
+  public list, waitlist policies.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

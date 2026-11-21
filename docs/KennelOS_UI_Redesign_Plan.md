@@ -602,6 +602,9 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     check, Breeding (the dam's heat, progesterone, breedings, ultrasounds), Litter.
   - **A row in a list opens to change or delete it:** events, expenses, documents, payments.
     Money received opens to where it was recorded.
+  - **Second ways in are wanted** (the owner): a screen reachable from several places is fine.
+    What isn't: two ways into the same place on the same screen (a tile and a row, or two
+    rows, opening the same screen side by side).
 
 ## 9. Carry-over notes
 
