@@ -15,7 +15,9 @@ Rewrite this list as work lands or changes (a snapshot, like README's Status).
   `docs/design/forest-look-prototype.html`), with the prototype's placeholder screens being
   drawn in, a batch at a time, for the owner to approve (Home's screens, Dogs, Litters, Waitlist,
   Sales and Financials, and More's Backup & Restore, Import / Export, Danger zone, Sharing, Storage,
-  Documents and Kels so far).
+  Documents and Kels so far), plus D26's stage-aware Home and D27's How connected for her review.
+- Plans, nothing built: breeder to breeder (`docs/KennelOS_Breeder_To_Breeder_Plan.md`) and one
+  inbox (`docs/KennelOS_One_Inbox_Plan.md`).
 
 Candidates, from the plans: Line Management Phase 1 (relationships, COI and pairing
 warnings; no schema change), the UI redesign (`docs/KennelOS_UI_Redesign_Plan.md`; the
@@ -567,6 +569,29 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   Find duplicates, the Accounts-are-in-Business row (Storage), "never stored" (relationships),
   the private vault wording on What gets backed up (now what it means for her), and Danger
   zone's "On this device" heading (now "Your records").
+- Docs only: no code, tests or service-worker change.
+
+## 2026-11-21: D26 stage-aware Home, D27 How connected; breeder-to-breeder and one-inbox plans
+
+- The owner: Home's tiles shouldn't repeat the tab bar, and should follow the kennel's stage.
+  `docs/KennelOS_UI_Redesign_Plan.md` §8 gains **D26**: no tile repeats a tab (tabs get count
+  badges), three tiles follow the stage of each litter or pairing (between litters, planning,
+  expecting, newborns, picks open, going home, after go-home), three stay (the type's, plus
+  Website while a KennelPort site is linked and Messages while a channel is on), and a line
+  under Today names the stage. The Website tile reads `pendingWebsiteChanges` on the device.
+- **D27**: first-run setup asks How you breed and How connected (on my devices / the cloud),
+  which picks one of each twin (Companion or the waitlist online; Dropbox and KennelAssistant or
+  live sync; Furever or the puppy portal), read from use for existing breeders. Exceptions:
+  Companion's partner bundle stays; the portal follows a linked site. Program Types plan §2 and
+  §3 gain **Modified:** notes.
+- `docs/KennelOS_Breeder_To_Breeder_Plan.md` (new): stud services as application, list and
+  status; co-own and lease standing pages; sales between breeders with the hand-off; each
+  delivered as a status page or into the other breeder's KennelOS; an opt-in public profile
+  (region, never an address; Verified from records). Four phases, five open questions.
+- `docs/KennelOS_One_Inbox_Plan.md` (new): KennelPort forwards contact-form and portal messages,
+  sealed to her key, into the inbox status-page messages already use; replies go back the way
+  they came; a brief for KennelPort's contract plan. README's doc map gains both rows.
+- Prototype (`docs/design/forest-look-prototype.html`, published): see the next entry.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

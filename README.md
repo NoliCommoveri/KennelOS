@@ -51,11 +51,13 @@ backup, carries a program from Lite to Pro.
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
 | Sending dogs between breeders (Dog Cards, live updates) | `docs/KennelOS_Shared_Dogs_Plan.md` |
+| Breeder to breeder: stud services, co-owns and leases, and sales online; public profiles (plan) | `docs/KennelOS_Breeder_To_Breeder_Plan.md` |
 | A review of the whole app, run over several sessions | `docs/KennelOS_Review_Plan.md` (findings in `docs/review/`) |
 | Fixing the review's remaining findings (everything open outside K15), in nine batches (plan) | `docs/KennelOS_Review_Remainder_Plan.md` |
 | Fixing what the waitlist reviews found, with Pup selected, Already Reserved and family pages without the list (plan) | `docs/KennelOS_Waitlist_Fixes_Plan.md` |
 | Several due dates on a sale (payment schedules, payments received), and the invoices, receipts, contracts and family pages that use them (plan) | `docs/KennelOS_Payment_Schedule_Plan.md` |
 | Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
+| One inbox: status-page, KennelPort and breeder messages in one place (plan) | `docs/KennelOS_One_Inbox_Plan.md` |
 | A dog's titles as a field (bought champions, ancestors), with show tracking still working them out (plan) | `docs/KennelOS_Dog_Titles_Field_Plan.md` |
 | The UI redesign to the forest look: what moves where, phases, and checking every screen against the approved prototype (plan) | `docs/KennelOS_UI_Redesign_Plan.md` (prototype: `docs/design/forest-look-prototype.html`) |
 | Line management: how every dog relates to every other (COI, shared ancestors, pairing warnings), traits, her own colors, birth records, what dogs carry, the pairing finder (plan) | `docs/KennelOS_Line_Management_Plan.md` |

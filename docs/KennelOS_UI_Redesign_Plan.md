@@ -579,6 +579,75 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
     the litter-to-pups case shown as above. (2) Is compressing a scan automatic, or offered with
     the sizes? Recommended: automatic, with "Keep the original" on the same screen. (3) Does
     Lite get documents beyond dogs, or is it Pro (`proPages.js`, `editionConfig.js`)?
+- **D26. Home follows the kennel's stage (the owner, 2026-11-21; drawn, for her review).** The
+  owner: Home shouldn't repeat the tab bar, and a kennel with picks open needs different tiles
+  from one with no litter at all.
+  - **No tile repeats a tab.** Tiles are filtered against the tabs her program type shows
+    (`typeTabs()`), so they're always somewhere at least two taps away. A tab's count moves
+    onto the tab as a badge (Waitlist "3", Litters when something is due).
+  - **Stages, read from her records, never a setting.** Each open litter or planned pairing is
+    at one stage, and brings its tiles while it's there:
+
+    | Stage | When | Its tiles |
+    |---|---|---|
+    | Between litters | no open litter, nothing bred | Heat watch, Pair check, Health tests due |
+    | Planning | a pairing planned or a heat expected | Pair check for that pair, Heat log |
+    | Expecting | bred, not whelped | Countdown ("Clover · day 48 of 63"), Whelping prep |
+    | Newborns | whelped, pups under 3 weeks | Weigh puppies, Births |
+    | Picks open | the pick order started | Picks ("Okafor's turn · due Fri"), Deposits |
+    | Going home | go-home dates set | Go-home, Balances due, Contracts to sign |
+    | After go-home | every pup placed | Family updates, Litter P&L |
+
+  - **Six tiles: three that follow the stage, three that stay.** The top row is stage tiles,
+    most urgent first; two litters at one stage share a tile ("Picks · 2 litters"). The bottom
+    row is her program type's, then stable tiles for what she has connected: **Website** while a
+    KennelPort site is linked (below), **Messages** while any message channel is on
+    (`docs/KennelOS_One_Inbox_Plan.md`). Stage slots left empty fall back to the type's tiles.
+    Tiles change only when a litter changes stage, never day to day, and a tile keeps its slot
+    while it's shown.
+  - **A line under Today names the stage:** "Wren's litter · picks open · Clover expecting".
+    No pinning for now.
+  - **Never a tile for what's off:** a feature off in What you use (D27) or not in her edition
+    never earns one. A tile never repeats a dated row already in This week.
+  - **Website tile:** shown only with a linked site. Its subline comes from
+    `kennelportLink.pendingWebsiteChanges` (on the device, no request): "Up to date · updated
+    Nov 3", "3 changes not on your site", or, by stage, "Clover's litter isn't on your site
+    yet" / "Hazel placed · site still shows available". It opens a Website screen: the changes
+    waiting, **Update website**, and **More ▾** (Open my site, what's shown, site settings).
+  - **For the build:** the stage is worked out from litters (`status`, whelp date, pups'
+    dispositions, go-home dates), pairings and heats, on the device, when Home opens. Nothing
+    is stored. Home's tile list comes from `data/programTypes.js` (Program Types plan §5) plus
+    the stage rules, in a pure module with tests.
+- **D27. How connected she is decides which twin she sees (the owner, 2026-11-21; drawn, for
+  her review).** The owner: live grew new features without retiring old ones, because each
+  suits a different level of connectedness, but a breeder uses one or the other, not both.
+  - **The twins:**
+
+    | Job | Stays on her devices | Uses the cloud |
+    |---|---|---|
+    | Keep families posted | Companion messages (snapshot links) | Waitlist online and status pages |
+    | A helper or a second phone | Dropbox sync and KennelAssistant | Live sync (roles later) |
+    | The family's app after go-home | Furever | Her KennelPort puppy portal |
+
+  - **First-run setup asks two questions:** *How you breed* (the program type) and *How
+    connected* ("Everything stays on my devices" or "I'm happy using the cloud"). This
+    replaces Program Types §2's "Waitlist online or offline". The answer turns on one column
+    and hides the other everywhere: tabs, tiles, rows, Setup areas and Kels's suggestions.
+    What you use can turn any of them back on.
+  - **Existing breeders aren't asked.** The answer is read from what they've used: Companion
+    links sent or Dropbox linked means devices; a cloud account, the waitlist online or live
+    sync means cloud. Anyone who has used both keeps both.
+  - **Switching later offers to retire the twin, never forces it** ("Stop offering Companion
+    links to waitlist families?"). Links already sent keep working.
+  - **Two exceptions, so nothing is over-hidden:** Companion's partner bundle (co-owners, stud
+    clients) has no cloud twin, so it stays on for both answers until the breeder-to-breeder
+    shares replace it (`docs/KennelOS_Breeder_To_Breeder_Plan.md`). The puppy portal needs a
+    linked KennelPort site, not just the cloud, so that pair follows "site linked", and a cloud
+    breeder without a site keeps Furever.
+  - **For the build:** the answer is `Kennel.connected` (`'device'` | `'cloud'`, program-wide,
+    optional; null means read it from use as above), classified in `syncRegistry.js` when
+    built. It only sets What you use's defaults; her own switches win afterwards, as Program
+    Types §3 says for a type.
 
 ## 9. Carry-over notes
 
