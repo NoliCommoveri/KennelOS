@@ -650,6 +650,10 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights),
   printed or not, Print all, Send to families, and one record to Print or Send; printing ticks
   the go-home checklist's Print puppy records. From Ready it is the litter's first tile.
+- Then (owner): no Births tile (it led where Puppies does) and no Pairing check tile on a
+  litter. Puppies opens with the birth (born, alive, delivery, stillborn, Add a pup you
+  missed) and each pup's birth order, time and weight; Record the birth stays on the stage
+  bar; Births records a missed pup on any litter not closed.
 - Docs only: no code, tests or service-worker change.
 
 ## Guide changes waiting

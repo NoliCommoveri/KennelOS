@@ -848,7 +848,7 @@ button.tl-card:hover { border-color: var(--line-strong); }
     <p><b>Details</b> on every hub holds what it is, with Edit, and Archive or Delete at the foot of Edit. Every other tile holds one group and changes only that, with Edit in its own header: a sale's <b>Price &amp; payments</b> edits the price, deposit and channel; a litter's Pricing and Go-home change in place. A <b>pairing</b> has its own hub: Details (dam, sire, dates, method, on website, notes), Pairing check, Breeding (the dam's heat, progesterone tests, breedings and ultrasounds) and its Litter. <b>A row in a list opens to change or delete it</b>: events in History and Breeding, expenses, Entries, documents and payments; money received opens to where it was recorded.</p>
 
     <h3>A litter's puppies and their care</h3>
-    <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name. <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
+    <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name, under the birth: how many born and alive, the delivery, any stillborn, and Add a pup you missed; each pup's card shows its birth order, time, weight and anything found. There is no Births tile: Record the birth on the stage bar opens it, and a litter has no Pairing check tile (the pairing's hub has it). <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
 
     <h3>Puppy plans and puppy records</h3>
     <p>A litter's <b>Puppies</b> sets every pup's plan (Undecided, Available, Keeping, Health hold; Placed comes from a sale and shows its family) and its registration (Limited, Full, Co-own, None), one card per pup; Add sale starts from that registration, and a sale made at another says so with a link to change it. <b>Puppy records</b> lists each pup's record (parents, birth, microchip, registration, family, shots, deworming, vet visits, weights, from its history), printed or not, with Print all and Send to families; a record opens to Print or Send to family. Printing ticks the go-home checklist's Print puppy records. From Ready, Puppy records is the litter's first tile.</p>
@@ -2035,7 +2035,7 @@ S.littersec = (p) => {
   if (k === 'puppies') {
     body = pups.length ? puppiesScreen(l, pups)
       : l.status[0] === 'Closed' ? empty('paw-print', 'All five puppies from this litter were placed and archived.', '')
-      : empty('paw-print', l.whelp ? 'No puppies recorded yet. Record each pup on Births.' : 'Puppies show here once they’re born.', l.whelp || l.status[0] === 'Expected' ? 'Births' : '', `littersec:${l.id}|births`);
+      : empty('paw-print', l.whelp ? 'No puppies recorded yet.' : 'Puppies show here once they’re born.', l.whelp || l.status[0] === 'Expected' ? 'Record a pup' : '', `littersec:${l.id}|births`);
   } else if (k === 'gohome') {
     const rOpen = ui.pAct === 'ready';
     if (rOpen) formFor('litready:' + l.id, () => ({ ready: l.ready || '' }));
@@ -4974,20 +4974,16 @@ function lineDogsec(d, k) {
 function lineLitterTiles(l) {
   const b = `littersec:${l.id}|`, out = [];
   if (l.id === 'wa') {
-    const bs = BIRTHS.wa;
-    out.push([b + 'births', 'baby', 'Births', `${bs.length} born · ${bs.filter((x) => x.alive).length} alive · natural`]);
     if (FEAT.lineTools) { const pups = DOGS.filter((d) => d.litter === 'wa'); out.push([b + 'score', 'clipboard-check', 'Score puppies', `${pups.filter((p) => puppyScored(p.id)).length} of ${pups.length} scored`]); }
   }
-  if (l.id === 'ct') out.push([b + 'births', 'baby', 'Births', l.whelp ? `${BIRTHS.ct.length} born · ${BIRTHS.ct.filter((x) => x.alive).length} alive` : BIRTHS.ct.length ? `${BIRTHS.ct.length} recorded so far` : 'Record each pup as she’s born']);
   const s = DOGS.find((d) => d.name === l.sire).id, d = DOGS.find((x) => x.name === l.dam).id;
-  out.push([`pair:${s}|${d}`, 'git-compare', 'Pairing check', `COI ${pct(kin(s, d))} · ${relation(s, d).role.toLowerCase()}`]);
   return out;
 }
 function lineLittersec(l, k) {
   if (k === 'births') {
     const bs = BIRTHS[l.id] || [];
     const list = bs.length ? `<section class="card"><div class="section-h"><h2>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</h2></div><div class="rows">${bs.map((x) => row({ t: `#${x.n} · ${x.dog ? pedName(x.dog) : x.alive ? 'Not named yet' : x.cause}`, extra: `${sex(x.sex)}${pill([x.color, 'gray'])}${x.alive ? '' : pill(['Stillborn', 'red'])}${(x.abn || []).map((a) => pill([a, 'amber'])).join('')}`, s: `${x.time} · ${x.wt} oz`, go: x.dog ? `dog:${x.dog}` : '' })).join('')}</div></section>` : '';
-    if (l.id !== 'ct' || l.status[0] !== 'Expected') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
+    if (l.status[0] === 'Closed') return list + `<p class="from">Counts, colors and abnormalities on this litter come from these records.</p>`;
     const f = ui.birth;
     const colorSel = `<select id="b-color" aria-label="Color">${COLORS.filter((c) => c.kind === 'color').map((c) => `<option ${f.color === c.n ? 'selected' : ''}>${c.n}</option>`).join('')}<option value="__add">+ Add a color</option></select>`;
     const cOn = f.collar || nextCollar(l.id), cOpts = [...COLLAR_COLORS.filter((c) => !collarsUsed(l.id).includes(c)).slice(0, 8)];
@@ -5000,7 +4996,7 @@ function lineLittersec(l, k) {
       <div class="dates"><label>Birth weight (oz)<input id="b-wt" type="number" step="0.1" inputmode="decimal" value="${esc(f.wt || '')}"></label><label>Time<input id="b-time" type="time" value="${esc(f.time || '')}"></label></div>
       <div><div class="group-label">Abnormalities</div><div class="chips" style="flex-wrap:wrap">${['None', 'Cleft palate', 'Umbilical hernia', 'Swimmer puppy syndrome', 'Anasarca (walrus puppy)', 'Other'].map((a) => `<button type="button" class="chip" data-bf="abn|${a}" aria-pressed="${f.abn.includes(a) || (a === 'None' && !f.abn.length)}">${a}</button>`).join('')}</div></div>
       <button type="button" class="primary-btn" data-bf="save|1">${icon('check')}Save pup ${bs.length + 1}</button></section>
-      ${bs.length ? `<section class="card app-card"><div class="f-head"><h2>Is that all of them?</h2><span>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</span></div>
+      ${bs.length && l.status[0] === 'Expected' ? `<section class="card app-card"><div class="f-head"><h2>Is that all of them?</h2><span>${bs.length} born · ${bs.filter((x) => x.alive).length} alive</span></div>
         <div class="f-group"><div class="group-label">Delivery</div><div class="chips wrap">${['Natural', 'C-section, planned', 'C-section, emergency'].map((v) => `<button type="button" class="chip" data-hx="whelpdel|${l.id}|${v}" aria-pressed="${(f.delivery || 'Natural') === v}">${v}</button>`).join('')}</div></div>
         <button type="button" class="btn-2" data-hx="whelpdone|${l.id}">${icon('flag')}Done whelping: mark the litter whelped</button>
         <p class="f-hint">You can add a pup you missed afterwards.</p></section>` : ''}`;
@@ -5953,12 +5949,14 @@ function careSave(lid, k) {
 const IREG = [['Limited', 'Limited'], ['Full', 'Full'], ['Co-own', 'Co-own'], ['None', 'None']];
 const iregOf = (d) => d.ireg || 'Limited';
 function puppiesScreen(l, pups) {
-  return `<p class="lede">Each pup's plan and registration. Add sale starts from them.</p>
+  const bs = BIRTHS[l.id] || [], lost = bs.filter((x) => !x.alive);
+  const born = bs.length ? `<section class="card app-card"><div class="f-head"><h2>${bs.length} born · ${bs.length - lost.length} alive</h2><span>${esc(l.delivery || 'Natural')}</span></div>${lost.length ? `<p class="f-hint">Stillborn: ${lost.map((x) => `#${x.n}${x.abn?.length ? ` (${x.abn.map(esc).join(', ').toLowerCase()})` : x.cause && x.cause !== 'Stillborn' ? ` (${esc(x.cause).toLowerCase()})` : ''}`).join(', ')}</p>` : ''}${l.status[0] !== 'Closed' ? `<button type="button" class="set-link" data-open="littersec:${l.id}|births">${icon('plus')}Add a pup you missed</button>` : ''}</section>` : '';
+  return `${born}<p class="lede">Each pup's plan and registration. Add sale starts from them.</p>
     ${pups.map((q) => {
       const s = SALES.find((v) => v.pup === q.name), disp = q.disp || 'undecided';
       const plan = disp === 'placed' ? `<span class="pill gray">Placed${s ? ` · ${esc(fam(s.fam).n)}` : ''}</span>`
         : `<div class="chips wrap">${Object.entries(DISP).filter(([k]) => k !== 'placed').map(([k, [t]]) => `<button type="button" class="chip" data-hx="pplan|${q.id}|${k}" aria-pressed="${disp === k}">${t}</button>`).join('')}</div>`;
-      return `<section class="card app-card pup-plan"><div class="sell-top"><button type="button" class="link sale-who" data-open="dog:${q.id}">${esc(q.name)}${icon('chevron-right')}</button>${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}<span class="fcount" style="margin-left:auto">${WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : ''}</span></div>
+      return `<section class="card app-card pup-plan"><div class="sell-top"><button type="button" class="link sale-who" data-open="dog:${q.id}">${esc(q.name)}${icon('chevron-right')}</button>${sex(q.sex)}${q.collar && !q.name.startsWith(q.collar) ? pill([`${q.collar} collar`, 'gray']) : ''}<span class="fcount" style="margin-left:auto">${WEIGHT[q.id] ? lbOz(WEIGHT[q.id]) : ''}</span></div>${(() => { const x = (BIRTHS[l.id] || []).find((y) => y.dog === q.id); return x ? `<p class="f-hint" style="margin:0">Pup #${x.n} · born ${esc(x.time)}${Number(x.wt) ? ` · ${x.wt} oz` : ''}${x.abn?.length ? ` · ${x.abn.map(esc).join(', ')}` : ''}</p>` : ''; })()}
         <div class="f-group"><div class="group-label">Plan</div>${plan}</div>
         <div class="f-group"><div class="group-label">Registration</div><div class="chips wrap">${IREG.map(([v, t]) => `<button type="button" class="chip" data-hx="preg|${q.id}|${v}" aria-pressed="${iregOf(q) === v}">${t}</button>`).join('')}</div>${s && (s.reg || 'Limited') !== iregOf(q) ? `<p class="f-hint">Sold as ${esc(s.reg || 'Limited')}: <button type="button" class="link" data-open="saleedit:${q.id}">change it on the sale</button></p>` : ''}</div></section>`;
     }).join('')}`;
@@ -6280,7 +6278,7 @@ document.addEventListener('click', (e) => {
     if (f === 'sex') b.sex = v; else if (f === 'alive') b.alive = Number(v); else if (f === 'collar') b.collar = v;
     else if (f === 'abn') b.abn = v === 'None' ? [] : b.abn.includes(v) ? b.abn.filter((x) => x !== v) : [...b.abn, v];
     else if (f === 'addcolor') { const n = ($('#b-newcolor')?.value || '').trim(); if (!n) return toast('Type the new color'); COLORS.push({ n, kind: 'color', links: [] }); b.color = n; b.adding = false; toast(`${n} added to your colors. Link it to a gene in Setup.`); }
-    else if (f === 'save') { const list = BIRTHS.ct, n = list.length + 1, lt = LITTERS.find((x) => x.id === 'ct'), dog = b.alive ? birthPup(lt, b) : undefined; list.push({ n, time: b.time || '—', sex: b.sex, color: b.color, wt: Number(b.wt) || '—', alive: !!b.alive, cause: b.alive ? undefined : 'Stillborn', abn: b.abn, dog }); ui.birth = { sex: 'f', color: b.color, alive: 1, wt: '', time: '', abn: [], adding: false, delivery: b.delivery }; toast(dog ? `${dogById(dog).name} saved` : `Pup ${n} saved`); }
+    else if (f === 'save') { const lid = String(top().p || 'ct').split('|')[0], list = (BIRTHS[lid] ||= []), n = list.length + 1, lt = LITTERS.find((x) => x.id === lid), dog = b.alive ? birthPup(lt, b) : undefined; list.push({ n, time: b.time || '—', sex: b.sex, color: b.color, wt: Number(b.wt) || '—', alive: !!b.alive, cause: b.alive ? undefined : 'Stillborn', abn: b.abn, dog }); ui.birth = { sex: 'f', color: b.color, alive: 1, wt: '', time: '', abn: [], adding: false, delivery: b.delivery }; toast(dog ? `${dogById(dog).name} saved` : `Pup ${n} saved`); }
     render(); return;
   }
   if (d.qother) { ui.qOther = d.qother; render(); $('#qo-input')?.focus(); return; }
