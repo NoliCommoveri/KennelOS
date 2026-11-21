@@ -252,6 +252,21 @@ table.list .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tl-top .cost { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tl-body { color: var(--muted); font-size: 13px; }
 .tl-body strong { color: var(--ink); font-weight: 600; }
+.tl-group { padding: 0; overflow: hidden; }
+.tl-sum { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 10px 36px 10px 12px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; position: relative; }
+.tl-sum:hover { background: var(--surface-2); }
+.tl-sum .tl-top b { font-family: var(--font-display); font-size: 15px; }
+.tl-n { font-size: 12px; font-weight: 600; color: var(--muted); }
+.tl-sum .cost { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tl-chev { position: absolute; right: 10px; top: 12px; color: var(--faint); }
+.tl-subs { border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+.tl-sub { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; width: 100%; }
+.tl-subs > .tl-sub:first-child { border-top: 0; }
+button.tl-sub { cursor: pointer; }
+button.tl-sub:hover { background: var(--surface-2); }
+.tl-sub > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 13.5px; }
+.tl-sub .cost { margin-left: auto; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tl-sub .tl-top b { font-size: 14px; }
 
 /* litters */
 .litter { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); text-align: left; width: 100%; box-shadow: var(--shadow); }
@@ -847,6 +862,9 @@ button.tl-card:hover { border-color: var(--line-strong); }
     <p><b>A second way in is welcome</b> (a family's fee from Needs you, their page or Fees due); two ways into the same place on the same screen are not, so a hub never shows a tile and a row that open the same screen. Each is a header card (who or what), a <b>stage bar</b>, anything needing attention, then tiles; the header has no add or Edit button. The stage bar says where it is in its life, with the next step as a button; tap the stage to pick any stage. Blue is coming, amber is waiting on her, green is done, grey is ended. A <b>litter</b>: Expected (Record the birth: Births records each pup, then "Is that all of them?" takes the delivery and Done whelping, which marks the litter and its pairing whelped and returns to the litter) → Whelped (Start weaning) → Weaning (Mark ready) → Ready (Mark sold once every puppy has a plan) → Sold (Close the litter once one has gone home and none is left to place) → Closed. A <b>pairing</b>: Planned (Log a breeding opens Add event on the dam with Breeding picked; saving marks it Bred) → Bred (Confirmed pregnant, which adds the expected litter, or Not pregnant) → Confirmed pregnant (Record the birth) → Whelped; Not pregnant, Failed or Cancelled takes an expected litter off Litters. A <b>sale</b>: Deposit pending, Deposit paid and Paid in full follow the money (Record deposit, Record a payment); Mark delivered asks when, whether the owner is now the family, whether the pup leaves her dogs list and, when it's the last one, whether to close the litter; returned, cancelled or voided are in Details › Edit. A <b>puppy</b>'s plan is its stage: Undecided (Available, Keeping), Available (Add sale), Keeping, Health hold; Placed comes from a sale. An adult dog has no bar.</p>
     <p><b>Details</b> on every hub holds what it is, with Edit, and Archive or Delete at the foot of Edit. Every other tile holds one group and changes only that, with Edit in its own header: a sale's <b>Price &amp; payments</b> edits the price, deposit and channel; a litter's Pricing and Go-home change in place. A <b>pairing</b> has its own hub: Details (dam, sire, dates, method, on website, notes), Pairing check, Breeding (the dam's heat, progesterone tests, breedings and ultrasounds) and its Litter. <b>A row in a list opens to change or delete it</b>: events in History and Breeding, expenses, Entries, documents and payments; money received opens to where it was recorded.</p>
 
+    <h3>A day's events, grouped</h3>
+    <p>In a history (a dog's, a litter's, Breeding), three or more events on the same day show as <b>one card</b>: titled by that day's vet visit (else its first event), with "7 events", the kinds counted ("vet visit · 2 screening tests · 2 vaccinations · dewormer") and the costs summed. Tapping it opens the day: each event on its own line, each opening to Edit event. They stay separate events; the grouping is only how they're shown. A day with one or two events looks as before. In the build, a search or filter that matches an event inside a day opens that day.</p>
+
     <h3>A litter's puppies and their care</h3>
     <p>Each pup saved on <b>Births</b> is a puppy record at once, wearing the next free <b>ID collar</b> color and named for it ("Red collar") unless she types a name, so she knows who was who the next morning; a stillborn pup is counted on the litter, not made a record. The litter's <b>Puppies</b> lists its own pups, with the collar shown once a pup has a name, under the birth: how many born and alive, the delivery, any stillborn, and Add a pup you missed; each pup's card shows its birth order, time, weight and anything found. There is no Births tile: Record the birth on the stage bar opens it, and a litter has no Pairing check tile (the pairing's hub has it). <b>Puppy care</b> (on a whelped litter) is everything done for the litter, typed once and saved as one entry on each pup ticked, as live's litter-wide logging does: <b>Weigh</b> (AM or PM, then pounds and ounces for each pup, beside its last weight; ounces over 16 carry into pounds) and <b>Microchips</b> take each pup's own value, and saving names pups not gaining; <b>Vet visit</b> (vet, reason, findings, cost per pup), <b>Shots</b> (vaccines, next due, lot), <b>Deworming</b>, <b>Screening test</b>, <b>Medication</b> and <b>Something else</b> take the pups ticked. What was done shows under it as one entry for the litter, each opening to change it; each pup's History has its own.</p>
 
@@ -1282,7 +1300,26 @@ const row = ({ ic, tone = '', t, s, end = '', go, extra = '', planned }) =>
   `<button type="button" class="row${planned ? ' planned' : ''}" ${go ? `data-open="${go}"` : ''}>${ic ? `<span class="row-ic ${tone}">${icon(ic)}</span>` : ''}<span class="row-main"><span class="row-t">${t}${extra}${planned ? planTag(planned) : ''}</span>${s ? `<span class="row-s">${s}</span>` : ''}</span><span class="row-end">${end}${chev}</span></button>`;
 const tiles = (list) => `<div class="sec-grid">${list.map(([go, ic, t, s, planned]) => `<button type="button" class="sec-tile${planned ? ' planned planned-box' : ''}" data-open="${go}">${icon(ic)}<b>${t}</b><span>${s}</span>${planned ? planTag(planned) : ''}</button>`).join('')}</div>`;
 const attnCard = (list) => list.length ? `<section class="card"><div class="rows">${list.map(([ic, tone, t, go, s]) => row({ ic, tone, t, s, go })).join('')}</div></section>` : '';
-const timeline = (evs, edit) => `<div class="timeline">${evs.map((e) => `<div class="tl-item"><div class="tl-date">${fmt(e.d)}</div><${edit ? `button type="button" data-open="${edit(e)}"` : 'div'} class="card tl-card"><div class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</div><div class="tl-body">${e.body}</div></${edit ? 'button' : 'div'}></div>`).join('') || '<p class="lede">Nothing matches these filters.</p>'}</div>`;
+const tlOne = (evs, edit) => `<div class="timeline">${evs.map((e) => `<div class="tl-item"><div class="tl-date">${fmt(e.d)}</div><${edit ? `button type="button" data-open="${edit(e)}"` : 'div'} class="card tl-card"><div class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</div><div class="tl-body">${e.body}</div></${edit ? 'button' : 'div'}></div>`).join('') || '<p class="lede">Nothing matches these filters.</p>'}</div>`;
+/* a day's events, grouped for display only (D27): each stays its own event; three or more on
+   one day show as one card, its title the day's vet visit (else its first event), the kinds
+   counted, the cost summed; tapping it opens the day, each event still opening to Edit */
+const TL_PLURAL = { 'Vet visit': 'Vet visits', 'Vaccination': 'Vaccinations', 'Screening test': 'Screening tests', 'Preventative': 'Dewormers', 'Weight check': 'Weight checks', 'Medication': 'Medications', 'Breeding': 'Breedings', 'Progesterone test': 'Progesterone tests' };
+const TL_ONE = { Preventative: 'Dewormer' };
+const tlKinds = (g) => { const by = {}; g.forEach((e) => { by[e.type[0]] = (by[e.type[0]] || 0) + 1; }); return Object.entries(by).map(([t, n]) => (n > 1 ? `${n} ${(TL_PLURAL[t] || `${t}s`).toLowerCase()}` : (TL_ONE[t] || t).toLowerCase())); };
+const TL_GROUP_AT = 3;
+const timeline = (evs, edit) => {
+  const days = []; evs.forEach((e) => { const last = days[days.length - 1]; if (last && last.d === e.d) last.g.push(e); else days.push({ d: e.d, g: [e] }); });
+  if (days.every((x) => x.g.length < TL_GROUP_AT)) return tlOne(evs, edit);
+  return `<div class="timeline">${days.map(({ d, g }) => {
+    if (g.length < TL_GROUP_AT) return tlOne(g, edit).replace(/^<div class="timeline">|<\/div>$/g, '');
+    const key = `${d}:${g.length}:${g[0].t}`, open = (ui.tlOpen ||= {})[key], lead = g.find((e) => e.type[0] === 'Vet visit') || g[0], cost = sum(g.map((e) => e.cost || 0));
+    const kinds = tlKinds(g), first = kinds.join(' · ');
+    return `<div class="tl-item"><div class="tl-date">${fmt(d)}</div><div class="card tl-group${open ? ' open' : ''}">
+      <button type="button" class="tl-sum" data-tlg="${esc(key)}" aria-expanded="${!!open}"><span class="tl-top">${pill(lead.type.slice(0, 2), lead.type[2])}<b>${lead.t}</b><span class="tl-n">${g.length} events</span>${cost ? `<span class="cost">${money(cost)}</span>` : ''}</span><span class="tl-body">${first.charAt(0).toUpperCase() + first.slice(1)}</span><span class="tl-chev">${icon(open ? 'chevron-up' : 'chevron-down')}</span></button>
+      ${open ? `<div class="tl-subs">${g.map((e) => `<${edit ? `button type="button" data-open="${edit(e)}"` : 'div'} class="tl-sub"><span><span class="tl-top">${pill(e.type.slice(0, 2), e.type[2])}<b>${e.t}</b>${e.cost ? `<span class="cost">${money(e.cost)}</span>` : ''}</span>${e.body && e.body !== '—' ? `<span class="tl-body">${e.body}</span>` : ''}</span></${edit ? 'button' : 'div'}>`).join('')}</div>` : ''}</div></div>`;
+  }).join('')}</div>`;
+};
 const facts = (pairs) => `<dl class="facts">${pairs.map(([k, v]) => `<div class="fact"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 const empty = (ic, text, btn, spec) => `<section class="card empty">${icon(ic)}<p>${text}</p>${btn ? `<button type="button" class="primary-btn" data-open="${spec || 'stub:' + btn.toLowerCase().replace(/ /g, '-')}">${icon('plus')}${btn}</button>` : ''}</section>`;
 const primary = (label, spec, ic = 'plus') => `<button type="button" class="primary-btn" data-open="${spec}">${icon(ic)}${label}</button>`;
@@ -1754,6 +1791,7 @@ S.dog = (id) => {
 
 S.dogsec = (p) => {
   const [id, k] = p.split('|');
+  ghSeed();
   const d = dogById(id), x = info(d), evs = eventsFor(d);
   const title = (dogSections(d).find((s) => s[0].endsWith('|' + k)) || [])[2] || k;
   let body = '', action = '', filterItems;
@@ -3998,7 +4036,7 @@ function ghSeed() {
   const add = (id, ...evs) => { const d = dogById(id); if (!d) return; EVENTS[id] ||= eventsFor(d).slice(); EVENTS[id].push(...evs); EVENTS[id].sort((a, b) => b.d.localeCompare(a.d)); };
   const vet = (d) => ({ d, type: ['Vet visit', 'blue', 'stethoscope'], cat: 'Health', t: 'Go-home exam', body: 'Hartland Animal Hospital · healthy' });
   const worm = (d) => ({ d, type: ['Preventative', 'blue', 'shield-check'], cat: 'Health', t: 'Pyrantel', body: 'Third dose' });
-  add('poppy', vet('2026-11-16'), worm('2026-11-12')); add('hazel', vet('2026-11-16'), worm('2026-11-12')); add('fern', worm('2026-11-12'));
+  add('poppy', vet('2026-11-16'), worm('2026-11-12')); add('hazel', { ...vet('2026-11-16'), cost: 95 }, worm('2026-11-12'), { d: '2026-11-16', type: ['Screening test', 'blue', 'test-tube'], cat: 'Health', t: 'Fecal', body: 'Negative' }, { d: '2026-11-16', type: ['Screening test', 'blue', 'test-tube'], cat: 'Health', t: 'Giardia', body: 'Negative' }, { d: '2026-11-16', type: ['Vaccination', 'blue', 'syringe'], cat: 'Health', t: 'DHPP #2', body: 'Next due in 3 weeks', cost: 28 }, { d: '2026-11-16', type: ['Vaccination', 'blue', 'syringe'], cat: 'Health', t: 'Bordetella', body: 'Intranasal', cost: 22 }, { d: '2026-11-16', type: ['Preventative', 'blue', 'shield-check'], cat: 'Health', t: 'Pyrantel', body: 'Fourth dose' }); add('fern', worm('2026-11-12'));
 }
 function ghState(s, d) {
   ghSeed();
@@ -5991,7 +6029,7 @@ S.puprecord = (id) => {
 
 /* ================= events ================= */
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-hx],[data-ghdo],[data-sx],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
+  const el = e.target.closest('[data-addo],[data-salenew],[data-personsave],[data-dnsdo],[data-ctdo],[data-ctsend],[data-ctsave],[data-cttab],[data-paydo],[data-year],[data-acsave],[data-acdo],[data-ledgerby],[data-ldsave],[data-schstep],[data-schsave],[data-schdel],[data-salesave],[data-prsave],[data-prdel],[data-trmiles],[data-trsave],[data-prtsave],[data-plsave],[data-pldel],[data-planstep],[data-grpsave],[data-grpdel],[data-addonsave],[data-addondel],[data-sado],[data-sreset-price],[data-lpset],[data-lpown],[data-pact],[data-hx],[data-tlg],[data-ghdo],[data-sx],[data-pdo],[data-famsave],[data-sidesave],[data-progset],[data-progdone],[data-dd],[data-ddclear],[data-pairsave],[data-litsave],[data-expsave],[data-fc],[data-fother],[data-fown],[data-dcolor],[data-dsave],[data-archive],[data-evsave],[data-tsave],[data-pedgen],[data-cardhow],[data-toast],[data-rem],[data-remtab],[data-calday],[data-calmove],[data-gcal],[data-kennel],[data-coiedit],[data-coimethod],[data-coisave],[data-coidel],[data-ptmain],[data-ptalso],[data-topen],[data-tset],[data-bf],[data-tpup],[data-ckind],[data-clink],[data-cadd],[data-sterm],[data-smore],[data-go],[data-open],[data-back],[data-dogtab],[data-littab],[data-fintab],[data-peopletab],[data-filter],[data-unf],[data-sr],[data-ssort],[data-sg],[data-sapply],[data-sreset],[data-sclose],[data-qopen],[data-qset],[data-feat],[data-wl],[data-psave],[data-qother],[data-qown],[data-catjump],[data-mo],[data-dup]');
   if (!el || !el.closest('#app')) return;
   const d = el.dataset;
   if (d.mo) return moAct(d.mo);
@@ -6205,6 +6243,7 @@ document.addEventListener('click', (e) => {
   if (d.pact) { ui.pAct = ui.pAct === d.pact ? null : d.pact; render(); return; }
   if (d.ghdo) { ghDo(d.ghdo); return; }
   if (d.hx) { hubDo(d.hx); return; }
+  if (d.tlg) { (ui.tlOpen ||= {})[d.tlg] = !ui.tlOpen[d.tlg]; render(); return; }
   if (d.sx) { saleX(d.sx); return; }
   if (d.pdo) { personDo(d.pdo); return; }
   if (d.famsave) { familySave(); return; }

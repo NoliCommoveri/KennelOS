@@ -307,6 +307,8 @@ needs data live doesn't have, it says so.
   out, never stored. Printed puppy records likewise need a stored date per pup.
 - **Rows open to edit** everywhere: events (History, Breeding), expenses, Entries,
   documents, payments; money received opens to where it was recorded.
+- **A day's events grouped (D27):** three or more on one date show as one card in any history
+  timeline, opening to each event; display only.
 
 ### 5.2 Waitlist: live features the prototype doesn't draw yet
 
@@ -717,6 +719,26 @@ A screen with no entry in the map isn't converted yet, so the map also tracks pr
   - **Second ways in are wanted** (the owner): a screen reachable from several places is fine.
     What isn't: two ways into the same place on the same screen (a tile and a row, or two
     rows, opening the same screen side by side).
+
+- **D27. A day's events grouped in a history (the owner, 2026-11-21; proposed, drawn).** The
+  owner: a go-home-ready visit is a vet visit, two screening tests, two vaccines and a
+  dewormer on one day. They are separate events and stay separate in the data; only the
+  timeline groups them, so one hour of a pup's life isn't a full page.
+  - **Rule (display only):** in any history timeline (a dog's History, a litter's History, a
+    pairing's Breeding, a family's History), **three or more events on the same date** show as
+    one card. One or two on a day show as they do now.
+  - **The card:** the date; the title of that day's vet visit (else its first event) with its
+    type pill; "6 events"; the kinds counted ("Vet visit · 2 screening tests · 2 vaccinations
+    · dewormer"); the costs summed. Tapping it opens the day in place: each event on its own
+    line (type, title, cost, details), each opening to Edit event, as any event does.
+  - **Stays the same:** each event's own record, reminders, next-due dates, costs (each
+    still its own expense), filters and exports. Search and filters match single events; a
+    day with a match opens to show it. Deleting or editing one event never touches the others.
+  - **No new data.** Grouping is by date alone. A later option, only if dates prove too
+    coarse: live's care visit could stamp the events it saves with a shared visit id, and
+    grouping would prefer it; that would be a new field (syncRegistry, `private`), so it is
+    not proposed now.
+  - **Open (the owner's):** three or more, or two or more? Drawn at three.
 
 ## 9. Carry-over notes
 

@@ -685,6 +685,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   source plan and proposed place, first six first.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: D27, a day's events grouped in a history (proposed, drawn)
+
+- The owner: a go-home-ready visit fills a pup's history with separate events from one hour;
+  they must stay separate in the data but be grouped on screen.
+- `docs/KennelOS_UI_Redesign_Plan.md`: D27 (three or more events on a date show as one card,
+  titled by the day's vet visit, kinds counted, costs summed, opening to each event; no new
+  data) and a §5.1 line. `docs/design/forest-look-prototype.html`: the timeline groups them;
+  Hazel's history has a go-home exam day (vet visit, fecal, giardia, DHPP #2, Bordetella,
+  dewormer) to show it.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on
