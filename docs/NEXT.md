@@ -674,6 +674,17 @@ entries move to `docs/BUILD_LOG.md` and this section is emptied.
   public list, waitlist policies.
 - Docs only: no code, tests or service-worker change.
 
+## 2026-11-21: The redesign plan lists this review's screens and the waitlist still to draw
+
+- The owner: put everything from this review in the plan, drawn or proposed.
+- `docs/KennelOS_UI_Redesign_Plan.md`: §5's Dogs, Litters, Waitlist, Business and Setup
+  phases name the new screens; §5.1 lists what was drawn (hubs and stage bars, the pairing
+  hub, the litter's Puppies, Births, Puppy care, Puppy records and Go-home, the sale hub and
+  Price & payments, the go-home checklist and the data it needs, rows that open to edit);
+  §5.2 lists the 16 live waitlist features the prototype doesn't draw yet, each with its
+  source plan and proposed place, first six first.
+- Docs only: no code, tests or service-worker change.
+
 ## Guide changes waiting
 
 End-State guide (`docs/End_State_Design_and_Maintenance_Guide.md`) edits that work on

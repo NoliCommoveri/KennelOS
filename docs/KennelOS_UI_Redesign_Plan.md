@@ -231,17 +231,129 @@ Each phase is one or more PRs into `next`, each with §6's checks and screenshot
    button (search itself in phase 2). Every page gets the shell.
 2. **Home and search.** Count tiles, This week, Coming up; the search overlay.
 3. **Dogs.** The list (tabs Puppies / Breeding / Not breeding / External / All, the table
-   with wide-only columns), the Dog hub and its section screens, History as the timeline.
-4. **Litters.** Litters, Pairings, Active breeding; the Litter hub; Go-home and Weigh
-   puppies.
+   with wide-only columns), the Dog hub (D26: header card, stage bar, tiles) and its
+   section screens, Details with Edit, History as the timeline with each event opening to
+   Edit event. A puppy's stage bar is its plan (§5.1).
+4. **Litters.** Litters, Pairings, Active breeding; the Litter hub (D26) with its stage bar;
+   Details and Edit litter; Puppies (the birth, then a plan and registration card per pup);
+   Births with ID collars and Done whelping; Puppy care; Puppy records; Go-home with the
+   ready date and each pup's checklist; the Pairing hub and its Details, Edit pairing and
+   Breeding (§5.1).
 5. **Waitlist tab.** Needs you (with the tab badge), Selling now, The list, Applications,
-   Fees due, Family requests, Turn order, Picks preview, Programs.
-6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries,
-   Reports, Accounts, Extra charges, Pricing and schedules (D9), Stud services, Contracts.
-7. **More and Setup.** Setup's areas and questions, What you use; Backup, Import/Export,
-   Sharing, Danger zone. Needs D2.
+   Fees due, Family requests, Turn order, Picks preview, Programs; then the live features the
+   prototype doesn't draw yet (§5.2), each drawn and approved before it's built.
+6. **Business.** Sales & Placements, People, Financials (KPIs, chart, categories), Entries
+   (each opening to Edit expense, or to where money received was recorded), Reports,
+   Accounts, Add-ons, Pricing and schedules (D9), Stud services, Contracts. A sale is a hub
+   (D26, §5.1): Details, Price & payments, Add-ons, Contract, Go-home.
+7. **More and Setup.** Setup's areas and questions, What you use, the Go-home checklist
+   (§5.1); Backup, Import/Export, Sharing, Danger zone; Documents (each opening to change it).
+   Needs D2.
 8. **Filters everywhere.** The shared filter sheet replaces each list's own controls.
 9. **The rest.** Every page not yet converted, by §2.5.
+
+### 5.1 Drawn in the prototype in the 2026-11-20/21 review (build with their phase)
+
+Each is in the prototype and its Design notes; `docs/NEXT.md` has the log. Where the build
+needs data live doesn't have, it says so.
+
+- **Hubs built one way (D26).** Every dog, litter, pairing and sale hub: a header card, a
+  **stage bar** (stage, next step, any stage one tap away; blue / amber / green / grey), what
+  needs attention, then tiles. No add or Edit button in a hub's header. **Details** on every
+  hub with Edit (Archive or Delete at its foot); every other tile edits only its own group.
+  Second ways in are wanted; two ways into the same place on one screen are not.
+- **Stage bars and what each step does** (live's status rules and prompts):
+  - Litter: Expected (Record the birth) → Whelped (Start weaning) → Weaning (Mark ready) →
+    Ready (Mark sold when every pup has a plan) → Sold (Close the litter, live's close rule)
+    → Closed.
+  - Pairing: Planned (Log a breeding opens Add event on the dam; saving marks it Bred) → Bred
+    (Confirmed pregnant adds the expected litter; Not pregnant) → Confirmed pregnant (Record
+    the birth) → Whelped; ending one takes an expected litter off Litters.
+  - Sale: Deposit pending → Deposit paid → Paid in full, following the money; Mark delivered
+    asks live's delivery questions (date, owner, leaves her dogs, close the litter);
+    returned, cancelled and voided stay in Details › Edit.
+  - Puppy: its plan (Undecided, Available, Keeping, Health hold; Placed from a sale). Adult
+    dogs have no bar.
+- **Pairing hub** (new): Details and Edit pairing (dam, sire, dates, method, website, notes,
+  Delete), Pairing check (only when no warnings show above it), Breeding (the dam's heat,
+  progesterone, breedings, ultrasounds), Litter. Pairing rows open it.
+- **Litter.** Details' Edit (whelp or breeding dates, delivery, litter registration, website,
+  foster, nickname, notes, Archive). No Births tile and no Pairing check tile. **Puppies**:
+  the birth (born, alive, delivery, stillborn, Add a pup you missed), then a card per pup
+  with its birth line, its plan and its registration (live's `intended_registration`; Add
+  sale starts from it). **Births**: each pup's ID collar (next free color, live's
+  `guidedLitter.COLLAR_COLORS`) and optional name; saving makes the puppy record ("Red
+  collar") with its own history from birth; "Is that all of them?" takes the delivery, and
+  Done whelping marks the litter and its pairing whelped. **Puppy care**: Weigh (AM / PM,
+  pounds and ounces per pup beside its last, naming pups not gaining), Vet visit, Shots,
+  Deworming, Screening test, Medication, Microchips, Something else: typed once, one event
+  per pup ticked (live's litter-wide logging and care visit), shown as one entry for the
+  litter. **Puppy records**: each pup's record from its history, printed or not, Print all,
+  Send to families, Print or Send one; from Ready it is the litter's first tile. **Go-home**:
+  the ready date first (Change in place; contracts' ready date), then each sold pup's
+  checklist in go-home order.
+- **Sale hub.** The family and the go-home date, time and place (Change in place: it is the
+  pickup event, so calendar and sale stay one); tiles Details (buyer, stage, date,
+  registration, source, notes; Edit changes the buyer without moving anyone on the list),
+  **Price & payments** (all the money: puppy, add-ons, total, paid, balance, due dates with
+  the schedule changed in place, money received, Record a payment, Send invoice / receipt,
+  Payment link, what she nets; Edit: price, deposit, channel), Add-ons, Contract, Go-home.
+  A family's page has one Sale tile.
+- **Go-home checklist** (Setup › Go-home): her own items in her order, each ticked by hand
+  or linked to what checks it off (a vet visit, vaccination or dewormer on the pup, its
+  microchip, the contract signed, the balance paid, Print puppy records, Send Furever link);
+  an item not done opens what does it. **Needs new data:** a table for her items (name,
+  link, order, kennel) and per-sale ticks for hand-ticked items; linked items are worked
+  out, never stored. Printed puppy records likewise need a stored date per pup.
+- **Rows open to edit** everywhere: events (History, Breeding), expenses, Entries,
+  documents, payments; money received opens to where it was recorded.
+
+### 5.2 Waitlist: live features the prototype doesn't draw yet
+
+Each is built in live; it is drawn in the prototype and approved before its screens are
+rebuilt (§2.4), then built to the same rule. Proposed places in brackets.
+
+First:
+1. **Open picks / Close picks** from Picks preview (Open picks now at its foot).
+   `KennelOS_Picks_Preview_Spec.md`, `KennelOS_Waitlist_Spec.md`.
+2. **Every litter selling at once:** a Selling now card per open litter with Next: *family*
+   and Offer to them; one turn at a time across them. `KennelOS_Waitlist_Spec.md`.
+3. **Review sale & send** after a pick: the sale, a contract form, one deposit request with
+   the invoice [after They took on the offer screen]. `KennelOS_Integrations_Plan.md` §2.6.
+4. **Backing out:** the family's request, Approve with a reason and Put them back in line,
+   or Decline [Needs you and their page]. `KennelOS_Waitlist_Fixes_Plan.md`,
+   `KennelOS_Waitlist_Policies_Plan.md`.
+5. **Re-apply** for a second pup, keeping their history [a placed family's Offers &
+   passes]. `KennelOS_Waitlist_Spec.md`.
+6. **"Ready now?"**: the paused family's check and her setting for no answer [Needs you].
+   `KennelOS_Waitlist_Spec.md`, `KennelOS_Waitlist_W2_Plan.md`.
+
+Then:
+7. **Turn timing:** open days, closed dates, turns in hours, countdowns and the planned
+   opening families see [Setup › Waitlist]. `KennelOS_Waitlist_Timers_Plan.md`.
+8. **Automatic offers**, per moment, off by default [Setup › Waitlist].
+   `KennelOS_Waitlist_Timers_Plan.md`.
+9. **Family pages without the list:** a status page for a buyer from outside it, Keep off
+   the list, Put back on the list, a Family pages only group [The list, the family's page,
+   the sale]. `KennelOS_Waitlist_Fixes_Plan.md` (E3).
+10. **A lost pup:** the family back in line, money carried as a credit [asked when a sale
+    ends Voided]. `KennelOS_Waitlist_Fixes_Plan.md`, `KennelOS_Waitlist_Spec.md`.
+11. **Answer-change log** [the family's History]. `KennelOS_Waitlist_Spec.md`.
+12. **Almost your turn** and **Communicate** [rows on the Waitlist hub].
+    `KennelOS_Waitlist_Spec.md` / W2 plan (Almost your turn); Communicate has no plan, only
+    the End-State guide §29.
+13. **Fee paid online** and a family's **invoices and receipts** [their Fee and a Documents
+    section]. `KennelOS_Integrations_Plan.md` §4, `KennelOS_Waitlist_Fixes_Plan.md`.
+14. **Application form** editor and question import [Setup › Waitlist].
+    `KennelOS_Waitlist_Spec.md`.
+15. **Waitlist import** (a spreadsheet of an existing list) and the **public list** (on or
+    off, what it shows) [Setup › Waitlist]. Public list: `KennelOS_Waitlist_Policies_Plan.md`,
+    W2 plan; import has no plan, only the End-State guide §29.
+16. **Waitlist policies** and a **program suggested from an answer** [Setup › Waitlist].
+    `KennelOS_Waitlist_Policies_Plan.md`; program suggestion has no plan, only the guide §29.
+
+Also not yet on a litter's tiles, by the owner's choice for now: a litter's Documents and the
+litter finances report.
 
 Program types' screens (How you breed, View as) and Line Management's (Lines, pair check,
 pairing finder, Relatives, Traits, Genetics, Births, Score puppies, Breeding program) are
